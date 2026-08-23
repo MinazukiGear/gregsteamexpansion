@@ -1,0 +1,20 @@
+# Keep source files consistent across Windows, Linux, and macOS.
+* text=auto
+
+.gitattributes text eol=lf
+.gitignore text eol=lf
+.java-version text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf
+*.txt text eol=lf
+*.java text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.toml text eol=lf
+*.mcmeta text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+
+*.jar binary
+src/generated/**/.cache/cache text eol=lf
+src/generated/**/*.json text eol=lf
