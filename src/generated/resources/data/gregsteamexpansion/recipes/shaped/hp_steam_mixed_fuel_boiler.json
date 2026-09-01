@@ -1,0 +1,29 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "D": {
+      "item": "gtceu:double_steel_plate"
+    },
+    "L": {
+      "item": "gtceu:hp_steam_liquid_boiler"
+    },
+    "Q": {
+      "item": "gtceu:steel_quadruple_fluid_pipe"
+    },
+    "S": {
+      "item": "gtceu:hp_steam_solid_boiler"
+    },
+    "w": {
+      "tag": "gtceu:tools/crafting_wrenches"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "DQD",
+    "SwL",
+    "DQD"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:hp_steam_mixed_fuel_boiler"
+  }
+}

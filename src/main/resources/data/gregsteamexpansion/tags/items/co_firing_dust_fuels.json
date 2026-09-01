@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "values": [
+    "#forge:dusts/coal",
+    "#forge:small_dusts/coal",
+    "#forge:tiny_dusts/coal",
+    "#forge:dusts/charcoal",
+    "#forge:small_dusts/charcoal",
+    "#forge:tiny_dusts/charcoal",
+    "#forge:dusts/coke",
+    "#forge:small_dusts/coke",
+    "#forge:tiny_dusts/coke",
+    "#forge:dusts/wood",
+    "#forge:small_dusts/wood",
+    "#forge:tiny_dusts/wood"
+  ]
+}

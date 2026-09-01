@@ -25,6 +25,11 @@ minecraft {
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'info'
 
+            // GTCEu and EMI development jars carry production refmaps. All
+            // ForgeGradle run types, including data generation, must remap them.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -34,10 +39,6 @@ minecraft {
 
         client {
             property 'forge.enabledGameTestNamespaces', mod_id
-
-            // EMI's Forge development setup requires its refmap to be remapped.
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
         }
 
         server {
@@ -54,7 +55,8 @@ minecraft {
             args '--mod', mod_id,
                     '--all',
                     '--output', file('src/generated/resources/'),
-                    '--existing', file('src/main/resources/')
+                    '--existing', file('src/main/resources/'),
+                    '--existing-mod', 'gtceu'
         }
     }
 }
@@ -78,6 +80,30 @@ repositories {
             includeGroup 'dev.emi'
         }
     }
+    maven {
+        name = 'CurseMaven'
+        url = 'https://www.cursemaven.com'
+        content {
+            includeGroup 'curse.maven'
+        }
+    }
+}
+
+configurations {
+    gtceuEmbedded
+    jadeApi
+}
+
+def embeddedDependencyDir = layout.buildDirectory.dir('embedded-dependencies')
+def extractGtceuEmbeddedDependencies = tasks.register('extractGtceuEmbeddedDependencies', Copy) {
+    outputs.upToDateWhen { false }
+    from({ zipTree(configurations.gtceuEmbedded.singleFile) }) {
+        include 'META-INF/jarjar/ldlib-forge-*.jar'
+        include 'META-INF/jarjar/Registrate-*.jar'
+        eachFile { details -> details.path = details.name }
+        includeEmptyDirs = false
+    }
+    into embeddedDependencyDir
 }
 
 dependencies {
@@ -86,10 +112,24 @@ dependencies {
     // GregTech CEu Modern is a required common dependency. The full artifact
     // contains the libraries that GTCEu publishes as Jar-in-Jar dependencies.
     implementation fg.deobf("com.gregtechceu.gtceu:gtceu-${minecraft_version}:${gtceu_version}")
+    gtceuEmbedded("com.gregtechceu.gtceu:gtceu-${minecraft_version}:${gtceu_version}") {
+        transitive = false
+    }
+
+    // GTCEu embeds LDLib at runtime but does not expose it transitively to
+    // addons. Extract its exact embedded copy for the addon compile classpath.
+    compileOnly files(embeddedDependencyDir.map { it.file("ldlib-forge-${minecraft_version}-1.0.40.b.jar") })
+    compileOnly files(embeddedDependencyDir.map { it.file('Registrate-MC1.20-1.3.11.jar') })
 
     // Compile against EMI's API and put the complete Forge mod in client runs.
     compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}:api")
     runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
+
+    // Jade is a development runtime aid for inspecting machines in client runs.
+    // It remains optional for published builds and is not declared in mods.toml.
+    jadeApi("curse.maven:jade-324717:${jade_file_id}") { transitive = false }
+    compileOnly files(configurations.jadeApi)
+    runtimeOnly(fg.deobf("curse.maven:jade-324717:${jade_file_id}")) { transitive = false }
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -135,6 +175,7 @@ tasks.named('jar', Jar).configure {
 }
 
 tasks.withType(JavaCompile).configureEach {
+    dependsOn extractGtceuEmbeddedDependencies
     options.encoding = 'UTF-8'
     options.release = 17
 }
