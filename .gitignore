@@ -23,6 +23,7 @@ run
 run-data
 .vscode
 *.log
+/.tmp/
 /src/generated/resources/.cache/
 
 # Files from Forge MDK

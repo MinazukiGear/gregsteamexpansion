@@ -363,7 +363,7 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
 
     /** Returns the current net production rate shown by information integrations. */
     public double getCurrentSteamOutputPerTick() {
-        if (!recipeLogic.isWorking() || waterTank.isEmpty() || isCoFiringPaused()) return 0;
+        if (waterTank.isEmpty() || isCoFiringPaused()) return 0;
         return getTotalSteamOutput() / 10.0;
     }
 

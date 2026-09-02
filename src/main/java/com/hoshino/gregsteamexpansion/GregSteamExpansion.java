@@ -40,10 +40,9 @@ public final class GregSteamExpansion {
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info(
-                "{} initialized with GTCEu {} and EMI {}.",
+                "{} initialized with GTCEu {}.",
                 MOD_NAME,
-                loadedVersion("gtceu"),
-                loadedVersion("emi")
+                loadedVersion("gtceu")
         );
     }
 

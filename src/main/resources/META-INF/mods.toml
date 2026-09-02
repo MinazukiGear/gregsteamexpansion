@@ -29,10 +29,3 @@ mandatory=true
 versionRange="${gtceu_version_range}"
 ordering="AFTER"
 side="BOTH"
-
-[[dependencies.${mod_id}]]
-modId="emi"
-mandatory=true
-versionRange="${emi_version_range}"
-ordering="AFTER"
-side="CLIENT"

@@ -10,10 +10,10 @@
 | Forge | 47.4.10 |
 | Java | 17 |
 | GregTech CEu Modern | 7.5.3 |
-| EMI | 1.1.24+1.20.1 |
+| EMI（测试客户端工具） | 1.1.24+1.20.1 |
 | Gradle | 8.8（项目 Wrapper） |
 
-GTCEu 是客户端与服务端的必需前置。EMI 是客户端必需前置，因此专用服务端不需要安装 EMI。
+GTCEu 是客户端与服务端的必需前置。EMI 不是本模组的前置依赖，仅由 Gradle 作为开发运行时工具加载到测试客户端，方便查看物品、方块和配方；发布版客户端和专用服务端都不要求安装 EMI，本项目 JAR 也不会打包 EMI。
 
 开发客户端额外通过 Gradle 运行时依赖加载 Jade 11.13.3。混合燃料锅炉具有专用 Jade 信息提供器，可显示工作模式、运行状态、温度、实时蒸汽产量、粉料剩余时间以及水、液体燃料和蒸汽储量。Jade 仅用于开发环境，不是发布版模组的必需前置，也不会被打包进本项目 JAR。
 
@@ -55,6 +55,10 @@ $env:JAVA_HOME = 'C:\Program Files\Zulu\zulu-17'
 ## 设计文档
 
 - [物品与方块总体设计](docs/design/items-and-blocks.md)：汇总本模组需要自行注册的物品与方块、当前范围、命名规则与新增条目准入条件。
+- [机器与机器部件总体设计](docs/design/machines-and-hatches.md)：汇总单方块机器、多方块机器、蒸汽供给仓、蒸汽流体输入/输出仓、蒸汽进气室及其他机器接口的范围与设计边界。
+- [杂项设计](docs/design/miscellaneous.md)：记录 EMI 显示增强等不属于单一内容规格的跨系统规则。
+- [矿石粉碎配方类型设计](docs/design/ore-crushing.md)：定义“矿石或粗矿 → 粉碎矿”的独立配方类型、GTCEu 研磨机配方迁移范围与兼容边界。
+- [蒸汽粉碎机与大型蒸汽粉碎机设计](docs/design/steam-crushers.md)：逐步记录两级矿石粉碎多方块已经确认的结构、并行、耗时与蒸汽规则。
 - [混合燃料锅炉设计规格](docs/design/mixed-fuel-boiler.md)：记录低压与高压混合燃料锅炉的定位、工作模式、燃料白名单、能力方向、各面行为、堆叠方式与已定合成配方。
 - [大型蓄热蒸汽熔炉开发指导](docs/design/large-heat-storage-steam-furnace.md)：记录可变尺寸多方块熔炉、蒸汽排气仓、预热、供汽、配方处理与安全规则。
 
@@ -84,4 +88,4 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\generate_mixed_f
 
 ## 已知上游兼容风险
 
-GTCEu 7.5.3 内嵌的 LDLib 1.0.40.b 与 EMI 1.1.24 有一条尚未关闭的 Mixin 初始化竞态报告。项目仍严格使用所要求的版本；如果开发客户端出现 `MixinTargetAlreadyLoadedException` 或 `EmiPlugin was loaded too early`，请参考 [GregTechCEu/GregTech#2917](https://github.com/GregTechCEu/GregTech/issues/2917)。
+测试客户端同时加载 GTCEu 7.5.3 内嵌的 LDLib 1.0.40.b 与 EMI 1.1.24 时，可能遇到一条尚未关闭的 Mixin 初始化竞态。如果开发客户端出现 `MixinTargetAlreadyLoadedException` 或 `EmiPlugin was loaded too early`，请参考 [GregTechCEu/GregTech#2917](https://github.com/GregTechCEu/GregTech/issues/2917)；该问题不影响未安装 EMI 的发布环境。
