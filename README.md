@@ -61,6 +61,7 @@ $env:JAVA_HOME = 'C:\Program Files\Zulu\zulu-17'
 - [蒸汽粉碎机与大型蒸汽粉碎机设计](docs/design/steam-crushers.md)：逐步记录两级矿石粉碎多方块已经确认的结构、并行、耗时与蒸汽规则。
 - [混合燃料锅炉设计规格](docs/design/mixed-fuel-boiler.md)：记录低压与高压混合燃料锅炉的定位、工作模式、燃料白名单、能力方向、各面行为、堆叠方式与已定合成配方。
 - [大型蓄热蒸汽熔炉开发指导](docs/design/large-heat-storage-steam-furnace.md)：记录可变尺寸多方块熔炉、蒸汽排气仓、预热、供汽、配方处理与安全规则。
+- [焦炉与大型焦炉设计](docs/design/coke-ovens.md)：记录 GTCEu 普通焦炉与焦炉仓修改，以及固定三炉室大型焦炉的结构、批处理、接口、安全和表现规则。
 
 ## 当前实现进度
 
