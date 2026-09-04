@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "B": {
+      "item": "gtceu:bronze_plate"
+    },
+    "R": {
+      "item": "gtceu:bronze_rod"
+    },
+    "W": {
+      "item": "minecraft:crafting_table"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "RBR",
+    " W ",
+    "R R"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:crafting_station"
+  }
+}

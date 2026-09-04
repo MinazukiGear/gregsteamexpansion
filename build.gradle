@@ -2,6 +2,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.38'
 }
 
 version = mod_version
@@ -61,6 +62,12 @@ minecraft {
     }
 }
 
+// All our mixins target GTCEu classes with remap = false, so no refmap is
+// needed; the config line registers the mixin config for development runs.
+mixin {
+    config "${mod_id}.mixins.json"
+}
+
 sourceSets.main.resources {
     srcDir 'src/generated/resources'
 }
@@ -100,6 +107,17 @@ def extractGtceuEmbeddedDependencies = tasks.register('extractGtceuEmbeddedDepen
     from({ zipTree(configurations.gtceuEmbedded.singleFile) }) {
         include 'META-INF/jarjar/ldlib-forge-*.jar'
         include 'META-INF/jarjar/Registrate-*.jar'
+        // MixinExtras is jar-jarred by GTCEu (nested inside its Forge wrapper
+        // jar) and self-registers at runtime, so our mixins may use its
+        // injection helpers without bundling another copy. Extract the inner
+        // core jar as the compile classpath entry.
+        include 'META-INF/jarjar/mixinextras-forge-*.jar'
+        eachFile { details -> details.path = details.name }
+        includeEmptyDirs = false
+    }
+    from({ zipTree(zipTree(configurations.gtceuEmbedded.singleFile)
+            .matching { include 'META-INF/jarjar/mixinextras-forge-*.jar' }.singleFile) }) {
+        include 'META-INF/jars/MixinExtras-*.jar'
         eachFile { details -> details.path = details.name }
         includeEmptyDirs = false
     }
@@ -108,6 +126,13 @@ def extractGtceuEmbeddedDependencies = tasks.register('extractGtceuEmbeddedDepen
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    // MixinGradle wires the refmap for our mixin config; the annotation
+    // processor itself must be declared explicitly.
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+    // MixinExtras on the processor path lets the Mixin AP see (and refmap)
+    // handler methods that use its injection annotations.
+    annotationProcessor files(embeddedDependencyDir.map { it.file('MixinExtras-0.5.3.jar') })
 
     // GregTech CEu Modern is a required common dependency. The full artifact
     // contains the libraries that GTCEu publishes as Jar-in-Jar dependencies.
@@ -120,10 +145,20 @@ dependencies {
     // addons. Extract its exact embedded copy for the addon compile classpath.
     compileOnly files(embeddedDependencyDir.map { it.file("ldlib-forge-${minecraft_version}-1.0.40.b.jar") })
     compileOnly files(embeddedDependencyDir.map { it.file('Registrate-MC1.20-1.3.11.jar') })
+    compileOnly files(embeddedDependencyDir.map { it.file('MixinExtras-0.5.3.jar') })
+
+    // The mod is required on dedicated servers too, so development server
+    // runs must be able to boot. Client-only dev aids (EMI, JECh, Modern UI)
+    // crash a dedicated server during mod construction; mount them only when
+    // the invocation targets a client run. Jade has a common side and stays
+    // mounted everywhere.
+    def mountClientDevAids = gradle.startParameter.taskNames.any { it.toLowerCase().contains('client') }
 
     // EMI is only a development runtime aid for browsing content in test clients.
     // The addon does not compile against its API and does not require it at runtime.
-    runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
+    if (mountClientDevAids) {
+        runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
+    }
 
     // Jade is a development runtime aid for inspecting machines in client runs.
     // It remains optional for published builds and is not declared in mods.toml.
@@ -133,12 +168,40 @@ dependencies {
 
     // JECh adds Chinese pinyin matching to search fields in the development client.
     // It is client-only tooling and is not included in published artifacts.
-    runtimeOnly(fg.deobf("curse.maven:just-enough-characters-250702:${jech_file_id}")) {
-        transitive = false
+    if (mountClientDevAids) {
+        runtimeOnly(fg.deobf("curse.maven:just-enough-characters-250702:${jech_file_id}")) {
+            transitive = false
+        }
+    }
+
+    // Sophisticated Backpacks / Storage plus their prerequisites (Puzzles Lib,
+    // Sophisticated Core) exist only so the test client can exercise the crafting
+    // station against placeable backpacks and storage containers in-game. They
+    // are not dependencies of the addon and are not declared in mods.toml.
+    runtimeOnly(fg.deobf("curse.maven:puzzles-lib-495476:${puzzles_file_id}")) { transitive = false }
+    runtimeOnly(fg.deobf("curse.maven:sophisticated-core-618298:${sophisticated_core_file_id}")) { transitive = false }
+    runtimeOnly(fg.deobf("curse.maven:sophisticated-backpacks-422301:${sophisticated_backpacks_file_id}")) { transitive = false }
+    runtimeOnly(fg.deobf("curse.maven:sophisticated-storage-619320:${sophisticated_storage_file_id}")) { transitive = false }
+
+    // Modern UI re-skins vanilla and modded GUIs in the development client so
+    // the crafting station screen can be checked under a global UI overhaul.
+    // It is not a dependency of the addon and is not declared in mods.toml.
+    // Its client bootstrap touches the window during mod construction, so it
+    // is only mounted for client runs (see mountClientDevAids above).
+    if (mountClientDevAids) {
+        runtimeOnly(fg.deobf("curse.maven:modern-ui-352491:${modernui_file_id}")) { transitive = false }
     }
 }
 
 tasks.named('processResources', ProcessResources).configure {
+    dependsOn tasks.named('compileJava')
+
+    // The client mixins target Minecraft classes, so production needs the
+    // refmap the Mixin annotation processor writes next to the compile output.
+    from("${buildDir}/tmp/compileJava/compileJava-refmap.json") {
+        rename { "${mod_id}.refmap.json" }
+    }
+
     def replaceProperties = [
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
@@ -170,7 +233,8 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Title'     : mod_name,
                 'Implementation-Version'   : archiveVersion.get(),
                 'Implementation-Vendor'    : mod_authors,
-                'Implementation-Timestamp' : new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+                'Implementation-Timestamp' : new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                'MixinConfigs'             : "${mod_id}.mixins.json"
         ])
     }
 
@@ -183,4 +247,11 @@ tasks.withType(JavaCompile).configureEach {
     dependsOn extractGtceuEmbeddedDependencies
     options.encoding = 'UTF-8'
     options.release = 17
+}
+
+// The Mixin annotation processor writes the refmap as a side file that is
+// not part of compileJava's cached outputs; a build-cache hit would restore
+// classes without re-running the AP, so this task must never be cached.
+tasks.named('compileJava').configure {
+    outputs.cacheIf { false }
 }

@@ -1,0 +1,35 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    {
+      "type": "gregsteamexpansion:difficulty",
+      "difficulty": "easy"
+    }
+  ],
+  "key": {
+    "F": {
+      "item": "gtceu:bronze_frame"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "S": {
+      "item": "gtceu:copper_spring"
+    },
+    "h": {
+      "tag": "gtceu:tools/crafting_hammers"
+    },
+    "w": {
+      "tag": "gtceu:tools/crafting_wrenches"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PhP",
+    "SFS",
+    "PwP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:bronze_component"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    {
+      "type": "gregsteamexpansion:difficulty",
+      "difficulty": "normal"
+    }
+  ],
+  "key": {
+    "G": {
+      "item": "gtceu:bronze_gear"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "R": {
+      "item": "gtceu:bronze_rotor"
+    },
+    "h": {
+      "tag": "gtceu:tools/crafting_hammers"
+    },
+    "w": {
+      "tag": "gtceu:tools/crafting_wrenches"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PGP",
+    "hRw",
+    "PRP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:steam_mixing_block"
+  }
+}

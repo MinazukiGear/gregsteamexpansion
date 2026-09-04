@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "bottom": "gregsteamexpansion:block/steam_assembly_block/bottom",
+    "side": "gregsteamexpansion:block/steam_assembly_block/side",
+    "top": "gregsteamexpansion:block/steam_assembly_block/top"
+  }
+}

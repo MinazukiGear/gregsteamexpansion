@@ -1,0 +1,35 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    {
+      "type": "gregsteamexpansion:difficulty",
+      "difficulty": "normal"
+    }
+  ],
+  "key": {
+    "D": {
+      "item": "gtceu:diamond_grinding_head"
+    },
+    "G": {
+      "item": "gtceu:small_bronze_gear"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "h": {
+      "tag": "gtceu:tools/crafting_hammers"
+    },
+    "w": {
+      "tag": "gtceu:tools/crafting_wrenches"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PGP",
+    "hDw",
+    "PGP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:steam_grinding_block"
+  }
+}

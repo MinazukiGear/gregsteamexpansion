@@ -8,6 +8,9 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
+# Both-side required: the difficulty gate and the network channel only hold
+# when this mod is installed with a matching version on client and server.
+displayTest="MATCH_VERSION"
 
 [[dependencies.${mod_id}]]
 modId="forge"

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "item": "gregsteamexpansion:crafting_station"
+    },
+    "s": {
+      "tag": "gtceu:tools/crafting_saws"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "s",
+    "C"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:crafting_station_slab"
+  }
+}

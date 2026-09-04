@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "gregsteamexpansion:steam_mixing_block"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "gregsteamexpansion:blocks/steam_mixing_block"
+}

@@ -1,0 +1,38 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    {
+      "type": "gregsteamexpansion:difficulty",
+      "difficulty": "expert"
+    }
+  ],
+  "key": {
+    "C": {
+      "item": "gregsteamexpansion:bronze_component"
+    },
+    "D": {
+      "item": "gtceu:double_bronze_plate"
+    },
+    "G": {
+      "item": "gtceu:bronze_gear"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "h": {
+      "tag": "gtceu:tools/crafting_hammers"
+    },
+    "w": {
+      "tag": "gtceu:tools/crafting_wrenches"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "DGD",
+    "hCw",
+    "PGP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:steam_assembly_block"
+  }
+}

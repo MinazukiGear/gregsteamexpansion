@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "gregsteamexpansion:item/bronze_component"
+  }
+}

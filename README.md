@@ -17,6 +17,8 @@ GTCEu 是客户端与服务端的必需前置。EMI 不是本模组的前置依�
 
 开发客户端额外通过 Gradle 运行时依赖加载 Jade 11.13.3。混合燃料锅炉具有专用 Jade 信息提供器，可显示工作模式、运行状态、温度、实时蒸汽产量、粉料剩余时间以及水、液体燃料和蒸汽储量。Jade 仅用于开发环境，不是发布版模组的必需前置，也不会被打包进本项目 JAR。
 
+开发客户端还以同样的运行时依赖方式加载精妙背包（Sophisticated Backpacks）、精妙存储（Sophisticated Storage）及其前置 Sophisticated Core 与 Puzzles Lib，仅用于在游戏内验证合成站读取容器与可放置背包的行为。此外加载 Modern UI，用于在全局界面美化的环境下检查模组界面表现。以上均不是本模组的前置，不会打包进 JAR，也不会写入 mods.toml。
+
 ## 开始开发
 
 1. 用 IntelliJ IDEA 导入根目录的 `build.gradle`，并将 Gradle JVM / Project SDK 设置为 JDK 17。
@@ -50,13 +52,14 @@ $env:JAVA_HOME = 'C:\Program Files\Zulu\zulu-17'
 - Java 包：`com.hoshino.gregsteamexpansion`
 - 入口类：`GregSteamExpansion`
 - 当前版本：`0.1.0`
-- 默认许可：All Rights Reserved（发布前可在 `gradle.properties` 中修改）
+- 许可：代码与功能性资源 LGPL-3.0（`LICENSE.txt`）；`textures/` 图像素材 CC BY-NC-SA 4.0，禁止商用（`LICENSE-ASSETS.txt`）
 
 ## 设计文档
 
 - [物品与方块总体设计](docs/design/items-and-blocks.md)：汇总本模组需要自行注册的物品与方块、当前范围、命名规则与新增条目准入条件。
 - [机器与机器部件总体设计](docs/design/machines-and-hatches.md)：汇总单方块机器、多方块机器、蒸汽供给仓、蒸汽流体输入/输出仓、蒸汽进气室及其他机器接口的范围与设计边界。
 - [杂项设计](docs/design/miscellaneous.md)：记录 EMI 显示增强等不属于单一内容规格的跨系统规则。
+- [合成站设计](docs/design/crafting-station.md)：记录工作台上位替代“合成站”的完整规格（已定案），含双形态注册、外部容器读取、合成结算与两份配方。
 - [矿石粉碎配方类型设计](docs/design/ore-crushing.md)：定义“矿石或粗矿 → 粉碎矿”的独立配方类型、GTCEu 研磨机配方迁移范围与兼容边界。
 - [蒸汽粉碎机与大型蒸汽粉碎机设计](docs/design/steam-crushers.md)：逐步记录两级矿石粉碎多方块已经确认的结构、并行、耗时与蒸汽规则。
 - [混合燃料锅炉设计规格](docs/design/mixed-fuel-boiler.md)：记录低压与高压混合燃料锅炉的定位、工作模式、燃料白名单、能力方向、各面行为、堆叠方式与已定合成配方。

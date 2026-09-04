@@ -1,0 +1,32 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    {
+      "type": "gregsteamexpansion:difficulty",
+      "difficulty": "normal"
+    }
+  ],
+  "key": {
+    "F": {
+      "item": "gtceu:bronze_frame"
+    },
+    "P": {
+      "item": "gtceu:brass_plate"
+    },
+    "h": {
+      "tag": "gtceu:tools/crafting_hammers"
+    },
+    "w": {
+      "tag": "gtceu:tools/crafting_wrenches"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PhP",
+    "PFP",
+    "PwP"
+  ],
+  "result": {
+    "item": "gtceu:industrial_steam_casing"
+  }
+}

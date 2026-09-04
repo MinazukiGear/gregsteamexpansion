@@ -30,6 +30,7 @@ import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.gregtechceu.gtceu.utils.GTTransferUtils;
 import com.gregtechceu.gtceu.utils.GTUtil;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.registry.GSETags;
 
 import com.lowdragmc.lowdraglib.gui.editor.ColorPattern;
@@ -176,7 +177,13 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
 
     @Override
     protected NotifiableFluidTank createSteamTank(Object... args) {
-        return new NotifiableFluidTank(this, 1, 16 * FluidType.BUCKET_VOLUME, IO.OUT);
+        // Dedicated steam boilers scale their single-block steam cache by the
+        // difficulty cache multiplier (difficulty.md 专用蒸汽锅炉的全局产量与
+        // 单方块缓存). Easy doubles it; Normal and Expert keep the default.
+        return new NotifiableFluidTank(this, 1,
+                16 * FluidType.BUCKET_VOLUME
+                        * GSEDifficultyState.current(isRemote()).getSingleblockSteamCacheMultiplier(),
+                IO.OUT);
     }
 
     private NotifiableFluidTank createFuelTank() {
@@ -292,7 +299,10 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
         if (isCoFiringPaused()) return;
 
         int fillAmount = (int) getTotalSteamOutput();
-        boolean drainedWater = !waterTank.drainInternal(1, FluidAction.EXECUTE).isEmpty();
+        // Water use follows the amplified steam output at the original
+        // water-to-steam ratio (difficulty.md 专用蒸汽锅炉的全局产量与单方块缓存).
+        int waterUse = Math.max(1, Math.round(GSEDifficultyState.current(isRemote()).getSteamOutputMultiplier()));
+        boolean drainedWater = !waterTank.drainInternal(waterUse, FluidAction.EXECUTE).isEmpty();
         long filledSteam = 0;
         if (drainedWater) {
             filledSteam = steamTank.fillInternal(GTMaterials.Steam.getFluid(fillAmount), FluidAction.EXECUTE);
@@ -355,10 +365,12 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
         return isHighPressure ? LIQUID_OUTPUT_HP : LIQUID_OUTPUT_LP;
     }
 
-    /** Returns the amount of steam produced by one 10-tick production cycle. */
+    /** Returns the difficulty-scaled amount of steam produced by one 10-tick production cycle. */
     public long getTotalSteamOutput() {
         if (currentTemperature < 100) return 0;
-        return (long) (getBaseSteamOutput() * ((float) currentTemperature / getMaxTemperature()) / 2);
+        float difficultyMultiplier = GSEDifficultyState.current(isRemote()).getSteamOutputMultiplier();
+        return (long) (getBaseSteamOutput() * ((float) currentTemperature / getMaxTemperature())
+                / 2 * difficultyMultiplier);
     }
 
     /** Returns the current net production rate shown by information integrations. */
