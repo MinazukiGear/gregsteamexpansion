@@ -7,6 +7,7 @@ import com.gregtechceu.gtceu.common.data.GTItems;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
+import com.gregtechceu.gtceu.common.data.machines.GTMultiMachines;
 import com.gregtechceu.gtceu.data.recipe.CustomTags;
 import com.gregtechceu.gtceu.data.recipe.VanillaRecipeHelper;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
@@ -62,6 +63,26 @@ public final class GSERecipes {
         addSteamAssemblyBlockRecipes(provider);
         addSteamCircuitAssemblyBlockRecipes(provider);
         addSteamMixingBlockRecipes(provider);
+        addSteamExhaustHatchRecipe(provider);
+        addFurnaceControllerRecipe(provider);
+    }
+
+    // ------------------------------------------------------------------
+    // Large Heat-Storage Steam Furnace controller
+    // (large-heat-storage-steam-furnace.md 控制器合成配方)
+    // ------------------------------------------------------------------
+
+    private static void addFurnaceControllerRecipe(Consumer<FinishedRecipe> provider) {
+        VanillaRecipeHelper.addShapedRecipe(provider,
+                GregSteamExpansion.id("large_heat_storage_steam_furnace"),
+                GSEMachines.LARGE_HEAT_STORAGE_STEAM_FURNACE.asStack(),
+                "DPD",
+                "FOF",
+                "DPD",
+                'D', ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Steel),
+                'P', ChemicalHelper.get(TagPrefix.pipeHugeFluid, GTMaterials.Steel),
+                'F', GTMachines.STEAM_FURNACE.right().asStack(),
+                'O', GTMultiMachines.STEAM_OVEN.asStack());
     }
 
     private static void addCraftingStationRecipes(Consumer<FinishedRecipe> provider) {
@@ -335,6 +356,25 @@ public final class GSERecipes {
                     .EUt(16)
                     .save(tierProvider);
         });
+    }
+
+    // ------------------------------------------------------------------
+    // Steam Exhaust Hatch (large-heat-storage-steam-furnace.md): the GTCEu
+    // steam hatch shell with the center bronze drum replaced by a bronze gear.
+    // Hatches always craft exactly one with identical materials in every tier
+    // (difficulty.md 仓室通则), so no difficulty conditions are needed.
+    // ------------------------------------------------------------------
+
+    private static void addSteamExhaustHatchRecipe(Consumer<FinishedRecipe> provider) {
+        VanillaRecipeHelper.addShapedRecipe(provider,
+                GregSteamExpansion.id("steam_exhaust_hatch"),
+                GSEMachines.STEAM_EXHAUST_HATCH.asStack(),
+                "BPB",
+                "BGB",
+                "BPB",
+                'B', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                'P', ChemicalHelper.get(TagPrefix.pipeNormalFluid, GTMaterials.Bronze),
+                'G', ChemicalHelper.get(TagPrefix.gear, GTMaterials.Bronze));
     }
 
     // ------------------------------------------------------------------

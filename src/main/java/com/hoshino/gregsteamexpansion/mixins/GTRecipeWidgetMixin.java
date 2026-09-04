@@ -43,7 +43,7 @@ import org.spongepowered.asm.mixin.injection.At;
  */
 @Mixin(GTRecipeWidget.class)
 public abstract class GTRecipeWidgetMixin {
-    @Shadow
+    @Shadow(remap = false)
     @Final
     private GTRecipe recipe;
 

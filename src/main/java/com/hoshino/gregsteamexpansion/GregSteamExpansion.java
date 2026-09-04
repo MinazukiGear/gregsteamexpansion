@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion;
 
 import com.gregtechceu.gtceu.api.GTCEuAPI;
 import com.gregtechceu.gtceu.api.machine.MachineDefinition;
+import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.common.data.GTCreativeModeTabs;
 import com.hoshino.gregsteamexpansion.client.GSEClientSetup;
 import com.hoshino.gregsteamexpansion.client.GSEConfigScreen;
@@ -18,10 +19,12 @@ import com.hoshino.gregsteamexpansion.registry.GSEBlockEntityTypes;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSEMenuTypes;
+import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.registry.GSERegistration;
 import com.tterrag.registrate.providers.ProviderType;
 import com.mojang.logging.LogUtils;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.crafting.CraftingHelper;
@@ -58,6 +61,7 @@ public final class GregSteamExpansion {
         GSEMenuTypes.MENU_TYPES.register(modEventBus);
         modEventBus.addListener(this::addCreative);
         modEventBus.addGenericListener(MachineDefinition.class, this::registerMachines);
+        modEventBus.addGenericListener(GTRecipeType.class, this::registerRecipeTypes);
         modEventBus.addListener(this::commonSetup);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, GSEDifficultyConfig.SPEC);
@@ -104,6 +108,10 @@ public final class GregSteamExpansion {
 
     private void registerMachines(final GTCEuAPI.RegisterEvent<?, MachineDefinition> event) {
         GSEMachines.init();
+    }
+
+    private void registerRecipeTypes(final GTCEuAPI.RegisterEvent<ResourceLocation, GTRecipeType> event) {
+        GSERecipeTypes.init(event);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

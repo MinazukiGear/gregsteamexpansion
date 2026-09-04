@@ -35,6 +35,116 @@ public final class GSELang {
         add("gregsteamexpansion.emi.recipe.eu", "Usage: %s EU/t (%s A @ %s)");
         add("gregsteamexpansion.emi.recipe.eu_inverted", "Generation: %s EU/t (%s A @ %s)");
 
+        // Ore Crushing recipe type / viewer category name (ore-crushing.md).
+        add("gregsteamexpansion.ore_crushing", "Ore Crushing");
+
+        // Steam Exhaust Hatch two-tier item tooltip
+        // (large-heat-storage-steam-furnace.md 物品提示与本地化范围).
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.0",
+                "A dedicated exhaust interface for compatible multiblock steam machines.");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.1",
+                "The 3 blocks straight ahead must stay air.");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.2",
+                "Hot steam severely burns creatures in front of the vent; hold Shift for details.");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.subtitle", "Interface and Exhaust");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.0",
+                "The block front can face all six directions; exhaust and obstruction checks always run along the current front facing.");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.1",
+                "The 3-block channel requires strict air: snow, fire, plants, non-colliding blocks and fluids all obstruct it, and the hatch never clears them automatically.");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.2",
+                "While a compatible machine actually consumes steam, it plays an exhaust feedback every %s ticks.");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.3",
+                "Exhaust damage is timed separately by the compatible machine's accumulated actual run ticks: the counter only increases when the machine consumes steam and advances preheating or a recipe this tick; every accumulated %s ticks it deals %s points of heat damage to creatures in the first block ahead and restarts. Creative and spectator players are unaffected; the damage cycle runs separately from the %s-tick particle and sound feedback.");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.4",
+                "Turning off GTCEu machine sounds only mutes the exhaust sound; particles, obstruction checks and heat damage remain.");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.5",
+                "This hatch has no GUI, internal slots or generic fluid output; it outputs no condensate, recipe fluid, pollutant or item byproducts.");
+        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.6",
+                "In the Large Heat-Storage Steam Furnace exactly one hatch must be installed, in the outer wall layer of the second layer from the top.");
+
+        // Large Heat-Storage Steam Furnace two-tier item tooltip
+        // (large-heat-storage-steam-furnace.md 物品提示与本地化范围).
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.summary.0",
+                "An expensive, variable-size pure steam multiblock furnace.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.summary.1",
+                "Large-scale smelting and alloy smelting for the low-voltage era.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.summary.2",
+                "Hold Shift for the full structure, operation and safety rules.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.subtitle.0", "Structure");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.subtitle.1", "Power and Temperature");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.subtitle.2", "Recipes and Parallel");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.subtitle.3", "Interfaces and Exhaust");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.subtitle.4", "Terminal and Status");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.0",
+                "The outer width only allows %s, %s or %s; the total height allows any integer from %s to %s.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.1",
+                "The four vertical corner columns must stay empty, side walls are fixed two blocks thick, top and bottom one block; the interior is free except the centre bronze pipe column.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.2",
+                "The controller must sit at the horizontal centre of any side on the bottom layer; reforming with a changed width or height resets furnace temperature, preheat accumulation and heating/cooling timers to cold.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.3",
+                "The machine only consumes GTCEu standard steam; EU, other same-named steams, superheated steam or universal steam tag substitutes are not accepted.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.4",
+                "Normal steam hatches are limited to %s mB/t each in both preheating and processing; a compatible ME fluid input hatch removes the machine-side supply limit.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.5",
+                "Every size must preheat; startup temperatures are %s, %s and %s °C, temperature limits %s, %s and %s °C.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.6",
+                "The save's work intensity decides preheating steam cost, maximum heating rate and processing steam consumption; only Easy halves processing steam. Saves can only lower the intensity; changes need a full server restart.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.7",
+                "All sizes support furnace recipes; only 15×15 supports manually selecting alloy smelter mode; recipes with a base input power above %s EU/t are rejected.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.8",
+                "Maximum parallel is 64 + 16 × (height − 6), ranging 64–256; one batch processes a single recipe in the current standard steam hatch system.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.9",
+                "Bigger furnaces and higher temperatures shorten processing time; bigger furnaces also lower total processing steam, but high-temperature speed-ups raise per-tick steam demand.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.10",
+                "Before starting, output is pre-checked with every chance product succeeding (worst case) and parallel is lowered; the machine never voids outputs, and space changes can still block finished batches.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.11",
+                "The structure needs at least 1 item input bus, 1 item output bus, 1 valid steam hatch and exactly 1 steam exhaust hatch; energy hatches, maintenance hatches and generic fluid output hatches are not accepted.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.12",
+                "The exhaust hatch can only replace the outer wall body of the second layer from the top, with %s strictly air blocks in front; when obstructed the machine stops drawing steam and working, cooling at the idle rate.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.13",
+                "While the machine actually consumes steam the exhaust blows hot steam; creatures in the first block ahead take %s points of heat damage, except creative and spectator players.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.14",
+                "Steam consumed by preheating and processing never produces condensate, pollutants or other fluid/item byproducts.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.15",
+                "The existing GTCEu terminal auto-builds a fixed 15×15×6 structure; a future advanced terminal would add size adjustment.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.16",
+                "Pausing, steam shortage, exhaust obstruction, output blockage, temporary structure loss and chunk reloads all keep started batches; recovery never re-consumes inputs or re-rolls products.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.mode.furnace", "Recipe mode: Furnace");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.mode.alloy", "Recipe mode: Alloy Smelter");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.mode.switch_blocked",
+                "Recipe mode can only be switched on a 15×15 furnace without a running or kept batch.");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.status.awaiting_original_size",
+                "Awaiting Original Structure Size");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.status.preheating", "Preheating");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.status.at_temperature_limit",
+                "At Temperature Limit");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.status.cooling", "Cooling");
+        add("gregsteamexpansion.multiblock.steam_exhaust_hatch_obstructed", "Steam Exhaust Hatch is Obstructed!");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.status", "Status: %s");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.temperature",
+                "Temperature (current/startup/max): %s");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.progress", "Progress: %s");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.steam",
+                "Steam demand/supply limit: %s");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.parallel",
+                "Parallel (current/max): %s");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.size",
+                "Furnace size & volume: %s");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.preheat",
+                "Preheat to next °C: %s");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.speed", "Batch speed: ×%s");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.duration",
+                "Batch duration: %s");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.unlimited", "Unlimited");
+        add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.status", "Status: %s");
+        add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.temperature",
+                "Temperature: %s°C / %s°C / %s°C");
+        add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.parallel", "Parallel: %s / %s");
+        add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.steam", "Steam: %s mB/t / %s");
+        add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.progress", "Progress: %s (%s)");
+        add("config.jade.plugin_gregsteamexpansion.large_heat_storage_steam_furnace_info",
+                "Large Heat-Storage Steam Furnace Info");
+
         add("gregsteamexpansion.machine.mixed_fuel_boiler.mode.liquid", "Liquid Fuel");
         add("gregsteamexpansion.machine.mixed_fuel_boiler.mode.co_firing", "Co-firing");
         add("gregsteamexpansion.machine.mixed_fuel_boiler.mode.liquid.short", "L");

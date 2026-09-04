@@ -46,6 +46,7 @@
   "gregsteamexpansion.machine.mixed_fuel_boiler.status.running": "Running",
   "gregsteamexpansion.machine.mixed_fuel_boiler.status.steam_output_blocked": "Venting",
   "gregsteamexpansion.machine.mixed_fuel_boiler.tooltip.co_firing": "Co-firing raises steam output by 50% and consumes dust at 30% equivalent heat input",
+  "gregsteamexpansion.ore_crushing": "Ore Crushing",
   "gregsteamexpansion.steam_assembly_block.tooltip": "A standardized assembly component for large steam machinery structures.",
   "gregsteamexpansion.steam_circuit_assembly_block.tooltip": "A precision circuit assembly component for large steam machinery structures.",
   "gregsteamexpansion.steam_grinding_block.tooltip": "A heavy steam grinding structure component fitted with a diamond grinding head.",

@@ -3,10 +3,15 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
+import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 
+import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
+import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
+import com.gregtechceu.gtceu.api.registry.GTRegistries;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -277,6 +282,30 @@ public final class GSEGameTests {
             remainder = handler.insertItem(slot, remainder, true);
         }
         return remainder;
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void oreCrushingRecipeTypeRegistered(GameTestHelper helper) {
+        GTRecipeType type = GTRegistries.RECIPE_TYPES.get(GregSteamExpansion.id("ore_crushing"));
+        helper.assertTrue(type != null, "Ore crushing recipe type is not registered");
+        if (type == null) {
+            return;
+        }
+        // ore-crushing.md 实现验收 1: 1 item input, up to 4 item outputs, no
+        // fluid slots, EU input only, recorded baseline 2 EU/t over 400 ticks.
+        helper.assertTrue(type.getMaxInputs(ItemRecipeCapability.CAP) == 1,
+                "Ore crushing recipe type must accept exactly one item input slot");
+        helper.assertTrue(type.getMaxOutputs(ItemRecipeCapability.CAP) == 4,
+                "Ore crushing recipe type must provide up to four item output slots");
+        helper.assertTrue(type.getMaxInputs(FluidRecipeCapability.CAP) == 0,
+                "Ore crushing recipe type must not take fluid inputs");
+        helper.assertTrue(type.getMaxOutputs(FluidRecipeCapability.CAP) == 0,
+                "Ore crushing recipe type must not produce fluid outputs");
+        helper.assertTrue(ForgeRegistries.RECIPE_SERIALIZERS.getValue(GregSteamExpansion.id("ore_crushing")) != null,
+                "Ore crushing recipe serializer is not registered");
+        helper.assertTrue(GSERecipeTypes.ORE_CRUSHING_RECIPES == type,
+                "GSERecipeTypes.ORE_CRUSHING_RECIPES points at a different instance");
+        helper.succeed();
     }
 
 }
