@@ -13,7 +13,8 @@
         "GTCEuMixin",
         "PartAbilityMixin",
         "RegistrateDisplayItemsGeneratorMixin",
-        "RecipeManagerAccessor"
+        "RecipeManagerAccessor",
+        "GTOreByProductMixin"
     ],
     "client": [
         "MinecraftMixin",
