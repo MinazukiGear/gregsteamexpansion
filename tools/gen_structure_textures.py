@@ -301,6 +301,123 @@ def steam_exhaust_hatch_front():
     return canvas
 
 
+
+FURN_FRAME_D = (50, 50, 56)
+FURN_FRAME_L = (98, 98, 106)
+FURN_BOLT = (150, 150, 158)
+FURN_DOOR_FRAME = (88, 88, 96)
+FURN_DOOR_PANEL = (58, 52, 48)
+FURN_RIB = (86, 76, 64)
+FURN_HINGE = (130, 130, 138)
+FURN_WINDOW = (14, 12, 12)
+FURN_WINDOW_FRAME = (74, 66, 56)
+FURN_SLIT = (30, 26, 24)
+FURN_GAUGE_RIM = (112, 112, 120)
+FURN_GAUGE_FACE = (36, 36, 42)
+FURN_NEEDLE_IDLE = (22, 22, 26)
+FIRE_BASE = (180, 84, 20)
+FIRE_MID = (232, 140, 42)
+FIRE_CORE = (255, 200, 100)
+
+
+def furnace_front(lit):
+    """Large Heat-Storage Steam Furnace controller front overlay: bronze
+    shell, steel reinforced border, large furnace door with hinges, ribs,
+    observation window and vent slits, plus a centred temperature gauge.
+    Mirror-symmetric about the vertical centre axis; lit swaps in the orange
+    firing glow (large-heat-storage-steam-furnace.md 美术方向)."""
+    canvas = new_canvas()
+    # Symmetric bronze field.
+    for y in range(SIZE):
+        for x in range(SIZE):
+            band = abs(x - (SIZE - 1) / 2.0)
+            delta = 6 if band < 4.5 else (0 if band < 6.5 else -6)
+            px(canvas, x, y, shade(BRONZE_BASE, delta))
+
+    def m(x, y, color):
+        px(canvas, x, y, color)
+        px(canvas, SIZE - 1 - x, y, color)
+
+    # Steel reinforced border: dark outer, bright inner line, corner bolts.
+    for i in range(SIZE):
+        m(i, 0, FURN_FRAME_D)
+        m(0, i, FURN_FRAME_D)
+    for i in range(1, SIZE - 1):
+        m(i, 1, FURN_FRAME_L)
+        m(1, i, FURN_FRAME_L)
+    for cx, cy in ((1, 1), (SIZE - 2, 1), (1, SIZE - 2), (SIZE - 2, SIZE - 2)):
+        m(cx, cy, FURN_BOLT)
+        m(cx, SIZE - 3 if cy == 1 else 2, FURN_FRAME_D)
+
+    # Centred temperature gauge (rows 2..5, cols 6..9).
+    for y in range(2, 6):
+        for x in range(6, 10):
+            px(canvas, x, y, FURN_GAUGE_RIM)
+    for y in range(3, 5):
+        for x in range(7, 9):
+            px(canvas, x, y, FURN_GAUGE_FACE)
+    needle = (255, 130, 70) if lit else FURN_NEEDLE_IDLE
+    px(canvas, 7, 2, needle)
+    px(canvas, 8, 2, needle)
+
+    # Large furnace door (cols 4..11, rows 6..13).
+    for y in range(6, 14):
+        for x in range(4, 12):
+            px(canvas, x, y, FURN_DOOR_FRAME)
+    for y in range(7, 13):
+        for x in range(5, 11):
+            px(canvas, x, y, FURN_DOOR_PANEL)
+    # Cross ribs (X shape, symmetric).
+    for i in range(6):
+        m(5 + i, 7 + i, FURN_RIB)
+        m(10 - i, 7 + i, FURN_RIB)
+    # Hinges mid-height on both door sides.
+    m(4, 9, FURN_HINGE)
+    m(4, 11, FURN_HINGE)
+    # Observation window (cols 6..9, rows 7..9).
+    for y in range(7, 10):
+        for x in range(6, 10):
+            px(canvas, x, y, FURN_WINDOW_FRAME)
+    for y in range(8, 9):
+        for x in range(6, 10):
+            px(canvas, x, y, FURN_WINDOW)
+    # Vent slits near the door bottom (symmetric pairs).
+    for x in (5, 6, 9, 10):
+        px(canvas, x, 12, FURN_SLIT)
+
+    if lit:
+        # Firing glow: window lights up, fire fills the door bottom.
+        for x in range(6, 10):
+            px(canvas, x, 8, FIRE_MID)
+        px(canvas, 7, 8, FIRE_CORE)
+        px(canvas, 8, 8, FIRE_CORE)
+        for y in range(10, 13):
+            for x in range(5, 11):
+                px(canvas, x, y, FIRE_BASE)
+        for y in range(11, 13):
+            for x in range(6, 10):
+                px(canvas, x, y, FIRE_MID)
+        for x in range(7, 9):
+            px(canvas, x, 12, FIRE_CORE)
+    return canvas
+
+
+def furnace_front_emissive(lit):
+    """Emissive mask: only the flame, the observation window and the gauge
+    needle glow; shell and frames stay dark."""
+    canvas = [[(0, 0, 0)] * SIZE for _ in range(SIZE)]
+    for y in range(8, 9):
+        for x in range(6, 10):
+            canvas[y][x] = (255, 255, 255) if lit else (40, 40, 40)
+    if lit:
+        for y in range(10, 13):
+            for x in range(5, 11):
+                canvas[y][x] = (255, 255, 255)
+        canvas[2][7] = (255, 255, 255)
+        canvas[2][8] = (255, 255, 255)
+    return canvas
+
+
 def write_png(path, canvas):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     raw = b""
@@ -351,6 +468,13 @@ def main():
             painter(canvas, rng)
             write_png(os.path.join(root, "block", name, f"{face}.png"), canvas)
             print(f"wrote block/{name}/{face}.png")
+
+    furnace_dir = os.path.join(root, "block", "machine", "large_heat_storage_steam_furnace")
+    write_png(os.path.join(furnace_dir, "overlay_front.png"), furnace_front(False))
+    write_png(os.path.join(furnace_dir, "overlay_front_active.png"), furnace_front(True))
+    write_png(os.path.join(furnace_dir, "overlay_front_emissive.png"), furnace_front_emissive(False))
+    write_png(os.path.join(furnace_dir, "overlay_front_active_emissive.png"), furnace_front_emissive(True))
+    print("wrote large_heat_storage_steam_furnace overlays (idle/lit + emissive)")
 
     write_png(os.path.join(root, "block", "machine", "part", "steam_exhaust_hatch.png"),
               steam_exhaust_hatch_front())
