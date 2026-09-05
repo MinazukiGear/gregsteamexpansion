@@ -35,6 +35,11 @@ import org.spongepowered.asm.mixin.injection.At;
  * Everything is gated on EMI being loaded: without it the original text
  * renders unchanged and EMI stays an optional client tool.</p>
  *
+ * <p>The {@code @Local} sugar parameters sit AFTER the {@code Operation}
+ * parameter: MixinExtras requires sugars to be trailing at the very end of
+ * the handler signature, and a mid-list sugar aborts the whole mixin at
+ * class-load time (which took down GTCEu's whole EMI plugin registration).</p>
+ *
  * <p>Unlike the other GTCEu mixins this one must NOT set {@code remap = false}:
  * the wrapped {@code Component.translatable} call is a vanilla method that only
  * resolves through the refmap in production. The GTCEu target class and method
@@ -50,8 +55,8 @@ public abstract class GTRecipeWidgetMixin {
     @WrapOperation(method = "initializeRecipeTextWidget", at = @At(value = "INVOKE", ordinal = 0,
             target = "Lnet/minecraft/network/chat/Component;translatable(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;"))
     private MutableComponent gse$initialPowerLineWithEUt(String key, Object[] args,
-            @Local(type = EnergyStack.WithIO.class) EnergyStack.WithIO eut,
-            Operation<MutableComponent> original) {
+            Operation<MutableComponent> original,
+            @Local(type = EnergyStack.WithIO.class) EnergyStack.WithIO eut) {
         if (!GTCEu.Mods.isEMILoaded()) {
             return original.call(key, args);
         }
@@ -61,8 +66,8 @@ public abstract class GTRecipeWidgetMixin {
     @WrapOperation(method = "setRecipeOverclockWidget", at = @At(value = "INVOKE", ordinal = 0,
             target = "Lnet/minecraft/network/chat/Component;translatable(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/network/chat/MutableComponent;"))
     private MutableComponent gse$overclockedPowerLineWithEUt(String key, Object[] args,
-            @Local(type = EnergyStack.class) EnergyStack overclockedEut,
-            Operation<MutableComponent> original) {
+            Operation<MutableComponent> original,
+            @Local(type = EnergyStack.class) EnergyStack overclockedEut) {
         if (!GTCEu.Mods.isEMILoaded()) {
             return original.call(key, args);
         }

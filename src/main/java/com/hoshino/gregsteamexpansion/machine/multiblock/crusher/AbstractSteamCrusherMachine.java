@@ -624,7 +624,10 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             }
             ChanceLogic logic = multiplied.getChanceLogicForCapability(capability, IO.OUT, false);
             List<Content> rolled = logic.roll(capability, new ArrayList<>(contents), chanceFunction,
-                    recipeTier, chanceTier, null, multiplied.getTotalRuns());
+                    recipeTier, chanceTier, null, 1);
+            // times=1: the parallel quantity is ALREADY in the copied outputs
+            // (SizedIngredient amount × P). ChanceLogic.OR's `times` would
+            // multiply the guaranteed part AGAIN (output = 3 × P²).
             produced.addAll(materializeItemContents(rolled));
         });
         mergeStacks(produced);

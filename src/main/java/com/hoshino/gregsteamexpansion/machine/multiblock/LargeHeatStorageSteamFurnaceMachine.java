@@ -188,7 +188,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     private TickableSubscription tickSubscription;
     @Nullable
     private SteamExhaustHatchMachine exhaustHatch;
-    private final List<SteamHatchPartMachine> steamHatches = new ArrayList<>();
+    private final List<FluidHatchPartMachine> steamHatches = new ArrayList<>();
     private final List<ItemBusPartMachine> outputBuses = new ArrayList<>();
     /** ME fluid input hatches: unlimited machine-side supply (AE2 present). */
     private final List<FluidHatchPartMachine> meSteamHatches = new ArrayList<>();
@@ -328,6 +328,10 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
             }
             if (part instanceof SteamExhaustHatchMachine hatch) {
                 exhaustHatch = hatch;
+            } else if (part instanceof com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine supplyHatch) {
+                // 本模组蒸汽供给仓继承 FluidHatchPartMachine 而非旧
+                // SteamHatchPartMachine，必须显式收集，否则熔炉取不到汽。
+                steamHatches.add(supplyHatch);
             } else if (part instanceof SteamHatchPartMachine steamHatch) {
                 steamHatches.add(steamHatch);
             } else if (part instanceof FluidHatchPartMachine fluidHatch && isMeFluidInputHatch(part)) {
@@ -555,7 +559,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
             }
             ChanceLogic logic = multiplied.getChanceLogicForCapability(capability, IO.OUT, false);
             List<Content> rolled = logic.roll(capability, new ArrayList<>(contents), chanceFunction,
-                    recipeTier, chanceTier, null, multiplied.getTotalRuns());
+                    recipeTier, chanceTier, null, 1);
+            // times=1: parallel quantity already applied by the copy above
+            // (double application squared the output, e.g. 3 × P²).
             produced.addAll(com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCrusherMachine
                     .materializeItemContents(rolled));
         });
@@ -774,7 +780,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
             return false;
         }
         long remaining = amountMb;
-        for (SteamHatchPartMachine hatch : steamHatches) {
+        for (FluidHatchPartMachine hatch : steamHatches) {
             long capped = Math.min(remaining, STEAM_PER_HATCH_LIMIT_MB);
             FluidStack simulated = hatch.tank.drainInternal(steamFluid(capped), IFluidHandler.FluidAction.SIMULATE);
             remaining -= simulated.getAmount();
@@ -795,7 +801,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
             return false;
         }
         remaining = amountMb;
-        for (SteamHatchPartMachine hatch : steamHatches) {
+        for (FluidHatchPartMachine hatch : steamHatches) {
             long capped = Math.min(remaining, STEAM_PER_HATCH_LIMIT_MB);
             FluidStack drained = hatch.tank.drainInternal(steamFluid(capped), IFluidHandler.FluidAction.EXECUTE);
             remaining -= drained.getAmount();
