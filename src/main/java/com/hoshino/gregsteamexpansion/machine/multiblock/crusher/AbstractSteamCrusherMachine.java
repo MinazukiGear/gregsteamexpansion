@@ -454,9 +454,11 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             if (byInputs <= 0) {
                 continue;
             }
-            // 最坏情况输出预检: every chanced output assumed successful.
-            int parallel = ParallelLogic.limitByOutputMerging(this, recipe,
-                    Math.min(maximumParallel(), byInputs), capability -> false, List.of());
+            // 按可输出槽位决定并行: worst-case output (every chanced output
+            // assumed successful, per-parallel) simulated through the EXACT
+            // insertion path deliverPendingOutputs uses, so a batch that
+            // passes this check can never end in output blocking later.
+            int parallel = largestParallelThatFits(recipe, Math.min(maximumParallel(), byInputs));
             if (parallel <= 0) {
                 continue;
             }
@@ -523,6 +525,82 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             }
         }
         return null;
+    }
+
+    /**
+     * 按可输出槽位决定并行: from the candidate cap downward, find the largest
+     * parallel whose WORST-CASE output list fits the output buses right now.
+     * The worst case is the guaranteed main product plus every chanced output
+     * at one full stack per parallel (steam-crushers.md 启动前按全部概率产物
+     * 成功的最坏情况检查). The simulation reuses the exact insertion helper
+     * deliverPendingOutputs commits with, so a batch admitted here always
+     * completes into the buses instead of output blocking.
+     */
+    private int largestParallelThatFits(GTRecipe recipe, int candidate) {
+        List<Content> itemOutputs = recipe.outputs.get(ItemRecipeCapability.CAP);
+        if (itemOutputs == null || itemOutputs.isEmpty()) {
+            return candidate;
+        }
+        // worst-case single-operation output: guaranteed products at their
+        // sized amount + one of every chanced product
+        List<ItemStack> perOperation = new ArrayList<>();
+        for (Content content : itemOutputs) {
+            ItemStack stack = representativeStackOf(content);
+            if (stack == null || stack.isEmpty()) {
+                continue;
+            }
+            if (content.chance >= content.maxChance) {
+                perOperation.add(stack);
+            } else {
+                perOperation.add(stack.copyWithCount(1));
+            }
+        }
+        if (perOperation.isEmpty()) {
+            return candidate;
+        }
+        for (int parallel = candidate; parallel >= 1; parallel--) {
+            if (worstCaseFits(perOperation, parallel)) {
+                return parallel;
+            }
+        }
+        return 0;
+    }
+
+    /** Worst-case output for `parallel` operations, simulated on the buses. */
+    private boolean worstCaseFits(List<ItemStack> perOperation, int parallel) {
+        List<ItemStack> simulation = new ArrayList<>();
+        for (ItemStack stack : perOperation) {
+            ItemStack scaled = stack.copy();
+            scaled.setCount(Math.min(scaled.getMaxStackSize(),
+                    (int) Math.min(Integer.MAX_VALUE, (long) scaled.getCount() * parallel)));
+            simulation.add(scaled);
+        }
+        // merge equal stacks first so the simulation respects stacking capacity
+        mergeStacks(simulation);
+        for (ItemBusPartMachine bus : outputBuses) {
+            for (int i = 0; i < simulation.size(); i++) {
+                simulation.set(i, insertIntoBus(bus, simulation.get(i), true));
+            }
+        }
+        return simulation.stream().allMatch(ItemStack::isEmpty);
+    }
+
+    /** Representative stack of an output Content (sized amount preserved). */
+    @Nullable
+    private ItemStack representativeStackOf(Content content) {
+        var ingredient = ItemRecipeCapability.CAP.of(content.content);
+        if (ingredient == null) {
+            return null;
+        }
+        ItemStack[] items = ingredient.getItems();
+        if (items.length == 0 || items[0].isEmpty()) {
+            return null;
+        }
+        ItemStack stack = items[0].copy();
+        if (content.content instanceof com.gregtechceu.gtceu.api.recipe.ingredient.SizedIngredient sized) {
+            stack.setCount(Math.max(1, sized.getAmount()));
+        }
+        return stack;
     }
 
     /**
