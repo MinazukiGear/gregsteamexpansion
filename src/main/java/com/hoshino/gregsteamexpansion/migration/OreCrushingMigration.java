@@ -371,8 +371,12 @@ public final class OreCrushingMigration {
         ResourceLocation newId = GregSteamExpansion.id(
                 "ore_crushing/" + original.getId().getNamespace() + "/" + original.getId().getPath());
         List<Content> newOutputs = new ArrayList<>(itemOutputs);
-        newOutputs.set(mainIndex, new Content(mainStack, mainOutput.chance, mainOutput.maxChance,
-                mainOutput.tierChanceBoost));
+        // Content.content for items must stay an Ingredient (SizedIngredient):
+        // GTRecipe.copy -> ItemRecipeCapability.copyWithModifier casts to
+        // Ingredient, so a raw ItemStack here crashes the first machine that
+        // copies the migrated recipe (multiplied batch start).
+        newOutputs.set(mainIndex, new Content(ItemRecipeCapability.CAP.of(mainStack), mainOutput.chance,
+                mainOutput.maxChance, mainOutput.tierChanceBoost));
 
         GTRecipe detached = original.copy(ContentModifier.IDENTITY, false);
         GTRecipe copy = new GTRecipe(targetType, newId,

@@ -547,11 +547,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             ChanceLogic logic = multiplied.getChanceLogicForCapability(capability, IO.OUT, false);
             List<Content> rolled = logic.roll(capability, new ArrayList<>(contents), chanceFunction,
                     recipeTier, chanceTier, null, multiplied.getTotalRuns());
-            for (Content content : rolled) {
-                if (capability.of(content.content) instanceof ItemStack itemStack && !itemStack.isEmpty()) {
-                    produced.add(itemStack.copy());
-                }
-            }
+            produced.addAll(materializeItemContents(rolled));
         });
         mergeStacks(produced);
         pendingOutputs.addAll(produced);
@@ -602,6 +598,32 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             return stack;
         }
         return ItemHandlerHelper.insertItemStacked(bus.getInventory(), stack, simulate);
+    }
+
+    /**
+     * Official content materialization (mirrors NotifiableItemStackHandler):
+     * item contents hold Ingredients (usually SizedIngredient) — take the
+     * representative stack and re-apply the sized amount.
+     */
+    public static List<ItemStack> materializeItemContents(List<Content> rolled) {
+        List<ItemStack> stacks = new ArrayList<>();
+        for (Content content : rolled) {
+            var ingredient = ItemRecipeCapability.CAP.of(content.content);
+            if (ingredient == null) {
+                continue;
+            }
+            ItemStack[] items = ingredient.getItems();
+            if (items.length == 0 || items[0].isEmpty()) {
+                continue;
+            }
+            ItemStack stack = items[0].copy();
+            int amount = content.content instanceof com.gregtechceu.gtceu.api.recipe.ingredient.SizedIngredient sized
+                    ? sized.getAmount()
+                    : stack.getCount();
+            stack.setCount(Math.max(1, amount));
+            stacks.add(stack);
+        }
+        return stacks;
     }
 
     private static void mergeStacks(List<ItemStack> stacks) {

@@ -556,11 +556,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
             ChanceLogic logic = multiplied.getChanceLogicForCapability(capability, IO.OUT, false);
             List<Content> rolled = logic.roll(capability, new ArrayList<>(contents), chanceFunction,
                     recipeTier, chanceTier, null, multiplied.getTotalRuns());
-            for (Content content : rolled) {
-                if (capability.of(content.content) instanceof ItemStack itemStack && !itemStack.isEmpty()) {
-                    produced.add(itemStack.copy());
-                }
-            }
+            produced.addAll(com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCrusherMachine
+                    .materializeItemContents(rolled));
         });
         mergeStacks(produced);
         pendingOutputs.addAll(produced);
