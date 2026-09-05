@@ -201,6 +201,10 @@ public final class GSEFurnacePatterns {
                 .where('S', GTBlocks.CASING_STEEL_SOLID.get())
                 .where('F', GTBlocks.FIREBOX_BRONZE.get())
                 .where('M', GTBlocks.CASING_BRONZE_BRICKS.get())
+                // X marks the exhaust-layer candidate positions the E badge
+                // does not occupy — they must be real bronze casings, not the
+                // empty default an undefined character would place.
+                .where('X', GTBlocks.CASING_BRONZE_BRICKS.get())
                 .where('K', GTBlocks.STEEL_BRICKS_HULL.get())
                 .where('R', GTBlocks.CASING_PRIMITIVE_BRICKS.get())
                 .where('P', GTBlocks.CASING_BRONZE_PIPE.get())

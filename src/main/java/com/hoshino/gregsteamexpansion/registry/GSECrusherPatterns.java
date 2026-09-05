@@ -186,7 +186,7 @@ public final class GSECrusherPatterns {
  * face formed by the last aisle.</p> */
 public static MultiblockShapeInfo smallShapeInfo(MultiblockMachineDefinition definition) {
     return MultiblockShapeInfo.builder()
-            .aisle("XXX", "XKX", "XGX")
+            .aisle("ISO", "XKX", "XXX")
             .aisle("XGX", "GFG", "XGX")
             .aisle("XXX", "XXX", "XXX")
             .where('X', bronzeSteamCasing())
