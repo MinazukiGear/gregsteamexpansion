@@ -114,6 +114,9 @@ public final class OreCrushingMigration {
         if (recipes == null) {
             throw migrationFailure("cannot access the loaded recipe map", client);
         }
+        // The RecipeManager maps are Guava ImmutableMaps after apply(): copy
+        // everything into mutable maps, run the transaction on the copies, then
+        // write the whole set back through the accessor.
         Map<ResourceLocation, Recipe<?>> maceratorMap = recipes.get(GTRecipeTypes.MACERATOR_RECIPES);
         if (maceratorMap == null) {
             // no macerator recipes at all: nothing to migrate, consumers stay empty
@@ -162,7 +165,8 @@ public final class OreCrushingMigration {
             migrated.add(copy);
         }
 
-        // 不可分割的"复制后移除": remove originals, insert copies, re-stage both DBs.
+        // 不可分割的"复制后移除": remove originals, insert copies, re-stage both
+        // DBs, then write the mutable copies back into the RecipeManager.
         for (GTRecipe candidate : candidates) {
             Recipe<?> removed = maceratorMap.remove(candidate.getId());
             if (removed == null) {
@@ -175,6 +179,10 @@ public final class OreCrushingMigration {
         }
         restage(GTRecipeTypes.MACERATOR_RECIPES, maceratorMap);
         restage(targetType, targetMap);
+        if (manager instanceof com.hoshino.gregsteamexpansion.mixins.RecipeManagerAccessor accessor) {
+            accessor.gse$setRecipes(recipes);
+            accessor.gse$setByName(rebuildByName(recipes));
+        }
 
         // 完成后校验"新类型新增数 = 研磨机移除数".
         if (migrated.size() != candidates.size()) {
@@ -394,12 +402,25 @@ public final class OreCrushingMigration {
     }
 
     @Nullable
-    @SuppressWarnings("unchecked")
     private static Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes(RecipeManager manager) {
         if (manager instanceof com.hoshino.gregsteamexpansion.mixins.RecipeManagerAccessor accessor) {
-            return (Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>>) (Map<?, ?>) accessor.gse$getRecipes();
+            Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> immutable = accessor.gse$getRecipes();
+            if (immutable == null) {
+                return null;
+            }
+            Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> mutable = new HashMap<>();
+            immutable.forEach((type, map) -> mutable.put(type, new HashMap<>(map)));
+            return mutable;
         }
         return null;
+    }
+
+    /** Rebuilds the by-name index over the post-migration recipe set. */
+    private static Map<ResourceLocation, Recipe<?>> rebuildByName(
+            Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes) {
+        Map<ResourceLocation, Recipe<?>> byName = new HashMap<>();
+        recipes.values().forEach(map -> map.forEach(byName::put));
+        return byName;
     }
 
     private static Difficulty currentDifficulty(boolean client) {
