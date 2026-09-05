@@ -32,6 +32,11 @@ BLACK = (24, 24, 28, 255)
 IRON = (128, 128, 136, 255)
 TRANSPARENT = (0, 0, 0, 0)
 
+# GT fire ramp, sampled from the upstream steam furnace front overlay.
+FIRE_DEEP = (255, 106, 0, 255)
+FIRE_MID = (255, 136, 0, 255)
+FIRE_BRIGHT = (255, 170, 0, 255)
+
 SYMBOLS = {
     '#': DARK_BRONZE,
     'b': MID_BRONZE,
@@ -39,6 +44,9 @@ SYMBOLS = {
     'H': HIGHLIGHT,
     'k': BLACK,
     'g': IRON,
+    'o': FIRE_DEEP,
+    'f': FIRE_MID,
+    'y': FIRE_BRIGHT,
     '.': TRANSPARENT,
 }
 
@@ -220,27 +228,122 @@ def air_intake_hatch():
     return g
 
 
+# ---------------------------------------------------------------- texture 5
+def exhaust_hatch():
+    """蒸汽排气仓: static hot-steam vent grille in the GT steam-vent language,
+    with outward chevrons marking the exhaust direction."""
+    g = Grid()
+
+    # Vent panel (8x8): dark frame, bronze cross bars, dark slits.
+    g.fill(4, 7, 4, 11, '.')
+    for x, y, sym in (
+            (4, 4, 'k'), (5, 4, 'k'), (6, 4, '#'), (7, 4, '#'),
+            (4, 5, 'k'), (5, 5, 'k'), (6, 5, 'b'), (7, 5, 'k'),
+            (4, 6, '#'), (5, 6, 'b'), (6, 6, 'b'), (7, 6, 'B'),
+            (4, 7, '#'), (5, 7, 'k'), (6, 7, 'B'), (7, 7, 'k'),
+            (4, 8, '#'), (5, 8, 'k'), (6, 8, 'B'), (7, 8, 'k'),
+            (4, 9, '#'), (5, 9, 'b'), (6, 9, 'b'), (7, 9, 'b'),
+            (4, 10, 'k'), (5, 10, 'k'), (6, 10, 'b'), (7, 10, 'k'),
+            (4, 11, 'k'), (5, 11, 'k'), (6, 11, '#'), (7, 11, '#')):
+        g.put(x, y, sym)
+
+    outward_chevrons(g)
+    return g
+
+
+# ------------------------------------------------- furnace controller set
+def furnace_front(active):
+    """大型蓄热蒸汽熔炉 controller front, following the upstream steam furnace
+    language: a dark smokebox on top and a barred furnace door below, with the
+    hull side showing between and around them. When active, the GT fire ramp
+    (255,106/136/170,0) glows inside both."""
+    g = Grid()
+
+    # Smokebox (rows 3-6).
+    g.put(4, 3, '#')
+    g.fill(5, 7, 3, 3, 'k')
+    for y in (4, 5, 6):
+        g.put(3, y, 'k')
+        g.fill(4, 7, y, y, 'k')
+    if active:
+        # embers light up inside the smokebox
+        g.put(6, 5, 'o')
+        g.put(5, 6, 'b')
+        g.put(6, 6, 'f')
+        g.put(7, 6, 'b')
+
+    # Furnace door (rows 9-13): dark frame, dark-bronze lintel, bars.
+    g.put(3, 9, 'k')
+    g.fill(4, 7, 9, 9, '#')
+    for y in (10, 11, 12):
+        if not active:
+            g.put(4, y, 'k')
+            g.put(5, y, 'b')
+            g.put(6, y, 'k')
+            g.put(7, y, 'b')
+        else:
+            g.put(4, y, 'b')
+            g.put(5, y, {10: 'f', 11: 'o', 12: 'y'}[y])
+            g.put(6, y, 'k')
+            g.put(7, y, {10: 'o', 11: 'f', 12: 'y'}[y])
+    g.put(3, 13, 'k')
+    g.fill(4, 7, 13, 13, '#')
+    return g
+
+
+def furnace_front_emissive():
+    """Idle emissive mask: fully transparent (no glow while idle)."""
+    return Grid()
+
+
+def furnace_front_active_emissive():
+    """Active emissive mask: exactly the fire pixels of the active front —
+    smokebox embers and the flames between the door bars — so only they
+    render fullbright."""
+    g = Grid()
+    g.put(6, 5, 'o')
+    g.put(6, 6, 'f')
+    for y in (10, 11, 12):
+        g.put(5, y, {10: 'f', 11: 'o', 12: 'y'}[y])
+        g.put(7, y, {10: 'o', 11: 'f', 12: 'y'}[y])
+    return g
+
+
+OUTPUTS = (
+    ('machine/part/steam_supply_hatch.png', supply_hatch),
+    ('machine/part/steam_fluid_input_hatch.png', fluid_input_hatch),
+    ('machine/part/steam_fluid_output_hatch.png', fluid_output_hatch),
+    ('machine/part/steam_air_intake_hatch.png', air_intake_hatch),
+    ('machine/part/steam_exhaust_hatch.png', exhaust_hatch),
+    ('machine/large_heat_storage_steam_furnace/overlay_front.png',
+     lambda: furnace_front(False)),
+    ('machine/large_heat_storage_steam_furnace/overlay_front_active.png',
+     lambda: furnace_front(True)),
+    ('machine/large_heat_storage_steam_furnace/overlay_front_emissive.png',
+     furnace_front_emissive),
+    ('machine/large_heat_storage_steam_furnace/overlay_front_active_emissive.png',
+     furnace_front_active_emissive),
+)
+
+
 def main():
-    out_dir = os.path.normpath(os.path.join(
+    root = os.path.normpath(os.path.join(
         os.path.dirname(__file__), '..',
-        'src/main/resources/assets/gregsteamexpansion/textures/block/machine/part'))
-    os.makedirs(out_dir, exist_ok=True)
-    for name, builder in (
-            ('steam_supply_hatch', supply_hatch),
-            ('steam_fluid_input_hatch', fluid_input_hatch),
-            ('steam_fluid_output_hatch', fluid_output_hatch),
-            ('steam_air_intake_hatch', air_intake_hatch)):
+        'src/main/resources/assets/gregsteamexpansion/textures/block'))
+    for rel, builder in OUTPUTS:
         g = builder()
         for y in range(16):
             for x in range(8):
-                assert g.cells[y][x] == g.cells[y][15 - x], (name, x, y)
+                assert g.cells[y][x] == g.cells[y][15 - x], (rel, x, y)
         img = g.image()
         transparent = sum(1 for y in range(16) for x in range(16)
                           if img.getpixel((x, y))[3] == 0)
-        print(f'--- {name} ({100 * transparent // 256}% transparent) ---')
+        print(f'--- {rel} ({100 * transparent // 256}% transparent) ---')
         g.show()
-        img.save(os.path.join(out_dir, name + '.png'))
-    print('saved to', out_dir)
+        out_path = os.path.join(root, rel)
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+        img.save(out_path)
+    print('saved under', root)
 
 
 if __name__ == '__main__':
