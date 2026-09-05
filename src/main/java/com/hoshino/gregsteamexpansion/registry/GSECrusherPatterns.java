@@ -106,69 +106,69 @@ public final class GSECrusherPatterns {
                         "WWWWWWW",
                         "WWWWWWW")
                 .aisle(
-                        "..WWW..",
-                        ".W...W.",
-                        "W.....W",
-                        "W..P..W",
-                        "W.....W",
-                        ".W...W.",
-                        "..WWW..")
+                        "  WWW  ",
+                        " W   W ",
+                        "W     W",
+                        "W  P  W",
+                        "W     W",
+                        " W   W ",
+                        "  WWW  ")
                 .aisle(
-                        "..WWW..",
-                        ".W...W.",
-                        "W.....W",
-                        "W..P..W",
-                        "W.....W",
-                        ".W...W.",
-                        "..WKW..")
+                        "  WWW  ",
+                        " W   W ",
+                        "W     W",
+                        "W  P  W",
+                        "W     W",
+                        " W   W ",
+                        "  WKW  ")
                 .aisle(
-                        "..WWW..",
-                        ".W...W.",
-                        "W.....W",
-                        "W..P..W",
-                        "W.....W",
-                        ".W...W.",
-                        "..WWW..")
+                        "  WWW  ",
+                        " W   W ",
+                        "W     W",
+                        "W  P  W",
+                        "W     W",
+                        " W   W ",
+                        "  WWW  ")
                 .aisle(
-                        "..WWW..",
-                        ".W...W.",
-                        "W.....W",
-                        "W..G..W",
-                        "W.....W",
-                        ".W...W.",
-                        "..WWW..")
+                        "  WWW  ",
+                        " W   W ",
+                        "W     W",
+                        "W  G  W",
+                        "W     W",
+                        " W   W ",
+                        "  WWW  ")
                 .aisle(
-                        "..WWW..",
-                        ".W...W.",
-                        "W.....W",
-                        "W..G..W",
-                        "W.....W",
-                        ".W...W.",
-                        "..WWW..")
+                        "  WWW  ",
+                        " W   W ",
+                        "W     W",
+                        "W  G  W",
+                        "W     W",
+                        " W   W ",
+                        "  WWW  ")
                 .aisle(
-                        ".......",
-                        ".......",
-                        "..CCC..",
-                        "..CGC..",
-                        "..CCC..",
-                        ".......",
-                        ".......")
+                        "       ",
+                        "       ",
+                        "  CCC  ",
+                        "  CGC  ",
+                        "  CCC  ",
+                        "       ",
+                        "       ")
                 .aisle(
-                        ".......",
-                        ".......",
-                        "..CCC..",
-                        "..CGC..",
-                        "..CCC..",
-                        ".......",
-                        ".......")
+                        "       ",
+                        "       ",
+                        "  CCC  ",
+                        "  CGC  ",
+                        "  CCC  ",
+                        "       ",
+                        "       ")
                 .aisle(
-                        ".......",
-                        ".CCCCC.",
-                        ".CCCCC.",
-                        ".CCGCC.",
-                        ".CCCCC.",
-                        ".CCCCC.",
-                        ".......")
+                        "       ",
+                        " CCCCC ",
+                        " CCCCC ",
+                        " CCGCC ",
+                        " CCCCC ",
+                        " CCCCC ",
+                        "       ")
                 .where('W', largeCandidates())
                 .where('C', Predicates.blocks(bronzeSteamCasing()))
                 .where('P', Predicates.blocks(bronzePipeCasing()))
@@ -177,119 +177,119 @@ public final class GSECrusherPatterns {
                 .build();
     }
 
-    /** Small crusher representative layout (steam-crushers.md 蒸汽粉碎机代表布局). */
-    public static MultiblockShapeInfo smallShapeInfo(MultiblockMachineDefinition definition) {
-        return MultiblockShapeInfo.builder()
-                .aisle("CCC", "CGC", "CCC")
-                .aisle("CCC", "GFG", "XKX")
-                .aisle("CCC", "CGC", "ISO")
-                .where('C', bronzeSteamCasing())
-                .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
-                .where('F', bronzeFrame())
-                .where('X', bronzeSteamCasing())
-                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.WEST)
-                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.SOUTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.EAST)
-                .where('K', definition, Direction.SOUTH)
-                .build();
-    }
+    /** Small crusher representative layout (steam-crushers.md 蒸汽粉碎机代表布局).
+ * <p>ShapeInfo axis convention (must match {@code PatternPreviewWidget}, which
+ * places aisles along world X, rows along world Y (vertical) and chars along
+ * world Z): shape aisles = the pattern's front/back rows (back first), shape
+ * rows = the pattern's vertical layers (bottom first), shape chars = the
+ * pattern's left/right chars. The controller faces EAST — out of the front
+ * face formed by the last aisle.</p> */
+public static MultiblockShapeInfo smallShapeInfo(MultiblockMachineDefinition definition) {
+    return MultiblockShapeInfo.builder()
+            .aisle("XXX", "XXX", "XXX")
+            .aisle("XGX", "GFG", "XGX")
+            .aisle("ISO", "XKX", "XXX")
+            .where('X', bronzeSteamCasing())
+            .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
+            .where('F', bronzeFrame())
+            .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.EAST)
+            .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.EAST)
+            .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.EAST)
+            .where('K', definition, Direction.EAST)
+            .build();
+}
 
-    /**
-     * Large crusher representative layout (steam-crushers.md 大型蒸汽粉碎机代表布局):
-     * minimum-interface set with the supply hatch on layer 2, input/output buses
-     * beside the layer-3 controller and the exhaust hatch on layer 4.
-     */
-    public static MultiblockShapeInfo largeShapeInfo(MultiblockMachineDefinition definition) {
-        String[] layer1 = {
-                "CCCCCCC",
-                "CCCCCCC",
-                "CCCCCCC",
-                "CCCPCCC",
-                "CCCCCCC",
-                "CCCCCCC",
-                "CCCCCCC"};
-        String[] layer2 = {
-                "..CCC..",
-                ".C...C.",
-                "C.....C",
-                "C..P..C",
-                "C.....C",
-                ".C...C.",
-                "..CSC.."};
-        String[] layer3 = {
-                "..CCC..",
-                ".C...C.",
-                "C.....C",
-                "C..P..C",
-                "C.....C",
-                ".C...C.",
-                "..IKO.."};
-        String[] layer4 = {
-                "..CCC..",
-                ".C...C.",
-                "C.....C",
-                "C..P..C",
-                "C.....C",
-                ".C...C.",
-                "..CEC.."};
-        String[] layer5 = {
-                "..CCC..",
-                ".C...C.",
-                "C.....C",
-                "C..G..C",
-                "C.....C",
-                ".C...C.",
-                "..CCC.."};
-        String[] layer6 = {
-                "..CCC..",
-                ".C...C.",
-                "C.....C",
-                "C..G..C",
-                "C.....C",
-                ".C...C.",
-                "..CCC.."};
-        String[] layer7 = {
-                ".......",
-                ".......",
-                "..CCC..",
-                "..CGC..",
-                "..CCC..",
-                ".......",
-                "......."};
-        String[] layer8 = {
-                ".......",
-                ".......",
-                "..CCC..",
-                "..CGC..",
-                "..CCC..",
-                ".......",
-                "......."};
-        String[] layer9 = {
-                ".......",
-                ".CCCCC.",
-                ".CCCCC.",
-                ".CCGCC.",
-                ".CCCCC.",
-                ".CCCCC.",
-                "......."};
-
-        var builder = MultiblockShapeInfo.builder();
-        for (String[] layer : new String[][]{layer1, layer2, layer3, layer4, layer5, layer6, layer7, layer8, layer9}) {
-            builder.aisle(layer);
-        }
-        // W positions must be matched by the pattern's candidate rule; the
-        // ring interior stays air, so use plain casings for the two filler
-        // ring slots of layers 5/6 (they sit where the pattern has W).
-        return builder
-                .where('C', bronzeSteamCasing())
-                .where('W', bronzeSteamCasing())
-                .where('P', bronzePipeCasing())
-                .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
-                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.WEST)
-                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.SOUTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.EAST)
-                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.SOUTH)
-                .where('K', definition, Direction.SOUTH)
-                .build();
-    }
+/**
+ * Large crusher representative layout (steam-crushers.md 大型蒸汽粉碎机代表布局):
+ * minimum-interface set with the supply hatch on layer 2, input/output buses
+ * beside the layer-3 controller and the exhaust hatch on layer 4. Axis
+ * convention as in {@link #smallShapeInfo(MultiblockMachineDefinition)}:
+ * aisles = front/back rows back to front, rows = layers bottom to top,
+ * controller and interfaces face EAST out of the front row (last aisle).
+ * Spaces are air (ring interior, open cylinder top and the area around the
+ * drill).
+ */
+public static MultiblockShapeInfo largeShapeInfo(MultiblockMachineDefinition definition) {
+    return MultiblockShapeInfo.builder()
+            .aisle(
+                    "CCCCCCC",
+                    "  CCC  ",
+                    "  CCC  ",
+                    "  CCC  ",
+                    "  CCC  ",
+                    "  CCC  ",
+                    "       ",
+                    "       ",
+                    "       ")
+            .aisle(
+                    "CCCCCCC",
+                    " C   C ",
+                    " C   C ",
+                    " C   C ",
+                    " C   C ",
+                    " C   C ",
+                    "       ",
+                    "       ",
+                    " CCCCC ")
+            .aisle(
+                    "CCCCCCC",
+                    "C     C",
+                    "C     C",
+                    "C     C",
+                    "C     C",
+                    "C     C",
+                    "  CCC  ",
+                    "  CCC  ",
+                    " CCCCC ")
+            .aisle(
+                    "CCCPCCC",
+                    "C  P  C",
+                    "C  P  C",
+                    "C  P  C",
+                    "C  G  C",
+                    "C  G  C",
+                    "  CGC  ",
+                    "  CGC  ",
+                    " CCGCC ")
+            .aisle(
+                    "CCCCCCC",
+                    "C     C",
+                    "C     C",
+                    "C     C",
+                    "C     C",
+                    "C     C",
+                    "  CCC  ",
+                    "  CCC  ",
+                    " CCCCC ")
+            .aisle(
+                    "CCCCCCC",
+                    " C   C ",
+                    " C   C ",
+                    " C   C ",
+                    " C   C ",
+                    " C   C ",
+                    "       ",
+                    "       ",
+                    " CCCCC ")
+            .aisle(
+                    "CCCCCCC",
+                    "  CSC  ",
+                    "  IKO  ",
+                    "  CEC  ",
+                    "  CCC  ",
+                    "  CCC  ",
+                    "       ",
+                    "       ",
+                    "       ")
+            .where('C', bronzeSteamCasing())
+            .where('P', bronzePipeCasing())
+            .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
+            .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.EAST)
+            .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.EAST)
+            .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.EAST)
+            .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.EAST)
+            .where('K', definition, Direction.EAST)
+            .where(' ', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState())
+            .build();
+}
 }

@@ -228,7 +228,7 @@ public final class GSEMachines {
         // 配方迁移启用保护 (steam-crushers.md): the small crusher registers as
         // the explicit ore-crushing consumer; the large crusher alone never
         // satisfies the migration check.
-        OreCrushingMigration.registerConsumer(STEAM_CRUSHER, GregSteamExpansion.id("steam_crusher"));
+        OreCrushingMigration.registerConsumer(STEAM_CRUSHER, GregSteamExpansion.id("shaped/steam_crusher"));
     }
 
 
