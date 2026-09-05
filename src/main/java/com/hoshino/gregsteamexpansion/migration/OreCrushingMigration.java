@@ -260,37 +260,50 @@ public final class OreCrushingMigration {
             return null;
         }
 
-        // input material from the ingredient's first representative stack
+        // input material from the ingredient's first representative stack.
+        // Deserialized recipe contents hold Ingredients (often SizedIngredient),
+        // never raw ItemStacks — always go through CAP.of(...).getItems().
         var inputIngredient = ItemRecipeCapability.CAP.of(itemInputs.get(0).content);
+        if (inputIngredient == null) {
+            return null;
+        }
         ItemStack[] representative = inputIngredient.getItems();
-        if (representative.length == 0) {
+        if (representative.length == 0 || representative[0].isEmpty()) {
             return null;
         }
         TagPrefix inputPrefix = ChemicalHelper.getPrefix(representative[0].getItem());
         Material inputMaterial = inputPrefix != null
-                ? ChemicalHelper.getMaterialStack(representative[0].getItem()).material()
+                ? resolveMaterial(representative[0])
                 : null;
         boolean isOre = inputPrefix != null && TagPrefix.ORES.containsKey(inputPrefix);
         boolean isRawOre = inputPrefix == TagPrefix.rawOre;
-        if (inputMaterial == null || (!isOre && !isRawOre)) {
+        if (inputMaterial == null || inputMaterial.isNull() || (!isOre && !isRawOre)) {
             return null;
         }
 
-        // main product: the guaranteed crushed output of the same material
+        // main product: the guaranteed crushed output of the same material.
+        // A guaranteed output carries chance == maxChance (10000/10000 after the
+        // Content codec defaults); anything below is a chanced byproduct and is
+        // copied verbatim.
         Content mainOutput = null;
         int mainIndex = -1;
         for (int i = 0; i < itemOutputs.size(); i++) {
             Content content = itemOutputs.get(i);
-            if (content.chance >= content.maxChance && content.content instanceof ItemStack stack) {
-                TagPrefix prefix = ChemicalHelper.getPrefix(stack.getItem());
-                Material material = stack.isEmpty() ? null : ChemicalHelper.getMaterialStack(stack.getItem()).material();
-                if (prefix == TagPrefix.crushed && material == inputMaterial) {
-                    if (mainOutput != null) {
-                        return null; // two guaranteed crushed outputs: ambiguous
-                    }
-                    mainOutput = content;
-                    mainIndex = i;
+            if (content.chance < content.maxChance) {
+                continue;
+            }
+            ItemStack stack = representativeStack(content);
+            if (stack == null) {
+                continue;
+            }
+            TagPrefix prefix = ChemicalHelper.getPrefix(stack.getItem());
+            Material material = resolveMaterial(stack);
+            if (prefix == TagPrefix.crushed && material == inputMaterial) {
+                if (mainOutput != null) {
+                    return null; // two guaranteed crushed outputs: ambiguous
                 }
+                mainOutput = content;
+                mainIndex = i;
             }
         }
         if (mainOutput == null) {
@@ -298,7 +311,7 @@ public final class OreCrushingMigration {
         }
 
         // main product count: ores ×4 baseline, then the work-intensity multiplier
-        ItemStack mainStack = ((ItemStack) mainOutput.content).copy();
+        ItemStack mainStack = representativeStack(mainOutput).copy();
         double multiplier = (isOre ? 4.0 : 1.0) * difficulty.getOreCrushingMultiplier();
         mainStack.setCount(Math.max(1, (int) Math.round(mainStack.getCount() * multiplier)));
 
@@ -319,6 +332,25 @@ public final class OreCrushingMigration {
         copy.ocLevel = detached.ocLevel;
         copy.parallels = detached.parallels;
         return copy;
+    }
+
+    /** First representative stack of a Content's item ingredient, or null. */
+    @Nullable
+    private static ItemStack representativeStack(Content content) {
+        var ingredient = ItemRecipeCapability.CAP.of(content.content);
+        if (ingredient == null) {
+            return null;
+        }
+        ItemStack[] items = ingredient.getItems();
+        return items.length == 0 ? null : items[0];
+    }
+
+    /** Material of a stack via the unifier; null when unresolvable. */
+    @Nullable
+    private static Material resolveMaterial(ItemStack stack) {
+        var materialStack = ChemicalHelper.getMaterialStack(stack.getItem());
+        Material material = materialStack.material();
+        return material == null || material.isNull() ? null : material;
     }
 
     private static void restage(GTRecipeType type, Map<ResourceLocation, Recipe<?>> postMigrationMap) {
