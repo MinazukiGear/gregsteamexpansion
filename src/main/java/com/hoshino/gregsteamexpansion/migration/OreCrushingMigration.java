@@ -132,7 +132,7 @@ public final class OreCrushingMigration {
 
         List<GTRecipe> candidates = new ArrayList<>();
         for (Recipe<?> recipe : maceratorMap.values()) {
-            if (recipe instanceof GTRecipe gtRecipe && isCandidate(gtRecipe)) {
+            if (recipe instanceof GTRecipe gtRecipe && isCandidate(gtRecipe) && hasOreInput(gtRecipe)) {
                 candidates.add(gtRecipe);
             }
         }
@@ -145,13 +145,17 @@ public final class OreCrushingMigration {
         }
 
         // Full semantic validation + copy of every target BEFORE any mutation.
+        // ORE_CRUSHING recipes whose input is NOT an ore/raw ore (crushed ore →
+        // impure dust and the other retained upstream routes) never reach this
+        // loop: they are confirmed non-targets and stay in the macerator
+        // (ore-crushing.md 保留的上游路线). A recipe that passes hasOreInput but
+        // fails the material relation is the "cannot confirm" error state the
+        // spec says must block the load.
         Difficulty difficulty = currentDifficulty(client);
         List<GTRecipe> migrated = new ArrayList<>();
         for (GTRecipe candidate : candidates) {
             GTRecipe copy = copyRecipe(candidate, targetType, difficulty);
             if (copy == null) {
-                // 无法确认材料对应关系的配方保留原状并记录错误;
-                // the supported 7.5.3 baseline must not end up half-migrated.
                 throw migrationFailure(
                         "macerator ore recipe " + candidate.getId() + " failed semantic validation", client);
             }
@@ -226,10 +230,40 @@ public final class OreCrushingMigration {
         return violations;
     }
 
-    /** 目标识别 (ore-crushing.md 目标识别): full semantics, never name matching. */
+    /**
+     * 目标识别前两条 (ore-crushing.md 目标识别): type + category. The remaining
+     * conditions — exactly one ore/raw-ore input, same-material crushed main
+     * product, no stray consumables — are checked by {@link #hasOreInput(GTRecipe)}
+     * and {@link #copyRecipe(GTRecipe, GTRecipeType, Difficulty)}; recipes the
+     * category shares with the retained upstream routes (crushed ore → impure
+     * dust and friends) are kept in the macerator.
+     */
     private static boolean isCandidate(GTRecipe recipe) {
         return recipe.recipeType == GTRecipeTypes.MACERATOR_RECIPES
                 && recipe.recipeCategory == GTRecipeCategories.ORE_CRUSHING;
+    }
+
+    /**
+     * 条件 3: exactly one item input whose prefix is a registered ore or the
+     * raw-ore prefix. Confirmed non-targets (crushed-ore processing and other
+     * retained routes) return false and are left untouched.
+     */
+    private static boolean hasOreInput(GTRecipe recipe) {
+        List<Content> itemInputs = recipe.inputs.get(ItemRecipeCapability.CAP);
+        if (itemInputs == null || itemInputs.size() != 1) {
+            return false;
+        }
+        for (Map.Entry<RecipeCapability<?>, List<Content>> entry : recipe.inputs.entrySet()) {
+            if (entry.getKey() != ItemRecipeCapability.CAP && !entry.getValue().isEmpty()) {
+                return false;
+            }
+        }
+        ItemStack representative = representativeStack(itemInputs.get(0));
+        if (representative == null || representative.isEmpty()) {
+            return false;
+        }
+        TagPrefix prefix = ChemicalHelper.getPrefix(representative.getItem());
+        return prefix != null && (TagPrefix.ORES.containsKey(prefix) || prefix == TagPrefix.rawOre);
     }
 
     /**
