@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "gtceu:coke_oven_brick"
+    },
+    "C": {
+      "item": "gtceu:coke_oven_bricks"
+    },
+    "H": {
+      "item": "minecraft:hopper"
+    },
+    "P": {
+      "item": "gtceu:bronze_normal_fluid_pipe"
+    },
+    "X": {
+      "tag": "forge:chests/wooden"
+    }
+  },
+  "pattern": [
+    "BHB",
+    "CXC",
+    "BPB"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gtceu:coke_oven_hatch"
+  }
+}

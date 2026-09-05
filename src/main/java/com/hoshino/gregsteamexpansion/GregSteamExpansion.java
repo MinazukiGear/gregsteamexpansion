@@ -90,6 +90,11 @@ public final class GregSteamExpansion {
         return net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
     }
 
+    /** gtceu 命名空间资源 ID: 仅用于精确覆盖上游注册对象 (配方/方块引用)。 */
+    public static net.minecraft.resources.ResourceLocation gtceuId(String path) {
+        return net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("gtceu", path);
+    }
+
     private void addCreative(final BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
             event.accept(GSEBlocks.CRAFTING_STATION_ITEM.get());
@@ -117,6 +122,9 @@ public final class GregSteamExpansion {
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
+        // GTCEu 注册完成后精确替换普通焦炉/焦炉仓的机器工厂、结构图案与预览
+        // (coke-ovens.md: 继续使用 gtceu:coke_oven 与 gtceu:coke_oven_hatch 注册身份)。
+        event.enqueueWork(com.hoshino.gregsteamexpansion.cokeoven.GSECokeOvenInit::init);
         LOGGER.info(
                 "{} initialized with GTCEu {}.",
                 MOD_NAME,

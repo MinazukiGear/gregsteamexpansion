@@ -361,6 +361,119 @@ public final class GSELang {
                 "Saved to the config file; a full restart is required before it takes effect.");
         add("config.gregsteamexpansion.screen.reset", "Reset to Default");
         add("config.gregsteamexpansion.request.ask", "Ask at first entry (ASK, default)");
+
+        addCokeOvenLang();
+    }
+
+    /**
+     * 普通焦炉与焦炉仓本地化 (coke-ovens.md): 状态文本优先复用 GTCEu 语义一致
+     * 的键 (invalid_structure / running / idling), 其余语义新增本模组键。
+     */
+    private static void addCokeOvenLang() {
+        // ---- 通用 ----
+        add("gregsteamexpansion.tooltip.shift_hint", "Hold Shift for details");
+        // ---- 控制器状态 (优先级从高到低) ----
+        add("gregsteamexpansion.coke_oven.status.pending_output", "Pending output result");
+        add("gregsteamexpansion.coke_oven.status.pending_output.detail",
+                "A completed batch result is waiting to be committed; it will retry automatically once output space frees up.");
+        add("gregsteamexpansion.coke_oven.status.awaiting_reinput",
+                "Waiting for re-input");
+        add("gregsteamexpansion.coke_oven.status.awaiting_reinput.detail",
+                "A legacy in-progress batch was cancelled by the update. Insert a valid coke oven ingredient once to resume.");
+        add("gregsteamexpansion.coke_oven.status.input_invalid",
+                "Input is not a valid coke oven ingredient");
+        add("gregsteamexpansion.coke_oven.status.item_output_blocked",
+                "Item output blocked");
+        add("gregsteamexpansion.coke_oven.status.fluid_output_blocked",
+                "Fluid output blocked");
+        add("gregsteamexpansion.coke_oven.status.both_output_blocked",
+                "Item and fluid output blocked");
+        add("gregsteamexpansion.coke_oven.status.blocked.detail",
+                "The candidate recipe's output cannot fit; remove products to resume.");
+        add("gregsteamexpansion.coke_oven.status.ready",
+                "Ready to start");
+        add("gregsteamexpansion.coke_oven.status.overlap",
+                "Overlaps another multiblock structure near %s");
+        add("gregsteamexpansion.coke_oven.status.too_close",
+                "Too close to another coke oven near %s (one block gap required)");
+
+        // ---- 旧存档迁移提醒 (每存档一次) ----
+        add("gregsteamexpansion.coke_oven.migration.notice",
+                "Greg Steam Expansion: a coke oven had an old in-progress batch that cannot be carried over. " +
+                        "Its input must be re-inserted once before it can work again.");
+        add("gregsteamexpansion.coke_oven_hatch.migration.notice",
+                "Greg Steam Expansion: existing coke oven hatches now default to item input mode. " +
+                        "Use a sneak + screwdriver click to configure each hatch.");
+
+        // ---- 控制器 GUI ----
+        add("gregsteamexpansion.coke_oven.gui.progress", "%s · about %s remaining");
+        add("gregsteamexpansion.coke_oven.gui.progress.idle", "%s · idle");
+
+        // ---- Jade: 控制器 ----
+        add("gregsteamexpansion.jade.coke_oven.status", "Status: %s");
+        add("gregsteamexpansion.jade.coke_oven.detail", "· %s");
+        add("gregsteamexpansion.jade.coke_oven.progress", "Progress: %s (%s left)");
+        add("gregsteamexpansion.jade.coke_oven.fluid", "Output tank: %s %s / %s mB");
+        add("gregsteamexpansion.jade.coke_oven.empty", "Empty");
+        add("config.jade.plugin_gregsteamexpansion.coke_oven_info", "Coke Oven Info");
+
+        // ---- Jade: 焦炉仓 ----
+        add("gregsteamexpansion.jade.coke_oven_hatch.mode", "Mode: %s");
+        add("gregsteamexpansion.jade.coke_oven_hatch.connection", "Connection: %s");
+        add("gregsteamexpansion.jade.coke_oven_hatch.connection.formed", "Connected (structure valid)");
+        add("gregsteamexpansion.jade.coke_oven_hatch.connection.invalid",
+                "Owned, structure invalid");
+        add("gregsteamexpansion.jade.coke_oven_hatch.connection.none", "Not connected");
+        add("gregsteamexpansion.jade.coke_oven_hatch.items", "Items: %s");
+        add("gregsteamexpansion.jade.coke_oven_hatch.fluid", "Fluid: %s");
+        add("gregsteamexpansion.jade.coke_oven_hatch.empty", "Empty");
+        add("config.jade.plugin_gregsteamexpansion.coke_oven_hatch_info", "Coke Oven Hatch Info");
+
+        // ---- 焦炉仓模式与螺丝刀交互 ----
+        add("gregsteamexpansion.coke_oven_hatch.mode.item_input", "Item Input");
+        add("gregsteamexpansion.coke_oven_hatch.mode.item_output", "Item Output");
+        add("gregsteamexpansion.coke_oven_hatch.mode.fluid_output", "Fluid Output");
+        add("gregsteamexpansion.coke_oven_hatch.mode.changed", "Coke oven hatch mode: %s");
+        add("gregsteamexpansion.coke_oven_hatch.mode.locked",
+                "The coke oven is running or holding a pending result; hatch modes are locked.");
+
+        // ---- 控制器两级物品提示 ----
+        add("gregsteamexpansion.machine.coke_oven.tooltip.summary.0",
+                "An early coke oven that needs no energy and runs a single recipe at a time.");
+        add("gregsteamexpansion.machine.coke_oven.tooltip.summary.1",
+                "Hold Shift for structure, automation and demolition warnings.");
+        add("gregsteamexpansion.machine.coke_oven.tooltip.details.0",
+                "Fixed 3×3×3 structure; the inner center block must stay air.");
+        add("gregsteamexpansion.machine.coke_oven.tooltip.details.1",
+                "The bottom geometric center right below the hearth must be Coke Oven Bricks and can never be a hatch.");
+        add("gregsteamexpansion.machine.coke_oven.tooltip.details.2",
+                "The other 24 shell slots together allow 0–5 configurable coke oven hatches; with zero hatches the oven is manual-only.");
+        add("gregsteamexpansion.machine.coke_oven.tooltip.details.3",
+                "Consumes no energy or fuel, and has no temperature, warm-up, cooldown or pause.");
+        add("gregsteamexpansion.machine.coke_oven.tooltip.details.4",
+                "Fixed single parallel and reads the full gtceu:coke_oven recipe type.");
+        add("gregsteamexpansion.machine.coke_oven.tooltip.details.5",
+                "Breaking a normal shell halts the current recipe and rewinds progress to 1 tick; the same batch continues after repair.");
+        add("gregsteamexpansion.machine.coke_oven.tooltip.details.6",
+                "Breaking the controller or the bottom center brick resets crafting, voids all stored and pending fluids, and drops every stored and consumed item to the world.");
+
+        // ---- 焦炉仓两级物品提示 ----
+        add("gregsteamexpansion.machine.coke_oven_hatch.tooltip.summary.0",
+                "Use a sneak + screwdriver click to switch between item input, item output and fluid output modes.");
+        add("gregsteamexpansion.machine.coke_oven_hatch.tooltip.summary.1",
+                "New and legacy hatches default to item input mode.");
+        add("gregsteamexpansion.machine.coke_oven_hatch.tooltip.details.0",
+                "Green box: item input; orange box: item output; blue box: fluid output. Color is the only difference.");
+        add("gregsteamexpansion.machine.coke_oven_hatch.tooltip.details.1",
+                "The screwdriver always cycles item input → item output → fluid output → item input.");
+        add("gregsteamexpansion.machine.coke_oven_hatch.tooltip.details.2",
+                "Modes cannot be switched while the coke oven is running or holding a pending result.");
+        add("gregsteamexpansion.machine.coke_oven_hatch.tooltip.details.3",
+                "Item input only accepts insertion; both output modes push their products toward the front every 5 ticks.");
+        add("gregsteamexpansion.machine.coke_oven_hatch.tooltip.details.4",
+                "All hatches proxy the controller's shared inventories; adding hatches never adds slots, tanks, capacity or parallelism.");
+        add("gregsteamexpansion.machine.coke_oven_hatch.tooltip.details.5",
+                "An unconnected hatch keeps its mode and can still be reconfigured with a screwdriver.");
     }
 
     private static void add(String key, String value) {

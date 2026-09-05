@@ -5,7 +5,9 @@ import com.gregtechceu.gtceu.api.blockentity.MetaMachineBlockEntity;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.cokeoven.GSECokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.GSECokeOvenHatch;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 
@@ -33,6 +35,8 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockDataProvider(FurnaceProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(AirIntakeProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(CrusherProvider.INSTANCE, MetaMachineBlockEntity.class);
+        registration.registerBlockDataProvider(CokeOvenProvider.INSTANCE, MetaMachineBlockEntity.class);
+        registration.registerBlockDataProvider(CokeOvenHatchProvider.INSTANCE, MetaMachineBlockEntity.class);
     }
 
     @Override
@@ -41,6 +45,8 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockComponent(FurnaceProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(AirIntakeProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(CrusherProvider.INSTANCE, MetaMachineBlock.class);
+        registration.registerBlockComponent(CokeOvenProvider.INSTANCE, MetaMachineBlock.class);
+        registration.registerBlockComponent(CokeOvenHatchProvider.INSTANCE, MetaMachineBlock.class);
     }
 
     /**
@@ -287,6 +293,173 @@ public final class GSEJadePlugin implements IWailaPlugin {
         private static Component line(String name, Object... arguments) {
             return Component.translatable("gregsteamexpansion.jade.large_heat_storage_steam_furnace." + name,
                     arguments).withStyle(ChatFormatting.GRAY);
+        }
+
+        @Override
+        public ResourceLocation getUid() {
+            return UID;
+        }
+    }
+
+    /**
+     * 普通焦炉控制器 Jade 数据协议 (coke-ovens.md 普通焦炉与焦炉仓 Jade 信息):
+     * 结构状态 + 按优先级选出的主状态 + 进度百分比与预计剩余时间 + 流体输出罐
+     * 实际内容与固定容量 + 全部阻塞原因; 不显示能源、蒸汽、燃料、温度信息。
+     */
+    private enum CokeOvenProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+        INSTANCE;
+
+        private static final ResourceLocation UID = GregSteamExpansion.id("coke_oven_info");
+        private static final String DATA_KEY = "GregSteamExpansionCokeOven";
+        private static final int DATA_VERSION = 1;
+
+        @Override
+        public void appendServerData(CompoundTag serverData, BlockAccessor accessor) {
+            if (!(accessor.getBlockEntity() instanceof MetaMachineBlockEntity blockEntity) ||
+                    !(blockEntity.getMetaMachine() instanceof GSECokeOvenMachine oven)) {
+                return;
+            }
+            CompoundTag data = new CompoundTag();
+            data.putInt("dataVersion", DATA_VERSION);
+            data.putBoolean("structureValid", oven.isFormed());
+            data.putString("statusId", oven.getStatusId());
+            var logic = oven.getRecipeLogic();
+            data.putInt("progress", logic.getProgress());
+            data.putInt("duration", logic.getMaxProgress());
+            data.putInt("remaining", oven.getRemainingTicks());
+            var fluid = oven.exportFluids.getStorages()[0].getFluid();
+            data.putInt("fluidAmount", fluid.getAmount());
+            data.putString("fluidId", fluid.isEmpty() ? ""
+                    : net.minecraftforge.registries.ForgeRegistries.FLUIDS.getKey(fluid.getFluid()).toString());
+            data.putInt("fluidCapacity", oven.exportFluids.getStorages()[0].getCapacity());
+            var details = oven.getStatusDetails();
+            data.putInt("detailCount", details.size());
+            for (int i = 0; i < details.size(); i++) {
+                data.putString("detail" + i, details.get(i).getString());
+            }
+            serverData.put(DATA_KEY, data);
+        }
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            CompoundTag serverData = accessor.getServerData();
+            if (!serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)) return;
+            CompoundTag data = serverData.getCompound(DATA_KEY);
+
+            tooltip.add(line("status", Component.translatable(statusKey(data.getString("statusId")))));
+            int details = data.getInt("detailCount");
+            for (int i = 0; i < details; i++) {
+                tooltip.add(line("detail", data.getString("detail" + i)));
+            }
+            if (data.getBoolean("structureValid") && data.getInt("duration") > 0) {
+                int progress = data.getInt("progress");
+                int duration = data.getInt("duration");
+                double percent = Math.round(progress * 1000.0 / duration) / 10.0;
+                int remaining = data.getInt("remaining");
+                if (remaining >= 0) {
+                    tooltip.add(line("progress", percent + "%",
+                            FormattingUtil.formatNumbers(remaining / 20.0) + "s"));
+                }
+            }
+            String fluidId = data.getString("fluidId");
+            int amount = data.getInt("fluidAmount");
+            int capacity = data.getInt("fluidCapacity");
+            String fluidName;
+            if (!fluidId.isEmpty()) {
+                var fluid = net.minecraftforge.registries.ForgeRegistries.FLUIDS.getValue(
+                        new ResourceLocation(fluidId));
+                fluidName = fluid == null ? fluidId
+                        : fluid.getFluidType().getDescription().getString();
+            } else {
+                fluidName = Component.translatable("gregsteamexpansion.jade.coke_oven.empty").getString();
+            }
+            tooltip.add(line("fluid", fluidName,
+                    FormattingUtil.formatNumbers(amount), FormattingUtil.formatNumbers(capacity)));
+        }
+
+        private static String statusKey(String statusId) {
+            return switch (statusId) {
+                case "invalid_structure" -> "gtceu.multiblock.invalid_structure";
+                case "pending_output" -> "gregsteamexpansion.coke_oven.status.pending_output";
+                case "working" -> "gtceu.multiblock.running";
+                case "awaiting_reinput" -> "gregsteamexpansion.coke_oven.status.awaiting_reinput";
+                case "input_invalid" -> "gregsteamexpansion.coke_oven.status.input_invalid";
+                case "item_blocked" -> "gregsteamexpansion.coke_oven.status.item_output_blocked";
+                case "fluid_blocked" -> "gregsteamexpansion.coke_oven.status.fluid_output_blocked";
+                case "both_blocked" -> "gregsteamexpansion.coke_oven.status.both_output_blocked";
+                case "ready" -> "gregsteamexpansion.coke_oven.status.ready";
+                default -> "gtceu.multiblock.idling";
+            };
+        }
+
+        private static Component line(String name, Object... arguments) {
+            return Component.translatable("gregsteamexpansion.jade.coke_oven." + name, arguments)
+                    .withStyle(ChatFormatting.GRAY);
+        }
+
+        @Override
+        public ResourceLocation getUid() {
+            return UID;
+        }
+    }
+
+    /**
+     * 可配置焦炉仓 Jade 数据协议 (coke-ovens.md): 始终显示当前模式; 连接状态区分
+     * 已连接且结构有效 / 已归属但结构无效 / 未连接; 每种模式只显示有权访问的
+     * 对应库存内容。
+     */
+    private enum CokeOvenHatchProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+        INSTANCE;
+
+        private static final ResourceLocation UID = GregSteamExpansion.id("coke_oven_hatch_info");
+        private static final String DATA_KEY = "GregSteamExpansionCokeOvenHatch";
+
+        @Override
+        public void appendServerData(CompoundTag serverData, BlockAccessor accessor) {
+            if (!(accessor.getBlockEntity() instanceof MetaMachineBlockEntity blockEntity) ||
+                    !(blockEntity.getMetaMachine() instanceof GSECokeOvenHatch hatch)) {
+                return;
+            }
+            CompoundTag data = new CompoundTag();
+            data.putString("mode", hatch.getMode().getSerializedName());
+            String connection = "none";
+            for (var controller : hatch.getControllers()) {
+                if (controller instanceof GSECokeOvenMachine oven) {
+                    connection = oven.isFormed() ? "formed" : "invalid";
+                    break;
+                }
+            }
+            data.putString("connection", connection);
+            data.putString("itemSummary", hatch.getItemSummary());
+            String fluidSummary = hatch.getFluidSummary();
+            data.putString("fluidSummary", fluidSummary == null ? "" : fluidSummary);
+            serverData.put(DATA_KEY, data);
+        }
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            CompoundTag serverData = accessor.getServerData();
+            if (!serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)) return;
+            CompoundTag data = serverData.getCompound(DATA_KEY);
+
+            String mode = data.getString("mode");
+            tooltip.add(line("mode", Component.translatable(
+                    "gregsteamexpansion.coke_oven_hatch.mode." + mode)));
+            String connection = data.getString("connection");
+            tooltip.add(line("connection", Component.translatable(
+                    "gregsteamexpansion.jade.coke_oven_hatch.connection." + connection)));
+            if ("formed".equals(connection)) {
+                tooltip.add(line("items", data.getString("itemSummary")));
+                String fluid = data.getString("fluidSummary");
+                if (!fluid.isEmpty()) {
+                    tooltip.add(line("fluid", fluid));
+                }
+            }
+        }
+
+        private static Component line(String name, Object... arguments) {
+            return Component.translatable("gregsteamexpansion.jade.coke_oven_hatch." + name, arguments)
+                    .withStyle(ChatFormatting.GRAY);
         }
 
         @Override

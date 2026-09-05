@@ -57,5 +57,8 @@
         "recipe_logic_status": "suspend"
       }
     }
-  ]
+  ],
+  "texture_overrides": {
+    "all": "gtceu:block/casings/solid/machine_casing_bronze_plated_bricks"
+  }
 }

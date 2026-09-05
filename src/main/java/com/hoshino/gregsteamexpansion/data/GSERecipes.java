@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.data;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.common.data.GCYMBlocks;
+import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTItems;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
@@ -70,6 +71,108 @@ public final class GSERecipes {
         addSteamHatchRecipes(provider);
         addSteamCrusherRecipes(provider);
         addFurnaceControllerRecipe(provider);
+        addCokeOvenRecipes(provider);
+    }
+
+    // ------------------------------------------------------------------
+    // 普通焦炉控制器 / 可配置焦炉仓 (coke-ovens.md 获取配方): 精确覆盖上游
+    // gtceu:shaped/coke_oven 与 gtceu:shaped/coke_oven_hatch (上游经
+    // VanillaRecipeHelper 注册时的真实资源 ID), 旧图案不再存在。使用原版
+    // shaped 序列化器, 产出原有注册对象, 每次固定 1 个, 三档完全相同。
+    // ------------------------------------------------------------------
+
+    /** Shared by data generation and the addon's dynamic-pack replacements. */
+    public static void addCokeOvenRecipes(Consumer<FinishedRecipe> provider) {
+        ItemStack brickItem = GTItems.COKE_OVEN_BRICK.get().getDefaultInstance();
+        ItemStack bricksBlock = GTBlocks.CASING_COKE_BRICKS.asStack();
+        ItemStack bronzeFluidPipe = ChemicalHelper.get(TagPrefix.pipeNormalFluid, GTMaterials.Bronze);
+
+        // 控制器: 8 焦炉砖物品 + 1 熔炉居中, 不再使用焦炉砖块/铁板/扳手位。
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.gtceuId("shaped/coke_oven"),
+                GTMultiMachines.COKE_OVEN.asStack(),
+                new String[]{"BBB", "BFB", "BBB"},
+                new Object[]{
+                        'B', brickItem,
+                        'F', new ItemStack(Items.FURNACE)}));
+
+        // 焦炉仓: 四角焦炉砖物品、中央左右焦炉砖块、上方漏斗、正中木箱标签、
+        // 下方普通青铜流体管道; 上下不可颠倒, 左右对称。
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.gtceuId("shaped/coke_oven_hatch"),
+                GTMachines.COKE_OVEN_HATCH.asStack(),
+                new String[]{"BHB", "CXC", "BPB"},
+                new Object[]{
+                        'B', brickItem,
+                        'H', new ItemStack(Items.HOPPER),
+                        'C', bricksBlock,
+                        'X', net.minecraftforge.common.Tags.Items.CHESTS_WOODEN,
+                        'P', bronzeFluidPipe}));
+    }
+
+    /**
+     * 产出一份标准原版 shaped 配方 JSON, 资源 ID 与内容完全由调用方指定 (允许
+     * 覆盖 gtceu 命名空间的上游配方 ID)。
+     */
+    private static FinishedRecipe upstreamShaped(ResourceLocation id, ItemStack result, String[] pattern,
+                                                 Object... keys) {
+        return new FinishedRecipe() {
+            @Override
+            public void serializeRecipeData(com.google.gson.JsonObject json) {
+                json.addProperty("category", "misc");
+                com.google.gson.JsonArray patternJson = new com.google.gson.JsonArray();
+                for (String row : pattern) {
+                    patternJson.add(row);
+                }
+                json.add("pattern", patternJson);
+                com.google.gson.JsonObject keyJson = new com.google.gson.JsonObject();
+                for (int i = 0; i + 1 < keys.length; i += 2) {
+                    char symbol = (Character) keys[i];
+                    Object value = keys[i + 1];
+                    com.google.gson.JsonObject ingredient = new com.google.gson.JsonObject();
+                    if (value instanceof ItemStack stack) {
+                        ingredient.addProperty("item", net.minecraftforge.registries.ForgeRegistries.ITEMS
+                                .getKey(stack.getItem()).toString());
+                    } else if (value instanceof net.minecraft.tags.TagKey<?> tag) {
+                        @SuppressWarnings("unchecked")
+                        net.minecraft.tags.TagKey<net.minecraft.world.item.Item> itemTag =
+                                (net.minecraft.tags.TagKey<net.minecraft.world.item.Item>) tag;
+                        ingredient.addProperty("tag", itemTag.location().toString());
+                    } else {
+                        throw new IllegalArgumentException("Unsupported coke oven recipe key: " + value);
+                    }
+                    keyJson.add(String.valueOf(symbol), ingredient);
+                }
+                json.add("key", keyJson);
+                com.google.gson.JsonObject resultJson = new com.google.gson.JsonObject();
+                resultJson.addProperty("item", net.minecraftforge.registries.ForgeRegistries.ITEMS
+                        .getKey(result.getItem()).toString());
+                resultJson.addProperty("count", result.getCount());
+                json.add("result", resultJson);
+            }
+
+            @Override
+            public ResourceLocation getId() {
+                return id;
+            }
+
+            @Override
+            public net.minecraft.world.item.crafting.RecipeSerializer<?> getType() {
+                return net.minecraft.world.item.crafting.RecipeSerializer.SHAPED_RECIPE;
+            }
+
+            @Override
+            @Nullable
+            public com.google.gson.JsonObject serializeAdvancement() {
+                return null;
+            }
+
+            @Override
+            @Nullable
+            public ResourceLocation getAdvancementId() {
+                return null;
+            }
+        };
     }
 
     // ------------------------------------------------------------------

@@ -1,0 +1,16 @@
+{
+  "sources": [
+    {
+      "type": "single",
+      "resource": "gregsteamexpansion:block/coke_oven_hatch/mode_item_input"
+    },
+    {
+      "type": "single",
+      "resource": "gregsteamexpansion:block/coke_oven_hatch/mode_item_output"
+    },
+    {
+      "type": "single",
+      "resource": "gregsteamexpansion:block/coke_oven_hatch/mode_fluid_output"
+    }
+  ]
+}

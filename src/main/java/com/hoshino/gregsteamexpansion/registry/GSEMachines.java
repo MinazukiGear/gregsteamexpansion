@@ -192,6 +192,16 @@ public final class GSEMachines {
     // no covers on the reserved front face.
     // ------------------------------------------------------------------
 
+    private static MachineBuilder.ModelInitializer steamMultiblockModel(ResourceLocation overlayDir) {
+        // appearanceBlock supplies the CTM connection identity; formed parts
+        // also need an explicit texture override to replace their tier hull.
+        // "all" maps to the buses'/hatches' bottom, top and side textures,
+        // preserving their front overlays and the controller's steam model.
+        return GTMachineModels.createWorkableSteamHullMachineModel(false, overlayDir)
+                .andThen(builder -> builder.addTextureOverride("all",
+                        GregSteamExpansion.gtceuId("block/casings/solid/machine_casing_bronze_plated_bricks")));
+    }
+
     public static final MultiblockMachineDefinition STEAM_CRUSHER = GSERegistration.REGISTRATE
             .multiblock("steam_crusher", SteamCrusherMachine::new)
             .rotationState(RotationState.NON_Y_AXIS)
@@ -199,7 +209,7 @@ public final class GSEMachines {
             .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
-            .model(GTMachineModels.createWorkableSteamHullMachineModel(false,
+            .model(steamMultiblockModel(
                     GregSteamExpansion.id("block/multiblock/steam_crusher")))
             .pattern(GSECrusherPatterns::createSmall)
             .shapeInfos(definition -> List.of(GSECrusherPatterns.smallShapeInfo(definition)))
@@ -215,7 +225,7 @@ public final class GSEMachines {
             .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
-            .model(GTMachineModels.createWorkableSteamHullMachineModel(false,
+            .model(steamMultiblockModel(
                     GregSteamExpansion.id("block/multiblock/large_steam_crusher")))
             .pattern(GSECrusherPatterns::createLarge)
             .shapeInfos(definition -> List.of(GSECrusherPatterns.largeShapeInfo(definition)))
@@ -409,7 +419,7 @@ public final class GSEMachines {
                 }
                 return infos;
             })
-            .model(GTMachineModels.createWorkableSteamHullMachineModel(false,
+            .model(steamMultiblockModel(
                     GregSteamExpansion.id("block/machine/large_heat_storage_steam_furnace")))
             .langValue("Large Heat-Storage Steam Furnace")
             .tooltipBuilder(GSEMachines::furnaceTooltips)
