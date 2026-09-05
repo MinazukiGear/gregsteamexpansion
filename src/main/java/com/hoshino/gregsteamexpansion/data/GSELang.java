@@ -120,21 +120,23 @@ public final class GSELang {
                 "At Temperature Limit");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.status.cooling", "Cooling");
         add("gregsteamexpansion.multiblock.steam_exhaust_hatch_obstructed", "Steam Exhaust Hatch is Obstructed!");
-        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.status", "Status: %s");
+        // UI info-row labels carry no placeholders: values render in a second
+        // label so the raw keys must not contain %s (format-error guard).
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.status", "Status");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.temperature",
-                "Temperature (current/startup/max): %s");
-        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.progress", "Progress: %s");
+                "Temperature (current/startup/max)");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.progress", "Progress");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.steam",
-                "Steam demand/supply limit: %s");
+                "Steam demand/supply limit");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.parallel",
-                "Parallel (current/max): %s");
+                "Parallel (current/max)");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.size",
-                "Furnace size & volume: %s");
+                "Furnace size & volume");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.preheat",
-                "Preheat to next °C: %s");
-        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.speed", "Batch speed: ×%s");
+                "Preheat to next °C");
+        add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.speed", "Batch speed");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.duration",
-                "Batch duration: %s");
+                "Batch duration");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.unlimited", "Unlimited");
         add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.status", "Status: %s");
         add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.temperature",

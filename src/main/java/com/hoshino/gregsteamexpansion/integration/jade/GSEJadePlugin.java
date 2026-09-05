@@ -106,7 +106,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
                     double percent = duration == 0 ? 0 : Math.round(progress * 1000.0 / duration) / 10.0;
                     tooltip.add(line("progress", percent + "%", progress + "/" + duration + "t"));
                 } else {
-                    tooltip.add(line("progress", "—"));
+                    tooltip.add(line("progress", "—", "—"));
                 }
             } else {
                 tooltip.add(line("temperature", "—", "—", "—"));

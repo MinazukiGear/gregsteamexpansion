@@ -1125,7 +1125,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
                         java.util.function.Supplier<String> value, ChatFormatting valueColor) {
         group.addWidget(new LabelWidget(2, y, () -> Component.translatable(labelKey).getString())
                 .setTextColor(-1).setDropShadow(true));
-        group.addWidget(new LabelWidget(84, y, value).setTextColor(valueColor.ordinal())
+        Integer rgb = valueColor.getColor();
+        group.addWidget(new LabelWidget(84, y, value).setTextColor(rgb == null ? -1 : (rgb.intValue() & 0xFFFFFF))
                 .setDropShadow(true));
         return y + 10;
     }
