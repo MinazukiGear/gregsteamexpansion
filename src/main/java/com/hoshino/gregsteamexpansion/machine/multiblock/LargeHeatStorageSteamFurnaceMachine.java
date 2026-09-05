@@ -1103,7 +1103,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         infoRow(scroll, y, uiKey("ui.duration"),
                 () -> hasBatch ? formatDuration(batchDuration) : "—", ChatFormatting.WHITE);
         ui.widget(scroll);
-        // 电源按钮与总线隔离固定在滚动区之外.
+        // 电源按钮与总线隔离固定在滚动区之外; 总线隔离仅有按钮, 说明放入悬浮提示.
         ui.widget(new ToggleButtonWidget(6, uiHeight - 24, 18, 18, GuiTextures.BUTTON_POWER,
                 this::isWorkingEnabled, this::setWorkingEnabled));
         ui.widget(new ToggleButtonWidget(28, uiHeight - 24, 18, 18, GuiTextures.BUTTON_DISTINCT_BUSES,
@@ -1111,9 +1111,11 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
                     if (canToggleDistinctBuses()) {
                         distinctBuses = value;
                     }
-                }));
-        ui.widget(new LabelWidget(52, uiHeight - 18,
-                () -> Component.translatable("gtceu.multiblock.universal.distinct").getString()));
+                }).setHoverTooltips(
+                Component.translatable("gtceu.multiblock.universal.distinct")
+                        .withStyle(ChatFormatting.YELLOW),
+                Component.translatable("gtceu.multiblock.universal.distinct.info")
+                        .withStyle(ChatFormatting.GRAY)));
         return ui;
     }
 
