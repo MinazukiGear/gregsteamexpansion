@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "D": {
+      "item": "gtceu:double_steel_plate"
+    },
+    "F": {
+      "item": "gtceu:hp_steam_furnace"
+    },
+    "O": {
+      "item": "gtceu:steam_oven"
+    },
+    "P": {
+      "item": "gtceu:steel_huge_fluid_pipe"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "DPD",
+    "FOF",
+    "DPD"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:large_heat_storage_steam_furnace"
+  }
+}
