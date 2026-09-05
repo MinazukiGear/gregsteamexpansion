@@ -248,8 +248,8 @@ private static MultiblockShapeInfo.ShapeInfoBuilder buildShapeInfo(MultiblockMac
         String[] rows = new String[height];
         for (int l = 0; l < height; l++) {
             StringBuilder sb = new StringBuilder();
-            for (String[] layer : layers) {
-                sb.append(layer[l].charAt(a));
+            for (int r = 0; r < layers[l].length; r++) {
+                sb.append(layers[l][r].charAt(a));
             }
             rows[l] = sb.toString();
         }
