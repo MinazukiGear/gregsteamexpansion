@@ -988,13 +988,13 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         if (!hasBatch) {
             return "—";
         }
+        // Assembled in Java (no translatable template): vanilla's format parser
+        // is brittle with % signs inside templates, and a progress line is pure
+        // data anyway — only the row label is localized.
         double percent = Math.round(Math.min(batchProgress, DURATION_TICKS) * 1000.0 / DURATION_TICKS) / 10.0;
-        // the percent sign rides in the first argument: a %% inside a
-        // translatable template trips the vanilla format parser on some sides
         String percentText = String.format(java.util.Locale.ROOT, "%.1f%%", percent);
-        return Component.translatable(UI_PREFIX + "progress_format", percentText,
-                FormattingUtil.formatNumbers(Math.min(batchProgress, DURATION_TICKS)),
-                FormattingUtil.formatNumbers(DURATION_TICKS)).getString();
+        return percentText + " (" + FormattingUtil.formatNumbers(Math.min(batchProgress, DURATION_TICKS))
+                + " / " + FormattingUtil.formatNumbers(DURATION_TICKS) + "t)";
     }
 
     /** 锁定每刻需求 4×P; only "运行中" with a successful draw is actually consuming. */

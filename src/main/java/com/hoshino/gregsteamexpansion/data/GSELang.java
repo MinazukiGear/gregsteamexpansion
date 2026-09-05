@@ -173,7 +173,6 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_crusher.ui.status", "Status");
         add("gregsteamexpansion.machine.steam_crusher.ui.recipe", "Recipe");
         add("gregsteamexpansion.machine.steam_crusher.ui.progress", "Progress");
-        add("gregsteamexpansion.machine.steam_crusher.ui.progress_format", "%s (%s / %s tick)");
         add("gregsteamexpansion.machine.steam_crusher.ui.parallel", "Parallel (current / cap)");
         add("gregsteamexpansion.machine.steam_crusher.ui.steam", "Steam (total / capacity)");
         add("gregsteamexpansion.machine.steam_crusher.ui.demand", "Steam demand");

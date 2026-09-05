@@ -195,7 +195,6 @@
   "gregsteamexpansion.machine.steam_crusher.ui.status": "状态",
   "gregsteamexpansion.machine.steam_crusher.ui.recipe": "配方",
   "gregsteamexpansion.machine.steam_crusher.ui.progress": "进度",
-  "gregsteamexpansion.machine.steam_crusher.ui.progress_format": "%s（%s / %s tick）",
   "gregsteamexpansion.machine.steam_crusher.ui.parallel": "并行（当前 / 上限）",
   "gregsteamexpansion.machine.steam_crusher.ui.steam": "蒸汽（合计存量 / 容量）",
   "gregsteamexpansion.machine.steam_crusher.ui.demand": "每刻蒸汽需求",
