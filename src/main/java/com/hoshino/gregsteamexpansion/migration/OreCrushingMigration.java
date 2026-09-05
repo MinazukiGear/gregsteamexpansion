@@ -142,8 +142,19 @@ public final class OreCrushingMigration {
         if (candidates.isEmpty()) {
             // 条件 5 失败: the load cannot produce a single validated ore-crushing
             // recipe, so the originals stay and the viewer category stays hidden.
-            GregSteamExpansion.LOGGER.error(
-                    "[Ore Crushing] Recipe migration skipped; no macerator recipe passed target identification");
+            // On the integrated-server client this is the NORMAL post-sync state:
+            // the server already migrated its set and synced it down, so the
+            // synced macerator table legitimately holds no ore recipes.
+            boolean maceratorHasOreCategory = maceratorMap.values().stream().anyMatch(
+                    recipe -> recipe instanceof GTRecipe gtRecipe && isCandidate(gtRecipe));
+            if (maceratorHasOreCategory) {
+                GregSteamExpansion.LOGGER.error(
+                        "[Ore Crushing] Recipe migration skipped; {} ORE_CRUSHING macerator recipes exist but none passed target identification",
+                        maceratorMap.size());
+            } else {
+                GregSteamExpansion.LOGGER.debug(
+                        "[Ore Crushing] No macerator ore recipes in the synced set; migration already applied server-side");
+            }
             return;
         }
 
