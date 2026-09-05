@@ -36,10 +36,12 @@ public abstract class BlockPatternPreviewFacingMixin {
     // mismatch failed the injection check with 0/1 succeeded).
     @WrapOperation(method = "lambda$getPreview$6", at = @At(value = "INVOKE", target =
             "Lcom/gregtechceu/gtceu/api/pattern/BlockPattern;resetFacing(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;Ljava/util/function/BiPredicate;Ljava/util/function/Consumer;)V"))
-    private void gse$preferShapeFacing(BlockPos pos, BlockState state, Direction facing,
+    // instance method target: the wrapper's first parameter is the target
+    // class instance (this)
+    private void gse$preferShapeFacing(BlockPattern instance, BlockPos pos, BlockState state, Direction facing,
                                        BiPredicate<BlockPos, Direction> checker,
                                        Consumer<BlockState> consumer, Operation<Void> original) {
-        original.call(pos, state, facing, checker, consumer);
+        original.call(instance, pos, state, facing, checker, consumer);
 
         Direction shapeFacing = null;
         if (state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
