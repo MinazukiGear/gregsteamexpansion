@@ -514,7 +514,11 @@ public final class GSERecipes {
         // steel reinforcement material (same substitution precedent as the
         // industrial steam casing's bronze frame).
         provider.accept(exactDirectionShaped(
-                GregSteamExpansion.id("large_steam_crusher"),
+                // shaped/ 前缀 is mandatory here: the recipe ID must differ from
+                // the machine definition ID, which GTCEu's multiblock info page
+                // (MultiblockInfoEmiRecipe) already uses as its viewer recipe ID
+                // (steam-crushers.md: 配方资源 ID 为 shaped/large_steam_crusher).
+                GregSteamExpansion.id("shaped/large_steam_crusher"),
                 GSEMachines.LARGE_STEAM_CRUSHER.asStack(),
                 new String[]{"DGD", "RSB", "DGD"},
                 'D', ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Steel),
