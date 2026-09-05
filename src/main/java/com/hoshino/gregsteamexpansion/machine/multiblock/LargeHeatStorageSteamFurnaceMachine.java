@@ -1151,7 +1151,10 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         group.addWidget(new LabelWidget(2, y, () -> Component.translatable(labelKey).getString())
                 .setTextColor(-1).setDropShadow(true));
         Integer rgb = valueColor.getColor();
-        group.addWidget(new LabelWidget(104, y, value).setTextColor(rgb == null ? -1 : (rgb.intValue() & 0xFFFFFF))
+        // LabelWidget formats strings again on the client. Percent signs in
+        // display values must reach that pass as escaped literals.
+        group.addWidget(new LabelWidget(104, y, () -> value.get().replace("%", "%%"))
+                .setTextColor(rgb == null ? -1 : (rgb.intValue() & 0xFFFFFF))
                 .setDropShadow(true));
         return y + 10;
     }

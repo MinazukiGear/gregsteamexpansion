@@ -957,7 +957,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
                 .setTextColor(-1).setDropShadow(true));
         Integer pendingRgb = ChatFormatting.WHITE.getColor();
         // Hover lists the persisted pending items in their stable order, live.
-        LabelWidget pendingValue = new LabelWidget(104, y, this::pendingSummaryText) {
+        LabelWidget pendingValue = new LabelWidget(104, y, () -> pendingSummaryText().replace("%", "%%")) {
             @Override
             public java.util.List<Component> getTooltipTexts() {
                 return pendingDetailTooltips();
@@ -978,7 +978,10 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         group.addWidget(new LabelWidget(2, y, () -> Component.translatable(labelKey).getString())
                 .setTextColor(-1).setDropShadow(true));
         Integer rgb = valueColor.getColor();
-        group.addWidget(new LabelWidget(104, y, value)
+        // LabelWidget runs LocalizationUtils.format even on already formatted
+        // values. Escape literal percent signs at this UI boundary so progress
+        // and item names survive that final formatting pass.
+        group.addWidget(new LabelWidget(104, y, () -> value.get().replace("%", "%%"))
                 .setTextColor(rgb == null ? -1 : (rgb.intValue() & 0xFFFFFF)).setDropShadow(true));
         return y + 10;
     }
@@ -988,9 +991,8 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         if (!hasBatch) {
             return "—";
         }
-        // Assembled in Java (no translatable template): vanilla's format parser
-        // is brittle with % signs inside templates, and a progress line is pure
-        // data anyway — only the row label is localized.
+        // Build the display value here; infoRow escapes its literal percent sign
+        // for LabelWidget's additional localization/formatting pass.
         double percent = Math.round(Math.min(batchProgress, DURATION_TICKS) * 1000.0 / DURATION_TICKS) / 10.0;
         String percentText = String.format(java.util.Locale.ROOT, "%.1f%%", percent);
         return percentText + " (" + FormattingUtil.formatNumbers(Math.min(batchProgress, DURATION_TICKS))
