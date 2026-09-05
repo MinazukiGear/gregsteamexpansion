@@ -760,7 +760,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         long remaining = amountMb;
         for (SteamHatchPartMachine hatch : steamHatches) {
             long capped = Math.min(remaining, STEAM_PER_HATCH_LIMIT_MB);
-            FluidStack simulated = hatch.tank.drain(steamFluid(capped), IFluidHandler.FluidAction.SIMULATE);
+            FluidStack simulated = hatch.tank.drainInternal(steamFluid(capped), IFluidHandler.FluidAction.SIMULATE);
             remaining -= simulated.getAmount();
             if (remaining <= 0) {
                 break;
@@ -768,7 +768,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         }
         if (remaining > 0) {
             for (FluidHatchPartMachine hatch : meSteamHatches) {
-                FluidStack simulated = hatch.tank.drain(steamFluid(remaining), IFluidHandler.FluidAction.SIMULATE);
+                FluidStack simulated = hatch.tank.drainInternal(steamFluid(remaining), IFluidHandler.FluidAction.SIMULATE);
                 remaining -= simulated.getAmount();
                 if (remaining <= 0) {
                     break;
@@ -781,7 +781,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         remaining = amountMb;
         for (SteamHatchPartMachine hatch : steamHatches) {
             long capped = Math.min(remaining, STEAM_PER_HATCH_LIMIT_MB);
-            FluidStack drained = hatch.tank.drain(steamFluid(capped), IFluidHandler.FluidAction.EXECUTE);
+            FluidStack drained = hatch.tank.drainInternal(steamFluid(capped), IFluidHandler.FluidAction.EXECUTE);
             remaining -= drained.getAmount();
             if (remaining <= 0) {
                 break;
@@ -789,7 +789,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         }
         if (remaining > 0) {
             for (FluidHatchPartMachine hatch : meSteamHatches) {
-                FluidStack drained = hatch.tank.drain(steamFluid(remaining), IFluidHandler.FluidAction.EXECUTE);
+                FluidStack drained = hatch.tank.drainInternal(steamFluid(remaining), IFluidHandler.FluidAction.EXECUTE);
                 remaining -= drained.getAmount();
                 if (remaining <= 0) {
                     break;

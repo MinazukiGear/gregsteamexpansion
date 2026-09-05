@@ -657,9 +657,12 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         if (amountMb <= 0 || supplyHatches.isEmpty()) {
             return false;
         }
+        // drainInternal, not drain(): the supply hatch's capability face is
+        // IO.IN (input only), so the capability-level drain is gated off for
+        // outside callers; machine-internal withdrawal uses the internal path.
         long remaining = amountMb;
         for (SteamSupplyHatchPartMachine hatch : supplyHatches) {
-            FluidStack simulated = hatch.tank.drain(steamFluid(remaining), IFluidHandler.FluidAction.SIMULATE);
+            FluidStack simulated = hatch.tank.drainInternal(steamFluid(remaining), IFluidHandler.FluidAction.SIMULATE);
             remaining -= simulated.getAmount();
             if (remaining <= 0) {
                 break;
@@ -670,7 +673,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         }
         remaining = amountMb;
         for (SteamSupplyHatchPartMachine hatch : supplyHatches) {
-            FluidStack drained = hatch.tank.drain(steamFluid(remaining), IFluidHandler.FluidAction.EXECUTE);
+            FluidStack drained = hatch.tank.drainInternal(steamFluid(remaining), IFluidHandler.FluidAction.EXECUTE);
             remaining -= drained.getAmount();
             if (remaining <= 0) {
                 break;
