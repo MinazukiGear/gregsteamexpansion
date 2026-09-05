@@ -29,6 +29,9 @@ CYAN_LIGHT = (196, 244, 240)
 CYAN_BASE = (126, 214, 208)
 CYAN_DARK = (66, 158, 154)
 RUBBER_DARK = (44, 44, 50)
+GRATE_DARK = (38, 38, 42)
+GRATE_BAR = (128, 128, 136)
+GRATE_SHADOW = (24, 24, 28)
 RUBBER_BASE = (60, 60, 68)
 
 
@@ -247,6 +250,57 @@ def bronze_component_item(rng):
     return canvas
 
 
+
+def steam_exhaust_hatch_front():
+    """Recessed square steel grille on a bronze shell (exhaust hatch front,
+    large-heat-storage-steam-furnace.md 美术方向). Every pixel is written to
+    all four mirrored positions, so the face is symmetric about both axes."""
+    canvas = new_canvas()
+    # Symmetric plate shading: brightness varies with distance from the
+    # vertical centre line only.
+    for y in range(SIZE):
+        for x in range(SIZE):
+            band = abs(x - (SIZE - 1) / 2.0)
+            delta = 6 if band < 4 else (0 if band < 6.5 else -6)
+            px(canvas, x, y, shade(BRONZE_BASE, delta))
+
+    def sym(x, y, color):
+        px(canvas, x, y, color)
+        px(canvas, SIZE - 1 - x, y, color)
+        px(canvas, x, SIZE - 1 - y, color)
+        px(canvas, SIZE - 1 - x, SIZE - 1 - y, color)
+
+    # Outer dark border and a uniform mid-tone rim with corner rivets.
+    for i in range(SIZE):
+        sym(i, 0, BRONZE_EDGE)
+        sym(0, i, BRONZE_EDGE)
+    for i in range(1, SIZE - 1):
+        sym(i, 1, BRONZE_DARK)
+        sym(1, i, BRONZE_DARK)
+    for cx, cy in ((1, 1), (SIZE - 2, 1), (1, SIZE - 2), (SIZE - 2, SIZE - 2)):
+        sym(cx, cy, BRONZE_RIVET)
+
+    # Recessed grille area 3..12 with a uniform shadow ring.
+    for y in range(3, SIZE - 3):
+        for x in range(3, SIZE - 3):
+            px(canvas, x, y, GRATE_DARK)
+    for i in range(3, SIZE - 3):
+        sym(i, 3, GRATE_SHADOW)
+        sym(3, i, GRATE_SHADOW)
+
+    # Coarse 2px steel bars mirrored about the centre (5-6 / 9-10).
+    for t in (5, 6, 9, 10):
+        for y in range(3, SIZE - 3):
+            sym(t, y, GRATE_BAR)
+        for x in range(3, SIZE - 3):
+            sym(x, t, GRATE_BAR)
+    # Rivet dots where the bars meet the recess frame.
+    for a in (5, 6, 9, 10):
+        sym(a, 4, GRATE_SHADOW)
+        sym(4, a, GRATE_SHADOW)
+    return canvas
+
+
 def write_png(path, canvas):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     raw = b""
@@ -297,6 +351,10 @@ def main():
             painter(canvas, rng)
             write_png(os.path.join(root, "block", name, f"{face}.png"), canvas)
             print(f"wrote block/{name}/{face}.png")
+
+    write_png(os.path.join(root, "block", "machine", "part", "steam_exhaust_hatch.png"),
+              steam_exhaust_hatch_front())
+    print("wrote block/machine/part/steam_exhaust_hatch.png")
 
     write_png(os.path.join(root, "item", "bronze_component.png"), bronze_component_item(random.Random("bronze_component")))
     print("wrote item/bronze_component.png")
