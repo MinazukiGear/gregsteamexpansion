@@ -398,18 +398,21 @@ def furnace_front(lit):
 
 
 def furnace_front_emissive(lit):
-    """Emissive mask: only the flame, the observation window and the gauge
-    needle glow; the bronze shell stays unlit."""
-    canvas = [[(0, 0, 0)] * SIZE for _ in range(SIZE)]
+    """Emissive mask with a TRANSPARENT background: only the flame, the
+    observation window and the gauge needle carry alpha; the shell must stay
+    see-through or the full-bright layer covers the whole front face
+    (matches the working mixed-fuel-boiler masks)."""
+    canvas = [[(0, 0, 0, 0)] * SIZE for _ in range(SIZE)]
+    if not lit:
+        return canvas
     for y in range(8, 9):
         for x in range(6, 10):
-            canvas[y][x] = (255, 255, 255) if lit else (40, 40, 40)
-    if lit:
-        for y in range(10, 13):
-            for x in range(5, 11):
-                canvas[y][x] = (255, 255, 255)
-        canvas[2][7] = (255, 255, 255)
-        canvas[2][8] = (255, 255, 255)
+            canvas[y][x] = (255, 200, 120, 255)
+    for y in range(10, 13):
+        for x in range(5, 11):
+            canvas[y][x] = (255, 255, 255, 255)
+    canvas[2][7] = (255, 255, 255, 255)
+    canvas[2][8] = (255, 255, 255, 255)
     return canvas
 
 
@@ -417,7 +420,8 @@ def write_png(path, canvas):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     raw = b""
     for row in canvas:
-        raw += b"\x00" + b"".join(struct.pack("4B", *px_[:3], 255) for px_ in row)
+        raw += b"\x00" + b"".join(
+            struct.pack("4B", *px_[:3], px_[3] if len(px_) > 3 else 255) for px_ in row)
 
     def chunk(tag, data):
         body = tag + data
