@@ -1,0 +1,30 @@
+{
+  "type": "gregsteamexpansion:exact_direction_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "gtceu:steel_buzz_saw_blade"
+    },
+    "D": {
+      "item": "gtceu:double_steel_plate"
+    },
+    "G": {
+      "item": "gtceu:steel_gear"
+    },
+    "R": {
+      "item": "gtceu:steel_rotor"
+    },
+    "S": {
+      "item": "gregsteamexpansion:steam_crusher"
+    }
+  },
+  "pattern": [
+    "DGD",
+    "RSB",
+    "DGD"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_steam_crusher"
+  }
+}

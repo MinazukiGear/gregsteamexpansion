@@ -5,6 +5,7 @@ import com.gregtechceu.gtceu.api.blockentity.MetaMachineBlockEntity;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 
@@ -31,6 +32,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockDataProvider(MixedFuelBoilerProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(FurnaceProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(AirIntakeProvider.INSTANCE, MetaMachineBlockEntity.class);
+        registration.registerBlockDataProvider(CrusherProvider.INSTANCE, MetaMachineBlockEntity.class);
     }
 
     @Override
@@ -38,6 +40,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockComponent(MixedFuelBoilerProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(FurnaceProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(AirIntakeProvider.INSTANCE, MetaMachineBlock.class);
+        registration.registerBlockComponent(CrusherProvider.INSTANCE, MetaMachineBlock.class);
     }
 
     /**
@@ -46,6 +49,95 @@ public final class GSEJadePlugin implements IWailaPlugin {
      * synced remaining ticks and the raw tank amount, with capacity reported
      * identically to tooltips and the fluid capability.
      */
+
+    /**
+     * 粉碎机 Jade 数据协议 (steam-crushers.md Jade 信息与同步): the same
+     * server-authoritative snapshot as the controller GUI — status priority,
+     * locked recipe/progress/parallel, steam totals and the pending-output
+     * summary; the full pending list stays GUI-only.
+     */
+    private enum CrusherProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+        INSTANCE;
+
+        private static final ResourceLocation UID = GregSteamExpansion.id("steam_crusher_info");
+        private static final String DATA_KEY = "GregSteamExpansionCrusher";
+
+        @Override
+        public void appendServerData(CompoundTag serverData, BlockAccessor accessor) {
+            if (!(accessor.getBlockEntity() instanceof MetaMachineBlockEntity blockEntity) ||
+                    !(blockEntity.getMetaMachine() instanceof AbstractSteamCrusherMachine crusher)) {
+                return;
+            }
+            CompoundTag data = new CompoundTag();
+            data.putString("statusId", crusher.getStatusId());
+            data.putString("recipeId", crusher.getBatchRecipeId());
+            data.putString("inputItem", crusher.getBatchInputDisplay().isEmpty() ? ""
+                    : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(
+                            crusher.getBatchInputDisplay().getItem()).toString());
+            data.putInt("progress", crusher.getBatchProgress());
+            data.putInt("duration", crusher.getBatchDuration());
+            data.putInt("parallel", crusher.getBatchParallel());
+            data.putInt("parallelCap", crusher.maximumParallel());
+            data.putLong("steamTotal", crusher.getSteamTotalStored());
+            data.putLong("steamCap", crusher.getSteamTotalCapacity());
+            data.putLong("steamPerTick", crusher.getBatchSteamPerTick());
+            data.putBoolean("consuming", crusher.isConsumingSteam());
+            data.putLong("pendingTotal", crusher.getPendingTotalCount());
+            data.putInt("pendingKinds", crusher.getPendingKinds());
+            serverData.put(DATA_KEY, data);
+        }
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            CompoundTag serverData = accessor.getServerData();
+            if (!serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)) return;
+            CompoundTag data = serverData.getCompound(DATA_KEY);
+
+            tooltip.add(line("status", Component.translatable(statusKey(data.getString("statusId")))));
+            if (!data.getString("recipeId").isEmpty()) {
+                tooltip.add(line("recipe", data.getString("recipeId")));
+                tooltip.add(line("progress", FormattingUtil.formatNumbers(data.getInt("progress")),
+                        FormattingUtil.formatNumbers(data.getInt("duration"))));
+            }
+            tooltip.add(line("parallel", data.contains("parallel") && data.getInt("parallel") > 0
+                    ? FormattingUtil.formatNumbers(data.getInt("parallel"))
+                    : "—",
+                    FormattingUtil.formatNumbers(data.getInt("parallelCap"))));
+            tooltip.add(line("steam", FormattingUtil.formatNumbers(data.getLong("steamTotal")),
+                    FormattingUtil.formatNumbers(data.getLong("steamCap"))));
+            tooltip.add(line("demand",
+                    data.getLong("steamPerTick") > 0
+                            ? FormattingUtil.formatNumbers(data.getLong("steamPerTick"))
+                            : "0"));
+            if (data.getLong("pendingTotal") > 0) {
+                tooltip.add(line("pending", FormattingUtil.formatNumbers(data.getLong("pendingTotal")),
+                        String.valueOf(data.getInt("pendingKinds"))));
+            }
+        }
+
+        private static String statusKey(String statusId) {
+            return switch (statusId) {
+                case "invalid_structure" -> "gtceu.multiblock.invalid_structure";
+                case "exhaust_obstructed" -> "gregsteamexpansion.multiblock.steam_exhaust_hatch_obstructed";
+                case "insufficient_outputs" -> "gtceu.recipe_logic.insufficient_out";
+                case "working_disabled" -> "gtceu.top.working_disabled";
+                case "low_steam" -> "gtceu.multiblock.steam.low_steam";
+                case "working" -> "gtceu.multiblock.large_miner.working";
+                default -> "gtceu.multiblock.idling";
+            };
+        }
+
+        private static Component line(String name, Object... arguments) {
+            return Component.translatable("gregsteamexpansion.jade.steam_crusher." + name, arguments)
+                    .withStyle(ChatFormatting.GRAY);
+        }
+
+        @Override
+        public ResourceLocation getUid() {
+            return UID;
+        }
+    }
+
     private enum AirIntakeProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
         INSTANCE;
 

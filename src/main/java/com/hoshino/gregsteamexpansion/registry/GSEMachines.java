@@ -16,7 +16,11 @@ import com.gregtechceu.gtceu.common.data.models.GTMachineModels;
 import com.gregtechceu.gtceu.data.model.builder.MachineModelBuilder;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.migration.OreCrushingMigration;
+import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
@@ -29,6 +33,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
 
 import com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo;
 import net.minecraftforge.client.model.generators.BlockModelBuilder;
@@ -141,7 +146,6 @@ public final class GSEMachines {
     // ------------------------------------------------------------------
     // 蒸汽进气室 / Steam Air Intake Hatch (machines-and-hatches.md 已定案)
     // ------------------------------------------------------------------
-
     public static final MachineDefinition STEAM_AIR_INTAKE_HATCH = GSERegistration.REGISTRATE
             .machine("steam_air_intake_hatch", SteamAirIntakeHatchPartMachine::new)
             .rotationState(RotationState.ALL)
@@ -180,6 +184,53 @@ public final class GSEMachines {
             builder.addReplaceableTextures("bottom", "top", "side");
         };
     }
+
+    // ------------------------------------------------------------------
+    // 蒸汽粉碎机 / Large Steam Crusher controllers (steam-crushers.md)
+    // Fixed bronze steam hull (never the steelSteamMultiblocks steel look),
+    // hardness 5.0 / blast 6.0 / metal sound, four horizontal facings only,
+    // no covers on the reserved front face.
+    // ------------------------------------------------------------------
+
+    public static final MultiblockMachineDefinition STEAM_CRUSHER = GSERegistration.REGISTRATE
+            .multiblock("steam_crusher", SteamCrusherMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GSERecipeTypes.ORE_CRUSHING_RECIPES)
+            .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(GTMachineModels.createWorkableSteamHullMachineModel(false,
+                    GregSteamExpansion.id("block/multiblock/steam_crusher")))
+            .pattern(GSECrusherPatterns::createSmall)
+            .shapeInfos(definition -> List.of(GSECrusherPatterns.smallShapeInfo(definition)))
+            .langValue("Steam Crusher")
+            .tooltipBuilder(GSEMachines::steamCrusherTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    public static final MultiblockMachineDefinition LARGE_STEAM_CRUSHER = GSERegistration.REGISTRATE
+            .multiblock("large_steam_crusher", LargeSteamCrusherMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GSERecipeTypes.ORE_CRUSHING_RECIPES)
+            .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(GTMachineModels.createWorkableSteamHullMachineModel(false,
+                    GregSteamExpansion.id("block/multiblock/large_steam_crusher")))
+            .pattern(GSECrusherPatterns::createLarge)
+            .shapeInfos(definition -> List.of(GSECrusherPatterns.largeShapeInfo(definition)))
+            .langValue("Large Steam Crusher")
+            .tooltipBuilder(GSEMachines::largeSteamCrusherTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    static {
+        // 配方迁移启用保护 (steam-crushers.md): the small crusher registers as
+        // the explicit ore-crushing consumer; the large crusher alone never
+        // satisfies the migration check.
+        OreCrushingMigration.registerConsumer(STEAM_CRUSHER, GregSteamExpansion.id("steam_crusher"));
+    }
+
 
 
     private static void steamSupplyHatchTooltips(ItemStack stack, List<Component> tooltip) {
@@ -400,6 +451,87 @@ public final class GSEMachines {
 
     private static void subtitle(List<Component> tooltip, String key) {
         tooltip.add(Component.translatable(key).withStyle(ChatFormatting.DARK_AQUA));
+    }
+
+
+    private static void steamCrusherTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.2")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.3")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.4")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.5")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.6")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.7")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.8")
+                .withStyle(ChatFormatting.YELLOW));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.9")
+                .withStyle(ChatFormatting.YELLOW));
+    }
+
+    private static void largeSteamCrusherTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.summary.2")
+                .withStyle(ChatFormatting.RED));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.2")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.3")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.4")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.5")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.6")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.7")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.8")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.9")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.10")
+                .withStyle(ChatFormatting.YELLOW));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.11")
+                .withStyle(ChatFormatting.YELLOW));
     }
 
     private GSEMachines() {}

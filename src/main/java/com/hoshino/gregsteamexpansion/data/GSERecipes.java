@@ -14,9 +14,12 @@ import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyRecipes;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
+import com.hoshino.gregsteamexpansion.registry.GSERecipeSerializers;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
 import net.minecraft.data.recipes.FinishedRecipe;
+
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -65,6 +68,7 @@ public final class GSERecipes {
         addSteamMixingBlockRecipes(provider);
         addSteamExhaustHatchRecipe(provider);
         addSteamHatchRecipes(provider);
+        addSteamCrusherRecipes(provider);
         addFurnaceControllerRecipe(provider);
     }
 
@@ -480,6 +484,104 @@ public final class GSERecipes {
                 .EUt(16)
                 .save(provider);
     }
+
+    // ------------------------------------------------------------------
+    // Steam crushers (steam-crushers.md 控制器配方): both controllers craft
+    // exactly one per tier. The small crusher's pattern is left/right
+    // symmetric, so vanilla mirroring is indistinguishable; the large
+    // crusher's rotor/saw-blade row must NOT mirror, which needs the
+    // exact-direction serializer.
+    // ------------------------------------------------------------------
+
+    private static void addSteamCrusherRecipes(Consumer<FinishedRecipe> provider) {
+        // 蒸汽粉碎机: the HP steam macerator is permanently installed as the
+        // control & drive core; the bottom-centre slot stays empty.
+        VanillaRecipeHelper.addShapedRecipe(provider,
+                GregSteamExpansion.id("steam_crusher"),
+                GSEMachines.STEAM_CRUSHER.asStack(),
+                "PDP",
+                "RMR",
+                "P P",
+                'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                'D', GTItems.COMPONENT_GRINDER_DIAMOND.get(),
+                'R', ChemicalHelper.get(TagPrefix.rotor, GTMaterials.Bronze),
+                'M', GTMachines.STEAM_MACERATOR.right().asStack());
+
+        // 大型蒸汽粉碎机: the small crusher controller is permanently installed
+        // as the upgrade core; rotor left, buzz saw blade right, no mirroring.
+        // GTCEu 7.5.3 gives Brass no GENERATE_GEAR/GENERATE_ROTOR flags, so the
+        // brass gear and rotor use the steel equivalents — the large machine's
+        // steel reinforcement material (same substitution precedent as the
+        // industrial steam casing's bronze frame).
+        provider.accept(exactDirectionShaped(
+                GregSteamExpansion.id("large_steam_crusher"),
+                GSEMachines.LARGE_STEAM_CRUSHER.asStack(),
+                new String[]{"DGD", "RSB", "DGD"},
+                'D', ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Steel),
+                'G', ChemicalHelper.get(TagPrefix.gear, GTMaterials.Steel),
+                'R', ChemicalHelper.get(TagPrefix.rotor, GTMaterials.Steel),
+                'S', GSEMachines.STEAM_CRUSHER.asStack(),
+                'B', ChemicalHelper.get(TagPrefix.toolHeadBuzzSaw, GTMaterials.Steel)));
+    }
+
+    /**
+     * Emits a shaped recipe JSON for the exact-direction serializer
+     * ({@code gregsteamexpansion:exact_direction_shaped}); keys are single-item
+     * ingredients, which is all the crusher recipes use.
+     */
+    private static FinishedRecipe exactDirectionShaped(ResourceLocation id, ItemStack result,
+                                                       String[] pattern, Object... keys) {
+        return new FinishedRecipe() {
+            @Override
+            public void serializeRecipeData(com.google.gson.JsonObject json) {
+                json.addProperty("category", "misc");
+                com.google.gson.JsonArray patternJson = new com.google.gson.JsonArray();
+                for (String row : pattern) {
+                    patternJson.add(row);
+                }
+                json.add("pattern", patternJson);
+                com.google.gson.JsonObject keyJson = new com.google.gson.JsonObject();
+                for (int i = 0; i + 1 < keys.length; i += 2) {
+                    char symbol = (Character) keys[i];
+                    ItemStack stack = (ItemStack) keys[i + 1];
+                    ResourceLocation itemId = net.minecraftforge.registries.ForgeRegistries.ITEMS
+                            .getKey(stack.getItem());
+                    com.google.gson.JsonObject ingredient = new com.google.gson.JsonObject();
+                    ingredient.addProperty("item", itemId.toString());
+                    keyJson.add(String.valueOf(symbol), ingredient);
+                }
+                json.add("key", keyJson);
+                com.google.gson.JsonObject resultJson = new com.google.gson.JsonObject();
+                resultJson.addProperty("item", net.minecraftforge.registries.ForgeRegistries.ITEMS
+                        .getKey(result.getItem()).toString());
+                resultJson.addProperty("count", result.getCount());
+                json.add("result", resultJson);
+            }
+
+            @Override
+            public ResourceLocation getId() {
+                return id;
+            }
+
+            @Override
+            public net.minecraft.world.item.crafting.RecipeSerializer<?> getType() {
+                return GSERecipeSerializers.EXACT_DIRECTION_SHAPED.get();
+            }
+
+            @Override
+            @Nullable
+            public com.google.gson.JsonObject serializeAdvancement() {
+                return null;
+            }
+
+            @Override
+            @Nullable
+            public ResourceLocation getAdvancementId() {
+                return null;
+            }
+        };
+    }
+
 
     // ------------------------------------------------------------------
     // Steam Mixing Block (twin bronze rotor shaft, no bronze component)

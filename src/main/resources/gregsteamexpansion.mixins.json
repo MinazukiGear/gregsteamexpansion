@@ -12,7 +12,8 @@
         "SteamBoilerMachineMixin",
         "GTCEuMixin",
         "PartAbilityMixin",
-        "RegistrateDisplayItemsGeneratorMixin"
+        "RegistrateDisplayItemsGeneratorMixin",
+        "RecipeManagerAccessor"
     ],
     "client": [
         "MinecraftMixin",

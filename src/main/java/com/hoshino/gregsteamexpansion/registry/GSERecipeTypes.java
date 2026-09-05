@@ -34,11 +34,13 @@ import static com.lowdragmc.lowdraglib.gui.texture.ProgressTexture.FillDirection
 public final class GSERecipeTypes {
     /**
      * Whether an obtainable machine consuming {@link #ORE_CRUSHING_RECIPES} is
-     * registered. The steam crushers from steam-crushers.md are the intended
-     * first consumer; until then the macerator keeps its ore recipes and the
-     * viewer category is hidden.
+     * registered. The steam crushers from steam-crushers.md are the first
+     * consumer and ship in the same version as the macerator migration, so the
+     * viewer category ships visible; the runtime consumer verification in
+     * {@code OreCrushingMigration} still gates the actual migration on every
+     * datapack load.
      */
-    public static final boolean CONSUMER_EXISTS = false;
+    public static final boolean CONSUMER_EXISTS = true;
 
     public static GTRecipeType ORE_CRUSHING_RECIPES;
 

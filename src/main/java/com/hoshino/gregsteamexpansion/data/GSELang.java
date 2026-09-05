@@ -102,6 +102,88 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_air_intake_hatch.status.intake_blocked", "Intake Blocked");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.status.wrong_dimension", "Dimension Not Supported");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.status.structure_not_formed", "Structure Not Formed");
+        // 蒸汽粉碎机 / Steam Crusher two-tier item tooltip (steam-crushers.md
+        // 物品提示与本地化). Group subtitles reuse one shared key.
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.summary.0",
+                "Pure-steam ore-crushing multiblock with up to 8 parallel operations.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.summary.1",
+                "Fixed 3\u00d73\u00d73 structure; each recipe operation takes 600 ticks and 2,400 mB of steam.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.summary.2",
+                "Hold Shift for full structure and operating rules.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.subtitle", "Structure");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.0",
+                "Fixed at 3\u00d73\u00d73; the controller is centered on the front and one Bronze Frame occupies the structure center.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.1",
+                "One Steam Grinding Block is required at the center of each of the top, bottom, left, and right faces.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.2",
+                "Requires exactly one Steam Item Input Bus, one Steam Item Output Bus, and one Steam Supply Hatch; the other 18 candidate positions use Bronze Steam Machine Casings.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.subtitle2", "Processing and Steam");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.3",
+                "Runs ore-crushing recipes only; each batch uses one recipe at up to 8 parallel operations and always takes 600 ticks.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.4",
+                "Each recipe operation consumes 2,400 mB of standard steam; a batch at parallel P requires 4 \u00d7 P mB/t.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.5",
+                "Output is checked before startup as if every chanced output succeeds; parallel is reduced or the machine stays idle if everything cannot fit, and outputs are never voided.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.subtitle3", "Control and Status");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.6",
+                "Accepts GTCEu standard steam only, never EU; a Steam Exhaust Hatch is neither required nor allowed.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.7",
+                "Active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick; output blocking preserves the complete pending-output list.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.8",
+                "Removing or destroying the controller permanently clears its batch and pending outputs; the High Pressure Steam Macerator and Diamond Grinding Head installed during crafting are not returned.");
+        add("gregsteamexpansion.machine.steam_crusher.tooltip.details.9",
+                "Explosion destruction does not guarantee a controller drop; any surviving drop is an ordinary controller item with no machine state.");
+
+        // 大型蒸汽粉碎机 / Large Steam Crusher two-tier item tooltip.
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.summary.0",
+                "Large pure-steam ore-crushing multiblock with up to 64 parallel operations.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.summary.1",
+                "Fixed 7\u00d77\u00d79 cylinder-and-drill structure; each recipe operation takes 600 ticks and 2,400 mB of steam.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.summary.2",
+                "Warning: steam exhaust can severely burn entities in front of the vent; hold Shift for details.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.subtitle", "Structure");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.0",
+                "Fixed at 7\u00d77\u00d79, formed by a six-layer open cylinder and a five-layer top drill that overlap by two layers.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.1",
+                "The center shaft requires four Bronze Pipe Casings and five Steam Grinding Blocks; the other 40 drill positions require Bronze Steam Machine Casings.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.2",
+                "Requires exactly one item input bus and one Steam Exhaust Hatch; at least one item output bus and one Steam Supply Hatch are required, with at most 15 combined so the cylinder retains at least 110 Bronze Steam Machine Casings.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.subtitle2", "Processing and Steam");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.3",
+                "Runs ore-crushing recipes only; each batch uses one recipe at up to 64 parallel operations and always takes 600 ticks.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.4",
+                "Each recipe operation consumes 2,400 mB of standard steam; a batch at parallel P requires 4 \u00d7 P mB/t, and extra supply hatches do not increase parallel or efficiency.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.5",
+                "All output buses are checked before startup as if every chanced output succeeds; parallel is reduced or the machine stays idle if everything cannot fit, and outputs are never voided.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.subtitle3", "Control and Status");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.6",
+                "Accepts GTCEu standard steam only, never EU; compatible electric-tier or ME buses provide item logistics only.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.7",
+                "The three blocks directly in front of the Steam Exhaust Hatch must be air; blockage stops steam consumption and freezes progress without the 1-tick steam-shortage rollback.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.8",
+                "Every 200 accumulated running ticks, exhaust deals 12 heat damage to entities in the first block in front of the vent, except Creative and Spectator players.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.9",
+                "Active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick; output blocking preserves the complete pending-output list.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.10",
+                "Removing or destroying the controller permanently clears its batch, pending outputs, and exhaust timer; the Steam Crusher controller installed during crafting is not returned.");
+        add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.11",
+                "Explosion destruction does not guarantee a Large Steam Crusher controller drop; any surviving drop is an ordinary controller item with no machine state.");
+
+        // Shared controller GUI info-page labels (steam-crushers.md 运行信息页).
+        add("gregsteamexpansion.machine.steam_crusher.ui.status", "Status");
+        add("gregsteamexpansion.machine.steam_crusher.ui.recipe", "Recipe");
+        add("gregsteamexpansion.machine.steam_crusher.ui.progress", "Progress");
+        add("gregsteamexpansion.machine.steam_crusher.ui.progress_format", "%s%% (%s / %s tick)");
+        add("gregsteamexpansion.machine.steam_crusher.ui.parallel", "Parallel (current / cap)");
+        add("gregsteamexpansion.machine.steam_crusher.ui.steam", "Steam (total / capacity)");
+        add("gregsteamexpansion.machine.steam_crusher.ui.demand", "Steam demand");
+        add("gregsteamexpansion.machine.steam_crusher.ui.not_consuming", "not consuming now");
+        add("gregsteamexpansion.machine.steam_crusher.ui.pending", "Pending outputs");
+        add("gregsteamexpansion.machine.steam_crusher.ui.pending_summary", "%s (%s kinds)");
+        add("gregsteamexpansion.machine.steam_crusher.ui.pending_detail", "Pending outputs (stable order):");
+        add("gregsteamexpansion.machine.steam_crusher.ui.pending_empty", "No pending outputs.");
+
+
 
         // Jade lines for the air intake hatch share the GUI's server status
         // source (machines-and-hatches.md GUI/Jade 一致性).
@@ -109,6 +191,15 @@ public final class GSELang {
         add("gregsteamexpansion.jade.steam_air_intake_hatch.air", "Air: %s / %s mB");
         add("gregsteamexpansion.jade.steam_air_intake_hatch.next_collect", "Next collection: %s ticks");
         add("config.jade.plugin_gregsteamexpansion.steam_air_intake_hatch_info", "Steam Air Intake Hatch Info");
+        add("gregsteamexpansion.jade.steam_crusher.status", "Status: %s");
+        add("gregsteamexpansion.jade.steam_crusher.recipe", "Recipe: %s");
+        add("gregsteamexpansion.jade.steam_crusher.progress", "Progress: %s / %s tick");
+        add("gregsteamexpansion.jade.steam_crusher.parallel", "Parallel: %s / %s");
+        add("gregsteamexpansion.jade.steam_crusher.steam", "Steam: %s / %s mB");
+        add("gregsteamexpansion.jade.steam_crusher.demand", "Steam demand: %s mB/t");
+        add("gregsteamexpansion.jade.steam_crusher.pending", "Pending: %s (%s kinds)");
+        add("config.jade.plugin_gregsteamexpansion.steam_crusher_info", "Steam Crusher Info");
+
 
         // Steam Exhaust Hatch two-tier item tooltip
         // (large-heat-storage-steam-furnace.md 物品提示与本地化范围).

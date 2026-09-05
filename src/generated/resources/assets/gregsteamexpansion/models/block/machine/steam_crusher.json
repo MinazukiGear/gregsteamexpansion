@@ -1,0 +1,61 @@
+{
+  "parent": "minecraft:block/block",
+  "loader": "gtceu:machine",
+  "machine": "gregsteamexpansion:steam_crusher",
+  "multipart": [
+    {
+      "apply": {
+        "model": {
+          "parent": "gtceu:block/casings/steam/bricked_bronze",
+          "textures": {
+            "overlay_front": "gregsteamexpansion:block/multiblock/steam_crusher/overlay_front"
+          }
+        }
+      },
+      "when": {
+        "recipe_logic_status": "idle"
+      }
+    },
+    {
+      "apply": {
+        "model": {
+          "parent": "gtceu:block/casings/steam/bricked_bronze",
+          "textures": {
+            "overlay_front": "gregsteamexpansion:block/multiblock/steam_crusher/overlay_front_active",
+            "overlay_front_emissive": "gregsteamexpansion:block/multiblock/steam_crusher/overlay_front_active_emissive"
+          }
+        }
+      },
+      "when": {
+        "recipe_logic_status": "working"
+      }
+    },
+    {
+      "apply": {
+        "model": {
+          "parent": "gtceu:block/casings/steam/bricked_bronze",
+          "textures": {
+            "overlay_front": "gregsteamexpansion:block/multiblock/steam_crusher/overlay_front_active",
+            "overlay_front_emissive": "gregsteamexpansion:block/multiblock/steam_crusher/overlay_front_active_emissive"
+          }
+        }
+      },
+      "when": {
+        "recipe_logic_status": "waiting"
+      }
+    },
+    {
+      "apply": {
+        "model": {
+          "parent": "gtceu:block/casings/steam/bricked_bronze",
+          "textures": {
+            "overlay_front": "gregsteamexpansion:block/multiblock/steam_crusher/overlay_front"
+          }
+        }
+      },
+      "when": {
+        "recipe_logic_status": "suspend"
+      }
+    }
+  ]
+}

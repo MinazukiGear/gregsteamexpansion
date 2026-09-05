@@ -19,6 +19,7 @@ import com.hoshino.gregsteamexpansion.registry.GSEBlockEntityTypes;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSEMenuTypes;
+import com.hoshino.gregsteamexpansion.registry.GSERecipeSerializers;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.registry.GSERegistration;
 import com.tterrag.registrate.providers.ProviderType;
@@ -59,6 +60,7 @@ public final class GregSteamExpansion {
         GSEBlocks.ITEMS.register(modEventBus);
         GSEBlockEntityTypes.BLOCK_ENTITY_TYPES.register(modEventBus);
         GSEMenuTypes.MENU_TYPES.register(modEventBus);
+        GSERecipeSerializers.register(modEventBus);
         modEventBus.addListener(this::addCreative);
         modEventBus.addGenericListener(MachineDefinition.class, this::registerMachines);
         modEventBus.addGenericListener(GTRecipeType.class, this::registerRecipeTypes);

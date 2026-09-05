@@ -10,12 +10,14 @@ import org.jetbrains.annotations.Nullable;
  * never be reshuffled or renamed.
  */
 public enum Difficulty {
-    EASY("easy", 2, 5.0F, 2, 40, 2, 50),
-    NORMAL("normal", 1, 5.0F, 1, 100, 5, 100),
-    EXPERT("expert", 1, 2.0F, 1, 220, 10, 100);
+    EASY("easy", 2, 5.0F, 2, 40, 2, 50, 2.0F),
+    NORMAL("normal", 1, 5.0F, 1, 100, 5, 100, 1.5F),
+    EXPERT("expert", 1, 2.0F, 1, 220, 10, 100, 1.0F);
 
     private final String serialName;
     private final int casingsPerCraft;
+    /** Ore-crushing main product multiplier (ore-crushing.md: 2× / 1.5× / 1×). */
+    private final float oreCrushingMultiplier;
     private final float steamOutputMultiplier;
     private final int singleblockSteamCacheMultiplier;
     /** Large heat-storage steam furnace preheating steam cost in percent (Normal = 100). */
@@ -27,7 +29,7 @@ public enum Difficulty {
 
     Difficulty(String serialName, int casingsPerCraft, float steamOutputMultiplier,
                int singleblockSteamCacheMultiplier, int preheatCostPercent, int preheatIntervalTicks,
-               int processingSteamPercent) {
+               int processingSteamPercent, float oreCrushingMultiplier) {
         this.serialName = serialName;
         this.casingsPerCraft = casingsPerCraft;
         this.steamOutputMultiplier = steamOutputMultiplier;
@@ -35,6 +37,7 @@ public enum Difficulty {
         this.preheatCostPercent = preheatCostPercent;
         this.preheatIntervalTicks = preheatIntervalTicks;
         this.processingSteamPercent = processingSteamPercent;
+        this.oreCrushingMultiplier = oreCrushingMultiplier;
     }
 
     public String getSerializedName() {
@@ -86,6 +89,15 @@ public enum Difficulty {
     /** Processing steam consumption percent (Easy halves it; others unchanged). */
     public int getProcessingSteamPercent() {
         return processingSteamPercent;
+    }
+
+    /**
+     * Ore-crushing main product multiplier (ore-crushing.md 难度倍率): baked
+     * into migrated recipes on top of the ore-only 4× baseline; chance
+     * outputs are never multiplied.
+     */
+    public float getOreCrushingMultiplier() {
+        return oreCrushingMultiplier;
     }
 
     public boolean isLowerThan(Difficulty other) {

@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "D": {
+      "item": "gtceu:diamond_grinding_head"
+    },
+    "M": {
+      "item": "gtceu:hp_steam_macerator"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "R": {
+      "item": "gtceu:bronze_rotor"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PDP",
+    "RMR",
+    "P P"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:steam_crusher"
+  }
+}
