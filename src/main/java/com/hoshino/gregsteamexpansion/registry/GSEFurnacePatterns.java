@@ -64,13 +64,18 @@ public final class GSEFurnacePatterns {
                 .build();
     }
 
-    /** Steam machine casing or any replaceable interface (hatches and buses). */
+    /** Steam machine casing or any replaceable interface (hatches and buses).
+     * The steam-era item buses register under STEAM_IMPORT_ITEMS /
+     * STEAM_EXPORT_ITEMS — without them the furnace never accepts its
+     * intended steam-age logistics parts. */
     private static TraceabilityPredicate interfaces() {
         return Predicates.blocks(GTBlocks.CASING_BRONZE_BRICKS.get())
                 .or(Predicates.abilities(PartAbility.STEAM))
                 .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS));
+                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS));
     }
 
     private static TraceabilityPredicate exhaustHatch() {

@@ -675,7 +675,24 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         if (stack.isEmpty()) {
             return stack;
         }
-        return ItemHandlerHelper.insertItemStacked(bus.getInventory(), stack, simulate);
+        // insertItemInternal, not insertItemStacked: the output bus inventory's
+        // capability face is IO.OUT (extract only), so the capability-level
+        // insert is gated off for outside callers. Same stacking semantics as
+        // ItemHandlerHelper.insertItemStacked, on the internal path.
+        var inventory = bus.getInventory();
+        ItemStack remaining = stack;
+        for (int slot = 0; slot < inventory.getSlots() && !remaining.isEmpty(); slot++) {
+            ItemStack current = inventory.getStackInSlot(slot);
+            if (!current.isEmpty() && ItemHandlerHelper.canItemStacksStack(current, remaining)) {
+                remaining = inventory.insertItemInternal(slot, remaining, simulate);
+            }
+        }
+        for (int slot = 0; slot < inventory.getSlots() && !remaining.isEmpty(); slot++) {
+            if (inventory.getStackInSlot(slot).isEmpty()) {
+                remaining = inventory.insertItemInternal(slot, remaining, simulate);
+            }
+        }
+        return remaining;
     }
 
     /**
@@ -969,8 +986,11 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             return "—";
         }
         double percent = Math.round(Math.min(batchProgress, DURATION_TICKS) * 1000.0 / DURATION_TICKS) / 10.0;
-        return Component.translatable(UI_PREFIX + "progress_format",
-                String.format("%.1f", percent), FormattingUtil.formatNumbers(Math.min(batchProgress, DURATION_TICKS)),
+        // the percent sign rides in the first argument: a %% inside a
+        // translatable template trips the vanilla format parser on some sides
+        String percentText = String.format(java.util.Locale.ROOT, "%.1f%%", percent);
+        return Component.translatable(UI_PREFIX + "progress_format", percentText,
+                FormattingUtil.formatNumbers(Math.min(batchProgress, DURATION_TICKS)),
                 FormattingUtil.formatNumbers(DURATION_TICKS)).getString();
     }
 

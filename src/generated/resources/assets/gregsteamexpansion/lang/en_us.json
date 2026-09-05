@@ -172,7 +172,7 @@
   "gregsteamexpansion.machine.steam_crusher.ui.pending_empty": "No pending outputs.",
   "gregsteamexpansion.machine.steam_crusher.ui.pending_summary": "%s (%s kinds)",
   "gregsteamexpansion.machine.steam_crusher.ui.progress": "Progress",
-  "gregsteamexpansion.machine.steam_crusher.ui.progress_format": "%s%% (%s / %s tick)",
+  "gregsteamexpansion.machine.steam_crusher.ui.progress_format": "%s (%s / %s tick)",
   "gregsteamexpansion.machine.steam_crusher.ui.recipe": "Recipe",
   "gregsteamexpansion.machine.steam_crusher.ui.status": "Status",
   "gregsteamexpansion.machine.steam_crusher.ui.steam": "Steam (total / capacity)",

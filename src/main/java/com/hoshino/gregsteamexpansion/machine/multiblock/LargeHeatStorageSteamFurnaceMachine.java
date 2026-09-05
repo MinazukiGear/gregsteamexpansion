@@ -602,7 +602,23 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         if (stack.isEmpty()) {
             return stack;
         }
-        return ItemHandlerHelper.insertItemStacked(bus.getInventory(), stack, simulate);
+        // insertItemInternal: the output bus capability face is IO.OUT, so the
+        // capability-level insert is gated off for outside callers (same as
+        // the steam crushers' pending-output delivery).
+        var inventory = bus.getInventory();
+        ItemStack remaining = stack;
+        for (int slot = 0; slot < inventory.getSlots() && !remaining.isEmpty(); slot++) {
+            ItemStack current = inventory.getStackInSlot(slot);
+            if (!current.isEmpty() && ItemHandlerHelper.canItemStacksStack(current, remaining)) {
+                remaining = inventory.insertItemInternal(slot, remaining, simulate);
+            }
+        }
+        for (int slot = 0; slot < inventory.getSlots() && !remaining.isEmpty(); slot++) {
+            if (inventory.getStackInSlot(slot).isEmpty()) {
+                remaining = inventory.insertItemInternal(slot, remaining, simulate);
+            }
+        }
+        return remaining;
     }
 
     private static void mergeStacks(List<ItemStack> stacks) {
