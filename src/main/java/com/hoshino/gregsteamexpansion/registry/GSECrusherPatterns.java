@@ -186,9 +186,9 @@ public final class GSECrusherPatterns {
  * face formed by the last aisle.</p> */
 public static MultiblockShapeInfo smallShapeInfo(MultiblockMachineDefinition definition) {
     return MultiblockShapeInfo.builder()
-            .aisle("XXX", "XXX", "XXX")
+            .aisle("XXX", "XKX", "XGX")
             .aisle("XGX", "GFG", "XGX")
-            .aisle("ISO", "XKX", "XXX")
+            .aisle("XXX", "XXX", "XXX")
             .where('X', bronzeSteamCasing())
             .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
             .where('F', bronzeFrame())
@@ -213,9 +213,9 @@ public static MultiblockShapeInfo largeShapeInfo(MultiblockMachineDefinition def
     return MultiblockShapeInfo.builder()
             .aisle(
                     "CCCCCCC",
-                    "  CCC  ",
-                    "  CCC  ",
-                    "  CCC  ",
+                    "  CSC  ",
+                    "  IKO  ",
+                    "  CEC  ",
                     "  CCC  ",
                     "  CCC  ",
                     "       ",
@@ -273,9 +273,9 @@ public static MultiblockShapeInfo largeShapeInfo(MultiblockMachineDefinition def
                     " CCCCC ")
             .aisle(
                     "CCCCCCC",
-                    "  CSC  ",
-                    "  IKO  ",
-                    "  CEC  ",
+                    "  CCC  ",
+                    "  CCC  ",
+                    "  CCC  ",
                     "  CCC  ",
                     "  CCC  ",
                     "       ",
@@ -284,11 +284,11 @@ public static MultiblockShapeInfo largeShapeInfo(MultiblockMachineDefinition def
             .where('C', bronzeSteamCasing())
             .where('P', bronzePipeCasing())
             .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
-            .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.EAST)
-            .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.EAST)
-            .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.EAST)
-            .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.EAST)
-            .where('K', definition, Direction.EAST)
+            .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+            .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+            .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+            .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+            .where('K', definition, Direction.NORTH)
             .where(' ', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState())
             .build();
 }

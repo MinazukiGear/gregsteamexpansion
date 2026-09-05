@@ -187,8 +187,10 @@ public final class GSEFurnacePatterns {
 
         var builder = MultiblockShapeInfo.builder();
         // Transposed placement: one shape aisle per pattern front/back row, so
-        // the preview world stands the furnace upright.
-        for (int b = 0; b < width; b++) {
+        // the preview world stands the furnace upright. The front section
+        // (largest row index) is the FIRST aisle per the GTCEu shapeInfo
+        // convention, so the preview camera faces the controller front.
+        for (int b = width - 1; b >= 0; b--) {
             String[] rows = new String[height];
             for (int y = 0; y < height; y++) {
                 rows[y] = new String(grid[y][b]);
@@ -202,11 +204,11 @@ public final class GSEFurnacePatterns {
                 .where('K', GTBlocks.STEEL_BRICKS_HULL.get())
                 .where('R', GTBlocks.CASING_PRIMITIVE_BRICKS.get())
                 .where('P', GTBlocks.CASING_BRONZE_PIPE.get())
-                .where('C', definition, Direction.EAST)
-                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.EAST)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.EAST)
-                .where('H', GSEMachines.STEAM_SUPPLY_HATCH, Direction.EAST)
-                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.EAST)
+                .where('C', definition, Direction.NORTH)
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('H', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
                 .where('#', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState())
                 .where(' ', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState())
                 .build();
