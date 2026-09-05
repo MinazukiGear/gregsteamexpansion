@@ -9,6 +9,14 @@ $iconOutput = Join-Path $ProjectRoot 'src/main/resources/assets/gregsteamexpansi
 New-Item -ItemType Directory -Force -Path $blockOutput, $iconOutput | Out-Null
 
 $colors = @{
+    outline = [System.Drawing.Color]::FromArgb(255, 24, 24, 28)
+    bronzeMid = [System.Drawing.Color]::FromArgb(255, 124, 86, 34)
+    bronzeEdge = [System.Drawing.Color]::FromArgb(255, 166, 122, 56)
+    bronzeHi = [System.Drawing.Color]::FromArgb(255, 222, 184, 110)
+    iron = [System.Drawing.Color]::FromArgb(255, 128, 128, 136)
+    fireDeep = [System.Drawing.Color]::FromArgb(255, 255, 106, 0)
+    fireMid = [System.Drawing.Color]::FromArgb(255, 255, 136, 0)
+    fireBright = [System.Drawing.Color]::FromArgb(255, 255, 170, 0)
     dark = [System.Drawing.Color]::FromArgb(255, 25, 25, 25)
     metal = [System.Drawing.Color]::FromArgb(255, 51, 51, 51)
     light = [System.Drawing.Color]::FromArgb(255, 76, 76, 76)
@@ -66,72 +74,62 @@ function Save-Sprite {
 function Draw-BoilerFrame {
     param($Bitmap)
 
-    # A single reinforced firebox makes the face readable at native scale.
-    Fill-Rect $Bitmap 3 5 10 9 'dark'
-    Fill-Rect $Bitmap 4 5 8 1 'light'
-    Fill-Rect $Bitmap 4 6 8 7 'bronzeDark'
-    Fill-Rect $Bitmap 5 6 6 1 'bronze'
-    Fill-Rect $Bitmap 4 7 1 5 'bronze'
-    Fill-Rect $Bitmap 11 7 1 5 'dark'
-    Fill-Rect $Bitmap 5 12 6 1 'dark'
-    Fill-Rect $Bitmap 4 13 8 1 'black'
+    # GT decal language: partial transparent overlay over the bricked hull,
+    # near-black outlines with the shared bronze ramp (tools/gen_hatch_textures.py).
 
-    # Recessed viewing door, borrowing the tidy liquid-boiler furnace window.
-    Fill-Rect $Bitmap 4 7 8 6 'dark'
-    Fill-Rect $Bitmap 5 7 6 1 'metal'
-    Fill-Rect $Bitmap 5 8 6 4 'black'
-    Set-Pixel $Bitmap 4 8 'light'
-    Set-Pixel $Bitmap 11 8 'black'
-    Fill-Rect $Bitmap 5 12 6 1 'metal'
+    # Powder inlet throat centred on top, feeding the chamber (粉料入口).
+    Fill-Rect $Bitmap 6 3 4 1 'outline'
+    Set-Pixel $Bitmap 5 4 'outline'
+    Fill-Rect $Bitmap 6 4 4 1 'bronzeMid'
+    Set-Pixel $Bitmap 10 4 'outline'
 
-    # The lower grate gives the chamber a recognisable solid-fuel firebox base.
-    Set-Pixel $Bitmap 5 12 'light'
-    Set-Pixel $Bitmap 7 12 'dark'
-    Set-Pixel $Bitmap 9 12 'dark'
-    Set-Pixel $Bitmap 10 12 'dark'
+    # Reinforced double border of the firebox panel (强化双层边框).
+    Fill-Rect $Bitmap 3 5 10 1 'outline'
+    Fill-Rect $Bitmap 3 13 10 1 'outline'
+    for ($py = 6; $py -le 12; $py++) {
+        Set-Pixel $Bitmap 3 $py 'outline'
+        Set-Pixel $Bitmap 12 $py 'outline'
+    }
+    Fill-Rect $Bitmap 4 6 8 1 'bronzeEdge'
+    Fill-Rect $Bitmap 4 12 8 1 'bronzeEdge'
+    for ($py = 7; $py -le 11; $py++) {
+        Set-Pixel $Bitmap 4 $py 'bronzeEdge'
+        Set-Pixel $Bitmap 11 $py 'bronzeEdge'
+    }
 
-    # Compact liquid injector, mechanically joined to the left side of the door.
-    Fill-Rect $Bitmap 1 8 3 3 'dark'
-    Fill-Rect $Bitmap 2 8 2 3 'bronzeDark'
-    Fill-Rect $Bitmap 3 9 1 1 'bronzeLight'
-    Set-Pixel $Bitmap 1 9 'steel'
-    Set-Pixel $Bitmap 2 9 'light'
+    # Central combustion chamber kept dark while idle, with an unlit pilot
+    # light pair and the grate bar at its base (中央燃烧室).
+    Fill-Rect $Bitmap 5 7 6 4 'outline'
+    Set-Pixel $Bitmap 7 7 'iron'
+    Set-Pixel $Bitmap 8 7 'iron'
+    Set-Pixel $Bitmap 5 11 'outline'
+    Set-Pixel $Bitmap 10 11 'outline'
+    Fill-Rect $Bitmap 6 11 4 1 'bronzeDark'
 
-    # Centred powder hopper and throat feed directly into the same chamber.
-    Fill-Rect $Bitmap 6 2 5 1 'dark'
-    Fill-Rect $Bitmap 5 3 7 2 'dark'
-    Fill-Rect $Bitmap 6 3 5 1 'metal'
-    Fill-Rect $Bitmap 7 4 3 2 'bronzeDark'
-    Set-Pixel $Bitmap 7 4 'bronze'
-    Set-Pixel $Bitmap 9 4 'dark'
-
-    # Small fasteners keep the industrial GTCEu visual language without clutter.
-    Set-Pixel $Bitmap 4 6 'steel'
-    Set-Pixel $Bitmap 11 6 'black'
-    Set-Pixel $Bitmap 4 12 'metal'
-    Set-Pixel $Bitmap 11 12 'black'
+    # Liquid fuel injector joined to the left side (液体燃料喷嘴).
+    for ($py = 8; $py -le 9; $py++) {
+        Set-Pixel $Bitmap 1 $py 'outline'
+        Set-Pixel $Bitmap 2 $py 'bronzeMid'
+    }
 }
 
 function Add-ActiveFlame {
     param($Bitmap)
-    Set-Pixel $Bitmap 7 8 'amber'
-    Set-Pixel $Bitmap 9 8 'amber'
-    Set-Pixel $Bitmap 6 9 'amber'
-    Set-Pixel $Bitmap 7 9 'orange'
-    Set-Pixel $Bitmap 9 9 'orange'
-    Set-Pixel $Bitmap 10 9 'amber'
-    Set-Pixel $Bitmap 5 10 'amber'
-    Set-Pixel $Bitmap 6 10 'orange'
-    Set-Pixel $Bitmap 7 10 'yellow'
-    Set-Pixel $Bitmap 8 10 'orange'
-    Set-Pixel $Bitmap 9 10 'yellow'
-    Set-Pixel $Bitmap 10 10 'orange'
-    Set-Pixel $Bitmap 5 11 'orange'
-    Set-Pixel $Bitmap 6 11 'yellow'
-    Set-Pixel $Bitmap 7 11 'pale'
-    Set-Pixel $Bitmap 8 11 'yellow'
-    Set-Pixel $Bitmap 9 11 'orange'
-    Set-Pixel $Bitmap 10 11 'yellow'
+
+    # The chamber lights up with the GT fire ramp; the pilot pair ignites.
+    Fill-Rect $Bitmap 6 7 4 1 'fireDeep'
+    Set-Pixel $Bitmap 5 8 'fireDeep'
+    Fill-Rect $Bitmap 6 8 4 1 'fireMid'
+    Set-Pixel $Bitmap 10 8 'fireDeep'
+    Set-Pixel $Bitmap 5 9 'fireDeep'
+    Set-Pixel $Bitmap 6 9 'fireMid'
+    Set-Pixel $Bitmap 7 9 'fireBright'
+    Set-Pixel $Bitmap 8 9 'fireBright'
+    Set-Pixel $Bitmap 9 9 'fireMid'
+    Set-Pixel $Bitmap 10 9 'fireDeep'
+    Set-Pixel $Bitmap 5 10 'fireDeep'
+    Fill-Rect $Bitmap 6 10 4 1 'fireMid'
+    Set-Pixel $Bitmap 10 10 'fireDeep'
 }
 
 $idle = New-Sprite
