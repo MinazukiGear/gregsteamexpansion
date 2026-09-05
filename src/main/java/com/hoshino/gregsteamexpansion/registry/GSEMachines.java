@@ -5,6 +5,7 @@ import com.gregtechceu.gtceu.api.machine.MachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.property.GTMachineModelProperties;
 import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
+import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
 import com.gregtechceu.gtceu.api.registry.registrate.MachineBuilder;
 import com.gregtechceu.gtceu.api.registry.registrate.provider.GTBlockstateProvider;
 import com.gregtechceu.gtceu.client.model.machine.overlays.WorkableOverlays;
@@ -16,9 +17,13 @@ import com.gregtechceu.gtceu.data.model.builder.MachineModelBuilder;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 
+import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -27,6 +32,7 @@ import net.minecraft.world.level.block.Block;
 
 import com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo;
 import net.minecraftforge.client.model.generators.BlockModelBuilder;
+import net.minecraftforge.fluids.FluidType;
 
 import com.tterrag.registrate.providers.DataGenContext;
 
@@ -85,6 +91,214 @@ public final class GSEMachines {
         model.texture("overlay_front", GregSteamExpansion.id("block/machine/part/steam_exhaust_hatch"));
         builder.forAllStatesModels(state -> model);
         builder.addReplaceableTextures("bottom", "top", "side");
+    }
+
+    // ------------------------------------------------------------------
+    // 蒸汽供给仓 / Steam Supply Hatch (machines-and-hatches.md 已定案)
+    // ------------------------------------------------------------------
+
+    public static final MachineDefinition STEAM_SUPPLY_HATCH = GSERegistration.REGISTRATE
+            .machine("steam_supply_hatch", SteamSupplyHatchPartMachine::new)
+            .rotationState(RotationState.ALL)
+            .abilities(PartAbility.STEAM)
+            .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
+                    com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
+            .model(steamHatchModel(GregSteamExpansion.id("block/machine/part/steam_supply_hatch")))
+            .langValue("Steam Supply Hatch")
+            .tooltipBuilder(GSEMachines::steamSupplyHatchTooltips)
+            .allowCoverOnFront(true)
+            .register();
+
+    // ------------------------------------------------------------------
+    // 蒸汽流体输入/输出仓 / Steam Fluid Input & Output Hatches
+    // (machines-and-hatches.md 已定案)
+    // ------------------------------------------------------------------
+
+    public static final MachineDefinition STEAM_FLUID_IMPORT_HATCH = GSERegistration.REGISTRATE
+            .machine("steam_fluid_input_hatch", holder -> new SteamFluidHatchPartMachine(holder, IO.IN))
+            .rotationState(RotationState.ALL)
+            .abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS)
+            .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
+                    com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
+            .model(steamHatchModel(GregSteamExpansion.id("block/machine/part/steam_fluid_input_hatch")))
+            .langValue("Steam Fluid Input Hatch")
+            .tooltipBuilder(GSEMachines::steamFluidImportHatchTooltips)
+            .allowCoverOnFront(true)
+            .register();
+
+    public static final MachineDefinition STEAM_FLUID_EXPORT_HATCH = GSERegistration.REGISTRATE
+            .machine("steam_fluid_output_hatch", holder -> new SteamFluidHatchPartMachine(holder, IO.OUT))
+            .rotationState(RotationState.ALL)
+            .abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS)
+            .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
+                    com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
+            .model(steamHatchModel(GregSteamExpansion.id("block/machine/part/steam_fluid_output_hatch")))
+            .langValue("Steam Fluid Output Hatch")
+            .tooltipBuilder(GSEMachines::steamFluidExportHatchTooltips)
+            .allowCoverOnFront(true)
+            .register();
+
+    // ------------------------------------------------------------------
+    // 蒸汽进气室 / Steam Air Intake Hatch (machines-and-hatches.md 已定案)
+    // ------------------------------------------------------------------
+
+    public static final MachineDefinition STEAM_AIR_INTAKE_HATCH = GSERegistration.REGISTRATE
+            .machine("steam_air_intake_hatch", SteamAirIntakeHatchPartMachine::new)
+            .rotationState(RotationState.ALL)
+            .abilities(GSEPartAbilities.STEAM_AIR_INTAKE)
+            .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
+                    com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
+            .model(steamHatchModel(GregSteamExpansion.id("block/machine/part/steam_air_intake_hatch")))
+            .langValue("Steam Air Intake Hatch")
+            .tooltipBuilder(GSEMachines::steamAirIntakeHatchTooltips)
+            // 进气正面拒绝封面: with allowCoverOnFront(false) and a six-way
+            // front facing, CoverBehavior#canAttach already rejects every front
+            // cover, so the louver grille can never be visually sealed while
+            // the air check keeps looking straight through it.
+            .allowCoverOnFront(false)
+            .register();
+
+    /**
+     * Shared steam-hatch model: GTCEu bronze/steel steam hull chosen by the
+     * {@code IS_STEEL_MACHINE} state property (kept in step with the
+     * {@code machines.steelSteamMultiblocks} config) plus a mod-provided static
+     * front overlay. Covers stay allowed where registration permits them.
+     */
+    private static MachineBuilder.ModelInitializer steamHatchModel(ResourceLocation overlayFront) {
+        return (context, provider, builder) -> {
+            builder.forAllStatesModels(state -> {
+                boolean steel = state.getOptionalValue(GTMachineModelProperties.IS_STEEL_MACHINE).orElse(false);
+                BlockModelBuilder model = provider.models().nested()
+                        .parent(provider.models().getExistingFile(GTMachineModels.SIDED_SIDED_OVERLAY_MODEL));
+                GTMachineModels.steamCasingTextures(model, steel);
+                model.texture("overlay_front", overlayFront);
+                return model;
+            });
+            // Match the standard steam-hatch hull: inside a formed multiblock
+            // the non-front faces render as the structure casing, keeping only
+            // the front overlay visible.
+            builder.addReplaceableTextures("bottom", "top", "side");
+        };
+    }
+
+
+    private static void steamSupplyHatchTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.capacity",
+                String.format("%,d", SteamSupplyHatchPartMachine.INITIAL_TANK_CAPACITY))
+                .withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.accepted").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.summary").withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.0").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.1").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.2").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.3").withStyle(ChatFormatting.YELLOW));
+    }
+
+    private static void steamFluidImportHatchTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.capacity",
+                String.format("%,d", SteamFluidHatchPartMachine.INITIAL_TANK_CAPACITY))
+                .withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.import.summary")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.not_steam_energy")
+                .withStyle(ChatFormatting.AQUA));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.0").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.1").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.2").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.3").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.4").withStyle(ChatFormatting.YELLOW));
+    }
+
+    private static void steamFluidExportHatchTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.capacity",
+                String.format("%,d", SteamFluidHatchPartMachine.INITIAL_TANK_CAPACITY))
+                .withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.export.summary")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.not_steam_energy")
+                .withStyle(ChatFormatting.AQUA));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.0").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.1").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.2").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.3").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.4").withStyle(ChatFormatting.YELLOW));
+    }
+
+    private static void steamAirIntakeHatchTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.capacity",
+                String.valueOf(SteamAirIntakeHatchPartMachine.INITIAL_TANK_CAPACITY / FluidType.BUCKET_VOLUME),
+                String.format("%,d", SteamAirIntakeHatchPartMachine.INITIAL_TANK_CAPACITY))
+                .withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.rate",
+                String.valueOf(SteamAirIntakeHatchPartMachine.COLLECT_CYCLE_TICKS),
+                String.format("%,d", SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT))
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.summary").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.no_output")
+                .withStyle(ChatFormatting.AQUA));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.0",
+                String.format("%,d", SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT))
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.1").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.2").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.3").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.4").withStyle(ChatFormatting.YELLOW));
     }
 
     private static void steamExhaustHatchTooltips(ItemStack stack, List<Component> tooltip) {

@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "gregsteamexpansion:block/machine/steam_fluid_input_hatch",
+      "x": 90
+    },
+    "facing=east": {
+      "model": "gregsteamexpansion:block/machine/steam_fluid_input_hatch",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "gregsteamexpansion:block/machine/steam_fluid_input_hatch"
+    },
+    "facing=south": {
+      "model": "gregsteamexpansion:block/machine/steam_fluid_input_hatch",
+      "y": 180
+    },
+    "facing=up": {
+      "gtceu:z": 180,
+      "model": "gregsteamexpansion:block/machine/steam_fluid_input_hatch",
+      "x": 270
+    },
+    "facing=west": {
+      "model": "gregsteamexpansion:block/machine/steam_fluid_input_hatch",
+      "y": 270
+    }
+  }
+}

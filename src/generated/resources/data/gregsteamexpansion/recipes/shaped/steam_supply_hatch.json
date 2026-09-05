@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "B": {
+      "item": "gtceu:bronze_plate"
+    },
+    "P": {
+      "item": "gtceu:bronze_normal_fluid_pipe"
+    },
+    "T": {
+      "item": "gtceu:bronze_drum"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "BPB",
+    "BTB",
+    "BPB"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:steam_supply_hatch"
+  }
+}

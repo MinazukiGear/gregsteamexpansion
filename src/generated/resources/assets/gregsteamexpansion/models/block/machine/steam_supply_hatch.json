@@ -1,0 +1,34 @@
+{
+  "parent": "minecraft:block/block",
+  "loader": "gtceu:machine",
+  "machine": "gregsteamexpansion:steam_supply_hatch",
+  "replaceable_textures": [
+    "bottom",
+    "top",
+    "side"
+  ],
+  "variants": {
+    "steel=false": {
+      "model": {
+        "parent": "gtceu:block/machine/template/sided/sided",
+        "textures": {
+          "bottom": "gtceu:block/casings/steam/bronze/bottom",
+          "overlay_front": "gregsteamexpansion:block/machine/part/steam_supply_hatch",
+          "side": "gtceu:block/casings/steam/bronze/side",
+          "top": "gtceu:block/casings/steam/bronze/top"
+        }
+      }
+    },
+    "steel=true": {
+      "model": {
+        "parent": "gtceu:block/machine/template/sided/sided",
+        "textures": {
+          "bottom": "gtceu:block/casings/steam/steel/bottom",
+          "overlay_front": "gregsteamexpansion:block/machine/part/steam_supply_hatch",
+          "side": "gtceu:block/casings/steam/steel/side",
+          "top": "gtceu:block/casings/steam/steel/top"
+        }
+      }
+    }
+  }
+}

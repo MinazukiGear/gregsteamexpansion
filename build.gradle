@@ -155,7 +155,10 @@ dependencies {
     def mountClientDevAids = gradle.startParameter.taskNames.any { it.toLowerCase().contains('client') }
 
     // EMI is only a development runtime aid for browsing content in test clients.
-    // The addon does not compile against its API and does not require it at runtime.
+    // The API is compile-only so GSEEmiPlugin can hide the legacy upstream steam
+    // input hatch from the viewer index; EMI itself is never required at runtime
+    // and stays mounted only in client dev runs.
+    compileOnly fg.deobf("dev.emi:emi-forge:${emi_version}:api")
     if (mountClientDevAids) {
         runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
     }

@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "D": {
+      "item": "gtceu:bronze_drum"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "R": {
+      "item": "gtceu:bronze_rotor"
+    },
+    "T": {
+      "item": "gtceu:bronze_normal_fluid_pipe"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PRP",
+    "TDT",
+    "PTP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:steam_fluid_output_hatch"
+  }
+}

@@ -5,6 +5,7 @@ import com.gregtechceu.gtceu.api.blockentity.MetaMachineBlockEntity;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 
 import net.minecraft.ChatFormatting;
@@ -29,12 +30,68 @@ public final class GSEJadePlugin implements IWailaPlugin {
     public void register(IWailaCommonRegistration registration) {
         registration.registerBlockDataProvider(MixedFuelBoilerProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(FurnaceProvider.INSTANCE, MetaMachineBlockEntity.class);
+        registration.registerBlockDataProvider(AirIntakeProvider.INSTANCE, MetaMachineBlockEntity.class);
     }
 
     @Override
     public void registerClient(IWailaClientRegistration registration) {
         registration.registerBlockComponent(MixedFuelBoilerProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(FurnaceProvider.INSTANCE, MetaMachineBlock.class);
+        registration.registerBlockComponent(AirIntakeProvider.INSTANCE, MetaMachineBlock.class);
+    }
+
+    /**
+     * 蒸汽进气室 Jade 数据协议 (machines-and-hatches.md GUI/Jade 一致性): the
+     * same server-side status source as the hatch GUI — stable status id,
+     * synced remaining ticks and the raw tank amount, with capacity reported
+     * identically to tooltips and the fluid capability.
+     */
+    private enum AirIntakeProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+        INSTANCE;
+
+        private static final ResourceLocation UID = GregSteamExpansion.id("steam_air_intake_hatch_info");
+        private static final String DATA_KEY = "GregSteamExpansionAirIntake";
+
+        @Override
+        public void appendServerData(CompoundTag serverData, BlockAccessor accessor) {
+            if (!(accessor.getBlockEntity() instanceof MetaMachineBlockEntity blockEntity) ||
+                    !(blockEntity.getMetaMachine() instanceof SteamAirIntakeHatchPartMachine intake)) {
+                return;
+            }
+            CompoundTag data = new CompoundTag();
+            data.putString("statusId", intake.getIntakeStatus().getId());
+            data.putInt("ticksUntilCollection", intake.getTicksUntilCollection());
+            data.putInt("storedAmount", intake.tank.getFluidInTank(0).getAmount());
+            data.putInt("capacity", SteamAirIntakeHatchPartMachine.INITIAL_TANK_CAPACITY);
+            serverData.put(DATA_KEY, data);
+        }
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            CompoundTag serverData = accessor.getServerData();
+            if (!serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)) return;
+            CompoundTag data = serverData.getCompound(DATA_KEY);
+
+            tooltip.add(line("status", Component.translatable(
+                    "gregsteamexpansion.machine.steam_air_intake_hatch.status." + data.getString("statusId"))));
+            tooltip.add(line("air",
+                    FormattingUtil.formatNumbers(data.getInt("storedAmount")),
+                    FormattingUtil.formatNumbers(data.getInt("capacity"))));
+            int ticks = data.getInt("ticksUntilCollection");
+            if (ticks > 0) {
+                tooltip.add(line("next_collect", FormattingUtil.formatNumbers(ticks)));
+            }
+        }
+
+        private static Component line(String name, Object... arguments) {
+            return Component.translatable("gregsteamexpansion.jade.steam_air_intake_hatch." + name, arguments)
+                    .withStyle(ChatFormatting.GRAY);
+        }
+
+        @Override
+        public ResourceLocation getUid() {
+            return UID;
+        }
     }
 
     /**

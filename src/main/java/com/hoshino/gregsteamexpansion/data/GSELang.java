@@ -38,11 +38,82 @@ public final class GSELang {
         // Ore Crushing recipe type / viewer category name (ore-crushing.md).
         add("gregsteamexpansion.ore_crushing", "Ore Crushing");
 
+        // 蒸汽供给仓 / Steam Supply Hatch two-tier item tooltip
+        // (machines-and-hatches.md 方块、模型与提示).
+        add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.capacity", "Fluid capacity: %s mB");
+        add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.accepted", "Accepted fluid: Steam");
+        add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.summary",
+                "Supplies steam to steam multiblock machines.");
+        add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.subtitle", "Interface and Supply");
+        add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.0",
+                "One steam input slot with a fixed 32,000 mB cache on every work intensity; half of the legacy upstream hatch.");
+        add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.1",
+                "Only GTCEu standard steam (its own steam tag) is accepted; same-named third-party steams, superheated steam and other fluids are always rejected.");
+        add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.2",
+                "Covers may be installed on the machine-facing front; a screwdriver can rotate the hatch but never swap it into an output hatch.");
+        add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.3",
+                "Structure-side supply limits still apply: the cache size never means the hatch can dump all 32,000 mB in one tick.");
+
+        // 蒸汽流体输入/输出仓 / Steam Fluid Input & Output Hatches two-tier item
+        // tooltip (machines-and-hatches.md 模型、界面与提示). Both directions
+        // share the details block; only the summary line differs.
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.capacity", "Fluid capacity: %s mB");
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.import.summary",
+                "Provides recipe fluids to steam multiblock machines.");
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.export.summary",
+                "Receives recipe fluids produced by steam multiblock machines.");
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.not_steam_energy",
+                "Cannot supply energy steam to machines.");
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.subtitle", "Interface and Semantics");
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.0",
+                "Exactly one 16,000 mB tank per hatch, identical on every work intensity; no machine-side mB/t flow cap.");
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.1",
+                "Automation runs through the machine-facing front only: input hatches accept pipe filling, output hatches can actively export; the reverse direction is refused.");
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.2",
+                "A screwdriver swap converts between input and output hatch and keeps fluid, facings, paint color, compatible covers and the fluid lock.");
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.3",
+                "Crafted from bronze without power in the steam age, or with equal material cost in an assembler once LV power is available.");
+        add("gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.4",
+                "Only controllers whose structure specs explicitly accept the steam recipe-fluid abilities can use these hatches; filled with steam they still never count as energy.");
+
+        // 蒸汽进气室 / Steam Air Intake Hatch two-tier item tooltip
+        // (machines-and-hatches.md 方块、界面与提示).
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.capacity", "Air capacity: %s B (%s mB)");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.rate",
+                "Collection cycle: every %s ticks, %s mB");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.summary",
+                "Collects air for formed steam multiblock machines.");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.no_output",
+                "Cannot output air to pipes or containers.");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.subtitle", "Collection and Interface");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.0",
+                "Collects while its multiblock is formed, the hatch stands in the Overworld, one strict-air block sits directly in front and the cache has room; each finished cycle adds up to %s mB.");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.1",
+                "Strict air means plain, cave and void air only: snow layers, fire, plants, vines, webs, non-colliding blocks and fluids all block the intake without being cleared, and any interruption discards the unfinished cycle.");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.2",
+                "Pipes, covers and containers can neither fill nor drain the cache; only its formed controller consumes the actual air, atomically with every other recipe condition.");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.3",
+                "Breaking the hatch scatters its air, the dropped item never carries fluid, and unfinished cycle progress is never saved.");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.4",
+                "The intake front rejects covers, so keep the louver grille facing open air.");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.gui.next_collect", "Next collection: %s ticks");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.status.collecting", "Collecting");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.status.cache_full", "Cache Full");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.status.intake_blocked", "Intake Blocked");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.status.wrong_dimension", "Dimension Not Supported");
+        add("gregsteamexpansion.machine.steam_air_intake_hatch.status.structure_not_formed", "Structure Not Formed");
+
+        // Jade lines for the air intake hatch share the GUI's server status
+        // source (machines-and-hatches.md GUI/Jade 一致性).
+        add("gregsteamexpansion.jade.steam_air_intake_hatch.status", "Status: %s");
+        add("gregsteamexpansion.jade.steam_air_intake_hatch.air", "Air: %s / %s mB");
+        add("gregsteamexpansion.jade.steam_air_intake_hatch.next_collect", "Next collection: %s ticks");
+        add("config.jade.plugin_gregsteamexpansion.steam_air_intake_hatch_info", "Steam Air Intake Hatch Info");
+
         // Steam Exhaust Hatch two-tier item tooltip
         // (large-heat-storage-steam-furnace.md 物品提示与本地化范围).
         add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.0",
-                "A dedicated exhaust interface for compatible multiblock steam machines.");
-        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.1",
+                "A dedicated exhaust interface for compatible multiblock steam machines.");        add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.1",
                 "The 3 blocks straight ahead must stay air.");
         add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.2",
                 "Hot steam severely burns creatures in front of the vent; hold Shift for details.");

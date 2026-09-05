@@ -64,6 +64,7 @@ public final class GSERecipes {
         addSteamCircuitAssemblyBlockRecipes(provider);
         addSteamMixingBlockRecipes(provider);
         addSteamExhaustHatchRecipe(provider);
+        addSteamHatchRecipes(provider);
         addFurnaceControllerRecipe(provider);
     }
 
@@ -375,6 +376,109 @@ public final class GSERecipes {
                 'B', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
                 'P', ChemicalHelper.get(TagPrefix.pipeNormalFluid, GTMaterials.Bronze),
                 'G', ChemicalHelper.get(TagPrefix.gear, GTMaterials.Bronze));
+    }
+
+    // ------------------------------------------------------------------
+    // Steam-era hatches (machines-and-hatches.md 获取方式): the four defined
+    // hatches always craft exactly one with identical bronze materials in
+    // every tier (difficulty.md 仓室通则), so no difficulty conditions are
+    // needed. GTCEu's helpers prepend the shaped/ and assembler/ folders,
+    // producing the resource IDs named by the design doc.
+    // ------------------------------------------------------------------
+
+    private static void addSteamHatchRecipes(Consumer<FinishedRecipe> provider) {
+        ItemStack bronzePlate = ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze);
+        ItemStack bronzePipe = ChemicalHelper.get(TagPrefix.pipeNormalFluid, GTMaterials.Bronze);
+        ItemStack bronzeDrum = GTMachines.BRONZE_DRUM.asStack();
+        ItemStack bronzeRotor = ChemicalHelper.get(TagPrefix.rotor, GTMaterials.Bronze);
+        ItemStack bronzeComponent = new ItemStack(GSEBlocks.BRONZE_COMPONENT.get());
+
+        // 蒸汽供给仓: bronze plates form the hull, a normal bronze fluid pipe
+        // pair the steam channel, and the bronze drum the inner container.
+        VanillaRecipeHelper.addShapedRecipe(provider,
+                GregSteamExpansion.id("steam_supply_hatch"),
+                GSEMachines.STEAM_SUPPLY_HATCH.asStack(),
+                "BPB",
+                "BTB",
+                "BPB",
+                'B', bronzePlate,
+                'P', bronzePipe,
+                'T', bronzeDrum);
+
+        // 蒸汽流体输入仓: single vertical pipe on top (no vertical mirroring;
+        // plain horizontal mirroring keeps the pattern unchanged).
+        VanillaRecipeHelper.addShapedRecipe(provider,
+                GregSteamExpansion.id("steam_fluid_input_hatch"),
+                GSEMachines.STEAM_FLUID_IMPORT_HATCH.asStack(),
+                "PTP",
+                "TDT",
+                "PRP",
+                'P', bronzePlate,
+                'T', bronzePipe,
+                'D', bronzeDrum,
+                'R', bronzeRotor);
+
+        // 蒸汽流体输出仓: the vertical pipe and rotor swap places vertically.
+        VanillaRecipeHelper.addShapedRecipe(provider,
+                GregSteamExpansion.id("steam_fluid_output_hatch"),
+                GSEMachines.STEAM_FLUID_EXPORT_HATCH.asStack(),
+                "PRP",
+                "TDT",
+                "PTP",
+                'P', bronzePlate,
+                'T', bronzePipe,
+                'D', bronzeDrum,
+                'R', bronzeRotor);
+
+        // 蒸汽进气室: the bronze component fixes rotor and air ducts in place.
+        VanillaRecipeHelper.addShapedRecipe(provider,
+                GregSteamExpansion.id("steam_air_intake_hatch"),
+                GSEMachines.STEAM_AIR_INTAKE_HATCH.asStack(),
+                "PRP",
+                "TDT",
+                "PCP",
+                'P', bronzePlate,
+                'T', bronzePipe,
+                'D', bronzeDrum,
+                'R', bronzeRotor,
+                'C', bronzeComponent);
+
+        // Assembler routes (LV-era automation) use identical material costs,
+        // distinguished only by the programming circuit configuration, which
+        // is consumed neither here nor anywhere else.
+        GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(GregSteamExpansion.id("steam_fluid_input_hatch"))
+                .inputItems(TagPrefix.plate, GTMaterials.Bronze, 4)
+                .inputItems(TagPrefix.pipeNormalFluid, GTMaterials.Bronze, 3)
+                .inputItems(GTMachines.BRONZE_DRUM.asStack())
+                .inputItems(TagPrefix.rotor, GTMaterials.Bronze, 1)
+                .circuitMeta(1)
+                .outputItems(GSEMachines.STEAM_FLUID_IMPORT_HATCH.asStack())
+                .duration(100)
+                .EUt(16)
+                .save(provider);
+
+        GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(GregSteamExpansion.id("steam_fluid_output_hatch"))
+                .inputItems(TagPrefix.plate, GTMaterials.Bronze, 4)
+                .inputItems(TagPrefix.pipeNormalFluid, GTMaterials.Bronze, 3)
+                .inputItems(GTMachines.BRONZE_DRUM.asStack())
+                .inputItems(TagPrefix.rotor, GTMaterials.Bronze, 1)
+                .circuitMeta(2)
+                .outputItems(GSEMachines.STEAM_FLUID_EXPORT_HATCH.asStack())
+                .duration(100)
+                .EUt(16)
+                .save(provider);
+
+        GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(GregSteamExpansion.id("steam_air_intake_hatch"))
+                .inputItems(TagPrefix.plate, GTMaterials.Bronze, 4)
+                .inputItems(TagPrefix.pipeNormalFluid, GTMaterials.Bronze, 2)
+                .inputItems(GTMachines.BRONZE_DRUM.asStack())
+                .inputItems(TagPrefix.rotor, GTMaterials.Bronze, 1)
+                .inputItems(GSEBlocks.BRONZE_COMPONENT.get())
+                .circuitMeta(3)
+                .outputItems(GSEMachines.STEAM_AIR_INTAKE_HATCH.asStack())
+                .duration(100)
+                .EUt(16)
+                .save(provider);
     }
 
     // ------------------------------------------------------------------

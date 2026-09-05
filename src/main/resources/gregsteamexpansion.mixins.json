@@ -10,7 +10,9 @@
     "mixins": [
         "LargeBoilerMachineMixin",
         "SteamBoilerMachineMixin",
-        "GTCEuMixin"
+        "GTCEuMixin",
+        "PartAbilityMixin",
+        "RegistrateDisplayItemsGeneratorMixin"
     ],
     "client": [
         "MinecraftMixin",
