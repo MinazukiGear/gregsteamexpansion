@@ -156,12 +156,12 @@ public final class GSEFurnacePatterns {
      * representative input bus, output bus, steam hatch and the mandatory
      * exhaust hatch on the second layer from the top.
      *
-     * <p>ShapeInfo axis convention (must match {@code PatternPreviewWidget},
-     * which places aisles along world X, rows along world Y (vertical) and
-     * chars along world Z): shape aisles = the pattern's front/back rows (back
-     * first), shape rows = the vertical layers (bottom first), shape chars =
-     * the pattern's left/right chars. The controller faces EAST out of the
-     * front face (the last aisle). The steam hatch is this mod's supply hatch
+     * <p>LDLib's builder bakes {@code [char][row][aisle]}, which
+     * {@code PatternPreviewWidget} places at positive {@code [x][y][z]}.
+     * Reverse the pattern's LEFT and FRONT axes: shape aisles run north to
+     * south, rows bottom to top, and chars west to east.
+     * The controller faces NORTH out of z = 0.
+     * The steam hatch is this mod's supply hatch
      * — the legacy upstream hatch no longer satisfies {@code PartAbility.STEAM}
      * (steam-crushers.md / machines-and-hatches.md 禁用范围).</p>
      */
@@ -186,18 +186,12 @@ public final class GSEFurnacePatterns {
         grid[height - 2][0][width / 2] = 'E';
 
         var builder = MultiblockShapeInfo.builder();
-        // Transposed placement matching BlockPattern#setActualRelativeOffset for
-        // start(LEFT, FRONT, UP) facing NORTH: world X = minus the FIRST shape
-        // dimension, world Y = plus the SECOND, world Z = minus the THIRD.
-        // Pattern chars run LEFT (east->west) -> shape aisles east to west;
-        // pattern aisles run UP (layers, bottom->top) -> shape rows;
-        // pattern rows run FRONT (south->north) -> shape chars. The front wall
-        // (largest row index, with the controller) lands in the LAST chars.
-        for (int a = width - 1; a >= 0; a--) {
+        // Pattern a/b increase west/north, while preview x/z increase east/south.
+        for (int b = width - 1; b >= 0; b--) {
             String[] rows = new String[height];
             for (int y = 0; y < height; y++) {
                 StringBuilder sb = new StringBuilder();
-                for (int b = 0; b < width; b++) {
+                for (int a = width - 1; a >= 0; a--) {
                     sb.append(grid[y][b][a]);
                 }
                 rows[y] = sb.toString();
@@ -216,10 +210,10 @@ public final class GSEFurnacePatterns {
                 .where('R', GTBlocks.CASING_PRIMITIVE_BRICKS.get())
                 .where('P', GTBlocks.CASING_BRONZE_PIPE.get())
                 .where('C', definition, Direction.NORTH)
-                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.EAST)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.WEST)
                 .where('H', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
-                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.SOUTH)
                 .where('#', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState())
                 .where(' ', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState())
                 .build();

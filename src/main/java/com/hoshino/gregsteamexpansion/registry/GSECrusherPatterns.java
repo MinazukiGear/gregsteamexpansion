@@ -181,12 +181,12 @@ public final class GSECrusherPatterns {
  * <p>ShapeInfo axis convention, derived from
  * {@code BlockPattern#setActualRelativeOffset} for the
  * {@code start(LEFT, FRONT, UP)} pattern this mod uses (facing NORTH):
- * world X = minus the FIRST shape dimension, world Y = plus the SECOND,
- * world Z = minus the THIRD. Pattern aisles run UP (layers), pattern rows
- * run FRONT (south to north), pattern chars run LEFT (east to west) — so:
- * shape aisles = pattern chars/vertical east-west sections, shape rows =
- * pattern layers bottom-up, shape chars = pattern rows south-north.
- * All machines face NORTH out of the front (last-char) wall.</p> */
+ * pattern chars run west, rows run north and aisles run up.
+ * {@code PatternPreviewWidget} places shape arrays directly at positive
+ * {@code [x][y][z]} coordinates, so both horizontal pattern axes must be
+ * reversed. LDLib's builder bakes {@code [char][row][aisle]}, so shape aisles
+ * run north to south, rows bottom to top, and chars west to east.
+ * All machines face NORTH out of the first-aisle wall.</p> */
 public static MultiblockShapeInfo smallShapeInfo(MultiblockMachineDefinition definition) {
     // layers bottom -> top, each 3 rows south -> north
     String[][] layers = {
@@ -194,7 +194,10 @@ public static MultiblockShapeInfo smallShapeInfo(MultiblockMachineDefinition def
             {"XXX", "GFG", "XKX"},
             {"XXX", "XGX", "XXX"},
     };
-    return buildShapeInfo(definition, layers)
+    return buildShapeInfo(layers)
+            .where('X', bronzeSteamCasing())
+            .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
+            .where('F', bronzeFrame())
             .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
             .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
             .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
@@ -207,21 +210,22 @@ public static MultiblockShapeInfo smallShapeInfo(MultiblockMachineDefinition def
  * minimum-interface set with the supply hatch on layer 2, input/output buses
  * beside the layer-3 controller and the exhaust hatch on layer 4. Axis
  * convention as in {@link #smallShapeInfo(MultiblockMachineDefinition)}.
- * Spaces are air (ring interior, open cylinder top and the area around the
+ * Dots are air (ring interior, open cylinder top and the area around the
  * drill). */
 public static MultiblockShapeInfo largeShapeInfo(MultiblockMachineDefinition definition) {
     String[][] layers = {
             {"WWWWWWW", "WWWWWWW", "WWWWWWW", "WWWPWWW", "WWWWWWW", "WWWWWWW", "WWWWWWW"},
-            {"..WWW..", ".W...W.", "W.....W", "W..P..W", "W.....W", ".W...W.", "..WWW.."},
-            {"..WWW..", ".W...W.", "W.....W", "W..P..W", "W.....W", ".W...W.", "..WKW.."},
-            {"..WWW..", ".W...W.", "W.....W", "W..P..W", "W.....W", ".W...W.", "..WWW.."},
+            {"..WWW..", ".W...W.", "W.....W", "W..P..W", "W.....W", ".W...W.", "..WSW.."},
+            {"..WWW..", ".W...W.", "W.....W", "W..P..W", "W.....W", ".W...W.", "..IKO.."},
+            {"..WWW..", ".W...W.", "W.....W", "W..P..W", "W.....W", ".W...W.", "..WEW.."},
             {"..WWW..", ".W...W.", "W.....W", "W..G..W", "W.....W", ".W...W.", "..WWW.."},
             {"..WWW..", ".W...W.", "W.....W", "W..G..W", "W.....W", ".W...W.", "..WWW.."},
             {".......", ".......", "..CCC..", "..CGC..", "..CCC..", ".......", "......."},
             {".......", ".......", "..CCC..", "..CGC..", "..CCC..", ".......", "......."},
             {".......", ".CCCCC.", ".CCCCC.", ".CCGCC.", ".CCCCC.", ".CCCCC.", "......."},
     };
-    return buildShapeInfo(definition, layers)
+    return buildShapeInfo(layers)
+            .where('W', bronzeSteamCasing())
             .where('C', bronzeSteamCasing())
             .where('P', bronzePipeCasing())
             .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
@@ -230,25 +234,24 @@ public static MultiblockShapeInfo largeShapeInfo(MultiblockMachineDefinition def
             .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
             .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
             .where('K', definition, Direction.NORTH)
-            .where(' ', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState())
+            .where('.', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState())
             .build();
 }
 
 /**
- * Builds the shape aisles from layer definitions: shape aisle a (east to
- * west) contains height rows (bottom to top), each row running south to
- * north — exactly the transposition of the layer grid.
+ * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
+ * coordinates, keeping the controller on the north (z = 0) wall.
  */
-private static MultiblockShapeInfo.ShapeInfoBuilder buildShapeInfo(MultiblockMachineDefinition definition,
-                                                          String[][] layers) {
+private static MultiblockShapeInfo.ShapeInfoBuilder buildShapeInfo(String[][] layers) {
     int height = layers.length;
     int width = layers[0][0].length();
+    int depth = layers[0].length;
     var builder = MultiblockShapeInfo.builder();
-    for (int a = 0; a < width; a++) {
+    for (int r = depth - 1; r >= 0; r--) {
         String[] rows = new String[height];
         for (int l = 0; l < height; l++) {
             StringBuilder sb = new StringBuilder();
-            for (int r = 0; r < layers[l].length; r++) {
+            for (int a = width - 1; a >= 0; a--) {
                 sb.append(layers[l][r].charAt(a));
             }
             rows[l] = sb.toString();
