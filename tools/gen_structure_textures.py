@@ -302,65 +302,60 @@ def steam_exhaust_hatch_front():
 
 
 
-FURN_FRAME_D = (50, 50, 56)
-FURN_FRAME_L = (98, 98, 106)
-FURN_BOLT = (150, 150, 158)
-FURN_DOOR_FRAME = (88, 88, 96)
-FURN_DOOR_PANEL = (58, 52, 48)
-FURN_RIB = (86, 76, 64)
-FURN_HINGE = (130, 130, 138)
-FURN_WINDOW = (14, 12, 12)
-FURN_WINDOW_FRAME = (74, 66, 56)
-FURN_SLIT = (30, 26, 24)
-FURN_GAUGE_RIM = (112, 112, 120)
-FURN_GAUGE_FACE = (36, 36, 42)
-FURN_NEEDLE_IDLE = (22, 22, 26)
+FURN_DOOR_FRAME = BRONZE_DARK
+FURN_DOOR_PANEL = shade(BRONZE_BASE, -18)
+FURN_RIB = BRONZE_DARK
+FURN_HINGE = BRONZE_RIVET
+FURN_WINDOW = (104, 62, 22)
+FURN_WINDOW_FRAME = BRONZE_DARK
+FURN_SLIT = shade(BRONZE_BASE, -30)
+FURN_NEEDLE_IDLE = (70, 40, 14)
 FIRE_BASE = (180, 84, 20)
 FIRE_MID = (232, 140, 42)
 FIRE_CORE = (255, 200, 100)
 
 
 def furnace_front(lit):
-    """Large Heat-Storage Steam Furnace controller front overlay: bronze
-    shell, steel reinforced border, large furnace door with hinges, ribs,
-    observation window and vent slits, plus a centred temperature gauge.
-    Mirror-symmetric about the vertical centre axis; lit swaps in the orange
-    firing glow (large-heat-storage-steam-furnace.md 美术方向)."""
+    """Large Heat-Storage Steam Furnace controller front overlay: bronze is
+    the dominant material per the steam-era positioning — steel appears only
+    as thin accents. Large furnace door with ribs, hinges, observation
+    window and vent slits; centred temperature gauge. Mirror-symmetric about
+    the vertical centre axis; lit swaps in the orange firing glow
+    (large-heat-storage-steam-furnace.md 美术方向, 经用户要求以亮青铜为主体)."""
     canvas = new_canvas()
-    # Symmetric bronze field.
+    # Bright symmetric bronze field.
     for y in range(SIZE):
         for x in range(SIZE):
             band = abs(x - (SIZE - 1) / 2.0)
-            delta = 6 if band < 4.5 else (0 if band < 6.5 else -6)
+            delta = 10 if band < 4.5 else (2 if band < 6.5 else -8)
             px(canvas, x, y, shade(BRONZE_BASE, delta))
 
     def m(x, y, color):
         px(canvas, x, y, color)
         px(canvas, SIZE - 1 - x, y, color)
 
-    # Steel reinforced border: dark outer, bright inner line, corner bolts.
+    # Thin bronze edge with a light inner rim and corner rivets.
     for i in range(SIZE):
-        m(i, 0, FURN_FRAME_D)
-        m(0, i, FURN_FRAME_D)
+        m(i, 0, BRONZE_EDGE)
+        m(0, i, BRONZE_EDGE)
     for i in range(1, SIZE - 1):
-        m(i, 1, FURN_FRAME_L)
-        m(1, i, FURN_FRAME_L)
+        m(i, 1, BRONZE_LIGHT)
+        m(1, i, BRONZE_LIGHT)
     for cx, cy in ((1, 1), (SIZE - 2, 1), (1, SIZE - 2), (SIZE - 2, SIZE - 2)):
-        m(cx, cy, FURN_BOLT)
-        m(cx, SIZE - 3 if cy == 1 else 2, FURN_FRAME_D)
+        m(cx, cy, BRONZE_RIVET)
 
-    # Centred temperature gauge (rows 2..5, cols 6..9).
+    # Centred temperature gauge (rows 2..5, cols 6..9): bronze rim, light face.
     for y in range(2, 6):
         for x in range(6, 10):
-            px(canvas, x, y, FURN_GAUGE_RIM)
+            px(canvas, x, y, BRONZE_DARK)
     for y in range(3, 5):
         for x in range(7, 9):
-            px(canvas, x, y, FURN_GAUGE_FACE)
+            px(canvas, x, y, BRONZE_LIGHT)
     needle = (255, 130, 70) if lit else FURN_NEEDLE_IDLE
     px(canvas, 7, 2, needle)
     px(canvas, 8, 2, needle)
 
-    # Large furnace door (cols 4..11, rows 6..13).
+    # Large furnace door (cols 4..11, rows 6..13): bronze frame, warm panel.
     for y in range(6, 14):
         for x in range(4, 12):
             px(canvas, x, y, FURN_DOOR_FRAME)
@@ -374,7 +369,7 @@ def furnace_front(lit):
     # Hinges mid-height on both door sides.
     m(4, 9, FURN_HINGE)
     m(4, 11, FURN_HINGE)
-    # Observation window (cols 6..9, rows 7..9).
+    # Observation window (cols 6..9, rows 7..9): deep amber when unlit.
     for y in range(7, 10):
         for x in range(6, 10):
             px(canvas, x, y, FURN_WINDOW_FRAME)
@@ -404,7 +399,7 @@ def furnace_front(lit):
 
 def furnace_front_emissive(lit):
     """Emissive mask: only the flame, the observation window and the gauge
-    needle glow; shell and frames stay dark."""
+    needle glow; the bronze shell stays unlit."""
     canvas = [[(0, 0, 0)] * SIZE for _ in range(SIZE)]
     for y in range(8, 9):
         for x in range(6, 10):
