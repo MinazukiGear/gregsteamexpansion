@@ -9,6 +9,7 @@ these files 1:1. Pure stdlib PNG writer, deterministic output.
 Usage: python tools/gen_structure_textures.py
 """
 
+import math
 import os
 import random
 import struct
@@ -73,11 +74,22 @@ def riveted_frame(canvas):
         px(canvas, cx, cy, BRONZE_RIVET)
 
 
-def plate_noise(canvas, rng, strength=14):
+def sym_noise(x, y, salt):
+    """Deterministic noise mirrored on both axes: folded coordinates make the
+    value identical for (x,y), (15-x,y), (x,15-y) and (15-x,15-y)."""
+    mx, my = min(x, SIZE - 1 - x), min(y, SIZE - 1 - y)
+    h = ((mx + 1) * 73856093) ^ ((my + 1) * 19349663) ^ ((salt + 1) * 83492791)
+    return (h & 0xFFFF)
+
+
+def plate_noise(canvas, rng, strength=14, salt=1):
+    del rng  # kept for signature compatibility; noise is now deterministic
     for y in range(SIZE):
         for x in range(SIZE):
-            if rng.random() < 0.45:
-                px(canvas, x, y, shade(canvas[y][x], rng.randint(-strength, strength // 2)))
+            n = sym_noise(x, y, salt)
+            if n % 5 < 2:
+                delta = (n % (strength + 1)) - strength // 2
+                px(canvas, x, y, shade(canvas[y][x], delta))
 
 
 def beveled_plates(canvas, rng):
@@ -99,23 +111,26 @@ def gear(canvas, cx, cy, body, tooth, hub):
 
 def meshed_gear_pair(canvas, rng):
     """Two meshing bronze gears over a dark recess (assembly block side)."""
-    rect(canvas, 2, 4, SIZE - 3, SIZE - 3, DARKER_METAL)
-    gear(canvas, 6, 8, BRONZE_BASE, BRONZE_LIGHT, DARK_METAL)
-    gear(canvas, 10, 8, BRONZE_DARK, BRONZE_BASE, DARK_METAL)
+    rect(canvas, 2, 4, SIZE - 3, SIZE - 3, BRONZE_DARK)
+    gear(canvas, 6, 8, BRONZE_BASE, BRONZE_LIGHT, STEEL_MID)
+    gear(canvas, 10, 8, BRONZE_DARK, BRONZE_BASE, STEEL_MID)
     # Mesh point: teeth of both gears meet on the shared center line.
-    rect(canvas, 8, 7, 9, 9, BRONZE_DARK)
+    rect(canvas, 7, 7, 8, 9, BRONZE_DARK)
     riveted_frame(canvas)
 
 
 def grinding_ring(canvas, rng):
     """Cyan segmented grinding ring inside a dark bearing ring (grinding side)."""
-    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, DARK_METAL)
+    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, BRONZE_DARK)
     rect(canvas, 4, 4, SIZE - 5, SIZE - 5, CYAN_BASE)
     # Segment cuts keep the ring from reading as a solid diamond block.
-    for y in range(4, SIZE - 4, 3):
+    # Cut rows are mirror-symmetric about y = 7.5 (4/11 and 7/8).
+    for y in (4, 7, 8, 11):
         hline(canvas, 4, SIZE - 5, y, CYAN_DARK)
     rect(canvas, 7, 7, 8, 8, DARKER_METAL)
+    # Mirrored accent columns on both sides of the hub.
     rect(canvas, 6, 6, 6, 9, CYAN_LIGHT)
+    rect(canvas, 9, 6, 9, 9, CYAN_LIGHT)
     riveted_frame(canvas)
 
 
@@ -135,34 +150,34 @@ def rotor(canvas, cx, cy):
 
 def twin_rotors(canvas, rng):
     """Vertical shaft with two rotor stages over a dark bearing housing."""
-    rect(canvas, 3, 2, SIZE - 4, SIZE - 3, DARK_METAL)
+    rect(canvas, 3, 2, SIZE - 4, SIZE - 3, BRONZE_DARK)
     vline(canvas, 7, 3, SIZE - 4, BRONZE_DARK)
     vline(canvas, 8, 3, SIZE - 4, BRONZE_DARK)
     rotor(canvas, 8, 5)
-    rotor(canvas, 8, 11)
+    rotor(canvas, 8, 10)
     riveted_frame(canvas)
 
 
 def mixer_top(canvas, rng):
     """Drive gear inside a bearing collar on a reinforced mount."""
     beveled_plates(canvas, rng)
-    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, DARK_METAL)
+    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, BRONZE_DARK)
     # Bearing collar.
     rect(canvas, 4, 4, SIZE - 5, SIZE - 5, STEEL_MID)
     rect(canvas, 5, 5, SIZE - 6, SIZE - 6, DARKER_METAL)
-    gear(canvas, 8, 8, BRONZE_BASE, BRONZE_LIGHT, DARK_METAL)
+    gear(canvas, 8, 8, BRONZE_BASE, BRONZE_LIGHT, STEEL_MID)
     riveted_frame(canvas)
 
 
 def wire_slots(canvas, rng):
     """Fine positioning holes and parallel wire slots (circuit assembly side)."""
-    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, DARKER_METAL)
+    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, BRONZE_DARK)
     # Crossed conductor slots.
     hline(canvas, 3, SIZE - 4, 8, RUBBER_BASE)
     vline(canvas, 8, 3, SIZE - 4, RUBBER_BASE)
     # Fine positioning pin rows.
-    for y in (5, 11):
-        for x in range(4, SIZE - 3, 3):
+    for y in (5, 10):
+        for x in (4, 7, 8, 11):
             px(canvas, x, y, BRONZE_LIGHT)
             px(canvas, x, y + 1, DARK_METAL)
     riveted_frame(canvas)
@@ -171,11 +186,11 @@ def wire_slots(canvas, rng):
 def assembly_top(canvas, rng):
     """Segmented assembly table with locating holes and corner clamps."""
     beveled_plates(canvas, rng)
-    rect(canvas, 3, 3, SIZE - 4, SIZE - 4, DARK_METAL)
+    rect(canvas, 3, 3, SIZE - 4, SIZE - 4, BRONZE_DARK)
     rect(canvas, 4, 4, SIZE - 5, SIZE - 5, BRONZE_DARK)
     for cx, cy in ((5, 5), (10, 5), (5, 10), (10, 10)):
         px(canvas, cx, cy, DARKER_METAL)
-        px(canvas, cx, cy, BRONZE_RIVET if (cx + cy) % 2 else STEEL_MID)
+        px(canvas, cx, cy, STEEL_MID if cy == 5 else BRONZE_RIVET)
     hline(canvas, 4, SIZE - 5, 7, DARK_METAL)
     hline(canvas, 4, SIZE - 5, 8, BRONZE_BASE)
     riveted_frame(canvas)
@@ -188,19 +203,114 @@ def reinforced_bottom(canvas, rng):
     rect(canvas, 4, 4, SIZE - 5, SIZE - 5, BRONZE_BASE)
     for cx, cy in ((3, 3), (SIZE - 4, 3), (3, SIZE - 4), (SIZE - 4, SIZE - 4)):
         px(canvas, cx, cy, BRONZE_RIVET)
-        px(canvas, cx + 1, cy, BRONZE_DARK)
-    for i in range(5, SIZE - 4, 3):
+        # shadow cast toward the block centre keeps the mirror intact
+        px(canvas, cx + (1 if cx < 7 else -1), cy, BRONZE_DARK)
+        px(canvas, cx, cy + (1 if cy < 7 else -1), BRONZE_DARK)
+    for i in (5, 7, 8, 10):
         px(canvas, i, 2, STEEL_MID)
         px(canvas, i, SIZE - 3, STEEL_MID)
     riveted_frame(canvas)
 
 
+
+
+def _panel_field(canvas, rim=BRONZE_DARK):
+    """Bright symmetric bronze field used by all top/side feature faces."""
+    for y in range(SIZE):
+        for x in range(SIZE):
+            band = max(abs(x - 7.5), abs(y - 7.5))
+            delta = 10 if band < 4 else (4 if band < 5.5 else -6)
+            px(canvas, x, y, shade(BRONZE_BASE, delta))
+    for i in range(SIZE):
+        px(canvas, i, 0, BRONZE_EDGE)
+        px(canvas, i, SIZE - 1, BRONZE_EDGE)
+        px(canvas, 0, i, BRONZE_EDGE)
+        px(canvas, SIZE - 1, i, BRONZE_EDGE)
+    for i in range(1, SIZE - 1):
+        px(canvas, i, 1, rim)
+        px(canvas, i, SIZE - 2, rim)
+        px(canvas, 1, i, rim)
+        px(canvas, SIZE - 2, i, rim)
+    for cx, cy in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        px(canvas, cx, cy, BRONZE_RIVET)
+
+
+def grind_face(canvas, rng):
+    """Diamond grinding head: dark seat, cyan rhombus, bright core."""
+    _panel_field(canvas)
+    for y in range(3, 13):
+        for x in range(3, 13):
+            d = abs(x - 7.5) + abs(y - 7.5)
+            if 3.5 <= d <= 4.5:
+                px(canvas, x, y, GRATE_SHADOW)
+            elif 1.5 <= d <= 3.5:
+                px(canvas, x, y, CYAN_BASE)
+    for x, y in ((7, 3), (8, 3), (7, 12), (8, 12), (3, 7), (3, 8), (12, 7), (12, 8)):
+        px(canvas, x, y, GRATE_SHADOW)
+    for y in (7, 8):
+        for x in (7, 8):
+            px(canvas, x, y, CYAN_LIGHT)
+
+
+def gear_face(canvas, rng):
+    """Assembly gear: dark ring with eight teeth around a bronze hub."""
+    _panel_field(canvas)
+    for y in range(3, 13):
+        for x in range(3, 13):
+            dist = math.hypot(x - 7.5, y - 7.5)
+            if 3.0 <= dist <= 3.6:
+                px(canvas, x, y, GRATE_SHADOW)
+            elif 1.2 <= dist <= 2.4:
+                px(canvas, x, y, BRONZE_DARK)
+            elif dist < 1.2:
+                px(canvas, x, y, BRONZE_RIVET)
+    for tooth in range(8):
+        a = math.radians(tooth * 45 + 22.5)
+        x = int(round(7.5 + 3.3 * math.cos(a)))
+        y = int(round(7.5 + 3.3 * math.sin(a)))
+        px(canvas, x, y, GRATE_SHADOW)
+
+
+def circuit_face(canvas, rng):
+    """Circuit assembly: central chip with symmetric four-way traces."""
+    _panel_field(canvas)
+    for y in range(6, 10):
+        for x in range(6, 10):
+            px(canvas, x, y, GRATE_SHADOW)
+    for y in (7, 8):
+        for x in (7, 8):
+            px(canvas, x, y, CYAN_LIGHT)
+    for i in (5, 10):
+        for j in (6, 7, 8, 9):
+            px(canvas, i, j, BRONZE_DARK)
+            px(canvas, j, i, BRONZE_DARK)
+    for x, y in ((4, 4), (11, 4), (4, 11), (11, 11)):
+        px(canvas, x, y, GRATE_BAR)
+
+
+def rotor_face(canvas, rng):
+    """Mixing rotors: X-shaped twin blades around a dark hub."""
+    _panel_field(canvas)
+    for y in range(3, 13):
+        for x in range(3, 13):
+            dist = math.hypot(x - 7.5, y - 7.5)
+            if 3.0 <= dist <= 3.6:
+                px(canvas, x, y, GRATE_SHADOW)
+    for d in range(3, 13):
+        c = BRONZE_RIVET if d in (3, 12) else BRONZE_DARK
+        px(canvas, d, d, c)
+        px(canvas, d, 15 - d, c)
+    for y in (7, 8):
+        for x in (7, 8):
+            px(canvas, x, y, GRATE_SHADOW)
+
+
 def gear_train_top(canvas, rng):
     """Drive gear pair with a bearing collar for the grinding block top."""
     beveled_plates(canvas, rng)
-    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, DARK_METAL)
-    gear(canvas, 5, 8, BRONZE_DARK, BRONZE_BASE, DARKER_METAL)
-    gear(canvas, 11, 8, BRONZE_LIGHT, BRONZE_BASE, DARKER_METAL)
+    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, BRONZE_DARK)
+    gear(canvas, 5, 8, BRONZE_DARK, BRONZE_BASE, STEEL_MID)
+    gear(canvas, 11, 8, BRONZE_LIGHT, BRONZE_BASE, STEEL_MID)
     rect(canvas, 7, 6, 8, 10, DARK_METAL)
     riveted_frame(canvas)
 
@@ -208,7 +318,7 @@ def gear_train_top(canvas, rng):
 def circuit_top(canvas, rng):
     """Precision circuit assembly table: pins, slots, small corner clamps."""
     plate_noise(canvas, rng)
-    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, DARK_METAL)
+    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, BRONZE_DARK)
     rect(canvas, 3, 3, SIZE - 4, SIZE - 4, STEEL_MID)
     for x in range(4, SIZE - 3, 2):
         px(canvas, x, 5, DARKER_METAL)
@@ -222,33 +332,62 @@ def circuit_top(canvas, rng):
 
 
 def bronze_component_item(rng):
-    """Compact square bronze frame: spring coils left/right, plated corners."""
+    """Symmetric I-fitting: top/bottom flanges, a central column with rivets
+    and side ribs connecting them — transparent corners frame the item."""
     canvas = new_canvas()
     plate_noise(canvas, rng, 10)
+    # plate body
     rect(canvas, 3, 3, SIZE - 4, SIZE - 4, BRONZE_BASE)
-    # Hollow dark center keeps it distinct from a full block.
-    rect(canvas, 6, 6, SIZE - 7, SIZE - 7, DARKER_METAL)
-    # Corner plating over the frame.
+    # top & bottom flanges
+    rect(canvas, 2, 2, SIZE - 3, 5, BRONZE_DARK)
+    rect(canvas, 2, 10, SIZE - 3, SIZE - 3, BRONZE_DARK)
+    rect(canvas, 3, 3, SIZE - 4, 4, BRONZE_LIGHT)
+    rect(canvas, 3, 11, SIZE - 4, SIZE - 4, BRONZE_LIGHT)
+    # central column with riveted bands
+    rect(canvas, 6, 5, SIZE - 7, 10, BRONZE_DARK)
+    rect(canvas, 7, 5, 8, 10, BRONZE_BASE)
+    for y in (6, 9):
+        hline(canvas, 7, 8, y, BRONZE_RIVET)
+    # side ribs connecting the flanges to the column
+    hline(canvas, 3, 5, 7, BRONZE_DARK)
+    hline(canvas, 3, 5, 8, BRONZE_DARK)
+    hline(canvas, SIZE - 6, SIZE - 4, 7, BRONZE_DARK)
+    hline(canvas, SIZE - 6, SIZE - 4, 8, BRONZE_DARK)
+    # corner rivets on the plate
     for cx, cy in ((3, 3), (SIZE - 4, 3), (3, SIZE - 4), (SIZE - 4, SIZE - 4)):
-        rect(canvas, cx - 1, cy - 1, cx + 1, cy + 1, BRONZE_DARK)
         px(canvas, cx, cy, BRONZE_RIVET)
-    # Outer silhouette.
-    for i in range(2, SIZE - 2):
-        px(canvas, i, 2, BRONZE_EDGE)
-        px(canvas, i, SIZE - 3, BRONZE_EDGE)
-        px(canvas, 2, i, BRONZE_EDGE)
-        px(canvas, SIZE - 3, i, BRONZE_EDGE)
-    # Twin spring coils inside the frame.
-    for x in (6, 9):
-        for y in range(6, SIZE - 5):
-            px(canvas, x, y, BRONZE_LIGHT if y % 2 else BRONZE_DARK)
-    # Segmented reinforcing plates between the coils.
-    hline(canvas, 7, 8, 7, BRONZE_BASE)
-    hline(canvas, 7, 8, 8, BRONZE_DARK)
-    hline(canvas, 7, 8, 11, BRONZE_BASE)
-    hline(canvas, 7, 8, 12, BRONZE_DARK)
     return canvas
 
+
+def crafting_station_top(canvas, rng):
+    """Synthetic-station top: symmetric 3x3 crafting grid on a bench plate."""
+    plate_noise(canvas, rng, 10)
+    rect(canvas, 1, 1, SIZE - 2, SIZE - 2, BRONZE_BASE)
+    # grid trenches at 2, 6, 9, 13 (mirror-symmetric about x/y = 7.5)
+    for t in (2, 6, 9, 13):
+        vline(canvas, t, 2, SIZE - 3, BRONZE_EDGE)
+        hline(canvas, 2, SIZE - 3, t, BRONZE_EDGE)
+    # symmetric highlights inside the cells (centre cell fully filled)
+    for x, y in ((4, 4), (11, 4), (4, 11), (11, 11)):
+        px(canvas, x, y, BRONZE_RIVET)
+    for y in (7, 8):
+        for x in (7, 8):
+            px(canvas, x, y, BRONZE_RIVET)
+    riveted_frame(canvas)
+
+
+def crafting_station_bottom(canvas, rng):
+    """Synthetic-station bottom: plain symmetric plate with a cross brace."""
+    plate_noise(canvas, rng, 10)
+    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, BRONZE_DARK)
+    rect(canvas, 3, 3, SIZE - 4, SIZE - 4, BRONZE_BASE)
+    vline(canvas, 7, 3, SIZE - 4, BRONZE_DARK)
+    vline(canvas, 8, 3, SIZE - 4, BRONZE_DARK)
+    hline(canvas, 3, SIZE - 4, 7, BRONZE_DARK)
+    hline(canvas, 3, SIZE - 4, 8, BRONZE_DARK)
+    for cx, cy in ((7, 7), (8, 7), (7, 8), (8, 8)):
+        px(canvas, cx, cy, BRONZE_RIVET)
+    riveted_frame(canvas)
 
 
 def steam_exhaust_hatch_front():
@@ -440,25 +579,29 @@ def main():
                         "assets", "gregsteamexpansion", "textures")
     blocks = {
         "steam_grinding_block": {
-            "side": grinding_ring,
-            "top": gear_train_top,
+            "side": grind_face,
+            "top": grind_face,
             "bottom": reinforced_bottom,
         },
         "steam_assembly_block": {
-            "side": meshed_gear_pair,
-            "top": assembly_top,
+            "side": gear_face,
+            "top": gear_face,
             "bottom": reinforced_bottom,
         },
         "steam_circuit_assembly_block": {
-            "side": wire_slots,
-            "top": circuit_top,
+            "side": circuit_face,
+            "top": circuit_face,
             "bottom": reinforced_bottom,
         },
         "steam_mixing_block": {
-            "side": twin_rotors,
-            "top": mixer_top,
+            "side": rotor_face,
+            "top": rotor_face,
             "bottom": reinforced_bottom,
         },
+    }
+    blocks["crafting_station"] = {
+        "top": crafting_station_top,
+        "bottom": crafting_station_bottom,
     }
     for name, faces in blocks.items():
         for face, painter in faces.items():
@@ -468,19 +611,33 @@ def main():
             write_png(os.path.join(root, "block", name, f"{face}.png"), canvas)
             print(f"wrote block/{name}/{face}.png")
 
-    furnace_dir = os.path.join(root, "block", "machine", "large_heat_storage_steam_furnace")
-    write_png(os.path.join(furnace_dir, "overlay_front.png"), furnace_front(False))
-    write_png(os.path.join(furnace_dir, "overlay_front_active.png"), furnace_front(True))
-    write_png(os.path.join(furnace_dir, "overlay_front_emissive.png"), furnace_front_emissive(False))
-    write_png(os.path.join(furnace_dir, "overlay_front_active_emissive.png"), furnace_front_emissive(True))
-    print("wrote large_heat_storage_steam_furnace overlays (idle/lit + emissive)")
+    # NOTE: the furnace controller overlays and the exhaust hatch front are
+    # owned by tools/gen_hatch_textures.py now (GT decal style); this script
+    # deliberately does NOT write them.
 
-    write_png(os.path.join(root, "block", "machine", "part", "steam_exhaust_hatch.png"),
-              steam_exhaust_hatch_front())
-    print("wrote block/machine/part/steam_exhaust_hatch.png")
-
-    write_png(os.path.join(root, "item", "bronze_component.png"), bronze_component_item(random.Random("bronze_component")))
+    component = bronze_component_item(random.Random("bronze_component"))
+    write_png(os.path.join(root, "item", "bronze_component.png"), component)
     print("wrote item/bronze_component.png")
+
+    # Symmetry gate: every texture written by this script must be
+    # mirror-symmetric about both axes.
+    import glob
+    from PIL import Image as _Image
+    written = (
+        [os.path.join(root, "block", name, f"{face}.png")
+         for name, faces in blocks.items() for face in faces]
+        + [os.path.join(root, "item", "bronze_component.png"),
+           os.path.join(root, "block", "crafting_station", "top.png"),
+           os.path.join(root, "block", "crafting_station", "bottom.png")])
+    for path in written:
+        img = _Image.open(path).convert("RGBA")
+        px = img.load()
+        w, h = img.size
+        for y in range(h):
+            for x in range(w):
+                assert px[x, y] == px[w - 1 - x, y], (path, "h", x, y)
+                assert px[x, y] == px[x, h - 1 - y], (path, "v", x, y)
+    print("symmetry check passed for", len(written), "textures")
 
 
 if __name__ == "__main__":
