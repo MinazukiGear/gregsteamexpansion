@@ -1066,10 +1066,14 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
      */
     @Override
     public ModularUI createUI(Player entityPlayer) {
+        // 260px wide so the longest value row (温度 1000°C / 600°C / 1000°C)
+        // fits; GuiTextures.BACKGROUND is a 9-slice border texture and scales
+        // cleanly, unlike the fixed-size steam background.
+        int uiWidth = 260;
         int uiHeight = 216;
-        var ui = new ModularUI(176, uiHeight, this, entityPlayer)
-                .background(GuiTextures.BACKGROUND_STEAM.get(false));
-        var scroll = new DraggableScrollableWidgetGroup(5, 5, 166, uiHeight - 32);
+        var ui = new ModularUI(uiWidth, uiHeight, this, entityPlayer)
+                .background(GuiTextures.BACKGROUND);
+        var scroll = new DraggableScrollableWidgetGroup(5, 5, uiWidth - 10, uiHeight - 32);
         int y = 2;
         y = infoRow(scroll, y, uiKey("ui.status"), () -> getStatusText().getString(), getStatusColor());
         y = infoRow(scroll, y, uiKey("ui.temperature"),
@@ -1128,7 +1132,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         group.addWidget(new LabelWidget(2, y, () -> Component.translatable(labelKey).getString())
                 .setTextColor(-1).setDropShadow(true));
         Integer rgb = valueColor.getColor();
-        group.addWidget(new LabelWidget(84, y, value).setTextColor(rgb == null ? -1 : (rgb.intValue() & 0xFFFFFF))
+        group.addWidget(new LabelWidget(104, y, value).setTextColor(rgb == null ? -1 : (rgb.intValue() & 0xFFFFFF))
                 .setDropShadow(true));
         return y + 10;
     }
