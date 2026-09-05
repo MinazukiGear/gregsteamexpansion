@@ -14,7 +14,8 @@
         "PartAbilityMixin",
         "RegistrateDisplayItemsGeneratorMixin",
         "RecipeManagerAccessor",
-        "GTOreByProductMixin"
+        "GTOreByProductMixin",
+        "BlockPatternPreviewFacingMixin"
     ],
     "client": [
         "MinecraftMixin",
