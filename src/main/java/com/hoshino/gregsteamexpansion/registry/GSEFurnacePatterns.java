@@ -186,14 +186,21 @@ public final class GSEFurnacePatterns {
         grid[height - 2][0][width / 2] = 'E';
 
         var builder = MultiblockShapeInfo.builder();
-        // Transposed placement: one shape aisle per pattern front/back row, so
-        // the preview world stands the furnace upright. The front section
-        // (largest row index) is the FIRST aisle per the GTCEu shapeInfo
-        // convention, so the preview camera faces the controller front.
-        for (int b = width - 1; b >= 0; b--) {
+        // Transposed placement matching BlockPattern#setActualRelativeOffset for
+        // start(LEFT, FRONT, UP) facing NORTH: world X = minus the FIRST shape
+        // dimension, world Y = plus the SECOND, world Z = minus the THIRD.
+        // Pattern chars run LEFT (east->west) -> shape aisles east to west;
+        // pattern aisles run UP (layers, bottom->top) -> shape rows;
+        // pattern rows run FRONT (south->north) -> shape chars. The front wall
+        // (largest row index, with the controller) lands in the LAST chars.
+        for (int a = width - 1; a >= 0; a--) {
             String[] rows = new String[height];
             for (int y = 0; y < height; y++) {
-                rows[y] = new String(grid[y][b]);
+                StringBuilder sb = new StringBuilder();
+                for (int b = 0; b < width; b++) {
+                    sb.append(grid[y][b][a]);
+                }
+                rows[y] = sb.toString();
             }
             builder.aisle(rows);
         }

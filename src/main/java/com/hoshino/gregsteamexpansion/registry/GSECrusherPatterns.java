@@ -177,25 +177,28 @@ public final class GSECrusherPatterns {
                 .build();
     }
 
-    /** Small crusher representative layout (steam-crushers.md 蒸汽粉碎机代表布局).
- * <p>ShapeInfo axis convention (must match {@code PatternPreviewWidget}, which
- * places aisles along world X, rows along world Y (vertical) and chars along
- * world Z): shape aisles = the pattern's front/back rows (back first), shape
- * rows = the pattern's vertical layers (bottom first), shape chars = the
- * pattern's left/right chars. The controller faces EAST — out of the front
- * face formed by the last aisle.</p> */
+/** Small crusher representative layout (steam-crushers.md 蒸汽粉碎机代表布局).
+ * <p>ShapeInfo axis convention, derived from
+ * {@code BlockPattern#setActualRelativeOffset} for the
+ * {@code start(LEFT, FRONT, UP)} pattern this mod uses (facing NORTH):
+ * world X = minus the FIRST shape dimension, world Y = plus the SECOND,
+ * world Z = minus the THIRD. Pattern aisles run UP (layers), pattern rows
+ * run FRONT (south to north), pattern chars run LEFT (east to west) — so:
+ * shape aisles = pattern chars/vertical east-west sections, shape rows =
+ * pattern layers bottom-up, shape chars = pattern rows south-north.
+ * All machines face NORTH out of the front (last-char) wall.</p> */
 public static MultiblockShapeInfo smallShapeInfo(MultiblockMachineDefinition definition) {
-    return MultiblockShapeInfo.builder()
-            .aisle("ISO", "XKX", "XXX")
-            .aisle("XGX", "GFG", "XGX")
-            .aisle("XXX", "XXX", "XXX")
-            .where('X', bronzeSteamCasing())
-            .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
-            .where('F', bronzeFrame())
-            .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.EAST)
-            .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.EAST)
-            .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.EAST)
-            .where('K', definition, Direction.EAST)
+    // layers bottom -> top, each 3 rows south -> north
+    String[][] layers = {
+            {"XXX", "XGX", "ISO"},
+            {"XXX", "GFG", "XKX"},
+            {"XXX", "XGX", "XXX"},
+    };
+    return buildShapeInfo(definition, layers)
+            .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+            .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+            .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+            .where('K', definition, Direction.NORTH)
             .build();
 }
 
@@ -203,84 +206,22 @@ public static MultiblockShapeInfo smallShapeInfo(MultiblockMachineDefinition def
  * Large crusher representative layout (steam-crushers.md 大型蒸汽粉碎机代表布局):
  * minimum-interface set with the supply hatch on layer 2, input/output buses
  * beside the layer-3 controller and the exhaust hatch on layer 4. Axis
- * convention as in {@link #smallShapeInfo(MultiblockMachineDefinition)}:
- * aisles = front/back rows back to front, rows = layers bottom to top,
- * controller and interfaces face EAST out of the front row (last aisle).
+ * convention as in {@link #smallShapeInfo(MultiblockMachineDefinition)}.
  * Spaces are air (ring interior, open cylinder top and the area around the
- * drill).
- */
+ * drill). */
 public static MultiblockShapeInfo largeShapeInfo(MultiblockMachineDefinition definition) {
-    return MultiblockShapeInfo.builder()
-            .aisle(
-                    "CCCCCCC",
-                    "  CSC  ",
-                    "  IKO  ",
-                    "  CEC  ",
-                    "  CCC  ",
-                    "  CCC  ",
-                    "       ",
-                    "       ",
-                    "       ")
-            .aisle(
-                    "CCCCCCC",
-                    " C   C ",
-                    " C   C ",
-                    " C   C ",
-                    " C   C ",
-                    " C   C ",
-                    "       ",
-                    "       ",
-                    " CCCCC ")
-            .aisle(
-                    "CCCCCCC",
-                    "C     C",
-                    "C     C",
-                    "C     C",
-                    "C     C",
-                    "C     C",
-                    "  CCC  ",
-                    "  CCC  ",
-                    " CCCCC ")
-            .aisle(
-                    "CCCPCCC",
-                    "C  P  C",
-                    "C  P  C",
-                    "C  P  C",
-                    "C  G  C",
-                    "C  G  C",
-                    "  CGC  ",
-                    "  CGC  ",
-                    " CCGCC ")
-            .aisle(
-                    "CCCCCCC",
-                    "C     C",
-                    "C     C",
-                    "C     C",
-                    "C     C",
-                    "C     C",
-                    "  CCC  ",
-                    "  CCC  ",
-                    " CCCCC ")
-            .aisle(
-                    "CCCCCCC",
-                    " C   C ",
-                    " C   C ",
-                    " C   C ",
-                    " C   C ",
-                    " C   C ",
-                    "       ",
-                    "       ",
-                    " CCCCC ")
-            .aisle(
-                    "CCCCCCC",
-                    "  CCC  ",
-                    "  CCC  ",
-                    "  CCC  ",
-                    "  CCC  ",
-                    "  CCC  ",
-                    "       ",
-                    "       ",
-                    "       ")
+    String[][] layers = {
+            {"WWWWWWW", "WWWWWWW", "WWWWWWW", "WWWPWWW", "WWWWWWW", "WWWWWWW", "WWWWWWW"},
+            {"..WWW..", ".W...W.", "W.....W", "W..P..W", "W.....W", ".W...W.", "..WWW.."},
+            {"..WWW..", ".W...W.", "W.....W", "W..P..W", "W.....W", ".W...W.", "..WKW.."},
+            {"..WWW..", ".W...W.", "W.....W", "W..P..W", "W.....W", ".W...W.", "..WWW.."},
+            {"..WWW..", ".W...W.", "W.....W", "W..G..W", "W.....W", ".W...W.", "..WWW.."},
+            {"..WWW..", ".W...W.", "W.....W", "W..G..W", "W.....W", ".W...W.", "..WWW.."},
+            {".......", ".......", "..CCC..", "..CGC..", "..CCC..", ".......", "......."},
+            {".......", ".......", "..CCC..", "..CGC..", "..CCC..", ".......", "......."},
+            {".......", ".CCCCC.", ".CCCCC.", ".CCGCC.", ".CCCCC.", ".CCCCC.", "......."},
+    };
+    return buildShapeInfo(definition, layers)
             .where('C', bronzeSteamCasing())
             .where('P', bronzePipeCasing())
             .where('G', GSEBlocks.STEAM_GRINDING_BLOCK.get())
@@ -291,5 +232,29 @@ public static MultiblockShapeInfo largeShapeInfo(MultiblockMachineDefinition def
             .where('K', definition, Direction.NORTH)
             .where(' ', net.minecraft.world.level.block.Blocks.AIR.defaultBlockState())
             .build();
+}
+
+/**
+ * Builds the shape aisles from layer definitions: shape aisle a (east to
+ * west) contains height rows (bottom to top), each row running south to
+ * north — exactly the transposition of the layer grid.
+ */
+private static MultiblockShapeInfo.ShapeInfoBuilder buildShapeInfo(MultiblockMachineDefinition definition,
+                                                          String[][] layers) {
+    int height = layers.length;
+    int width = layers[0][0].length();
+    var builder = MultiblockShapeInfo.builder();
+    for (int a = 0; a < width; a++) {
+        String[] rows = new String[height];
+        for (int l = 0; l < height; l++) {
+            StringBuilder sb = new StringBuilder();
+            for (String[] layer : layers) {
+                sb.append(layer[l].charAt(a));
+            }
+            rows[l] = sb.toString();
+        }
+        builder.aisle(rows);
+    }
+    return builder;
 }
 }
