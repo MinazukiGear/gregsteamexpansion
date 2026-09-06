@@ -50,6 +50,16 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 - 当前版本：`0.1.0`（发布标签 [`v0.1.0-alpha.1`](https://github.com/MinazukiGear/gregsteamexpansion/releases)，前瞻版）
 - 许可：代码与功能性资源 LGPL-3.0（`LICENSE.txt`）；`textures/` 图像素材 CC BY-NC-SA 4.0，禁止商用（`LICENSE-ASSETS.txt`）
 
+## 致谢
+
+本模组的部分设计参考了以下作品，感谢原作者：
+
+- 整合包：
+  - [GregTech: New Horizons (GTNH)](https://github.com/GTNewHorizons/GT-New-Horizons-Modpack)
+  - [GregTech: Odyssey (GTO)](https://github.com/GregTech-Odyssey/GregTech-Odyssey)
+- 模组：
+  - [Immersive Technology](https://github.com/tgstyle/MCT-Immersive-Technology)
+
 ## 已知上游问题
 
 开发客户端同时加载 GTCEu 内嵌 LDLib 与 EMI 时可能遇到 Mixin 初始化竞态（`MixinTargetAlreadyLoadedException` / `EmiPlugin was loaded too early`），参见 [GregTechCEu/GregTech#2917](https://github.com/GregTechCEu/GregTech/issues/2917)；不影响未安装 EMI 的环境。
