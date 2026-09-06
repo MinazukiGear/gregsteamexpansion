@@ -18,7 +18,18 @@
 - **大型焦炉与大型焦炉仓**：独立注册为 `gregsteamexpansion:large_coke_oven` 与 `gregsteamexpansion:large_coke_oven_hatch`，不复用上游普通焦炉身份。`7×7×5` 完整包围范围，三炉室 + 顶部砖制进料斗，需 `3–5` 个仓且三种模式各至少一个；最大并行 `6`、固定 `0.5×` 原配方耗时、不消耗任何能源，满载吞吐等同 12 台普通焦炉。含一氧化碳环境危害、所有权互斥、批次结算与三炉门同步渲染（已实现，尚未经游戏内验收）。
 - **全局工作强度机制**：Easy / Normal / Expert 三档存档级难度，影响产量、预热成本、蒸汽消耗等数值。
 
-详细设计规格见 [`docs/design/`](docs/design/)；其中 [`docs/design/next-machine-candidates.md`](docs/design/next-machine-candidates.md) 是**尚未定案**的后续机器候选建议清单，不代表已确认内容。
+### 已定案设计（待实现）
+
+以下机器已完成设计定案（规格见 [`docs/design/`](docs/design/) 对应文档），尚未进入代码实现：
+
+- **锅炉房**（青铜/钢/钛/钨钢四档）：协同燃烧产汽终端，蒸汽进气室前置，产能逐档上位于同档大型锅炉（`boiler-room.md`）。
+- **大型蒸汽洗矿厂**：执行 `ore_washer` 全类型，`11×11×6` 三区外壳 + 蒸汽搅拌十字，并行 64，越级以蒸汽消耗平衡（`large-steam-ore-washer.md`）。
+- **大型蒸汽研磨厂**：执行 `macerator` 全类型，外接 `7×7×7` 球形结构 + 碾磨方块十字，并行 64（`large-steam-macerator.md`）。
+- **蒸汽化学浸洗厂**：执行 `chemical_bath` 全类型，`3×4×3` 紧凑机身（`large-steam-chemical-bath.md`）。
+- **大型蒸汽组装机**：执行 `assembler` 全类型，`9×9×9` 装配大厅；控制器槽位装入 LV–EV 电力组装机解锁配方等级并提升并行（ULV–EV / 并行 1–16），Easy 档产出 2×（`large-steam-assembler.md`）。
+- **大型蒸汽电路组装机**：执行 `circuit_assembler` 全类型，宽 `5` × 深 `11` × 高 `6` 中轴工艺塔；槽位机制与能耗阶梯与组装机一致（`large-steam-circuit-assembler.md`）。
+
+详细设计规格见 [`docs/design/`](docs/design/)；其中 [`docs/design/next-machine-candidates.md`](docs/design/next-machine-candidates.md) 是 2026-09-07 重制的**后续机器可实现列表**（含已立项状态与裁定留痕），不代表已确认内容。
 
 ## 开发环境
 
