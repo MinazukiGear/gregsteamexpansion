@@ -72,7 +72,8 @@ import java.util.List;
  * <li>按已确认优先级向 GUI / Jade 提供唯一主状态。</li>
  * </ul>
  */
-public class GSECokeOvenMachine extends CokeOvenMachine {
+public class GSECokeOvenMachine extends CokeOvenMachine
+        implements com.hoshino.gregsteamexpansion.cokeoven.OwnedCokeOven {
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(
             GSECokeOvenMachine.class, CokeOvenMachine.MANAGED_FIELD_HOLDER);
@@ -111,6 +112,10 @@ public class GSECokeOvenMachine extends CokeOvenMachine {
     @Persisted
     @DescSynced
     private String syncedConflictPos = "";
+    /** 已归属砖探针数据源: "regular|occMin|occMax|"。 */
+    @Persisted
+    @DescSynced
+    private String syncedClaimBox = "";
 
     private GSECokeOvenRecipeLogic ovenLogic;
     @Nullable
@@ -162,10 +167,21 @@ public class GSECokeOvenMachine extends CokeOvenMachine {
             if (isFormed() && getLevel() instanceof ServerLevel serverLevel) {
                 var data = CokeOvenWorldData.getOrCreate(serverLevel);
                 if (!data.hasClaim(getPos())) {
-                    var result = data.claim(serverLevel, getPos(), getFrontFacing(), true, this);
+                    var claim = CokeOvenWorldData.regularClaim(getPos(), getFrontFacing(), true);
+                    var result = data.claim(serverLevel, claim, this);
                     if (result instanceof CokeOvenWorldData.ClaimResult.Failed failed) {
                         setConflict(failed.conflict().type(), failed.conflict().otherController());
                         invalidateByOwnershipConflict();
+                    } else {
+                        syncedClaimBox = "regular|" + claim.occupiedMin.asLong() + "|" + claim.occupiedMax.asLong();
+                        markDirty();
+                    }
+                } else {
+                    var existing = data.claimOf(getPos());
+                    if (existing != null) {
+                        syncedClaimBox = "regular|" + existing.occupiedMin.asLong() + "|"
+                                + existing.occupiedMax.asLong();
+                        markDirty();
                     }
                 }
             }
@@ -240,10 +256,17 @@ public class GSECokeOvenMachine extends CokeOvenMachine {
         // 上游默认实现 (接口默认方法): 纯图案检查, 之后叠加结构独占与间距检查。
         var pattern = getPattern();
         if (pattern == null || !pattern.checkPatternAt(getMultiblockState(), false)) return false;
+        // 独占/间距检查只在主线程执行: GTCEu 异步探测线程禁止访问世界存档数据
+        // (DimensionDataStorage 非线程安全, 并发 computeIfAbsent 会死循环卡死
+        // 世界加载); 最终裁决在成型回调 (主线程) 的 claim 中完成, 异步探测成功
+        // 后若占用冲突, claim 失败会立即失效并继续重试。
+        if (com.gregtechceu.gtceu.api.pattern.MultiblockWorldSavedData.isThreadService()) {
+            return true;
+        }
         if (getLevel() instanceof ServerLevel serverLevel) {
             // 已成型机器优先保留占用; 重叠或间距不足时给出具体原因。
-            var conflict = CokeOvenWorldData.getOrCreate(serverLevel)
-                    .findConflict(serverLevel, getPos(), getFrontFacing(), this);
+            var claim = CokeOvenWorldData.regularClaim(getPos(), getFrontFacing(), false);
+            var conflict = CokeOvenWorldData.getOrCreate(serverLevel).findConflict(serverLevel, claim, this);
             if (conflict != null) {
                 setConflict(conflict.type(), conflict.otherController());
                 getMultiblockState().setError(new PatternStringError(conflict.type().langKey));
@@ -262,11 +285,14 @@ public class GSECokeOvenMachine extends CokeOvenMachine {
         setConflict(null, null);
         refreshInputFilter();
         if (getLevel() instanceof ServerLevel serverLevel) {
-            var result = CokeOvenWorldData.getOrCreate(serverLevel)
-                    .claim(serverLevel, getPos(), getFrontFacing(), false, null);
+            var claim = CokeOvenWorldData.regularClaim(getPos(), getFrontFacing(), false);
+            var result = CokeOvenWorldData.getOrCreate(serverLevel).claim(serverLevel, claim, null);
             if (result instanceof CokeOvenWorldData.ClaimResult.Failed failed) {
                 setConflict(failed.conflict().type(), failed.conflict().otherController());
                 onStructureInvalid();
+            } else {
+                syncedClaimBox = "regular|" + claim.occupiedMin.asLong() + "|" + claim.occupiedMax.asLong();
+                markDirty();
             }
         }
     }
@@ -281,6 +307,10 @@ public class GSECokeOvenMachine extends CokeOvenMachine {
         super.onStructureInvalid();
         if (!isRemote()) {
             releaseClaim();
+            if (!syncedClaimBox.isEmpty()) {
+                syncedClaimBox = "";
+                markDirty();
+            }
             if (specialClear) {
                 performSpecialClear();
             } else if (hadBatch) {
@@ -304,6 +334,11 @@ public class GSECokeOvenMachine extends CokeOvenMachine {
         if (getLevel() instanceof ServerLevel serverLevel) {
             CokeOvenWorldData.getOrCreate(serverLevel).release(getPos());
         }
+    }
+
+    /** 已归属砖探针数据源 (客户端读取)。 */
+    public String getSyncedClaimBox() {
+        return syncedClaimBox;
     }
 
     /** 底层几何中心 (内部中心空气格正下方) 是否已不是焦炉砖; 相关区块未加载时不判定。 */

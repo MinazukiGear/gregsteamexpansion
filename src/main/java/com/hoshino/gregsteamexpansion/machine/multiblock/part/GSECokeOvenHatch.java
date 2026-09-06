@@ -10,6 +10,7 @@ import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenMode;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenWorldData;
 import com.hoshino.gregsteamexpansion.machine.multiblock.cokeoven.GSECokeOvenMachine;
+import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 
@@ -55,6 +56,7 @@ public class GSECokeOvenHatch extends CokeOvenHatch {
     public static final int DATA_VERSION = 1;
 
     @Persisted
+    @DescSynced
     private CokeOvenMode mode = CokeOvenMode.DEFAULT;
     /** 本模组逻辑的数据版本; 0 表示旧版上游逻辑保存的数据 (缺少模式)。 */
     @Persisted

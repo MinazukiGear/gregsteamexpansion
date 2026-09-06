@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "gtceu:coke_oven_bricks"
+    },
+    "C": {
+      "item": "gtceu:coke_oven"
+    },
+    "S": {
+      "item": "gtceu:double_steel_plate"
+    }
+  },
+  "pattern": [
+    "SBS",
+    "BCB",
+    "SBS"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_coke_oven"
+  }
+}

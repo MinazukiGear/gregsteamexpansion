@@ -25,6 +25,7 @@ run-data
 *.log
 /.tmp/
 /src/generated/resources/.cache/
+/.workbuddy/
 
 # Files from Forge MDK
 forge*changelog.txt

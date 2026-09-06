@@ -53,13 +53,16 @@ public final class CokeOvenHatchModeModel {
 
     private CokeOvenHatchModeModel() {}
 
-    /** 用模式感知的包装模型替换焦炉仓方块的全部烘焙结果。 */
+    /** 用模式感知的包装模型替换两类焦炉仓方块的全部烘焙结果。 */
     @SubscribeEvent
     public static void onModelBake(ModelEvent.ModifyBakingResult event) {
         var models = event.getModels();
         for (var entry : new ArrayList<>(models.entrySet())) {
             var key = entry.getKey();
-            if (key.getNamespace().equals("gtceu") && key.getPath().equals("coke_oven_hatch")) {
+            boolean cokeOvenHatch = key.getNamespace().equals("gtceu") && key.getPath().equals("coke_oven_hatch");
+            boolean largeHatch = key.getNamespace().equals("gregsteamexpansion")
+                    && key.getPath().equals("large_coke_oven_hatch");
+            if (cokeOvenHatch || largeHatch) {
                 BakedModel base = entry.getValue();
                 if (!(base instanceof Wrapped)) {
                     models.put(key, new Wrapped(base));

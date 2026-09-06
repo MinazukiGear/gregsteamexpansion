@@ -16,9 +16,12 @@ import com.gregtechceu.gtceu.common.data.models.GTMachineModels;
 import com.gregtechceu.gtceu.data.model.builder.MachineModelBuilder;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenStructures;
 import com.hoshino.gregsteamexpansion.migration.OreCrushingMigration;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
@@ -547,6 +550,82 @@ public final class GSEMachines {
     private GSEMachines() {}
 
     public static void init() {}
+
+    // ------------------------------------------------------------------
+    // 大型焦炉 (coke-ovens.md 已确认注册身份): 独立注册, 不替换 gtceu:coke_oven。
+    // 物理属性对齐上游焦炉系: GTCEu 机器方块默认继承发射器 (Blocks.DISPENSER)
+    // 属性, 上游 coke_oven/coke_oven_hatch 均未调用 blockProp, 故此处同样不调用
+    // (硬度/抗爆性/挖掘工具/方块声音/正常掉落/最大堆叠 64 完全一致)。
+    // ------------------------------------------------------------------
+
+    /** 大型焦炉控制器: 最大并行 6、固定 0.5× 耗时、7×7×5 包围范围。 */
+    public static final MultiblockMachineDefinition LARGE_COKE_OVEN = GSERegistration.REGISTRATE
+            .multiblock("large_coke_oven", LargeCokeOvenMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.COKE_OVEN_RECIPES)
+            .appearanceBlock(GTBlocks.CASING_COKE_BRICKS)
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            // 工作外观: 上游焦炉砖 + 可工作叠加层, 外加三炉门同步渲染与状态符号
+            // (coke-ovens.md 已确认表现方案; DynamicRender 由控制器统一驱动,
+            // 不给焦炉砖增加方块实体或状态)。
+            .hasBER(true)
+            .model(largeCokeOvenModel())
+            .pattern(LargeCokeOvenStructures::createPattern)
+            .shapeInfos(LargeCokeOvenStructures::shapeInfos)
+            .langValue("Large Coke Oven")
+            .tooltipBuilder((stack, lines) -> appendClientTooltip(
+                    "gregsteamexpansion.machine.large_coke_oven.tooltip", lines))
+            .allowCoverOnFront(false)
+            .register();
+
+    /**
+     * 大型焦炉控制器模型: 复刻上游 workableCasingModel 组合 (焦炉砖 + coke_oven
+     * 可工作叠加层), 并挂载三炉门同步渲染器。
+     */
+    private static MachineBuilder.ModelInitializer largeCokeOvenModel() {
+        return (ctx, prov, builder) -> {
+            var overlays = WorkableOverlays.get(
+                    com.gregtechceu.gtceu.GTCEu.id("block/multiblock/coke_oven"),
+                    prov.getExistingFileHelper());
+            builder.forAllStates(state -> {
+                RecipeLogic.Status status = state.getValue(GTMachineModelProperties.RECIPE_LOGIC_STATUS);
+                var model = prov.models().nested()
+                        .parent(prov.models().getExistingFile(
+                                com.gregtechceu.gtceu.common.data.models.GTMachineModels.CUBE_ALL_SIDED_OVERLAY_MODEL))
+                        .texture("all", com.gregtechceu.gtceu.GTCEu.id("block/casings/solid/machine_coke_bricks"));
+                return com.gregtechceu.gtceu.common.data.models.GTMachineModels.addWorkableOverlays(
+                        overlays, status, model);
+            });
+            builder.addTextureOverride("all",
+                    com.gregtechceu.gtceu.GTCEu.id("block/casings/solid/machine_coke_bricks"));
+            builder.addDynamicRenderer(
+                    com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenRenderer::new);
+        };
+    }
+
+    /** 大型焦炉仓: 大型焦炉唯一合法的自动化接口, 3–5 个且三种模式各至少一个。 */
+    public static final MachineDefinition LARGE_COKE_OVEN_HATCH = GSERegistration.REGISTRATE
+            .machine("large_coke_oven_hatch", LargeCokeOvenHatchPartMachine::new)
+            .rotationState(RotationState.ALL)
+            .modelProperty(GTMachineModelProperties.IS_FORMED, false)
+            // 占位外观: 沿用上游普通焦炉仓模型, 第 5 步替换为三色模式箭头/水滴标志。
+            .simpleModel(com.gregtechceu.gtceu.GTCEu.id("block/machine/part/coke_oven_hatch"))
+            .langValue("Large Coke Oven Hatch")
+            .tooltipBuilder((stack, lines) -> appendClientTooltip(
+                    "gregsteamexpansion.machine.large_coke_oven_hatch.tooltip", lines))
+            // 正面允许 GTCEu 合法覆板 (实际能力 = 当前模式 ∩ 覆板过滤)。
+            .allowCoverOnFront(true)
+            .register();
+
+    /**
+     * 两级物品提示的客户端委托: tooltipBuilder 由物品 hover 在客户端调用;
+     * dist 守卫防止专用服务器解析 client 类 (方法体惰性解析, 仅客户端调用)。
+     */
+    private static void appendClientTooltip(String prefix, java.util.List<Component> lines) {
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) {
+            com.hoshino.gregsteamexpansion.client.cokeoven.CokeOvenTooltipBuilder.append(prefix, lines);
+        }
+    }
 
     private static MachineBuilder.ModelInitializer mixedFuelBoilerModel(boolean highPressure,
                                                                          ResourceLocation overlayDirectory) {

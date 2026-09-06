@@ -363,6 +363,146 @@ public final class GSELang {
         add("config.gregsteamexpansion.request.ask", "Ask at first entry (ASK, default)");
 
         addCokeOvenLang();
+        addLargeCokeOvenLang();
+    }
+
+    /** 大型焦炉本地化 (coke-ovens.md 大型焦炉已确认设计)。 */
+    private static void addLargeCokeOvenLang() {
+        // Jade requires a configuration label for every registered provider UID.
+        add("config.jade.plugin_gregsteamexpansion.large_coke_oven_info", "Large Coke Oven Info");
+        add("config.jade.plugin_gregsteamexpansion.large_coke_oven_hatch_info", "Large Coke Oven Hatch Info");
+        add("config.jade.plugin_gregsteamexpansion.coke_oven_brick_ownership", "Coke Oven Brick Ownership");
+
+        // ---- 主状态 (优先级从高到低) ----
+        add("gregsteamexpansion.large_coke_oven.status.range_not_loaded",
+                "Structure range not fully loaded");
+        add("gregsteamexpansion.large_coke_oven.status.awaiting_reinput",
+                "Waiting for re-input");
+        add("gregsteamexpansion.large_coke_oven.status.waiting_output",
+                "Waiting for output");
+        add("gregsteamexpansion.large_coke_oven.status.startup_output_blocked",
+                "Output blocked before startup");
+        add("gregsteamexpansion.large_coke_oven.status.input_invalid",
+                "Input is not a valid coke oven ingredient");
+        add("gregsteamexpansion.large_coke_oven.status.input_insufficient",
+                "Insufficient input");
+        add("gregsteamexpansion.large_coke_oven.status.ready",
+                "Ready to start");
+        add("gregsteamexpansion.large_coke_oven.status.idle",
+                "Idle");
+
+        // ---- 详细原因 ----
+        add("gregsteamexpansion.large_coke_oven.detail.range_not_loaded",
+                "Chunks of the full 7×7×5 structure range are not loaded; processing is paused.");
+        add("gregsteamexpansion.large_coke_oven.detail.air_blocked",
+                "Furnace chamber or funnel opening blocked at %s (must stay air).");
+        add("gregsteamexpansion.large_coke_oven.detail.first_error",
+                "First structure error at %s.");
+        add("gregsteamexpansion.large_coke_oven.detail.missing_hatch",
+                "Missing required large coke oven hatches: 3–5 hatches with all three modes are needed.");
+        add("gregsteamexpansion.large_coke_oven.detail.missing_mode",
+                "Missing required hatch mode: item input, item output and fluid output are each required at least once.");
+        add("gregsteamexpansion.large_coke_oven.detail.waiting_output",
+                "The completed batch snapshot cannot be committed yet; it retries automatically.");
+        add("gregsteamexpansion.large_coke_oven.detail.pending",
+                "Pending products: %s");
+        add("gregsteamexpansion.large_coke_oven.detail.startup_blocked",
+                "A valid recipe exists but even one portion of its output does not fit; remove products to proceed.");
+        add("gregsteamexpansion.large_coke_oven.detail.awaiting_reinput",
+                "A legacy batch was cancelled. Insert a valid coke oven ingredient once to resume.");
+        add("gregsteamexpansion.large_coke_oven.detail.preferred",
+                "Preferred recipe: %s");
+
+        // ---- GUI ----
+        add("gregsteamexpansion.large_coke_oven.gui.slot_number", "Slot %s");
+        add("gregsteamexpansion.large_coke_oven.gui.no_batch", "No active batch");
+        add("gregsteamexpansion.large_coke_oven.gui.recipe_line", "%s · parallel %s · %s ticks · %s · %s left");
+        add("gregsteamexpansion.large_coke_oven.gui.progress", "%s · about %s remaining");
+        add("gregsteamexpansion.large_coke_oven.gui.progress.idle", "%s · idle");
+        add("gregsteamexpansion.large_coke_oven.gui.waiting_output", "awaiting output");
+
+        // ---- 大型焦炉仓 ----
+        add("gregsteamexpansion.large_coke_oven_hatch.facing.locked",
+                "This hatch must face %s at its candidate position.");
+        add("gregsteamexpansion.large_coke_oven_hatch.mode.locked",
+                "The large coke oven is running or holding a pending batch; hatch modes are locked.");
+        add("gregsteamexpansion.large_coke_oven_hatch.mode.last_of_mode",
+                "Cannot remove the last hatch of a required mode.");
+
+        addLargeCokeOvenTooltips();
+    }
+
+    /** 大型焦炉两级物品提示 (coke-ovens.md 已确认物品提示与结构说明)。 */
+    private static void addLargeCokeOvenTooltips() {
+        // ---- 控制器 ----
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.summary.0",
+                "A large no-energy coking machine: parallel 6 at fixed 0.5× recipe time, equal to 12 coke ovens at full load.");
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.summary.1",
+                "Hold Shift for structure, interface and hazard notes.");
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.0",
+                "The full structure footprint is fixed at 7×7×5 with three synced furnace chambers and a brick charging funnel on top.");
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.1",
+                "A valid structure uses 151–153 Coke Oven Bricks plus 3–5 Large Coke Oven Hatches, with all three hatch modes present at least once.");
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.2",
+                "The top funnel is structure and appearance only; all automation must go through Large Coke Oven Hatches.");
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.3",
+                "Consumes no energy and has no fuel, temperature, warm-up, maintenance or pause.");
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.4",
+                "Parallel 6 and halved duration never increase yield per input: single-portion inputs and products follow the original coke oven recipes exactly.");
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.5",
+                "With GTCEu environmental hazards enabled, each completed parallel portion emits 0.1 carbon monoxide.");
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.6",
+                "Breaking a normal shell halts the in-progress batch and rewinds its progress to 1 tick; the same batch continues after repair. Breaking the controller cancels it, drops items by the settled rules and voids all fluids.");
+        add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.7",
+                "Use the structure preview to inspect layers, candidate hatch positions and error diagnostics.");
+
+        // ---- 大型焦炉仓 ----
+        add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.summary.0",
+                "The only legal automation interface of the Large Coke Oven; new hatches default to item input, sneak + screwdriver cycles modes.");
+        add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.summary.1",
+                "Hold Shift for connection, facing and mode limits.");
+        add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.0",
+                "Green inward arrow: item input; orange outward box arrow: item output; blue outward droplet: fluid output.");
+        add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.1",
+                "Every Large Coke Oven needs 3–5 hatches with all three modes present at least once.");
+        add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.2",
+                "A hatch only exposes its current mode on the outward-facing front; the other five faces are inert.");
+        add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.3",
+                "All hatches proxy the controller's shared inventories; adding hatches never adds slots, capacity or parallel.");
+        add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.4",
+                "Item input only accepts insertion; the controller pushes item and fluid outputs every 5 ticks in a fixed order.");
+        add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.5",
+                "Modes cannot be switched while the oven is running or holding a pending batch; other states must keep one hatch of each mode.");
+        add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.6",
+                "A front cover can only further restrict logistics the current mode already allows; it never changes the mode or controls crafting.");
+
+        // ---- Jade: 大型焦炉与已归属砖 ----
+        add("gregsteamexpansion.jade.large_coke_oven.status", "Status: %s");
+        add("gregsteamexpansion.jade.large_coke_oven.detail", "· %s");
+        add("gregsteamexpansion.jade.large_coke_oven.recipe", "Recipe: %s (parallel %s)");
+        add("gregsteamexpansion.jade.large_coke_oven.progress", "Progress: %s (%s left)");
+        add("gregsteamexpansion.jade.large_coke_oven.waiting", "Waiting for output: %s, products pending commit");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.facing", "Working face: %s");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.covered", "Cover installed on the front");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.slots", "Inventory: %s slots used");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.fluid", "Fluid: %s");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.direction.north", "north");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.direction.south", "south");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.direction.east", "east");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.direction.west", "west");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.direction.up", "up");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.direction.down", "down");
+        add("gregsteamexpansion.jade.coke_oven_brick.owned", "%s");
+        add("gregsteamexpansion.jade.coke_oven_brick.kind.large", "Belongs to a Large Coke Oven");
+        add("gregsteamexpansion.jade.coke_oven_brick.kind.regular", "Belongs to a Coke Oven");
+        add("gregsteamexpansion.jade.coke_oven_brick.controller", "Controller: %s");
+        add("gregsteamexpansion.jade.coke_oven_brick.invalid", "Owned, structure invalid");
+        add("gregsteamexpansion.jade.coke_oven_brick.direction.north", "north");
+        add("gregsteamexpansion.jade.coke_oven_brick.direction.south", "south");
+        add("gregsteamexpansion.jade.coke_oven_brick.direction.east", "east");
+        add("gregsteamexpansion.jade.coke_oven_brick.direction.west", "west");
+        add("gregsteamexpansion.jade.coke_oven_brick.direction.up", "up");
+        add("gregsteamexpansion.jade.coke_oven_brick.direction.down", "down");
     }
 
     /**

@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "gtceu:coke_oven_bricks"
+    },
+    "C": {
+      "item": "gtceu:coke_oven_hatch"
+    },
+    "P": {
+      "item": "gtceu:wood_drum"
+    },
+    "S": {
+      "item": "gtceu:steel_plate"
+    },
+    "X": {
+      "tag": "forge:chests/wooden"
+    }
+  },
+  "pattern": [
+    "SXS",
+    "BCB",
+    "SPS"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_coke_oven_hatch"
+  }
+}

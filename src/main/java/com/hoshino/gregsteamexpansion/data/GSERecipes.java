@@ -72,6 +72,45 @@ public final class GSERecipes {
         addSteamCrusherRecipes(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
+        addLargeCokeOvenRecipes(provider);
+    }
+
+    // ------------------------------------------------------------------
+    // 大型焦炉控制器 / 大型焦炉仓 (coke-ovens.md 已确认大型焦炉控制器配方 /
+    // 已确认大型焦炉仓配方): 各只有一条有序工作台配方, 资源 ID 固定为
+    // gregsteamexpansion:large_coke_oven(_hatch), 每次固定产出 1 个, 不读取
+    // casingsPerCraft 或通用方块产量, 三档永久相同。两图案左右完全对称 (原版
+    // shaped 的水平镜像不产生另一种排列), 上下不可颠倒 (原版不做垂直镜像)。
+    // ------------------------------------------------------------------
+
+    private static void addLargeCokeOvenRecipes(Consumer<FinishedRecipe> provider) {
+        ItemStack bricksBlock = GTBlocks.CASING_COKE_BRICKS.asStack();
+        ItemStack steelDoublePlate = ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Steel);
+        ItemStack steelPlate = ChemicalHelper.get(TagPrefix.plate, GTMaterials.Steel);
+
+        // 控制器: 四角钢双层板、四边中点焦炉砖块、正中普通焦炉控制器 (升级核心,
+        // 仅消耗物品形态, 不转移任何世界状态)。
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("large_coke_oven"),
+                GSEMachines.LARGE_COKE_OVEN.asStack(),
+                new String[]{"SBS", "BCB", "SBS"},
+                new Object[]{
+                        'S', steelDoublePlate,
+                        'B', bricksBlock,
+                        'C', GTMultiMachines.COKE_OVEN.asStack()}));
+
+        // 大型焦炉仓: 四角钢板、中央左右焦炉砖块、正中普通焦炉仓 (升级核心),
+        // 上方中央木箱标签 (物品语义), 下方中央 GTCEu 木桶 (流体语义)。
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("large_coke_oven_hatch"),
+                GSEMachines.LARGE_COKE_OVEN_HATCH.asStack(),
+                new String[]{"SXS", "BCB", "SPS"},
+                new Object[]{
+                        'S', steelPlate,
+                        'X', net.minecraftforge.common.Tags.Items.CHESTS_WOODEN,
+                        'B', bricksBlock,
+                        'C', GTMachines.COKE_OVEN_HATCH.asStack(),
+                        'P', GTMachines.WOODEN_DRUM.asStack()}));
     }
 
     // ------------------------------------------------------------------

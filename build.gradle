@@ -194,6 +194,18 @@ dependencies {
     if (mountClientDevAids) {
         runtimeOnly(fg.deobf("curse.maven:modern-ui-352491:${modernui_file_id}")) { transitive = false }
     }
+
+    // GTM Things mounts third-party GTCEu addon machines in the development
+    // client for cross-addon checks (recipe viewers, Jade, appearance overlap
+    // with this addon's steam machines). Its mods.toml hard-requires
+    // AE2 >= 15.4.2, and this AE2 version requires GuideME >= 20.1.7.
+    // CurseMaven does not resolve these mod dependencies automatically.
+    // All three stay development-only and are not declared in mods.toml.
+    if (mountClientDevAids) {
+        runtimeOnly(fg.deobf("curse.maven:applied-energistics-2-223794:${ae2_file_id}")) { transitive = false }
+        runtimeOnly(fg.deobf("curse.maven:guideme-1173950:${guideme_file_id}")) { transitive = false }
+        runtimeOnly(fg.deobf("curse.maven:gtmthings-1104310:${gtmthings_file_id}")) { transitive = false }
+    }
 }
 
 tasks.named('processResources', ProcessResources).configure {

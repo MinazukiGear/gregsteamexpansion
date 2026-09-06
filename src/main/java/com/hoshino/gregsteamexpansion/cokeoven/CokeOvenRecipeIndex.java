@@ -20,7 +20,8 @@ import java.util.List;
  */
 public final class CokeOvenRecipeIndex {
 
-    private record Cache(RecipeManager manager, List<GTRecipe> recipes, List<Ingredient> inputIngredients) {}
+    private record Cache(RecipeManager manager, List<GTRecipe> recipes, List<Ingredient> inputIngredients,
+                         List<GTRecipe> recipesSortedById) {}
 
     private static volatile @Nullable Cache cache;
 
@@ -43,7 +44,9 @@ public final class CokeOvenRecipeIndex {
                 var ingredient = ItemRecipeCapability.CAP.of(contents.get(0).getContent());
                 inputs.add(ingredient);
             }
-            current = new Cache(manager, List.copyOf(recipes), List.copyOf(inputs));
+            List<GTRecipe> sorted = new ArrayList<>(recipes);
+            sorted.sort(java.util.Comparator.comparing(GTRecipe::getId));
+            current = new Cache(manager, List.copyOf(recipes), List.copyOf(inputs), List.copyOf(sorted));
             cache = current;
         }
         return current;
@@ -51,6 +54,11 @@ public final class CokeOvenRecipeIndex {
 
     public static List<GTRecipe> recipes(RecipeManager manager) {
         return get(manager).recipes();
+    }
+
+    /** 按资源 ID 字典序排列的全部配方 (配方选择的确定性顺序)。 */
+    public static List<GTRecipe> recipesSortedById(RecipeManager manager) {
+        return get(manager).recipesSortedById();
     }
 
     /** 物品是否至少能参与一条当前已加载的合法焦炉配方 (按 Ingredient 语义匹配, 支持标签)。 */

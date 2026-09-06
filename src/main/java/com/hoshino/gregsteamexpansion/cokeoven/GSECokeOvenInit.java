@@ -47,12 +47,23 @@ public final class GSECokeOvenInit {
         oven.setPatternFactory(() -> CokeOvenStructures.createPattern(oven));
         oven.setShapes(() -> CokeOvenStructures.shapeInfos(oven));
         oven.setAdditionalDisplay(GSECokeOvenInit::addControllerDisplay);
+        // 两级物品提示 (替代上游单行 tooltip, coke-ovens.md 物品提示)。
+        oven.setTooltipBuilder((stack, lines) -> appendClientTooltip(
+                "gregsteamexpansion.machine.coke_oven.tooltip", lines));
 
         // 焦炉仓: 精确替换机器工厂并允许正面覆板 (模式与覆板能力取交集)。
         MachineDefinition hatch = GTMachines.COKE_OVEN_HATCH;
         hatch.setMachineSupplier(holder -> new GSECokeOvenHatch(holder));
         hatch.setAllowCoverOnFront(true);
-        hatch.setTooltipBuilder((stack, components) -> {});
+        hatch.setTooltipBuilder((stack, lines) -> appendClientTooltip(
+                "gregsteamexpansion.machine.coke_oven_hatch.tooltip", lines));
+    }
+
+    /** 两级物品提示的客户端委托 (dist 守卫, 方法体惰性解析 client 类)。 */
+    private static void appendClientTooltip(String prefix, java.util.List<net.minecraft.network.chat.Component> lines) {
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) {
+            com.hoshino.gregsteamexpansion.client.cokeoven.CokeOvenTooltipBuilder.append(prefix, lines);
+        }
     }
 
     /** 控制器多方块信息页: 复用与 Jade 相同的状态与阻塞原因 (服务端权威)。 */
@@ -77,6 +88,14 @@ public final class GSECokeOvenInit {
         var registryAccess = server.registryAccess();
         verifySingleRecipe(manager, registryAccess, UPSTREAM_OVEN_RECIPE_ID, "gtceu:coke_oven");
         verifySingleRecipe(manager, registryAccess, UPSTREAM_HATCH_RECIPE_ID, "gtceu:coke_oven_hatch");
+        // 大型焦炉获取配方验收 (coke-ovens.md 已确认大型焦炉控制器/仓配方):
+        // 各只有一条获取配方且产物正确。
+        verifySingleRecipe(manager, registryAccess,
+                com.hoshino.gregsteamexpansion.GregSteamExpansion.id("large_coke_oven"),
+                "gregsteamexpansion:large_coke_oven");
+        verifySingleRecipe(manager, registryAccess,
+                com.hoshino.gregsteamexpansion.GregSteamExpansion.id("large_coke_oven_hatch"),
+                "gregsteamexpansion:large_coke_oven_hatch");
     }
 
     private static void verifySingleRecipe(net.minecraft.world.item.crafting.RecipeManager manager,
