@@ -54,7 +54,7 @@
   "gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.12": "排气仓只能安装在顶部倒数第 2 层侧壁外层，正面连续 %s 格必须严格为空气；排气受阻时机器停止取汽和工作并按停机速度冷却。",
   "gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.13": "机器实际消耗蒸汽时，排气仓会喷出高温蒸汽；正前方第 1 格内的生物受到 %s 点热伤害，创造模式和旁观模式玩家除外。",
   "gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.14": "预热与加工消耗的蒸汽不会生成冷凝水、污染物或其他流体、物品副产物。",
-  "gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.15": "现有 GTCEu 终端固定自动搭建 15×15×6 结构；未来高级终端才提供尺寸与结构调整能力。",
+  "gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.15": "现有 GTCEu 终端固定自动搭建 15×15×6 结构；GTM Things 高级终端可把重复中段设为 3–15 层，对应总高 6–18，宽度仍固定 15。",
   "gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.16": "暂停、缺汽、排气受阻、输出堵塞、结构暂时失效和区块重载均保留已启动批次；恢复时不会重新吞取输入或重新随机产物。",
   "gregsteamexpansion.machine.large_heat_storage_steam_furnace.mode.furnace": "配方模式：熔炉",
   "gregsteamexpansion.machine.large_heat_storage_steam_furnace.mode.alloy": "配方模式：合金炉",

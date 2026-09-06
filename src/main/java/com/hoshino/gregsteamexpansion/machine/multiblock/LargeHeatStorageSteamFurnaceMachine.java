@@ -242,8 +242,10 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     }
 
     /**
-     * The terminal auto-builds a fixed 15×15×6 structure and the tooltip shows
-     * its dimensions, so the largest pattern is the canonical one
+     * The GTCEu terminal auto-builds a fixed 15×15×6 structure and the GTM
+     * Things advanced terminal stretches the same pattern's repeatable middle
+     * aisles (3–15, total height 6–18), so the largest width is the canonical
+     * pattern; 7/11 stay manual-build only
      * (large-heat-storage-steam-furnace.md 结构预览与终端自动搭建).
      */
     @Override

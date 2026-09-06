@@ -267,7 +267,7 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.14",
                 "Steam consumed by preheating and processing never produces condensate, pollutants or other fluid/item byproducts.");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.15",
-                "The existing GTCEu terminal auto-builds a fixed 15×15×6 structure; a future advanced terminal would add size adjustment.");
+                "The existing GTCEu terminal auto-builds a fixed 15×15×6 structure; the GTM Things advanced terminal can set the repeatable middle layers to 3–15 for a total height of 6–18, while the width stays fixed at 15.");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.16",
                 "Pausing, steam shortage, exhaust obstruction, output blockage, temporary structure loss and chunk reloads all keep started batches; recovery never re-consumes inputs or re-rolls products.");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.mode.furnace", "Recipe mode: Furnace");
