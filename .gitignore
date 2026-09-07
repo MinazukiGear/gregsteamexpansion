@@ -30,3 +30,6 @@ run-data
 # Files from Forge MDK
 forge*changelog.txt
 /forge-*-mdk.zip
+
+# one-off build logs
+compile_errors.log
