@@ -1,0 +1,63 @@
+{
+  "type": "gtceu:assembler",
+  "category": "gtceu:assembler",
+  "duration": 100,
+  "inputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 6,
+          "ingredient": {
+            "tag": "forge:plates/rhodium_plated_palladium"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "forge:frames/ruridit"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "tag": "gtceu:circuits/luv"
+          }
+        }
+      },
+      {
+        "chance": 0,
+        "content": {
+          "type": "gtceu:circuit",
+          "configuration": 6
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "gregsteamexpansion:luv_electric_ore_crusher"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 1024
+      }
+    ]
+  }
+}

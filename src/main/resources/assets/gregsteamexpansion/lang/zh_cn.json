@@ -616,5 +616,14 @@
   "gregsteamexpansion.machine.void_producer.ui.pending_empty": "无待输出",
   "gregsteamexpansion.machine.void_producer.ui.not_consuming": "未取汽",
   "gregsteamexpansion.machine.void_producer.ui.disabled_by_config": "已在配置中禁用（machines.*.enabled=false）——修改后需完整重启生效",
-  "gregsteamexpansion.machine.void_producer.ui.exhaust_obstructed": "排气仓受阻——节拍冻结"
+  "gregsteamexpansion.machine.void_producer.ui.exhaust_obstructed": "排气仓受阻——节拍冻结",
+  "block.gregsteamexpansion.lv_electric_ore_crusher": "电力粉碎机（LV）",
+  "block.gregsteamexpansion.mv_electric_ore_crusher": "电力粉碎机（MV）",
+  "block.gregsteamexpansion.hv_electric_ore_crusher": "电力粉碎机（HV）",
+  "block.gregsteamexpansion.ev_electric_ore_crusher": "电力粉碎机（EV）",
+  "block.gregsteamexpansion.iv_electric_ore_crusher": "电力粉碎机（IV）",
+  "block.gregsteamexpansion.luv_electric_ore_crusher": "电力粉碎机（LuV）",
+  "block.gregsteamexpansion.zpm_electric_ore_crusher": "电力粉碎机（ZPM）",
+  "block.gregsteamexpansion.uv_electric_ore_crusher": "电力粉碎机（UV）",
+  "gregsteamexpansion.machine.electric_ore_crusher.tooltip": "以电力执行矿石粉碎配方（§aore_crushing§r 类型）：产出与蒸汽粉碎机一致（粗矿 ×8/份，已含难度倍率），按机器档位标准超频。"
 }

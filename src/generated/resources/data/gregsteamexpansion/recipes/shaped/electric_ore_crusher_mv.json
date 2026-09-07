@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "tag": "gtceu:circuits/mv"
+    },
+    "F": {
+      "item": "gtceu:aluminium_frame"
+    },
+    "P": {
+      "item": "gtceu:aluminium_plate"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PCP",
+    "PFP",
+    "PCP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:mv_electric_ore_crusher"
+  }
+}

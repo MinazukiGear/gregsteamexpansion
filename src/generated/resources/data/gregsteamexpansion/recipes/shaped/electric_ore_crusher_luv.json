@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "tag": "gtceu:circuits/luv"
+    },
+    "F": {
+      "item": "gtceu:ruridit_frame"
+    },
+    "P": {
+      "item": "gtceu:rhodium_plated_palladium_plate"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PCP",
+    "PFP",
+    "PCP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:luv_electric_ore_crusher"
+  }
+}

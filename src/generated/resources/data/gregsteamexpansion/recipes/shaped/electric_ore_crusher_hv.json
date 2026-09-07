@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "tag": "gtceu:circuits/hv"
+    },
+    "F": {
+      "item": "gtceu:stainless_steel_frame"
+    },
+    "P": {
+      "item": "gtceu:stainless_steel_plate"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PCP",
+    "PFP",
+    "PCP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:hv_electric_ore_crusher"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "tag": "gtceu:circuits/iv"
+    },
+    "F": {
+      "item": "gtceu:tungsten_steel_frame"
+    },
+    "P": {
+      "item": "gtceu:tungsten_steel_plate"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PCP",
+    "PFP",
+    "PCP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:iv_electric_ore_crusher"
+  }
+}

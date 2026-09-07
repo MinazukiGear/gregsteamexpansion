@@ -1,0 +1,63 @@
+{
+  "type": "gtceu:assembler",
+  "category": "gtceu:assembler",
+  "duration": 100,
+  "inputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 6,
+          "ingredient": {
+            "tag": "forge:plates/stainless_steel"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "forge:frames/stainless_steel"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "tag": "gtceu:circuits/hv"
+          }
+        }
+      },
+      {
+        "chance": 0,
+        "content": {
+          "type": "gtceu:circuit",
+          "configuration": 3
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "gregsteamexpansion:hv_electric_ore_crusher"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 128
+      }
+    ]
+  }
+}

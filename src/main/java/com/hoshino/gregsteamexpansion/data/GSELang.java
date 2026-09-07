@@ -809,6 +809,10 @@ public final class GSELang {
                 "Disabled in config (machines.*.enabled=false) \u2014 restart to apply changes");
         add("gregsteamexpansion.machine.void_producer.ui.exhaust_obstructed",
                 "Exhaust hatch obstructed \u2014 cycle frozen");
+
+        // ---- 电力粉碎机 (ore-crushing.md 电力消费机器) ----
+        add("gregsteamexpansion.machine.electric_ore_crusher.tooltip",
+                "Runs ore-crushing recipes on electricity (the ore_crushing type): same yields as the steam crushers (8 raw ores per operation, difficulty included), overclocked by machine tier.");
     }
 
     // ------------------------------------------------------------------

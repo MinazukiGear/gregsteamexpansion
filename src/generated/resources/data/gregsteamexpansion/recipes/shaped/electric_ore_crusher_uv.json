@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "tag": "gtceu:circuits/uv"
+    },
+    "F": {
+      "item": "gtceu:naquadah_alloy_frame"
+    },
+    "P": {
+      "item": "gtceu:darmstadtium_plate"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PCP",
+    "PFP",
+    "PCP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:uv_electric_ore_crusher"
+  }
+}

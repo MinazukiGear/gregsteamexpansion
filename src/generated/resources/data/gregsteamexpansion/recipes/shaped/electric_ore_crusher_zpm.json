@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "tag": "gtceu:circuits/zpm"
+    },
+    "F": {
+      "item": "gtceu:iridium_frame"
+    },
+    "P": {
+      "item": "gtceu:naquadah_alloy_plate"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PCP",
+    "PFP",
+    "PCP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:zpm_electric_ore_crusher"
+  }
+}

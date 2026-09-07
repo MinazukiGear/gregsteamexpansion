@@ -24,6 +24,10 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.voidproducer.LargeSteamFluidDrillMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.voidproducer.LargeSteamOrePlantMachine;
+import com.gregtechceu.gtceu.api.GTValues;
+import com.gregtechceu.gtceu.api.machine.SimpleTieredMachine;
+import com.gregtechceu.gtceu.common.data.GTRecipeModifiers;
+import com.gregtechceu.gtceu.common.data.machines.GTMachineUtils;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
@@ -252,6 +256,32 @@ public final class GSEMachines {
             .tooltipBuilder(GSEMachines::largeSteamCrusherTooltips)
             .allowCoverOnFront(false)
             .register();
+
+    // ------------------------------------------------------------------
+    // 电力粉碎机 / Electric Ore Crushers (ore-crushing.md 电力消费机器):
+    // ore_crushing 类型对应的电力分级单方块机器 (LV–UV, 标准不完全超频),
+    // 与蒸汽粉碎机共享同一配方池 (4× ×难度产出已烘焙在迁移配方中);
+    // 叠加层纹理在模组自身命名空间, 故不经 registerSimpleMachines 注册
+    // (其模型工厂硬编码 gtceu 命名空间), 而用同形态的 registerTieredMachines。
+    // ------------------------------------------------------------------
+
+    public static final MachineDefinition[] ELECTRIC_ORE_CRUSHERS = GTMachineUtils.registerTieredMachines(
+            GSERegistration.REGISTRATE,
+            "electric_ore_crusher",
+            (holder, tier) -> new SimpleTieredMachine(holder, tier, GTMachineUtils.defaultTankSizeFunction),
+            (tier, builder) -> builder
+                    .langValue("%s Electric Ore Crusher".formatted(GTValues.VN[tier]))
+                    .recipeModifier(GTRecipeModifiers.OC_NON_PERFECT)
+                    .editableUI(SimpleTieredMachine.EDITABLE_UI_CREATOR.apply(
+                            GregSteamExpansion.id("electric_ore_crusher"), GSERecipeTypes.ORE_CRUSHING_RECIPES))
+                    .rotationState(RotationState.NON_Y_AXIS)
+                    .recipeType(GSERecipeTypes.ORE_CRUSHING_RECIPES)
+                    .workableTieredHullModel(GregSteamExpansion.id("block/machines/electric_ore_crusher"))
+                    .tooltips(Component.translatable(
+                            "gregsteamexpansion.machine.electric_ore_crusher.tooltip"))
+                    .register(),
+            // 档位固定 LV–UV, 与获取配方逐档材质表一致 (高配档后续按需扩展).
+            GTValues.tiersBetween(GTValues.LV, GTValues.UV));
 
     // ------------------------------------------------------------------
     // 轻量蒸汽多方块家族 / Light Steam Processor family

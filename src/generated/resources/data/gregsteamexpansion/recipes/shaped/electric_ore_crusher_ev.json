@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "tag": "gtceu:circuits/ev"
+    },
+    "F": {
+      "item": "gtceu:titanium_frame"
+    },
+    "P": {
+      "item": "gtceu:titanium_plate"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PCP",
+    "PFP",
+    "PCP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:ev_electric_ore_crusher"
+  }
+}

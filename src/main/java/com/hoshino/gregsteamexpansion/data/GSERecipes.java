@@ -7,6 +7,7 @@ import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTItems;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
+import com.gregtechceu.gtceu.api.GTValues;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.data.machines.GTMultiMachines;
 import com.gregtechceu.gtceu.data.recipe.CustomTags;
@@ -87,6 +88,69 @@ public final class GSERecipes {
         addBoilerRoomRecipes(provider);
         addLargeSteamOrePlantRecipe(provider);
         addLargeSteamFluidDrillRecipe(provider);
+        addElectricOreCrusherRecipes(provider);
+    }
+
+    // ------------------------------------------------------------------
+    // 电力粉碎机 (ore-crushing.md 电力消费机器): LV–UV 分级单方块,
+    // 每档 = 该档板材 x6 + 该档电路 x2 + 该档框架 x1, 工作台与组装机双路线,
+    // 产出恒 1。材质/电路/框架逐档取 GTCEu 标准进阶表。
+    // ------------------------------------------------------------------
+
+    private static void addElectricOreCrusherRecipes(Consumer<FinishedRecipe> provider) {
+        var tiers = new Object[][]{
+                {GTValues.LV, GTMaterials.Steel, com.gregtechceu.gtceu.data.recipe.CustomTags.LV_CIRCUITS},
+                {GTValues.MV, GTMaterials.Aluminium, com.gregtechceu.gtceu.data.recipe.CustomTags.MV_CIRCUITS},
+                {GTValues.HV, GTMaterials.StainlessSteel, com.gregtechceu.gtceu.data.recipe.CustomTags.HV_CIRCUITS},
+                {GTValues.EV, GTMaterials.Titanium, com.gregtechceu.gtceu.data.recipe.CustomTags.EV_CIRCUITS},
+                {GTValues.IV, GTMaterials.TungstenSteel, com.gregtechceu.gtceu.data.recipe.CustomTags.IV_CIRCUITS},
+                {GTValues.LuV, GTMaterials.RhodiumPlatedPalladium, com.gregtechceu.gtceu.data.recipe.CustomTags.LuV_CIRCUITS},
+                {GTValues.ZPM, GTMaterials.NaquadahAlloy, com.gregtechceu.gtceu.data.recipe.CustomTags.ZPM_CIRCUITS},
+                {GTValues.UV, GTMaterials.Darmstadtium, com.gregtechceu.gtceu.data.recipe.CustomTags.UV_CIRCUITS},
+        };
+        var frames = new Object[][]{
+                {GTValues.LV, GTMaterials.Steel},
+                {GTValues.MV, GTMaterials.Aluminium},
+                {GTValues.HV, GTMaterials.StainlessSteel},
+                {GTValues.EV, GTMaterials.Titanium},
+                {GTValues.IV, GTMaterials.TungstenSteel},
+                {GTValues.LuV, GTMaterials.Ruridit},
+                {GTValues.ZPM, GTMaterials.Iridium},
+                {GTValues.UV, GTMaterials.NaquadahAlloy},
+        };
+        var tierNames = new String[]{"lv", "mv", "hv", "ev", "iv", "luv", "zpm", "uv"};
+
+        for (int i = 0; i < tiers.length; i++) {
+            int tier = (Integer) tiers[i][0];
+            var plateMaterial = (com.gregtechceu.gtceu.api.data.chemical.material.Material) tiers[i][1];
+            var circuitTag = (net.minecraft.tags.TagKey<net.minecraft.world.item.Item>) tiers[i][2];
+            var frameMaterial = (com.gregtechceu.gtceu.api.data.chemical.material.Material) frames[i][1];
+            var definition = GSEMachines.ELECTRIC_ORE_CRUSHERS[tier];
+
+            // 工作台: 六板 + 双电路 + 中心框架。
+            VanillaRecipeHelper.addShapedRecipe(
+                    provider,
+                    GregSteamExpansion.id("electric_ore_crusher_" + tierNames[i]),
+                    definition.asStack(),
+                    "PCP",
+                    "PFP",
+                    "PCP",
+                    'P', ChemicalHelper.get(TagPrefix.plate, plateMaterial),
+                    'C', circuitTag,
+                    'F', ChemicalHelper.get(TagPrefix.frameGt, frameMaterial));
+
+            // 组装机: 材料一致, 电路配置 = 档位。
+            GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(
+                            GregSteamExpansion.id("electric_ore_crusher_" + tierNames[i]))
+                    .inputItems(TagPrefix.plate, plateMaterial, 6)
+                    .inputItems(TagPrefix.frameGt, frameMaterial)
+                    .inputItems(circuitTag, 2)
+                    .circuitMeta(tier)
+                    .outputItems(definition.asStack())
+                    .duration(100)
+                    .EUt(16 * (1 << Math.min(tier, 8)))
+                    .save(provider);
+        }
     }
 
     // ------------------------------------------------------------------

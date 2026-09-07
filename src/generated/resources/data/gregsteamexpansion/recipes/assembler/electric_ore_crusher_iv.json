@@ -1,0 +1,63 @@
+{
+  "type": "gtceu:assembler",
+  "category": "gtceu:assembler",
+  "duration": 100,
+  "inputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 6,
+          "ingredient": {
+            "tag": "forge:plates/tungsten_steel"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "forge:frames/tungsten_steel"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "tag": "gtceu:circuits/iv"
+          }
+        }
+      },
+      {
+        "chance": 0,
+        "content": {
+          "type": "gtceu:circuit",
+          "configuration": 5
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "gregsteamexpansion:iv_electric_ore_crusher"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 512
+      }
+    ]
+  }
+}

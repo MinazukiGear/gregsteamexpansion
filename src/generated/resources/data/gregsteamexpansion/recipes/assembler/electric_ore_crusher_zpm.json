@@ -1,0 +1,63 @@
+{
+  "type": "gtceu:assembler",
+  "category": "gtceu:assembler",
+  "duration": 100,
+  "inputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 6,
+          "ingredient": {
+            "tag": "forge:plates/naquadah_alloy"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "forge:frames/iridium"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 2,
+          "ingredient": {
+            "tag": "gtceu:circuits/zpm"
+          }
+        }
+      },
+      {
+        "chance": 0,
+        "content": {
+          "type": "gtceu:circuit",
+          "configuration": 7
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "gregsteamexpansion:zpm_electric_ore_crusher"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 2048
+      }
+    ]
+  }
+}
