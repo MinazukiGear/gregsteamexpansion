@@ -338,6 +338,40 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.9",
                 "All three difficulty tiers behave identically.");
 
+        // 蒸汽化学浸洗厂 / Steam Chemical Bath (B4).
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.0",
+                "Pure-steam chemical bath multiblock running ALL gtceu:chemical_bath recipes (ore bathing, paper making, treated planks and more) at up to 8 parallel operations.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.1",
+                "Fixed 3\u00d74\u00d73 structure; each recipe takes 1.5\u00d7 its base duration and 2 mB of steam per EU.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.2",
+                "Hold Shift for the full structure and operating rules.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle",
+                "Structure");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.0",
+                "Fixed 3\u00d74\u00d73 structure (36 blocks): a 34-block industrial steam machine casing shell (incl. the front-bottom-centre controller) around 2 blocks of air forming the immersion chamber in the middle layer's centre column.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.1",
+                "The structure has no dedicated internals; blocks may be shared with neighbouring structures without interference.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.2",
+                "Hatches replace ONLY shell casing positions: at least 1 item input bus, 1 item output bus, 1 steam supply hatch and 1 fluid input hatch (the bath liquid inlet), at most 8 hatches in total. NO fluid output hatch and NO steam exhaust hatch may be installed. The fluid input hatch may be a GTCEu standard hatch or the mod's steam fluid input hatch, freely mixed.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle2",
+                "Processing & Steam");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.3",
+                "Runs every gtceu:chemical_bath recipe (crushed ore bathing to purified ore with 70%/40% byproduct chances, paper making, treated planks, decoration and miscellaneous recipes; add-on recipes are picked up automatically); one recipe per batch, up to 8 parallel, duration = base \u00d7 1.5 (rounded up).");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.4",
+                "Recipes above LV voltage are rejected. Each operation consumes recipe EU/t \u00d7 duration \u00d7 2 mB of standard steam; demand scales linearly with parallel.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.5",
+                "The machine has NO fluid output hatch: recipes that produce fluids have nowhere to deliver them and fail the startup precheck. Item outputs leave through the item output buses, prechecked at worst case and never voided.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.6",
+                "No exhaust hatch: the machine has no exhaust obstruction check and no heat-hazard cycles at all.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle3",
+                "Control & Status");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.7",
+                "The last successful recipe is preferred; active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.8",
+                "Removing the controller drops pending output items and loses the recipe preference; the controller holds no internal storage.");
+        add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.9",
+                "All three difficulty tiers behave identically.");
+
         // 蒸汽提取机 / Steam Extractor (steam-extractor.md).
         add("gregsteamexpansion.machine.steam_extractor.tooltip.summary.0",
                 "Pure-steam extractor multiblock running full extractor recipes at up to 8 parallel operations.");

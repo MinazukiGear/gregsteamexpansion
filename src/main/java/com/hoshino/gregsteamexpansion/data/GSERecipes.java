@@ -77,6 +77,7 @@ public final class GSERecipes {
         addLargeSteamThermalCentrifugeRecipe(provider);
         addLargeSteamMaceratorRecipe(provider);
         addLargeSteamMixerRecipe(provider);
+        addSteamChemicalBathRecipe(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
@@ -329,6 +330,28 @@ public final class GSERecipes {
                         'R', ChemicalHelper.get(TagPrefix.rotor, GTMaterials.Bronze),
                         'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
                         'M', new ItemStack(GSEBlocks.STEAM_MIXING_BLOCK.get())}));
+    }
+
+    // ------------------------------------------------------------------
+    // Steam Chemical Bath controller
+    // (large-steam-chemical-bath.md 获取配方（议题 10）): bronze plates x4 on
+    // the corners, a glass cross (c:glass item tag, 浸洗观察腔语义) and one
+    // bronze component as the load-bearing core. No hatches in the recipe -
+    // pure steam-era materials. Horizontally AND vertically symmetric, so
+    // the vanilla shaped serializer suffices; always yields 1 controller.
+    // ------------------------------------------------------------------
+
+    private static void addSteamChemicalBathRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/steam_chemical_bath"),
+                GSEMachines.STEAM_CHEMICAL_BATH.asStack(),
+                new String[]{"PGP", "GCG", "PGP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'G', net.minecraft.tags.TagKey.create(
+                                net.minecraft.core.registries.Registries.ITEM,
+                                new ResourceLocation("c", "glass")),
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get())}));
     }
 
     // ------------------------------------------------------------------

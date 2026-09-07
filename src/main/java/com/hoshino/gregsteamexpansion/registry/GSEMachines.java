@@ -25,6 +25,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCoke
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamChemicalBathMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamMaceratorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamMixerMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamOreWasherMachine;
@@ -373,6 +374,22 @@ public final class GSEMachines {
             .allowCoverOnFront(false)
             .register();
 
+    public static final MultiblockMachineDefinition STEAM_CHEMICAL_BATH = GSERegistration.REGISTRATE
+            .multiblock("steam_chemical_bath", SteamChemicalBathMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.CHEMICAL_BATH_RECIPES)
+            .appearanceBlock(GCYMBlocks.CASING_INDUSTRIAL_STEAM)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/steam_chemical_bath")))
+            .pattern(GSEProcessorPatterns::createChemicalBath)
+            .shapeInfos(definition -> List.of(GSEProcessorPatterns.chemicalBathShapeInfo(definition)))
+            .langValue("Steam Chemical Bath")
+            .tooltipBuilder(GSEMachines::steamChemicalBathTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
     static {
         // 配方迁移启用保护 (steam-crushers.md): the small crusher registers as
         // the explicit ore-crushing consumer; the large crusher alone never
@@ -381,6 +398,45 @@ public final class GSEMachines {
     }
 
 
+
+    private static void steamChemicalBathTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 0; i <= 2; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 3; i <= 6; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 7; i <= 9; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+    }
 
     private static void steamSupplyHatchTooltips(ItemStack stack, List<Component> tooltip) {
         tooltip.add(Component.translatable(

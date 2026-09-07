@@ -478,5 +478,22 @@
   "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle3": "控制与状态",
   "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.7": "优先使用最近成功配方；主动暂停冻结原进度；缺汽或结构失效会把已启动批次回退至 1 tick。",
   "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.8": "拆除控制器掉落待输出物品、丢失其中的流体与偏好配方；控制器内部无储物储液。",
-  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.9": "三档工作强度行为完全相同。"
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.9": "三档工作强度行为完全相同。",
+  "block.gregsteamexpansion.steam_chemical_bath": "蒸汽化学浸洗厂",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.0": "最高 8 并行的纯蒸汽化学浸洗多方块机器，执行全部 gtceu:chemical_bath 浸洗配方（矿石浸洗、造纸、处理木板等）。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.1": "固定 3×4×3 结构；每次配方耗时为基准的 1.5 倍，每 EU 消耗 2 mB 蒸汽。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.2": "按住 Shift 查看完整结构与运行规则。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle": "结构",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.0": "固定 3×4×3 结构（36 格）：34 个工业蒸汽机械方块外壳（含正面底层正中控制器），中间层中列中部 2 格空气构成浸洗腔。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.1": "结构无专用内部方块；可与其他结构贴靠共用方块，失效互不影响。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.2": "仓室仅可替换外壳工业方块位：至少 1 个物品输入总线、1 个物品输出总线、1 个蒸汽供给仓与 1 个流体输入仓（浸洗液入口），合计最多 8 个。不可安装流体输出仓与蒸汽排气仓。流体输入仓可为 GTCEu 标准流体输入仓或本模组蒸汽流体输入仓，可任意混用。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle2": "加工与蒸汽",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.3": "执行全部化学浸洗配方（粉碎矿浸洗为纯净粉碎矿并带 70%/40% 概率副产、造纸、处理木板、装饰与杂项配方，外部模组配方自动可用）；每批只处理同一种配方，最高 8 并行，耗时为基准的 1.5 倍（向上取整）。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.4": "高于 LV 电压的配方被拒绝。每份配方消耗 配方 EU/t × 耗时 × 2 mB 标准蒸汽，需求随并行线性放大。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.5": "本机不安装流体输出仓：产生流体输出的配方因流体产物无出口而在开工预检中失败。物品产物经物品输出总线导出，开工前按最坏情况预检输出空间，产物绝不丢失。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.6": "无排气仓：本机不存在排气受阻判定，也没有热伤害周期。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle3": "控制与状态",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.7": "优先使用最近成功配方；主动暂停冻结原进度；缺汽或结构失效会把已启动批次回退至 1 tick。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.8": "拆除控制器掉落待输出物品、丢失偏好配方；控制器内部无储物储液。",
+  "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.9": "三档工作强度行为完全相同。"
 }

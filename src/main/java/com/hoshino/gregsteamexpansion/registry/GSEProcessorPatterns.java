@@ -813,6 +813,73 @@ public final class GSEProcessorPatterns {
     }
 
     /**
+     * The chemical bath's candidate rule for the 33 shell industrial-casing
+     * positions (large-steam-chemical-bath.md 议题 4): industrial steam
+     * machine casing with hatches as replacements. Fluid interface per
+     * 仓室表: the fluid input hatch is REQUIRED and BOTH families are
+     * admissible (GTCEu standard {@code IMPORT_FLUIDS} or the mod's
+     * {@code STEAM_IMPORT_FLUIDS}, 可选或混用); NO fluid output hatch of
+     * either family and NO steam exhaust hatch is admissible at all (议题
+     * 3 连带后果: 本机不安装流体输出仓; 2026-09-07 全模组裁定: 非大型蒸汽
+     * 多方块不使用排气仓). The 25-casing minimum bounds the hatch total at
+     * 8 (33 − 25, 议题 4 仓室合计上限).
+     */
+    private static TraceabilityPredicate chemicalBathCandidates() {
+        return Predicates.blocks(industrialSteamCasing()).setMinGlobalLimited(25)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS));
+    }
+
+    /**
+     * 蒸汽化学浸洗厂: fixed 3×4×3 (large-steam-chemical-bath.md 议题 4 逐层
+     * 图). Aisle rows run back -> front, so the design's front row is the
+     * LAST string of each aisle. All three layers are full industrial
+     * casings except the two strict-air cells (middle column × middle two
+     * rows of the middle layer — the immersion chamber); the controller
+     * sits front-bottom-centre. Aisles here are 4 rows deep × 3 chars wide,
+     * 3 aisles tall.
+     */
+    public static BlockPattern createChemicalBath(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle("III", "III", "III", "ICI")
+                .aisle("III", "IAI", "IAI", "III")
+                .aisle("III", "III", "III", "III")
+                .where('I', chemicalBathCandidates())
+                .where('A', Predicates.air())
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Chemical bath representative layout
+     * (large-steam-chemical-bath.md 结构): minimum 4-hatch set — import and
+     * export buses flanking the bottom-front-centre controller, steam supply
+     * hatch and a standard fluid input hatch on the middle-layer front wall.
+     * Axis convention as in {@code GSECrusherPatterns#smallShapeInfo}
+     * (layers bottom -> top, each layer's 4 rows back -> front, chars west
+     * -> east).
+     */
+    public static MultiblockShapeInfo chemicalBathShapeInfo(MultiblockMachineDefinition definition) {
+        String[][] layers = {
+                {"WWW", "WWW", "WWW", "IKO"},
+                {"WWW", "WAW", "WAW", "WSF"},
+                {"WWW", "WWW", "WWW", "WWW"},
+        };
+        return buildShapeInfo(layers)
+                .where('W', industrialSteamCasing())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .build();
+    }
+
+    /**
      * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
      * coordinates, keeping the controller on the north (z = 0) wall.
      */
