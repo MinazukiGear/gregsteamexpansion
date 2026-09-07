@@ -513,6 +513,9 @@ public final class GSEMachines {
                 .recipeType(GSERecipeTypes.BOILER_ROOM_RECIPES)
                 .recipeModifier(com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine::recipeModifier,
                         true)
+                // 缺粉/缺空气暂停 = 冻结燃料批次进度, 不回退 (P1#8, 混合燃料
+                // 锅炉口径).
+                .regressWhenWaiting(false)
                 .appearanceBlock(casing)
                 .partAppearance((controller, part, side) ->
                         part.self().getPos().getY() == controller.self().getPos().getY() - 3
