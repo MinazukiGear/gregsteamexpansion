@@ -79,9 +79,94 @@ public final class GSERecipes {
         addLargeSteamMixerRecipe(provider);
         addSteamChemicalBathRecipe(provider);
         addSteamCentrifugeRecipes(provider);
+        addLargeSteamAssemblerRecipe(provider);
+        addLargeSteamCircuitAssemblerRecipe(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
+        addBoilerRoomRecipes(provider);
+    }
+
+    // ------------------------------------------------------------------
+    // 大型蒸汽组装机 / 大型蒸汽电路组装机 (large-steam-assembler.md 获取
+    // 配方（议题 10） / large-steam-circuit-assembler.md 获取配方（议题 10）):
+    // 家族骨架九宫格 (核心方块居中 + 上下功能件 + 左右构件 + 四角板), 每次
+    // 恒产 1 个控制器, 三档相同; 不含任何仓室。B1 以青铜齿轮传动, B2 以
+    // 橡胶片绝缘——两图案在配方查看器中一眼可辨。
+    // ------------------------------------------------------------------
+
+    private static void addLargeSteamAssemblerRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_assembler"),
+                GSEMachines.LARGE_STEAM_ASSEMBLER.asStack(),
+                new String[]{"PGP", "CAC", "PGP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'G', ChemicalHelper.get(TagPrefix.gear, GTMaterials.Bronze),
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
+                        'A', new ItemStack(GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())}));
+    }
+
+    private static void addLargeSteamCircuitAssemblerRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_circuit_assembler"),
+                GSEMachines.LARGE_STEAM_CIRCUIT_ASSEMBLER.asStack(),
+                new String[]{"PRP", "CAC", "PRP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'R', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Rubber),
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
+                        'A', new ItemStack(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get())}));
+    }
+
+    // ------------------------------------------------------------------
+    // 锅炉房四档控制器 (boiler-room.md P3#14 材料定稿): 对应档 GTCEu 大型锅炉
+    // 控制器 ×1 + 本模组高压混合燃料锅炉 ×1 + 对应档板 ×7 → 锅炉房控制器 ×1。
+    // 工作台与组装机两条路线材料一致、产出相同 (恒产 1, 三档相同), 使「完全
+    // 取代」在获取路径上成立。
+    // ------------------------------------------------------------------
+
+    private static void addBoilerRoomRecipes(Consumer<FinishedRecipe> provider) {
+        addBoilerRoomRecipe(provider, "bronze",
+                GTMultiMachines.LARGE_BOILER_BRONZE, TagPrefix.plate, GTMaterials.Bronze,
+                GSEMachines.BOILER_ROOM_BRONZE);
+        addBoilerRoomRecipe(provider, "steel",
+                GTMultiMachines.LARGE_BOILER_STEEL, TagPrefix.plate, GTMaterials.Steel,
+                GSEMachines.BOILER_ROOM_STEEL);
+        addBoilerRoomRecipe(provider, "titanium",
+                GTMultiMachines.LARGE_BOILER_TITANIUM, TagPrefix.plate, GTMaterials.Titanium,
+                GSEMachines.BOILER_ROOM_TITANIUM);
+        addBoilerRoomRecipe(provider, "tungstensteel",
+                GTMultiMachines.LARGE_BOILER_TUNGSTENSTEEL, TagPrefix.plate, GTMaterials.TungstenSteel,
+                GSEMachines.BOILER_ROOM_TUNGSTENSTEEL);
+    }
+
+    private static void addBoilerRoomRecipe(Consumer<FinishedRecipe> provider, String tier,
+                                            com.gregtechceu.gtceu.api.machine.MachineDefinition largeBoiler,
+                                            TagPrefix platePrefix, com.gregtechceu.gtceu.api.data.chemical.material.Material plateMaterial,
+                                            com.gregtechceu.gtceu.api.machine.MachineDefinition boilerRoom) {
+        // 工作台: 七板包裹大型锅炉 (上) 与高压混合燃料锅炉 (核心右侧)。
+        VanillaRecipeHelper.addShapedRecipe(
+                provider,
+                GregSteamExpansion.id("boiler_room_" + tier),
+                boilerRoom.asStack(),
+                "PPP",
+                "PSM",
+                "PPP",
+                'P', ChemicalHelper.get(platePrefix, plateMaterial),
+                'S', largeBoiler.asStack(),
+                'M', GSEMachines.MIXED_FUEL_BOILER.right().asStack());
+
+        // 组装机: 材料一致, 电路 7 用于区分四个档位。
+        GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(GregSteamExpansion.id("boiler_room_" + tier))
+                .inputItems(ChemicalHelper.get(platePrefix, plateMaterial, 7))
+                .inputItems(largeBoiler.asStack())
+                .inputItems(GSEMachines.MIXED_FUEL_BOILER.right().asStack())
+                .circuitMeta(7)
+                .outputItems(boilerRoom.asStack())
+                .duration(400)
+                .EUt(16)
+                .save(provider);
     }
 
     // ------------------------------------------------------------------

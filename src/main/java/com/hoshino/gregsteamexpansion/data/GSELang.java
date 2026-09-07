@@ -718,6 +718,101 @@ public final class GSELang {
 
         addCokeOvenLang();
         addLargeCokeOvenLang();
+        addAssemblerFamilyLang();
+        addBoilerRoomLang();
+    }
+
+    // ------------------------------------------------------------------
+    // 锅炉房 (boiler-room.md 两级物品提示与状态文本)。控制器条目沿用上游
+    // gtceu.multiblock.large_boiler.* 的温度/节流/爆炸文案, 仅新增协同燃烧
+    // 与助燃空气两行及四条运行状态。
+    // ------------------------------------------------------------------
+    private static void addBoilerRoomLang() {
+        add("gregsteamexpansion.machine.boiler_room.tooltip.co_firing",
+                "Co-firing only: liquid fuel + a co-firing dust powder; output \u00d71.5, drawing %s mB/t of combustion air.");
+        add("gregsteamexpansion.machine.boiler_room.tooltip.air_intake",
+                "Requires exactly one Steam Air Intake Hatch on the top face; no steam hatch of any kind is allowed.");
+        add("gregsteamexpansion.machine.boiler_room.status.no_air_intake",
+                "Needs combustion air: attach a Steam Air Intake Hatch on the top face.");
+        add("gregsteamexpansion.machine.boiler_room.status.air_starved",
+                "Air intake cannot keep up \u2014 combustion paused.");
+        add("gregsteamexpansion.machine.boiler_room.status.missing_powder",
+                "Missing co-firing powder \u2014 paused and cooling fast.");
+        add("gregsteamexpansion.machine.boiler_room.status.co_firing",
+                "Co-firing: powder burn buffer %s%%");
+    }
+
+    // ------------------------------------------------------------------
+    // 大型蒸汽组装机 / 大型蒸汽电路组装机 (large-steam-assembler.md /
+    // large-steam-circuit-assembler.md 两级物品提示与槽位 UI 文本)。
+    // ------------------------------------------------------------------
+    private static void addAssemblerFamilyLang() {
+        // ---- B1 大型蒸汽组装机两级物品提示 ----
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.summary.0",
+                "9\u00d79\u00d79 large steam assembler running the full gtceu:assembler recipe type with pure steam power.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.summary.1",
+                "The controller's assembler slot gates recipe tiers and parallel with electric assemblers; it never provides EU (2 mB steam per EU).");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.summary.2",
+                "Hold Shift for slot, parallel ladder and structure details.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.subtitle", "Assembler Slot");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.0",
+                "One controller slot holds 1\u20134 stacked electric assemblers of a single tier (LV\u2013EV); kinds cannot be mixed, and the stack persists across reloads.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.1",
+                "Empty slot: ULV recipes only at parallel 1; a stacked kind admits recipes up to its own tier.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.2",
+                "Stacks of 1 / 2 / 3 / 4 raise the parallel cap to 2 / 4 / 8 / 16; a running batch keeps its locked tier and parallel.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.subtitle2", "Batch Economics");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.3",
+                "Batch duration = recipe duration \u00d7 1.5 \u00d7 time ladder; steam per tick = recipe EU/t \u00d7 2 \u00d7 steam ladder (integer math).");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.4",
+                "Ladder at 1 / 2 / 4 / 8 / 16 parallel: steam \u00d71 / 1.25 / 1.5 / 1.75 / 2, duration \u00d71 / 1.5 / 2 / 2.5 / 3 \u2014 higher parallel lowers steam cost per item.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.5",
+                "Actual parallel = min(cap, input portions, worst-case output room); a steam shortage rewinds progress to 1 tick and the batch resumes.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.6",
+                "Easy difficulty doubles item outputs of new batches; Normal and Expert stay 1\u00d7 \u2014 inputs are never discounted.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.subtitle3", "Structure and Automation");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.7",
+                "Industrial casings form the top/bottom faces and all 12 edges; the four walls (steam machine casings) are the only hatch zone with \u226416 hatches in total.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.8",
+                "18 Steam Assembly Blocks sit on interior layers 2 and 8 (3\u00d73 spaced grids); exactly one Steam Exhaust Hatch is required.");
+        add("gregsteamexpansion.machine.large_steam_assembler.tooltip.details.9",
+                "Breaking the controller returns the slot's assemblers as item drops; the preference recipe and pending outputs are lost.");
+
+        // ---- B2 大型蒸汽电路组装机两级物品提示 ----
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.0",
+                "5\u00d711\u00d76 large steam circuit assembler running the full gtceu:circuit_assembler recipe type with pure steam power.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.1",
+                "Same assembler-slot mechanism as the Large Steam Assembler; every recipe also needs its mandatory solder-type fluid input.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.2",
+                "Hold Shift for slot, parallel ladder and structure details.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle", "Assembler Slot");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.0",
+                "One controller slot holds 1\u20134 stacked electric circuit assemblers of a single tier (LV\u2013EV); kinds cannot be mixed, and the stack persists across reloads.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.1",
+                "Empty slot: ULV recipes only at parallel 1; a stacked kind admits recipes up to its own tier.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.2",
+                "Stacks of 1 / 2 / 3 / 4 raise the parallel cap to 2 / 4 / 8 / 16; a running batch keeps its locked tier and parallel.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle2", "Batch Economics");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.3",
+                "Batch duration = recipe duration \u00d7 1.5 \u00d7 time ladder; steam per tick = recipe EU/t \u00d7 2 \u00d7 steam ladder (integer math).");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.4",
+                "Ladder at 1 / 2 / 4 / 8 / 16 parallel: steam \u00d71 / 1.25 / 1.5 / 1.75 / 2, duration \u00d71 / 1.5 / 2 / 2.5 / 3 \u2014 higher parallel lowers steam cost per item.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.5",
+                "Every circuit assembler recipe carries a mandatory fluid input (upstream auto-adds solder); the fluid input hatch is a first-class requirement.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.6",
+                "Easy difficulty doubles item outputs of new batches; Normal and Expert stay 1\u00d7 \u2014 inputs are never discounted.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle3", "Structure and Automation");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.7",
+                "Steam machine casings form the bottom face, walls and edges (\u226416 hatches in total); only the 1\u00d711 top ridge is industrial casing.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.8",
+                "The interior centre tower stacks 9 circuit assembly blocks, 9 bronze gearbox casings, 9 assembly blocks and 9 bronze pipe casings; exactly one Steam Exhaust Hatch is required.");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.9",
+                "Breaking the controller returns the slot's circuit assemblers as item drops; the preference recipe and pending outputs are lost.");
+
+        // ---- 组装机槽位控制器 UI 文本 (B1/B2 共用) ----
+        add("gregsteamexpansion.machine.steam_assembler.ui.slot_empty", "Assembler slot: empty (ULV only)");
+        add("gregsteamexpansion.machine.steam_assembler.ui.slot_summary",
+                "Assembler slot: %s \u00d7%s (parallel \u2264 %s)");
     }
 
     /** 大型焦炉本地化 (coke-ovens.md 大型焦炉已确认设计)。 */

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "gregsteamexpansion:steam_circuit_assembly_block"
+    },
+    "C": {
+      "item": "gregsteamexpansion:bronze_component"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "R": {
+      "item": "gtceu:rubber_plate"
+    }
+  },
+  "pattern": [
+    "PRP",
+    "CAC",
+    "PRP"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_steam_circuit_assembler"
+  }
+}

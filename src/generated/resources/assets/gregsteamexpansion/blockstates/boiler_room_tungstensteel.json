@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "gregsteamexpansion:block/machine/boiler_room_tungstensteel",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "gregsteamexpansion:block/machine/boiler_room_tungstensteel"
+    },
+    "facing=south": {
+      "model": "gregsteamexpansion:block/machine/boiler_room_tungstensteel",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "gregsteamexpansion:block/machine/boiler_room_tungstensteel",
+      "y": 270
+    }
+  }
+}

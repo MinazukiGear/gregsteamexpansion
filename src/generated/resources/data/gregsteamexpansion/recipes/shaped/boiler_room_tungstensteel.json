@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "M": {
+      "item": "gregsteamexpansion:hp_steam_mixed_fuel_boiler"
+    },
+    "P": {
+      "item": "gtceu:tungsten_steel_plate"
+    },
+    "S": {
+      "item": "gtceu:tungstensteel_large_boiler"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PPP",
+    "PSM",
+    "PPP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:boiler_room_tungstensteel"
+  }
+}

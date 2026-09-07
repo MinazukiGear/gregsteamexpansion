@@ -121,6 +121,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** Locked batch total: recipe EU/t × 2 × duration × P mB. */
     @Persisted
     private long batchTotalSteamMb = 0;
+    /** Output multiplier locked at batch start (B1/B2 Easy 2×; family default 1). */
+    @Persisted
+    private float batchOutputMultiplier = 1.0f;
     /** One copy of the locked input item, for the GUI recipe display. */
     @Persisted
     private ItemStack batchInputDisplay = ItemStack.EMPTY;
@@ -511,8 +514,11 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     // ***** Recipe search ******//
     //////////////////////////////////////
 
-    /** LV 电压门 (议题 3): only recipes at ULV/LV or below, input-powered only. */
-    private boolean passesVoltageGate(GTRecipe recipe) {
+    /**
+     * LV 电压门 (议题 3): only recipes at ULV/LV or below, input-powered only.
+     * B1/B2 override the tier ceiling dynamically from the assembler slot.
+     */
+    protected boolean passesVoltageGate(GTRecipe recipe) {
         var eut = recipe.getInputEUt();
         if (eut.isEmpty()) {
             // No input EU: nothing to convert to steam — reject (家族只收输入功耗配方).
@@ -526,9 +532,26 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 <= com.gregtechceu.gtceu.api.GTValues.LV;
     }
 
-    /** Locked batch economics for an accepted recipe (议题 5): ×1.5 duration, 2 mB/EU. */
-    private static long batchDurationTicks(GTRecipe recipe) {
+    /**
+     * Locked batch economics for an accepted recipe (议题 5): ×1.5 duration,
+     * 2 mB/EU linear in the parallel. B1/B2 override both with the sub-linear
+     * ladder (large-steam-assembler.md 议题 5).
+     */
+    protected long batchDurationTicks(GTRecipe recipe, int parallel) {
         return Math.max(1, (long) Math.ceil(recipe.duration * DURATION_MULTIPLIER));
+    }
+
+    /** Locked per-tick steam demand; family default is linear in the parallel. */
+    protected long batchSteamPerTickMb(GTRecipe recipe, long eu, int parallel) {
+        return eu * STEAM_PER_EU_MB * parallel;
+    }
+
+    /**
+     * Output multiplier for the NEXT batch, locked at batch start (议题 11:
+     * 档位切换后已启动批次保持原锁定产出). Family default is exactly 1.
+     */
+    protected float batchOutputMultiplier() {
+        return 1.0f;
     }
 
     /**
@@ -589,9 +612,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             preferredRecipeId = recipe.getId().toString();
             batchParallel = parallel;
             batchProgress = 0;
-            batchDurationTicks = (int) batchDurationTicks(recipe);
-            batchSteamPerTickMb = eu * STEAM_PER_EU_MB * parallel;
-            batchTotalSteamMb = eu * STEAM_PER_EU_MB * batchDurationTicks * parallel;
+            batchDurationTicks = (int) batchDurationTicks(recipe, parallel);
+            batchSteamPerTickMb = batchSteamPerTickMb(recipe, eu, parallel);
+            batchTotalSteamMb = batchSteamPerTickMb * batchDurationTicks;
+            batchOutputMultiplier = batchOutputMultiplier();
             batchInputDisplay = firstInputDisplay(recipe);
             GregSteamExpansion.LOGGER.debug(
                     "Steam processor at {} started batch {} with parallel {} ({} ticks, {} mB total, {} mB/t)",
@@ -821,15 +845,38 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             // multiply the guaranteed part AGAIN.
             produced.addAll(materializeItemContents(rolled));
         });
-        mergeStacks(produced);
-        pendingOutputs.addAll(produced);
+        List<ItemStack> scaledProduced = scaleByMultiplier(produced, batchOutputMultiplier);
+        mergeStacks(scaledProduced);
+        pendingOutputs.addAll(scaledProduced);
 
         hasBatch = false;
         batchRecipe = null;
         batchProgress = 0;
         batchRecipeId = "";
         batchInputDisplay = ItemStack.EMPTY;
+        batchOutputMultiplier = 1.0f;
         deliverPendingOutputs();
+    }
+
+    /**
+     * 议题 11 (B1/B2 Easy 档): multiply the item output COUNT by the locked
+     * batch multiplier, splitting stacks that exceed their max stack size —
+     * the multiplier never touches chance rolls or input consumption.
+     */
+    private static List<ItemStack> scaleByMultiplier(List<ItemStack> produced, float multiplier) {
+        if (multiplier <= 1.0f || produced.isEmpty()) {
+            return produced;
+        }
+        List<ItemStack> scaled = new ArrayList<>();
+        for (ItemStack stack : produced) {
+            long count = Math.round(stack.getCount() * (double) multiplier);
+            while (count > 0) {
+                int chunk = (int) Math.min(stack.getMaxStackSize(), count);
+                scaled.add(stack.copyWithCount(chunk));
+                count -= chunk;
+            }
+        }
+        return scaled;
     }
 
     /**
@@ -1407,6 +1454,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchDurationTicks = 0;
         batchTotalSteamMb = 0;
         batchSteamPerTickMb = 0;
+        batchOutputMultiplier = 1.0f;
         batchInputDisplay = ItemStack.EMPTY;
         pendingOutputs.clear();
         pendingFluids.clear();

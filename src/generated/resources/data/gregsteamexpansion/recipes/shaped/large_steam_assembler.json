@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "item": "gregsteamexpansion:steam_assembly_block"
+    },
+    "C": {
+      "item": "gregsteamexpansion:bronze_component"
+    },
+    "G": {
+      "item": "gtceu:bronze_gear"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    }
+  },
+  "pattern": [
+    "PGP",
+    "CAC",
+    "PGP"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_steam_assembler"
+  }
+}

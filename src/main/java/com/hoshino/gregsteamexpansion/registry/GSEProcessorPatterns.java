@@ -1139,6 +1139,277 @@ public final class GSEProcessorPatterns {
     }
 
     /**
+     * The large steam assembler's candidate rule for the 196 wall
+     * steam-machine-casing positions (large-steam-assembler.md 议题 4): walls
+     * are the ONLY hatch-replaceable zone (top/bottom faces and the 12 edges
+     * are fixed industrial casings). Fluid interface per 仓室表: the fluid
+     * input hatch is REQUIRED and BOTH families are admissible (GTCEu
+     * standard or the mod's steam fluid input hatch, 可选或混用, B4 口径); NO
+     * fluid output hatch of either family (类型无流体输出槽). The exhaust
+     * hatch takes one candidate slot (必须且只能 1 个, post-checked by the
+     * controller) and the 180-casing minimum bounds the hatch total at 16
+     * (196 − 180, 议题 4 仓室合计上限).
+     */
+    private static TraceabilityPredicate assemblerCandidates() {
+        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(180)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
+                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+    }
+
+    /** Row set of a B1 workstation layer: M grid at 1-indexed x/z ∈ {3, 5, 7} (9 blocks). */
+    private static final String[] ASSEMBLER_WORKLAYER = {
+            "IBBBBBBBI",
+            "BAAAAAAAB",
+            "BAMAMAMAB",
+            "BAAAAAAAB",
+            "BAMAMAMAB",
+            "BAAAAAAAB",
+            "BAMAMAMAB",
+            "BAAAAAAAB",
+            "IBBBBBBBI",
+    };
+
+    /** Row set of a B1 hollow layer (3–7). */
+    private static final String[] ASSEMBLER_HOLLOW_LAYER = {
+            "IBBBBBBBI",
+            "BAAAAAAAB",
+            "BAAAAAAAB",
+            "BAAAAAAAB",
+            "BAAAAAAAB",
+            "BAAAAAAAB",
+            "BAAAAAAAB",
+            "BAAAAAAAB",
+            "IBBBBBBBI",
+    };
+
+    /**
+     * 大型蒸汽组装机: fixed 9×9×9 (large-steam-assembler.md 议题 4 逐层图).
+     * Aisle rows run back -> front, so the design's front row is the LAST
+     * string of each aisle. Bottom and top faces plus the 12 edge columns
+     * are industrial casings (front-bottom-centre controller inside the
+     * bottom face); layers 2 and 8 carry the 9-block Steam Assembly Block
+     * arrays; layers 3-7 are hollow. Interior air is STRICT air.
+     */
+    public static BlockPattern createLargeSteamAssembler(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle( // layer 1 (bottom industrial face, controller front-centre)
+                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
+                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
+                        "IIIIICIII")
+                .aisle(ASSEMBLER_WORKLAYER)
+                .aisle(ASSEMBLER_HOLLOW_LAYER)
+                .aisle(ASSEMBLER_HOLLOW_LAYER)
+                .aisle(ASSEMBLER_HOLLOW_LAYER)
+                .aisle(ASSEMBLER_HOLLOW_LAYER)
+                .aisle(ASSEMBLER_HOLLOW_LAYER)
+                .aisle(ASSEMBLER_WORKLAYER)
+                .aisle( // layer 9 (top industrial face)
+                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
+                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
+                        "IIIIIIIII")
+                .where('I', Predicates.blocks(industrialSteamCasing()))
+                .where('B', assemblerCandidates())
+                .where('M', Predicates.blocks(GSEBlocks.STEAM_ASSEMBLY_BLOCK.get()))
+                .where('A', Predicates.air())
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Large steam assembler representative layout (large-steam-assembler.md
+     * 结构): minimum 5-hatch set on the layer-2 front wall (import bus,
+     * export bus, steam supply hatch, standard fluid input hatch and the
+     * exhaust hatch between them). Axis convention as in
+     * {@code GSECrusherPatterns#smallShapeInfo} (layers bottom -> top, each
+     * layer's rows back -> front, chars west -> east).
+     */
+    public static MultiblockShapeInfo assemblerShapeInfo(MultiblockMachineDefinition definition) {
+        String[] bottom = {
+                "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
+                "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
+                "WWWWWKWWW",
+        };
+        String[] hollow = ASSEMBLER_HOLLOW_LAYER.clone();
+        String[] workWithHatches = {
+                "WBBBBBBBW",
+                "BAAAAAAAB",
+                "BAMAMAMAB",
+                "BAAAAAAAB",
+                "BAMAMAMAB",
+                "BAAAAAAAB",
+                "BAMAMAMAB",
+                "BAAAAAAAB",
+                "WBJOSFEBW",
+        };
+        String[] workPlain = ASSEMBLER_WORKLAYER.clone();
+        String[] top = {
+                "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
+                "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
+                "WWWWWWWWW",
+        };
+        String[][] layers = {
+                bottom,
+                workWithHatches,
+                hollow, hollow, hollow, hollow, hollow,
+                workPlain,
+                top,
+        };
+        return buildShapeInfo(layers)
+                .where('W', industrialSteamCasing())
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    /**
+     * The large steam circuit assembler's candidate rule for the 165
+     * replaceable steam-machine-casing positions (large-steam-circuit-
+     * assembler.md 议题 4): bottom face, four walls and all edges EXCEPT the
+     * layer-6 industrial ridge and the controller. Fluid interface per 仓室
+     * 表: the fluid input hatch is REQUIRED (每条配方强制焊液) and BOTH
+     * families are admissible (可选或混用); NO fluid output hatch. The
+     * exhaust hatch takes one candidate slot (必须且只能 1 个) and the
+     * 149-casing minimum bounds the hatch total at 16 (165 − 149).
+     */
+    private static TraceabilityPredicate circuitAssemblerCandidates() {
+        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(149)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
+                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+    }
+
+    /**
+     * Row set of one B2 tower layer: the centre column (1-indexed x = 3)
+     * carries the layer's block for depths 2–10 (1-indexed, 9 cells).
+     *
+     * @param towerChar the centre-column block char (M / G / S / P)
+     */
+    private static String[] circuitTowerLayer(char towerChar) {
+        String tower = "B" + towerChar + "ABB";
+        String plain = "BABBB";
+        return new String[]{
+                "BBBBB",
+                tower,
+                plain,
+                tower,
+                plain,
+                tower,
+                plain,
+                tower,
+                plain,
+                tower,
+                "BBBBB",
+        };
+    }
+
+    /**
+     * 大型蒸汽电路组装机: fixed 5×11×6 + centre ridge
+     * (large-steam-circuit-assembler.md 议题 4 逐层图). Aisle rows run back
+     * -> front, so the design's front row is the LAST string of each aisle.
+     * Bottom face, walls and edges are steam machine casings (the
+     * front-bottom-centre controller replaces one bottom cell); the interior
+     * centre column carries the vertical process tower (layers 2–5: circuit
+     * assembly blocks / bronze gearbox / assembly blocks / bronze pipe
+     * casings, 9 each) with strict air elsewhere; layer 6 is only the
+     * centre 1×11 industrial ridge.
+     */
+    public static BlockPattern createLargeSteamCircuitAssembler(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle( // layer 1 (bottom, controller front-centre)
+                        "BBBBB", "BBBBB", "BBBBB", "BBBBB", "BBBBB",
+                        "BBBBB", "BBBBB", "BBBBB", "BBBBB", "BBBBB",
+                        "BBCBB")
+                .aisle(circuitTowerLayer('M')) // layer 2 (circuit assembly stations)
+                .aisle(circuitTowerLayer('G')) // layer 3 (gearbox drive layer)
+                .aisle(circuitTowerLayer('S')) // layer 4 (general assembly layer)
+                .aisle(circuitTowerLayer('P')) // layer 5 (fluid distribution layer)
+                .aisle( // layer 6 (industrial centre ridge)
+                        "..I..", "..I..", "..I..", "..I..", "..I..",
+                        "..I..", "..I..", "..I..", "..I..", "..I..",
+                        "..I..")
+                .where('B', circuitAssemblerCandidates())
+                .where('M', Predicates.blocks(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get()))
+                .where('G', Predicates.blocks(GTBlocks.CASING_BRONZE_GEARBOX.get()))
+                .where('S', Predicates.blocks(GSEBlocks.STEAM_ASSEMBLY_BLOCK.get()))
+                .where('P', Predicates.blocks(bronzePipeCasing()))
+                .where('A', Predicates.air())
+                .where('I', Predicates.blocks(industrialSteamCasing()))
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Large steam circuit assembler representative layout
+     * (large-steam-circuit-assembler.md 结构): minimum 5-hatch set on the
+     * layer-2 front wall (import bus, export bus, steam supply hatch,
+     * standard fluid input hatch, exhaust hatch — the fluid hatch is
+     * 常态必需). Axis convention as in {@code GSECrusherPatterns#smallShapeInfo}
+     * (layers bottom -> top, each layer's rows back -> front, chars west ->
+     * east).
+     */
+    public static MultiblockShapeInfo circuitAssemblerShapeInfo(MultiblockMachineDefinition definition) {
+        String[] bottom = {
+                "BBBBB", "BBBBB", "BBBBB", "BBBBB", "BBBBB",
+                "BBBBB", "BBBBB", "BBBBB", "BBBBB", "BBBBB",
+                "BBKBB",
+        };
+        String[] towerM = circuitTowerLayer('M');
+        String[] towerMWithHatches = towerM.clone();
+        towerMWithHatches[10] = "JOSFE";
+        String[] towerG = circuitTowerLayer('G');
+        // 'Q' marks the general assembly block so 'S' stays free for the
+        // steam supply hatch in the hatch row above.
+        String[] towerQ = circuitTowerLayer('Q');
+        String[] towerP = circuitTowerLayer('P');
+        String[] ridge = {
+                "..I..", "..I..", "..I..", "..I..", "..I..",
+                "..I..", "..I..", "..I..", "..I..", "..I..",
+                "..I..",
+        };
+        String[][] layers = {
+                bottom,
+                towerMWithHatches,
+                towerG,
+                towerQ,
+                towerP,
+                ridge,
+        };
+        return buildShapeInfo(layers)
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get())
+                .where('G', GTBlocks.CASING_BRONZE_GEARBOX.get())
+                .where('Q', GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())
+                .where('P', bronzePipeCasing())
+                .where('A', Blocks.AIR)
+                .where('I', industrialSteamCasing())
+                .where('K', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    /**
      * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
      * coordinates, keeping the controller on the north (z = 0) wall.
      */

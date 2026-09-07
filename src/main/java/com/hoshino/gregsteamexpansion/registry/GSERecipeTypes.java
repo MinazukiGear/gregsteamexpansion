@@ -44,6 +44,16 @@ public final class GSERecipeTypes {
 
     public static GTRecipeType ORE_CRUSHING_RECIPES;
 
+    /**
+     * 锅炉房 / Boiler Room fuel type (boiler-room.md P0#3-A): liquid fuel +
+     * water -> steam, the multiblock's ONLY energy source. The type starts
+     * EMPTY — {@code BoilerRoomFuelSync} copies every liquid-fuel recipe of
+     * the upstream steam-boiler type into it at each datapack load with the
+     * upstream large-boiler burn-time divisor, so the whitelist stays
+     * data-pack driven and pure-solid fuels never enter the type.
+     */
+    public static GTRecipeType BOILER_ROOM_RECIPES;
+
     private GSERecipeTypes() {}
 
     /**
@@ -53,6 +63,7 @@ public final class GSERecipeTypes {
      */
     public static void init(GTCEuAPI.RegisterEvent<ResourceLocation, GTRecipeType> event) {
         ORE_CRUSHING_RECIPES = registerOreCrushing(event);
+        BOILER_ROOM_RECIPES = registerBoilerRoom(event);
     }
 
     private static GTRecipeType registerOreCrushing(GTCEuAPI.RegisterEvent<ResourceLocation, GTRecipeType> event) {
@@ -76,6 +87,24 @@ public final class GSERecipeTypes {
                 // viewer-only category must not register (ore-crushing.md:
                 // 消费者尚未完成时不注册一个仅供查看、无法执行的空类别).
                 .setXEIVisible(CONSUMER_EXISTS);
+
+        GTRegistries.register(BuiltInRegistries.RECIPE_TYPE, recipeType.registryName, recipeType);
+        GTRegistries.register(BuiltInRegistries.RECIPE_SERIALIZER, recipeType.registryName,
+                new GTRecipeSerializer());
+        event.register(id, recipeType);
+        return recipeType;
+    }
+
+    private static GTRecipeType registerBoilerRoom(GTCEuAPI.RegisterEvent<ResourceLocation, GTRecipeType> event) {
+        ResourceLocation id = GregSteamExpansion.id("boiler_room");
+        GTRecipeType recipeType = new GTRecipeType(id, GTRecipeTypes.MULTIBLOCK)
+                // boiler-room.md P0#3: 1 物品入(占位, 实际不使用)/1 流体入/1 流体出,
+                // 与上游大型锅炉燃料配方同构; 配方内容由 BoilerRoomFuelSync 注入。
+                .setMaxIOSize(1, 0, 1, 1)
+                .setProgressBar(GuiTextures.PROGRESS_BAR_BOILER_FUEL.get(true), FillDirection.DOWN_TO_UP)
+                .setMaxTooltips(1)
+                .setSound(GTSoundEntries.FURNACE)
+                .setXEIVisible(true);
 
         GTRegistries.register(BuiltInRegistries.RECIPE_TYPE, recipeType.registryName, recipeType);
         GTRegistries.register(BuiltInRegistries.RECIPE_SERIALIZER, recipeType.registryName,

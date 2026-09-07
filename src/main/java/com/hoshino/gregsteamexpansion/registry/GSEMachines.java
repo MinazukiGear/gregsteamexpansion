@@ -20,12 +20,15 @@ import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenStructures;
 import com.hoshino.gregsteamexpansion.migration.OreCrushingMigration;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamAssemblerMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamCentrifugeMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamCircuitAssemblerMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCentrifugeMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamChemicalBathMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamMaceratorMachine;
@@ -424,6 +427,117 @@ public final class GSEMachines {
             .allowCoverOnFront(false)
             .register();
 
+    /** 大型蒸汽组装机 / Large Steam Assembler (large-steam-assembler.md 议题 1). */
+    public static final MultiblockMachineDefinition LARGE_STEAM_ASSEMBLER = GSERegistration.REGISTRATE
+            .multiblock("large_steam_assembler", LargeSteamAssemblerMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.ASSEMBLER_RECIPES)
+            .appearanceBlock(GCYMBlocks.CASING_INDUSTRIAL_STEAM)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/large_steam_assembler")))
+            .pattern(GSEProcessorPatterns::createLargeSteamAssembler)
+            .shapeInfos(definition -> List.of(GSEProcessorPatterns.assemblerShapeInfo(definition)))
+            .langValue("Large Steam Assembler")
+            .tooltipBuilder(GSEMachines::largeSteamAssemblerTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    /** 大型蒸汽电路组装机 / Large Steam Circuit Assembler (large-steam-circuit-assembler.md 议题 1). */
+    public static final MultiblockMachineDefinition LARGE_STEAM_CIRCUIT_ASSEMBLER = GSERegistration.REGISTRATE
+            .multiblock("large_steam_circuit_assembler", LargeSteamCircuitAssemblerMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.CIRCUIT_ASSEMBLER_RECIPES)
+            .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/large_steam_circuit_assembler")))
+            .pattern(GSEProcessorPatterns::createLargeSteamCircuitAssembler)
+            .shapeInfos(definition -> List.of(GSEProcessorPatterns.circuitAssemblerShapeInfo(definition)))
+            .langValue("Large Steam Circuit Assembler")
+            .tooltipBuilder(GSEMachines::largeSteamCircuitAssemblerTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    // ------------------------------------------------------------------
+    // 锅炉房 / Boiler Room (boiler-room.md): 四档终端蒸汽锅炉 (青铜/钢/钛/
+    // 钨钢), 共用 BoilerRoomMachine 与 7×11×7 去角长方体图案, 产能严格上位于
+    // 同档 GTCEu 大型锅炉 (协同 +50%; Easy ×2)。部件位置 (P2#9): 控制器正面
+    // 中心、消音器背面中心、蒸汽进气室顶面中心、火室两片 3×9、管道中轴 9 格。
+    // ------------------------------------------------------------------
+
+    /** 锅炉房（青铜）/ Boiler Room (Bronze) — 800 K 级. */
+    public static final MultiblockMachineDefinition BOILER_ROOM_BRONZE = registerBoilerRoom("bronze",
+            "Boiler Room (Bronze)", BoilerRoomMachine.BRONZE_TIER,
+            GTBlocks.CASING_BRONZE_BRICKS, GTBlocks.CASING_BRONZE_PIPE, GTBlocks.FIREBOX_BRONZE,
+            com.gregtechceu.gtceu.GTCEu.id("block/casings/solid/machine_casing_bronze_plated_bricks"),
+            com.gregtechceu.gtceu.common.block.BoilerFireboxType.BRONZE_FIREBOX);
+
+    /** 锅炉房（钢）/ Boiler Room (Steel) — 1800 K 级. */
+    public static final MultiblockMachineDefinition BOILER_ROOM_STEEL = registerBoilerRoom("steel",
+            "Boiler Room (Steel)", BoilerRoomMachine.STEEL_TIER,
+            GTBlocks.CASING_STEEL_SOLID, GTBlocks.CASING_STEEL_PIPE, GTBlocks.FIREBOX_STEEL,
+            com.gregtechceu.gtceu.GTCEu.id("block/casings/solid/machine_casing_solid_steel"),
+            com.gregtechceu.gtceu.common.block.BoilerFireboxType.STEEL_FIREBOX);
+
+    /** 锅炉房（钛）/ Boiler Room (Titanium) — 3200 K 级. */
+    public static final MultiblockMachineDefinition BOILER_ROOM_TITANIUM = registerBoilerRoom("titanium",
+            "Boiler Room (Titanium)", BoilerRoomMachine.TITANIUM_TIER,
+            GTBlocks.CASING_TITANIUM_STABLE, GTBlocks.CASING_TITANIUM_PIPE, GTBlocks.FIREBOX_TITANIUM,
+            com.gregtechceu.gtceu.GTCEu.id("block/casings/solid/machine_casing_stable_titanium"),
+            com.gregtechceu.gtceu.common.block.BoilerFireboxType.TITANIUM_FIREBOX);
+
+    /** 锅炉房（钨钢）/ Boiler Room (Tungstensteel) — 6400 K 级. */
+    public static final MultiblockMachineDefinition BOILER_ROOM_TUNGSTENSTEEL = registerBoilerRoom(
+            "tungstensteel",
+            "Boiler Room (Tungstensteel)", BoilerRoomMachine.TUNGSTENSTEEL_TIER,
+            GTBlocks.CASING_TUNGSTENSTEEL_ROBUST, GTBlocks.CASING_TUNGSTENSTEEL_PIPE,
+            GTBlocks.FIREBOX_TUNGSTENSTEEL,
+            com.gregtechceu.gtceu.GTCEu.id("block/casings/solid/machine_casing_robust_tungstensteel"),
+            com.gregtechceu.gtceu.common.block.BoilerFireboxType.TUNGSTENSTEEL_FIREBOX);
+
+    private static MultiblockMachineDefinition registerBoilerRoom(String name, String englishName, int tierIndex,
+                                                                  java.util.function.Supplier<? extends Block> casing,
+                                                                  java.util.function.Supplier<? extends Block> pipe,
+                                                                  java.util.function.Supplier<? extends Block> firebox,
+                                                                  ResourceLocation hullTexture,
+                                                                  com.gregtechceu.gtceu.common.block.BoilerFireboxType fireboxType) {
+        var tierBlocks = new GSEBoilerPatterns.TierBlocks(casing, pipe, firebox);
+        return GSERegistration.REGISTRATE
+                .multiblock("boiler_room_" + name, holder -> new BoilerRoomMachine(holder, tierIndex))
+                .langValue(englishName)
+                .allowExtendedFacing(false)
+                .rotationState(RotationState.NON_Y_AXIS)
+                .recipeType(GSERecipeTypes.BOILER_ROOM_RECIPES)
+                .recipeModifier(com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine::recipeModifier,
+                        true)
+                .appearanceBlock(casing)
+                .partAppearance((controller, part, side) ->
+                        part.self().getPos().getY() == controller.self().getPos().getY() - 3
+                                ? firebox.get().defaultBlockState()
+                                : casing.get().defaultBlockState())
+                .pattern(definition -> GSEBoilerPatterns.createPattern(definition, tierBlocks))
+                .shapeInfos(definition -> List.of(GSEBoilerPatterns.shapeInfo(definition, tierBlocks)))
+                .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+                .model(GTMachineModels.createWorkableCasingMachineModel(hullTexture,
+                        com.gregtechceu.gtceu.GTCEu.id("block/multiblock/generator/large_" + name + "_boiler"))
+                        .andThen(b -> b.addDynamicRenderer(
+                                () -> com.gregtechceu.gtceu.client.renderer.machine.DynamicRenderHelper
+                                        .makeBoilerPartRender(fireboxType, casing))))
+                .tooltips(
+                        Component.translatable("gtceu.multiblock.large_boiler.max_temperature",
+                                BoilerRoomMachine.MAX_TEMPERATURES[tierIndex] + 274,
+                                BoilerRoomMachine.MAX_TEMPERATURES[tierIndex]),
+                        Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.co_firing",
+                                String.format("%,d", BoilerRoomMachine.AIR_PER_TICK[tierIndex])),
+                        Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.air_intake"),
+                        Component.translatable("gtceu.multiblock.large_boiler.explosion_tooltip")
+                                .withStyle(ChatFormatting.DARK_RED))
+                .register();
+    }
+
     static {
         // 配方迁移启用保护 (steam-crushers.md): the small crusher registers as
         // the explicit ore-crushing consumer; the large crusher alone never
@@ -507,6 +621,84 @@ public final class GSEMachines {
         for (int i = 7; i <= 9; i++) {
             tooltip.add(Component.translatable(
                     "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    private static void largeSteamAssemblerTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_assembler.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_assembler.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_assembler.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_assembler.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 0; i <= 2; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_assembler.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_assembler.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 3; i <= 6; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_assembler.tooltip.details." + i)
+                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_assembler.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 7; i <= 9; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_assembler.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    private static void largeSteamCircuitAssemblerTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 0; i <= 2; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 3; i <= 6; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details." + i)
+                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 7; i <= 9; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details." + i)
                     .withStyle(ChatFormatting.GRAY));
         }
     }

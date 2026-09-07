@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "gregsteamexpansion:block/machine/boiler_room_titanium",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "gregsteamexpansion:block/machine/boiler_room_titanium"
+    },
+    "facing=south": {
+      "model": "gregsteamexpansion:block/machine/boiler_room_titanium",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "gregsteamexpansion:block/machine/boiler_room_titanium",
+      "y": 270
+    }
+  }
+}
