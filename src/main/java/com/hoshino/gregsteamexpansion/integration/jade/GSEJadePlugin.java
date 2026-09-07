@@ -8,6 +8,7 @@ import com.hoshino.gregsteamexpansion.client.cokeoven.OwnedBrickClient;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.cokeoven.GSECokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.AbstractSteamProcessorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenRecipeLogic;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.GSECokeOvenHatch;
@@ -41,6 +42,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockDataProvider(FurnaceProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(AirIntakeProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(CrusherProvider.INSTANCE, MetaMachineBlockEntity.class);
+        registration.registerBlockDataProvider(ProcessorProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(CokeOvenProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(CokeOvenHatchProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(LargeCokeOvenHatchProvider.INSTANCE, MetaMachineBlockEntity.class);
@@ -52,6 +54,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockComponent(FurnaceProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(AirIntakeProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(CrusherProvider.INSTANCE, MetaMachineBlock.class);
+        registration.registerBlockComponent(ProcessorProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(CokeOvenProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(CokeOvenHatchProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(LargeCokeOvenProvider.INSTANCE, MetaMachineBlock.class);
@@ -155,9 +158,95 @@ public final class GSEJadePlugin implements IWailaPlugin {
         }
     }
 
-    private enum AirIntakeProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+    /**
+     * 轻量蒸汽多方块家族 Jade 数据协议 (steam-compressor.md 议题 9 GUI/Jade
+     * 沿用粉碎机骨架): the same server-authoritative snapshot as the crusher
+     * provider, minus the exhaust state — status priority, locked
+     * recipe/progress/parallel, steam totals and the pending-output summary.
+     */
+    private enum ProcessorProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
         INSTANCE;
 
+        private static final ResourceLocation UID = GregSteamExpansion.id("steam_compressor_info");
+        private static final String DATA_KEY = "GregSteamExpansionProcessor";
+
+        @Override
+        public void appendServerData(CompoundTag serverData, BlockAccessor accessor) {
+            if (!(accessor.getBlockEntity() instanceof MetaMachineBlockEntity blockEntity) ||
+                    !(blockEntity.getMetaMachine() instanceof AbstractSteamProcessorMachine processor)) {
+                return;
+            }
+            CompoundTag data = new CompoundTag();
+            data.putString("statusId", processor.getStatusId());
+            data.putString("recipeId", processor.getBatchRecipeId());
+            data.putString("inputItem", processor.getBatchInputDisplay().isEmpty() ? ""
+                    : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(
+                            processor.getBatchInputDisplay().getItem()).toString());
+            data.putInt("progress", processor.getBatchProgress());
+            data.putInt("duration", processor.getBatchDuration());
+            data.putInt("parallel", processor.getBatchParallel());
+            data.putInt("parallelCap", processor.maximumParallel());
+            data.putLong("steamTotal", processor.getSteamTotalStored());
+            data.putLong("steamCap", processor.getSteamTotalCapacity());
+            data.putLong("steamPerTick", processor.getBatchSteamPerTick());
+            data.putBoolean("consuming", processor.isConsumingSteam());
+            data.putLong("pendingTotal", processor.getPendingTotalCount());
+            data.putInt("pendingKinds", processor.getPendingKinds());
+            serverData.put(DATA_KEY, data);
+        }
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            CompoundTag serverData = accessor.getServerData();
+            if (!serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)) return;
+            CompoundTag data = serverData.getCompound(DATA_KEY);
+
+            tooltip.add(line("status", Component.translatable(statusKey(data.getString("statusId")))));
+            if (!data.getString("recipeId").isEmpty()) {
+                tooltip.add(line("recipe", data.getString("recipeId")));
+                tooltip.add(line("progress", FormattingUtil.formatNumbers(data.getInt("progress")),
+                        FormattingUtil.formatNumbers(data.getInt("duration"))));
+            }
+            tooltip.add(line("parallel", data.contains("parallel") && data.getInt("parallel") > 0
+                    ? FormattingUtil.formatNumbers(data.getInt("parallel"))
+                    : "—",
+                    FormattingUtil.formatNumbers(data.getInt("parallelCap"))));
+            tooltip.add(line("steam", FormattingUtil.formatNumbers(data.getLong("steamTotal")),
+                    FormattingUtil.formatNumbers(data.getLong("steamCap"))));
+            tooltip.add(line("demand",
+                    data.getLong("steamPerTick") > 0
+                            ? FormattingUtil.formatNumbers(data.getLong("steamPerTick"))
+                            : "0"));
+            if (data.getLong("pendingTotal") > 0) {
+                tooltip.add(line("pending", FormattingUtil.formatNumbers(data.getLong("pendingTotal")),
+                        String.valueOf(data.getInt("pendingKinds"))));
+            }
+        }
+
+        private static String statusKey(String statusId) {
+            return switch (statusId) {
+                case "invalid_structure" -> "gtceu.multiblock.invalid_structure";
+                case "insufficient_outputs" -> "gtceu.recipe_logic.insufficient_out";
+                case "working_disabled" -> "gtceu.top.working_disabled";
+                case "low_steam" -> "gtceu.multiblock.steam.low_steam";
+                case "working" -> "gtceu.multiblock.large_miner.working";
+                default -> "gtceu.multiblock.idling";
+            };
+        }
+
+        private static Component line(String name, Object... arguments) {
+            return Component.translatable("gregsteamexpansion.jade.steam_processor." + name, arguments)
+                    .withStyle(ChatFormatting.GRAY);
+        }
+
+        @Override
+        public ResourceLocation getUid() {
+            return UID;
+        }
+    }
+
+    private enum AirIntakeProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+        INSTANCE;
         private static final ResourceLocation UID = GregSteamExpansion.id("steam_air_intake_hatch_info");
         private static final String DATA_KEY = "GregSteamExpansionAirIntake";
 

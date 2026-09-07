@@ -24,6 +24,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCoke
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCompressorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
@@ -234,6 +235,32 @@ public final class GSEMachines {
             .shapeInfos(definition -> List.of(GSECrusherPatterns.largeShapeInfo(definition)))
             .langValue("Large Steam Crusher")
             .tooltipBuilder(GSEMachines::largeSteamCrusherTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    // ------------------------------------------------------------------
+    // 轻量蒸汽多方块家族 / Light Steam Processor family
+    // (steam-compressor.md / steam-extractor.md / steam-forge.md): 3×3×3-ish
+    // fixed structures, parallel 8, LV voltage gate, no exhaust hatch. The
+    // controller hull and CTM identity follow the crusher conventions
+    // (appearanceBlock + addTextureOverride keep the formed controller in step
+    // with the surrounding bronze steam machine casings for connected textures).
+    // ------------------------------------------------------------------
+
+    /** 蒸汽压缩机 / Steam Compressor (steam-compressor.md 议题 1). */
+    public static final MultiblockMachineDefinition STEAM_COMPRESSOR = GSERegistration.REGISTRATE
+            .multiblock("steam_compressor", SteamCompressorMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.COMPRESSOR_RECIPES)
+            .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/steam_compressor")))
+            .pattern(GSEProcessorPatterns::createCompressor)
+            .shapeInfos(definition -> List.of(GSEProcessorPatterns.compressorShapeInfo(definition)))
+            .langValue("Steam Compressor")
+            .tooltipBuilder(GSEMachines::steamCompressorTooltips)
             .allowCoverOnFront(false)
             .register();
 
@@ -544,6 +571,44 @@ public final class GSEMachines {
         tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.10")
                 .withStyle(ChatFormatting.YELLOW));
         tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.11")
+                .withStyle(ChatFormatting.YELLOW));
+    }
+
+    private static void steamCompressorTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.2")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.3")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.4")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.5")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.6")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.7")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.8")
+                .withStyle(ChatFormatting.YELLOW));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.9")
                 .withStyle(ChatFormatting.YELLOW));
     }
 

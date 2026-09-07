@@ -169,6 +169,63 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.11",
                 "Explosion destruction does not guarantee a Large Steam Crusher controller drop; any surviving drop is an ordinary controller item with no machine state.");
 
+        // 蒸汽压缩机 / Steam Compressor two-tier item tooltip
+        // (steam-compressor.md 议题 9). Shares the processor-family GUI label
+        // prefix and Jade keys with the later extractor/forge hammer.
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.summary.0",
+                "Pure-steam compressor multiblock running full compressor recipes at up to 8 parallel operations.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.summary.1",
+                "Fixed 3\u00d73\u00d73 structure; each recipe takes 1.5\u00d7 its base duration and 2 mB of steam per EU.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.summary.2",
+                "Hold Shift for full structure and operating rules.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.subtitle", "Structure");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.0",
+                "Fixed at 3\u00d73\u00d73; the controller sits front-bottom-centre and a Bronze Frame forms the compression core at the structure centre.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.1",
+                "A vanilla piston sits at the back wall centre, not extended and pushing towards the frame; it is a fixed structure block.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.2",
+                "Requires at least one steam item input bus, one steam item output bus and one Steam Supply Hatch, with at most 8 buses and hatches combined; the other candidate positions use Bronze Steam Machine Casings.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.subtitle2", "Processing and Steam");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.3",
+                "Runs gtceu:compressor recipes only; each batch uses one recipe at up to 8 parallel operations with duration ceil(base \u00d7 1.5).");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.4",
+                "Recipes above LV voltage are rejected. Each operation consumes recipe EU/t \u00d7 duration \u00d7 2 mB of standard steam, and parallel scales steam demand linearly.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.5",
+                "Output is checked before startup as if every chanced output succeeds; parallel is reduced or the machine stays idle if everything cannot fit, and outputs are never voided.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.subtitle3", "Control and Status");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.6",
+                "Accepts GTCEu standard steam only, never EU; no fluid hatches and no Steam Exhaust Hatch.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.7",
+                "The last successful recipe is preferred; active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.8",
+                "Removing or destroying the controller permanently clears its batch, pending outputs and recipe preference; the piston and gear installed during crafting are not returned.");
+        add("gregsteamexpansion.machine.steam_compressor.tooltip.details.9",
+                "All three difficulty tiers behave identically.");
+
+        // Shared light-processor controller GUI info-page labels
+        // (steam-compressor.md 议题 9 沿用粉碎机骨架).
+        add("gregsteamexpansion.machine.steam_processor.ui.status", "Status");
+        add("gregsteamexpansion.machine.steam_processor.ui.recipe", "Recipe");
+        add("gregsteamexpansion.machine.steam_processor.ui.progress", "Progress");
+        add("gregsteamexpansion.machine.steam_processor.ui.parallel", "Parallel (current / cap)");
+        add("gregsteamexpansion.machine.steam_processor.ui.steam", "Steam (total / capacity)");
+        add("gregsteamexpansion.machine.steam_processor.ui.demand", "Steam demand");
+        add("gregsteamexpansion.machine.steam_processor.ui.not_consuming", "not consuming now");
+        add("gregsteamexpansion.machine.steam_processor.ui.pending", "Pending outputs");
+        add("gregsteamexpansion.machine.steam_processor.ui.pending_summary", "%s (%s kinds)");
+        add("gregsteamexpansion.machine.steam_processor.ui.pending_detail", "Pending outputs (stable order):");
+        add("gregsteamexpansion.machine.steam_processor.ui.pending_empty", "No pending outputs.");
+
+        // Jade lines for the light processor family share the crusher shape.
+        add("gregsteamexpansion.jade.steam_processor.status", "Status: %s");
+        add("gregsteamexpansion.jade.steam_processor.recipe", "Recipe: %s");
+        add("gregsteamexpansion.jade.steam_processor.progress", "Progress: %s / %s tick");
+        add("gregsteamexpansion.jade.steam_processor.parallel", "Parallel: %s / %s");
+        add("gregsteamexpansion.jade.steam_processor.steam", "Steam: %s / %s mB");
+        add("gregsteamexpansion.jade.steam_processor.demand", "Steam demand: %s mB/t");
+        add("gregsteamexpansion.jade.steam_processor.pending", "Pending: %s (%s kinds)");
+        add("config.jade.plugin_gregsteamexpansion.steam_compressor_info", "Steam Compressor Info");
+
         // Shared controller GUI info-page labels (steam-crushers.md 运行信息页).
         add("gregsteamexpansion.machine.steam_crusher.ui.status", "Status");
         add("gregsteamexpansion.machine.steam_crusher.ui.recipe", "Recipe");

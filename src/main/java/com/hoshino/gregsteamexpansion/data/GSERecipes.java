@@ -70,6 +70,7 @@ public final class GSERecipes {
         addSteamExhaustHatchRecipe(provider);
         addSteamHatchRecipes(provider);
         addSteamCrusherRecipes(provider);
+        addSteamCompressorRecipe(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
@@ -212,6 +213,26 @@ public final class GSERecipes {
                 return null;
             }
         };
+    }
+
+    // ------------------------------------------------------------------
+    // Steam compressor (steam-compressor.md 议题 10 已定案配方): vanilla
+    // piston core + bronze small gear drive + seven bronze plates; crafts
+    // exactly one controller per tier. The pattern is left/right symmetric
+    // (plain horizontal mirroring keeps it unchanged), so the vanilla shaped
+    // serializer suffices; the resource ID uses the shaped/ prefix because the
+    // machine definition ID is already taken by the EMI multiblock info page.
+    // ------------------------------------------------------------------
+
+    private static void addSteamCompressorRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/steam_compressor"),
+                GSEMachines.STEAM_COMPRESSOR.asStack(),
+                new String[]{"PPP", "PXP", "PGP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'X', new ItemStack(Items.PISTON),
+                        'G', ChemicalHelper.get(TagPrefix.gearSmall, GTMaterials.Bronze)}));
     }
 
     // ------------------------------------------------------------------
