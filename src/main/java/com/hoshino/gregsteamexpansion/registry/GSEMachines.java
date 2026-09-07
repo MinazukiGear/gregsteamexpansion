@@ -26,6 +26,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCoke
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamOreWasherMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamThermalCentrifugeMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCompressorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamExtractorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamForgeMachine;
@@ -316,6 +317,23 @@ public final class GSEMachines {
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.oreWasherShapeInfo(definition)))
             .langValue("Large Steam Ore Washer")
             .tooltipBuilder(GSEMachines::largeSteamOreWasherTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    /** 大型蒸汽热力离心机 / Large Steam Thermal Centrifuge (C0b 议题 1). */
+    public static final MultiblockMachineDefinition LARGE_STEAM_THERMAL_CENTRIFUGE = GSERegistration.REGISTRATE
+            .multiblock("large_steam_thermal_centrifuge", LargeSteamThermalCentrifugeMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.THERMAL_CENTRIFUGE_RECIPES)
+            .appearanceBlock(GCYMBlocks.CASING_INDUSTRIAL_STEAM)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/large_steam_thermal_centrifuge")))
+            .pattern(GSEProcessorPatterns::createThermalCentrifuge)
+            .shapeInfos(definition -> List.of(GSEProcessorPatterns.thermalCentrifugeShapeInfo(definition)))
+            .langValue("Large Steam Thermal Centrifuge")
+            .tooltipBuilder(GSEMachines::largeSteamThermalCentrifugeTooltips)
             .allowCoverOnFront(false)
             .register();
 
@@ -658,6 +676,45 @@ public final class GSEMachines {
         for (int i = 7; i <= 9; i++) {
             tooltip.add(Component.translatable(
                     "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    private static void largeSteamThermalCentrifugeTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 0; i <= 2; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 3; i <= 6; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details." + i)
+                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 7; i <= 9; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details." + i)
                     .withStyle(ChatFormatting.GRAY));
         }
     }

@@ -408,6 +408,163 @@ public final class GSEProcessorPatterns {
     }
 
     /**
+     * The thermal centrifuge's candidate rule for the 84 wall positions
+     * (layers 2-4, 28 per layer): steam machine casing with hatches as
+     * replacements. Pure-dry recipe type — NO fluid hatch ability of any kind
+     * is admitted (large-steam-thermal-centrifuge.md 议题 4 仓室表 流体仓 0),
+     * so the mod's steam fluid hatches cannot appear either. The 68-casing
+     * minimum bounds the hatch total (incl. the exhaust hatch) at 16
+     * (84 − 68, 议题 4 仓室合计上限); the exhaust hatch takes one candidate
+     * slot and is post-checked to exactly one by the controller.
+     */
+    private static TraceabilityPredicate thermalCentrifugeCandidates() {
+        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(68)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+    }
+
+    /** gtceu:bronze_firebox_casing — the bronze boiler firebox casing (heat source hearth). */
+    public static Block bronzeFireboxCasing() {
+        return GTBlocks.FIREBOX_BRONZE.get();
+    }
+
+    /**
+     * 大型蒸汽热力离心机: fixed 9×9×7 stepped tower
+     * (large-steam-thermal-centrifuge.md 议题 4 逐层图). Aisle rows run
+     * back -> front, so the design's front row is the LAST string of each
+     * aisle. Bottom layer: industrial ring (front-centre controller) around a
+     * 7×7 bronze firebox hearth. Layers 2-4: industrial corners, steam-casing
+     * walls, hollow interior with the mixing blocks (axis column layers 2-4
+     * centres + impeller crosses on layers 2 and 4). Layer 5: full industrial
+     * top face. Layers 6-7: solid 5×5 industrial crown inset 2 per side.
+     * Interior air is STRICT air (Predicates.air).
+     */
+    public static BlockPattern createThermalCentrifuge(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle(
+                        "IIIIIIIII",
+                        "IFFFFFFFI",
+                        "IFFFFFFFI",
+                        "IFFFFFFFI",
+                        "IFFFFFFFI",
+                        "IFFFFFFFI",
+                        "IFFFFFFFI",
+                        "IFFFFFFFI",
+                        "IIIIICIII")
+                .aisle(
+                        "IBBBBBBBI",
+                        "BAAAAAAAB",
+                        "BAAAMAAAB",
+                        "BAAAAAAAB",
+                        "BAMAMAMAB",
+                        "BAAAAAAAB",
+                        "BAAAMAAAB",
+                        "BAAAAAAAB",
+                        "IBBBBBBBI")
+                .aisle(
+                        "IBBBBBBBI",
+                        "BAAAAAAAB",
+                        "BAAAAAAAB",
+                        "BAAAAAAAB",
+                        "BAAAMAAAB",
+                        "BAAAAAAAB",
+                        "BAAAAAAAB",
+                        "BAAAAAAAB",
+                        "IBBBBBBBI")
+                .aisle(
+                        "IBBBBBBBI",
+                        "BAAAAAAAB",
+                        "BAAAMAAAB",
+                        "BAAAAAAAB",
+                        "BAMAMAMAB",
+                        "BAAAAAAAB",
+                        "BAAAMAAAB",
+                        "BAAAAAAAB",
+                        "IBBBBBBBI")
+                .aisle(
+                        "IIIIIIIII",
+                        "IIIIIIIII",
+                        "IIIIIIIII",
+                        "IIIIIIIII",
+                        "IIIIIIIII",
+                        "IIIIIIIII",
+                        "IIIIIIIII",
+                        "IIIIIIIII",
+                        "IIIIIIIII")
+                .aisle(
+                        "         ",
+                        "         ",
+                        "  IIIII  ",
+                        "  IIIII  ",
+                        "  IIIII  ",
+                        "  IIIII  ",
+                        "  IIIII  ",
+                        "         ",
+                        "         ")
+                .aisle(
+                        "         ",
+                        "         ",
+                        "  IIIII  ",
+                        "  IIIII  ",
+                        "  IIIII  ",
+                        "  IIIII  ",
+                        "  IIIII  ",
+                        "         ",
+                        "         ")
+                .where('I', Predicates.blocks(industrialSteamCasing()))
+                .where('B', thermalCentrifugeCandidates())
+                .where('F', Predicates.blocks(bronzeFireboxCasing()))
+                .where('M', Predicates.blocks(GSEBlocks.STEAM_MIXING_BLOCK.get()))
+                .where('A', Predicates.air())
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Thermal centrifuge representative layout
+     * (large-steam-thermal-centrifuge.md 结构): minimum 4-hatch set on the
+     * layer-2 front wall (import bus, export bus, supply hatch, exhaust
+     * hatch). Axis convention as in {@code GSECrusherPatterns#smallShapeInfo}
+     * (layers bottom -> top, each layer's rows south -> north, chars west ->
+     * east); the crown layers are 5×5 centred in the 9×9 footprint with
+     * spaces baking as air.
+     */
+    public static MultiblockShapeInfo thermalCentrifugeShapeInfo(MultiblockMachineDefinition definition) {
+        String[][] layers = {
+                {"WWWWWWWWW", "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW",
+                        "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW", "WWWWWKWWW"},
+                {"WBBBBBBBW", "BAAAAAAAB", "BAAAMAAAB", "BAAAAAAAB", "BAMAMAMAB",
+                        "BAAAAAAAB", "BAAAMAAAB", "BAAAAAAAB", "WBIOSEBBW"},
+                {"WBBBBBBBW", "BAAAAAAAB", "BAAAAAAAB", "BAAAAAAAB", "BAAAMAAAB",
+                        "BAAAAAAAB", "BAAAAAAAB", "BAAAAAAAB", "WBBBBBBBW"},
+                {"WBBBBBBBW", "BAAAAAAAB", "BAAAMAAAB", "BAAAAAAAB", "BAMAMAMAB",
+                        "BAAAAAAAB", "BAAAMAAAB", "BAAAAAAAB", "WBBBBBBBW"},
+                {"WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
+                        "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW"},
+                {"         ", "         ", "  WWWWW  ", "  WWWWW  ", "  WWWWW  ",
+                        "  WWWWW  ", "  WWWWW  ", "         ", "         "},
+                {"         ", "         ", "  WWWWW  ", "  WWWWW  ", "  WWWWW  ",
+                        "  WWWWW  ", "  WWWWW  ", "         ", "         "},
+        };
+        return buildShapeInfo(layers)
+                .where('W', industrialSteamCasing())
+                .where('B', bronzeSteamCasing())
+                .where('F', bronzeFireboxCasing())
+                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    /**
      * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
      * coordinates, keeping the controller on the north (z = 0) wall.
      */

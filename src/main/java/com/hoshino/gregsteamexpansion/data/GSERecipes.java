@@ -74,6 +74,7 @@ public final class GSERecipes {
         addSteamExtractorRecipe(provider);
         addSteamForgeRecipe(provider);
         addLargeSteamOreWasherRecipe(provider);
+        addLargeSteamThermalCentrifugeRecipe(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
@@ -255,6 +256,26 @@ public final class GSERecipes {
                         'R', ChemicalHelper.get(TagPrefix.rotor, GTMaterials.Bronze),
                         'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
                         'S', new ItemStack(GSEBlocks.STEAM_MIXING_BLOCK.get())}));
+    }
+
+    // ------------------------------------------------------------------
+    // Large Steam Thermal Centrifuge controller
+    // (large-steam-thermal-centrifuge.md 获取配方（议题 10）): 3×3 fully
+    // filled — steam mixing block centre (rotor core), bronze firebox casings
+    // left/right (heat sources, 2026-09-07 用户修订由齿轮改为燃烧室), bronze
+    // components top/bottom centre (load frame), bronze plates at the corners
+    // (shell). Four-way symmetric, crafting-table only.
+    // ------------------------------------------------------------------
+    private static void addLargeSteamThermalCentrifugeRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_thermal_centrifuge"),
+                GSEMachines.LARGE_STEAM_THERMAL_CENTRIFUGE.asStack(),
+                new String[]{"PCP", "FMF", "PCP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
+                        'F', GTBlocks.FIREBOX_BRONZE.asStack(),
+                        'M', new ItemStack(GSEBlocks.STEAM_MIXING_BLOCK.get())}));
     }
 
     // ------------------------------------------------------------------

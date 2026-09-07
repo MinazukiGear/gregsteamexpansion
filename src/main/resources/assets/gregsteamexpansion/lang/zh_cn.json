@@ -427,5 +427,22 @@
   "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle3": "控制与状态",
   "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.7": "优先使用最近成功配方；主动暂停冻结原进度；缺汽或结构失效会把已启动批次回退至 1 tick。",
   "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.8": "拆除控制器仅掉落待输出物品并丢失偏好配方；控制器内部无物品槽与水罐。",
-  "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.9": "三档工作强度行为完全相同。"
+  "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.9": "三档工作强度行为完全相同。",
+  "block.gregsteamexpansion.large_steam_thermal_centrifuge": "大型蒸汽热力离心机",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.summary.0": "最高 64 并行的纯蒸汽热力离心多方块机器，执行全部 gtceu:thermal_centrifuge 热离心配方。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.summary.1": "固定 9×9×7 阶梯塔结构；每次配方耗时为基准的 1.5 倍，每 EU 消耗 2 mB 蒸汽。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.summary.2": "按住 Shift 查看完整结构与运行规则。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.subtitle": "结构",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.0": "固定 9×9×7 阶梯塔：棱部、顶面与顶部两层实心 5×5 锥段为工业蒸汽机械方块（174，含正面底层正中控制器），底层中央为 7×7 青铜燃烧室炉膛（49），三层墙体为蒸汽机械方块（84）。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.1": "内部共 11 个蒸汽搅拌方块（第 2–4 层中央转轴立柱 + 第 2、4 层叶轮十字）；仅承担结构资格，不提供任何加成。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.2": "仓室仅可替换墙体蒸汽机械方块位：至少 1 个物品输入总线、1 个物品输出总线、1 个蒸汽供给仓，必须且只能 1 个蒸汽排气仓，合计最多 16 个；类型纯干式，不可放置任何流体仓。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.subtitle2": "加工与蒸汽",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.3": "执行全部热离心配方（粉碎矿/纯净粉碎矿 → 离心粉碎矿等，外部模组配方自动可用）；每批只处理同一种配方，最高 64 并行，耗时为基准的 1.5 倍（向上取整）。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.4": "高于 LV 电压的配方被拒绝。每份配方消耗 配方 EU/t × 耗时 × 2 mB 标准蒸汽（默认基准 30 EU/t × 600 tick = 36,000 mB），需求随并行线性放大（满 64 并行需 ≥4 个供给仓）。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.5": "产物仅经物品输出总线导出；开工前按最坏情况预检输出空间，产物绝不丢失。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.6": "蒸汽排气仓正面 3 格必须为开放空气；排气受阻时冻结进度且不取汽，排气按周期对前方生物造成热伤害。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.subtitle3": "控制与状态",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.7": "优先使用最近成功配方；主动暂停冻结原进度；缺汽或结构失效会把已启动批次回退至 1 tick。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.8": "拆除控制器仅掉落待输出物品并丢失偏好配方；控制器内部无物品槽。",
+  "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.9": "三档工作强度行为完全相同。"
 }

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": {
+      "item": "gregsteamexpansion:bronze_component"
+    },
+    "F": {
+      "item": "gtceu:bronze_firebox_casing"
+    },
+    "M": {
+      "item": "gregsteamexpansion:steam_mixing_block"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    }
+  },
+  "pattern": [
+    "PCP",
+    "FMF",
+    "PCP"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_steam_thermal_centrifuge"
+  }
+}
