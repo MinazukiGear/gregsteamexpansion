@@ -304,6 +304,40 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.9",
                 "All three difficulty tiers behave identically.");
 
+        // 大型蒸汽搅拌机 / Large Steam Mixer (B3).
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.summary.0",
+                "Pure-steam mixer multiblock running ALL gtceu:mixer recipes (mixed dusts, rubber compounding, growth medium and more) at up to 16 parallel operations.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.summary.1",
+                "Fixed 7\u00d75\u00d75 structure; each recipe takes 1.5\u00d7 its base duration and 2 mB of steam per EU.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.summary.2",
+                "Hold Shift for the full structure and operating rules.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle",
+                "Structure");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.0",
+                "Fixed 7\u00d75\u00d75 two-zone structure (175 blocks): the bottom/top faces and all 12 edges are industrial steam machine casings (81 incl. the front-bottom-centre controller), the four walls are steam machine casings (48), and the 5\u00d73\u00d73 interior carries 7 Steam Mixing Blocks (axis column on layers 2-4 + the equidistant impeller cross on layer 3) and 38 blocks of air.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.1",
+                "The Steam Mixing Blocks are structure-only and grant no bonuses.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.2",
+                "Hatches replace ONLY wall steam machine casing positions: at least 1 item input bus, 1 item output bus, 1 steam supply hatch, 1 fluid input hatch (carries up to the type's 2 fluid input slots) and 1 fluid output hatch, exactly 1 steam exhaust hatch, at most 16 hatches in total. Both fluid hatch families are admissible - GTCEu standard hatches or the mod's steam fluid hatches, freely mixed.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle2",
+                "Processing & Steam");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.3",
+                "Runs every gtceu:mixer recipe (mixed dusts, rubber compounding, growth medium, battery chemistry, platinum-group processing and more; add-on recipes are picked up automatically); one recipe per batch, up to 16 parallel, duration = base \u00d7 1.5 (rounded up).");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.4",
+                "Recipes above LV voltage are rejected. Each operation consumes recipe EU/t \u00d7 duration \u00d7 2 mB of standard steam; demand scales linearly with parallel.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.5",
+                "Outputs (up to 1 item slot + 1 fluid slot) only leave through the item output buses and fluid output hatches; outputs are prechecked at worst case before startup and are never voided.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.6",
+                "The steam exhaust hatch must face open air (3 blocks straight ahead); an obstructed exhaust freezes progress and vents nothing until cleared, and venting deals heat damage on its cycle.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle3",
+                "Control & Status");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.7",
+                "The last successful recipe is preferred; active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.8",
+                "Removing the controller drops pending output items, loses their fluids and the recipe preference; the controller holds no internal storage.");
+        add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.9",
+                "All three difficulty tiers behave identically.");
+
         // 蒸汽提取机 / Steam Extractor (steam-extractor.md).
         add("gregsteamexpansion.machine.steam_extractor.tooltip.summary.0",
                 "Pure-steam extractor multiblock running full extractor recipes at up to 8 parallel operations.");

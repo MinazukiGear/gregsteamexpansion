@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": {
+      "item": "gregsteamexpansion:bronze_component"
+    },
+    "M": {
+      "item": "gregsteamexpansion:steam_mixing_block"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "R": {
+      "item": "gtceu:bronze_rotor"
+    }
+  },
+  "pattern": [
+    "CRC",
+    "PMP",
+    "CRC"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_steam_mixer"
+  }
+}

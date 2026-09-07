@@ -461,5 +461,22 @@
   "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle3": "控制与状态",
   "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.7": "优先使用最近成功配方；主动暂停冻结原进度；缺汽或结构失效会把已启动批次回退至 1 tick。",
   "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.8": "拆除控制器仅掉落待输出物品并丢失偏好配方；控制器内部无物品槽。",
-  "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.9": "三档工作强度行为完全相同。"
+  "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.9": "三档工作强度行为完全相同。",
+  "block.gregsteamexpansion.large_steam_mixer": "大型蒸汽搅拌机",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.summary.0": "最高 16 并行的纯蒸汽搅拌多方块机器，执行全部 gtceu:mixer 搅拌配方（混合粉、橡胶混炼、培养液等）。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.summary.1": "固定 7×5×5 结构；每次配方耗时为基准的 1.5 倍，每 EU 消耗 2 mB 蒸汽。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.summary.2": "按住 Shift 查看完整结构与运行规则。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle": "结构",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.0": "固定 7×5×5 两区结构（175 格）：底面、顶面与 12 条棱为工业蒸汽机械方块（81，含正面底层正中控制器），四面墙体为蒸汽机械方块（48），内部 5×3×3 空间含 7 个蒸汽搅拌方块（第 2–4 层中轴立柱 + 第 3 层等距叶轮十字）与 38 格空气。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.1": "蒸汽搅拌方块仅承担结构资格，不提供任何加成。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.2": "仓室仅可替换墙体蒸汽机械方块位：至少 1 个物品输入总线、1 个物品输出总线、1 个蒸汽供给仓、1 个流体输入仓（承载配方最多 2 个流体输入槽）与 1 个流体输出仓，必须且只能 1 个蒸汽排气仓，合计最多 16 个。GTCEu 标准流体仓与本模组蒸汽流体仓均可放置，可任意混用。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle2": "加工与蒸汽",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.3": "执行全部搅拌配方（混合粉尘、橡胶混炼、培养液、电池化学、铂族金属处理等，外部模组配方自动可用）；每批只处理同一种配方，最高 16 并行，耗时为基准的 1.5 倍（向上取整）。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.4": "高于 LV 电压的配方被拒绝。每份配方消耗 配方 EU/t × 耗时 × 2 mB 标准蒸汽，需求随并行线性放大。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.5": "产物（最多 1 个物品位 + 1 个流体位）仅经物品输出总线与流体输出仓导出；开工前按最坏情况预检输出空间，产物绝不丢失。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.6": "蒸汽排气仓正面 3 格必须为开放空气；排气受阻时冻结进度且不取汽，排气按周期对前方生物造成热伤害。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle3": "控制与状态",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.7": "优先使用最近成功配方；主动暂停冻结原进度；缺汽或结构失效会把已启动批次回退至 1 tick。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.8": "拆除控制器掉落待输出物品、丢失其中的流体与偏好配方；控制器内部无储物储液。",
+  "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.9": "三档工作强度行为完全相同。"
 }

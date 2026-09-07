@@ -76,6 +76,7 @@ public final class GSERecipes {
         addLargeSteamOreWasherRecipe(provider);
         addLargeSteamThermalCentrifugeRecipe(provider);
         addLargeSteamMaceratorRecipe(provider);
+        addLargeSteamMixerRecipe(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
@@ -302,6 +303,32 @@ public final class GSERecipes {
                         'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
                         'H', GTMachines.STEAM_MACERATOR.second().asStack(),
                         'M', new ItemStack(GSEBlocks.STEAM_GRINDING_BLOCK.get())}));
+    }
+
+    // ------------------------------------------------------------------
+    // Large Steam Mixer controller
+    // (large-steam-mixer.md 获取配方（议题 10）): 3×3 ordered crafting
+    // recipe, fixed output 1, identical across all three difficulty tiers.
+    // Pattern C R C / P M P / C R C: bronze components at the four corners
+    // (load-bearing), bronze rotors above/below the core (stirring shafts),
+    // bronze plates left/right (shell) and the Steam Mixing Block as the
+    // mixing core (S1 precedent: the mixing block legally has multiple
+    // consumers). The corners were deliberately switched from gears to
+    // components (用户 2026-09-07 裁定) so this grid differs cell-by-cell
+    // from the S1 ore washer controller recipe (P R P / C S C / P R P) —
+    // vanilla crafting cannot disambiguate two identical input grids.
+    // Four-way symmetric, crafting-table only.
+    // ------------------------------------------------------------------
+    private static void addLargeSteamMixerRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_mixer"),
+                GSEMachines.LARGE_STEAM_MIXER.asStack(),
+                new String[]{"CRC", "PMP", "CRC"},
+                new Object[]{
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
+                        'R', ChemicalHelper.get(TagPrefix.rotor, GTMaterials.Bronze),
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'M', new ItemStack(GSEBlocks.STEAM_MIXING_BLOCK.get())}));
     }
 
     // ------------------------------------------------------------------
