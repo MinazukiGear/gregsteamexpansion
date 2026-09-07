@@ -75,6 +75,7 @@ public final class GSERecipes {
         addSteamForgeRecipe(provider);
         addLargeSteamOreWasherRecipe(provider);
         addLargeSteamThermalCentrifugeRecipe(provider);
+        addLargeSteamMaceratorRecipe(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
@@ -276,6 +277,31 @@ public final class GSERecipes {
                         'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
                         'F', GTBlocks.FIREBOX_BRONZE.asStack(),
                         'M', new ItemStack(GSEBlocks.STEAM_MIXING_BLOCK.get())}));
+    }
+
+    // ------------------------------------------------------------------
+    // Large Steam Macerator controller
+    // (large-steam-macerator.md 获取配方（议题 10）): 3×3 ordered crafting
+    // recipe, fixed output 1, identical across all three difficulty tiers.
+    // Pattern P G P / C H C / P M P: bronze plates at the four corners
+    // (shell), bronze gear above the core (drive input), bronze components
+    // flanking the core (load-bearing), the HP steel steam macerator as the
+    // upgrade core (gtceu:hp_steam_macerator = GTMachines.STEAM_MACERATOR
+    // second entry, doc-verified ID) and the Steam Grinding Block below the
+    // core (grinding chamber). Left-right mirror symmetric (vanilla shaped
+    // mirroring does not produce another arrangement), crafting-table only.
+    // ------------------------------------------------------------------
+    private static void addLargeSteamMaceratorRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_macerator"),
+                GSEMachines.LARGE_STEAM_MACERATOR.asStack(),
+                new String[]{"PGP", "CHC", "PMP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'G', ChemicalHelper.get(TagPrefix.gear, GTMaterials.Bronze),
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
+                        'H', GTMachines.STEAM_MACERATOR.second().asStack(),
+                        'M', new ItemStack(GSEBlocks.STEAM_GRINDING_BLOCK.get())}));
     }
 
     // ------------------------------------------------------------------

@@ -270,6 +270,40 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.9",
                 "All three difficulty tiers behave identically.");
 
+        // 大型蒸汽研磨厂 / Large Steam Macerator (A4).
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.summary.0",
+                "Pure-steam macerator multiblock running ALL gtceu:macerator recipes (incl. MaceratorLogic tool breakdowns) at up to 64 parallel operations.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.summary.1",
+                "Fixed spherical 7\u00d77\u00d77 structure; each recipe takes 1.5\u00d7 its base duration and 2 mB of steam per EU.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.summary.2",
+                "Hold Shift for the full structure and operating rules.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle",
+                "Structure");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.0",
+                "Fixed spherical structure in a 7\u00d77\u00d77 bounding box (179 blocks): a 98-block bronze steam machine casing shell (97 casings + the front-equator-centre controller) around a six-armed cross of 13 Steam Grinding Blocks (centre + both blocks along \u00b1x/\u00b1y/\u00b1z) and 68 blocks of interior air.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.1",
+                "The Steam Grinding Blocks are structure-only and grant no bonuses.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.2",
+                "Hatches replace ONLY shell steam machine casing positions: at least 1 item input bus, 1 item output bus and 1 steam supply hatch, exactly 1 steam exhaust hatch, at most 12 hatches in total; the type is pure-dry, so no fluid hatch of any kind can be placed.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle2",
+                "Processing & Steam");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.3",
+                "Runs every gtceu:macerator recipe (crushed/purified/refined ore \u2192 dust routes, material grinding, recycling and dynamic tool breakdowns; add-on recipes are picked up automatically); one recipe per batch, up to 64 parallel, duration = base \u00d7 1.5 (rounded up).");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.4",
+                "Recipes above LV voltage are rejected. Each operation consumes recipe EU/t \u00d7 duration \u00d7 2 mB of standard steam (ore maceration 2 EU/t \u00d7 600 ticks = 2,400 mB; default base 2 EU/t \u00d7 225 ticks = 900 mB); demand scales linearly with parallel.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.5",
+                "Outputs (up to 4 slots incl. 14% chance byproducts) only leave through the item output buses; outputs are prechecked at worst case before startup and are never voided.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.6",
+                "The steam exhaust hatch must face open air (3 blocks straight ahead); an obstructed exhaust freezes progress and vents nothing until cleared, and venting deals heat damage on its cycle.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle3",
+                "Control & Status");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.7",
+                "The last successful recipe is preferred; active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.8",
+                "Removing the controller drops only pending outputs and loses the recipe preference; the controller holds no internal item storage.");
+        add("gregsteamexpansion.machine.large_steam_macerator.tooltip.details.9",
+                "All three difficulty tiers behave identically.");
+
         // 蒸汽提取机 / Steam Extractor (steam-extractor.md).
         add("gregsteamexpansion.machine.steam_extractor.tooltip.summary.0",
                 "Pure-steam extractor multiblock running full extractor recipes at up to 8 parallel operations.");

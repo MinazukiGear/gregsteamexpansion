@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": {
+      "item": "gregsteamexpansion:bronze_component"
+    },
+    "G": {
+      "item": "gtceu:bronze_gear"
+    },
+    "H": {
+      "item": "gtceu:hp_steam_macerator"
+    },
+    "M": {
+      "item": "gregsteamexpansion:steam_grinding_block"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    }
+  },
+  "pattern": [
+    "PGP",
+    "CHC",
+    "PMP"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_steam_macerator"
+  }
+}

@@ -25,6 +25,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCoke
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamMaceratorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamOreWasherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamThermalCentrifugeMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCompressorMachine;
@@ -334,6 +335,23 @@ public final class GSEMachines {
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.thermalCentrifugeShapeInfo(definition)))
             .langValue("Large Steam Thermal Centrifuge")
             .tooltipBuilder(GSEMachines::largeSteamThermalCentrifugeTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    /** 大型蒸汽研磨厂 / Large Steam Macerator (A4 议题 1). */
+    public static final MultiblockMachineDefinition LARGE_STEAM_MACERATOR = GSERegistration.REGISTRATE
+            .multiblock("large_steam_macerator", LargeSteamMaceratorMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.MACERATOR_RECIPES)
+            .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/large_steam_macerator")))
+            .pattern(GSEProcessorPatterns::createMacerator)
+            .shapeInfos(definition -> List.of(GSEProcessorPatterns.maceratorShapeInfo(definition)))
+            .langValue("Large Steam Macerator")
+            .tooltipBuilder(GSEMachines::largeSteamMaceratorTooltips)
             .allowCoverOnFront(false)
             .register();
 
@@ -676,6 +694,45 @@ public final class GSEMachines {
         for (int i = 7; i <= 9; i++) {
             tooltip.add(Component.translatable(
                     "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    private static void largeSteamMaceratorTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_macerator.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_macerator.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_macerator.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 0; i <= 2; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_macerator.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 3; i <= 6; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_macerator.tooltip.details." + i)
+                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 7; i <= 9; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_macerator.tooltip.details." + i)
                     .withStyle(ChatFormatting.GRAY));
         }
     }

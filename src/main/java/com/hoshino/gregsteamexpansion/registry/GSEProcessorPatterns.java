@@ -565,6 +565,132 @@ public final class GSEProcessorPatterns {
     }
 
     /**
+     * The macerator's candidate rule for the 97 shell steam-machine-casing
+     * positions (large-steam-macerator.md 议题 4): the spherical shell with
+     * hatches as replacements. Pure-dry recipe type — NO fluid hatch ability
+     * of any kind is admitted (议题 4 仓室表 流体仓 0), so the mod's steam
+     * fluid hatches cannot appear either. The 85-casing minimum bounds the
+     * hatch total (incl. the exhaust hatch) at 12 (97 − 85, 议题 4 仓室合计
+     * 上限); the exhaust hatch takes one candidate slot and is post-checked
+     * to exactly one by the controller.
+     */
+    private static TraceabilityPredicate maceratorCandidates() {
+        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(85)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+    }
+
+    /**
+     * 大型蒸汽研磨厂: fixed spherical structure in a 7×7×7 bounding box
+     * (large-steam-macerator.md 议题 4 逐层图). Aisle rows run back ->
+     * front, so the design's front row is the LAST string of each aisle.
+     * Aisles stack bottom-up over the design's layers 7..1 (design numbers
+     * top-down). Shell: 98 positions = 97 bronze steam machine casings + the
+     * front-equator-centre controller. Interior: 13 Steam Grinding Blocks
+     * (centre + both blocks along ±x/±y/±z, arm tips touching the inner
+     * shell) and 68 blocks of STRICT air (Predicates.air). Don't-care
+     * positions outside the sphere are spaces (Predicates.any()).
+     */
+    public static BlockPattern createMacerator(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle( // layer 7 (bottom crown, dy = -3)
+                        "       ",
+                        "       ",
+                        "  BBB  ",
+                        "  BBB  ",
+                        "  BBB  ",
+                        "       ",
+                        "       ")
+                .aisle( // layer 6 (dy = -2)
+                        "       ",
+                        " BBBBB ",
+                        " BAAAB ",
+                        " BAMAB ",
+                        " BAAAB ",
+                        " BBBBB ",
+                        "       ")
+                .aisle( // layer 5 (dy = -1)
+                        "  BBB  ",
+                        " BAAAB ",
+                        "BAAAAAB",
+                        "BAAMAAB",
+                        "BAAAAAB",
+                        " BAAAB ",
+                        "  BBB  ")
+                .aisle( // layer 4 (equator, dy = 0; controller front-centre)
+                        "  BBB  ",
+                        " BAMAB ",
+                        "BAAMAAB",
+                        "BMMMMMB",
+                        "BAAMAAB",
+                        " BAMAB ",
+                        "  BCB  ")
+                .aisle( // layer 3 (dy = +1)
+                        "  BBB  ",
+                        " BAAAB ",
+                        "BAAAAAB",
+                        "BAAMAAB",
+                        "BAAAAAB",
+                        " BAAAB ",
+                        "  BBB  ")
+                .aisle( // layer 2 (dy = +2)
+                        "       ",
+                        " BBBBB ",
+                        " BAAAB ",
+                        " BAMAB ",
+                        " BAAAB ",
+                        " BBBBB ",
+                        "       ")
+                .aisle( // layer 1 (top crown, dy = +3)
+                        "       ",
+                        "       ",
+                        "  BBB  ",
+                        "  BBB  ",
+                        "  BBB  ",
+                        "       ",
+                        "       ")
+                .where('B', maceratorCandidates())
+                .where('M', Predicates.blocks(GSEBlocks.STEAM_GRINDING_BLOCK.get()))
+                .where('A', Predicates.air())
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Macerator representative layout (large-steam-macerator.md 结构):
+     * minimum 4-hatch set (import bus and export bus flanking the equator
+     * controller, supply and exhaust hatch on the layer-6 front wall). Axis
+     * convention as in {@code GSECrusherPatterns#smallShapeInfo} (layers
+     * bottom -> top, each layer's rows back -> front, chars west -> east);
+     * spaces outside the sphere bake as air.
+     */
+    public static MultiblockShapeInfo maceratorShapeInfo(MultiblockMachineDefinition definition) {
+        String[][] layers = {
+                {"       ", "       ", "  BBB  ", "  BBB  ", "  BBB  ", "       ", "       "},
+                {"       ", " BBBBB ", " BAAAB ", " BAMAB ", " BAAAB ", " BESBB ", "       "},
+                {"  BBB  ", " BAAAB ", "BAAAAAB", "BAAMAAB", "BAAAAAB", " BAAAB ", "  BBB  "},
+                {"  BBB  ", " BAMAB ", "BAAMAAB", "BMMMMMB", "BAAMAAB", " BAMAB ", "  ICO  "},
+                {"  BBB  ", " BAAAB ", "BAAAAAB", "BAAMAAB", "BAAAAAB", " BAAAB ", "  BBB  "},
+                {"       ", " BBBBB ", " BAAAB ", " BAMAB ", " BAAAB ", " BBBBB ", "       "},
+                {"       ", "       ", "  BBB  ", "  BBB  ", "  BBB  ", "       ", "       "},
+        };
+        return buildShapeInfo(layers)
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_GRINDING_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    /**
      * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
      * coordinates, keeping the controller on the north (z = 0) wall.
      */
