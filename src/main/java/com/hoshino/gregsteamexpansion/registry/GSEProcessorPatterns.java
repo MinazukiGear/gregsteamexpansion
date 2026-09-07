@@ -134,6 +134,51 @@ public final class GSEProcessorPatterns {
                 .build();
     }
 
+    /** gtceu:bronze_pipe_casing — the bronze pipe casing (extraction core). */
+    public static Block bronzePipeCasing() {
+        return GTBlocks.CASING_BRONZE_PIPE.get();
+    }
+
+    /**
+     * 蒸汽提取机: fixed 3×3×3 (steam-extractor.md 议题 4 逐层图) — bottom layer
+     * carries the front-centre controller, the structure's single inner cell
+     * (centre of the middle layer) is one bronze pipe casing, no air gap.
+     */
+    public static BlockPattern createExtractor(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle("BBB", "BBB", "BCB")
+                .aisle("BBB", "BPB", "BBB")
+                .aisle("BBB", "BBB", "BBB")
+                .where('B', shellCandidates())
+                .where('P', Predicates.blocks(bronzePipeCasing()))
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Extractor representative layout (steam-extractor.md 结构): controller
+     * front-bottom-centre, input/output buses beside it, steam supply hatch and
+     * fluid output hatch on the top-front wall. Axis convention as in
+     * {@code GSECrusherPatterns#smallShapeInfo} (layers bottom -> top, each 3
+     * rows south -> north, chars west -> east).
+     */
+    public static MultiblockShapeInfo extractorShapeInfo(MultiblockMachineDefinition definition) {
+        String[][] layers = {
+                {"BBB", "BBB", "IKO"},
+                {"BBB", "BPB", "BBB"},
+                {"BBB", "BBB", "FSB"},
+        };
+        return buildShapeInfo(layers)
+                .where('B', bronzeSteamCasing())
+                .where('P', bronzePipeCasing())
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('F', GSEMachines.STEAM_FLUID_EXPORT_HATCH, Direction.NORTH)
+                .where('K', definition, Direction.NORTH)
+                .build();
+    }
+
     /**
      * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
      * coordinates, keeping the controller on the north (z = 0) wall.

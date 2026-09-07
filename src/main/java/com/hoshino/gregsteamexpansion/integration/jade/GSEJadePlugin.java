@@ -133,6 +133,10 @@ public final class GSEJadePlugin implements IWailaPlugin {
                 tooltip.add(line("pending", FormattingUtil.formatNumbers(data.getLong("pendingTotal")),
                         String.valueOf(data.getInt("pendingKinds"))));
             }
+            if (data.contains("pendingFluidTotal") && data.getLong("pendingFluidTotal") > 0) {
+                tooltip.add(line("pending_fluid", FormattingUtil.formatNumbers(data.getLong("pendingFluidTotal")),
+                        String.valueOf(data.getInt("pendingFluidKinds"))));
+            }
         }
 
         private static String statusKey(String statusId) {
@@ -192,6 +196,8 @@ public final class GSEJadePlugin implements IWailaPlugin {
             data.putBoolean("consuming", processor.isConsumingSteam());
             data.putLong("pendingTotal", processor.getPendingTotalCount());
             data.putInt("pendingKinds", processor.getPendingKinds());
+            data.putLong("pendingFluidTotal", processor.getPendingFluidTotal());
+            data.putInt("pendingFluidKinds", processor.getPendingFluidKinds());
             serverData.put(DATA_KEY, data);
         }
 
@@ -220,6 +226,10 @@ public final class GSEJadePlugin implements IWailaPlugin {
             if (data.getLong("pendingTotal") > 0) {
                 tooltip.add(line("pending", FormattingUtil.formatNumbers(data.getLong("pendingTotal")),
                         String.valueOf(data.getInt("pendingKinds"))));
+            }
+            if (data.contains("pendingFluidTotal") && data.getLong("pendingFluidTotal") > 0) {
+                tooltip.add(line("pending_fluid", FormattingUtil.formatNumbers(data.getLong("pendingFluidTotal")),
+                        String.valueOf(data.getInt("pendingFluidKinds"))));
             }
         }
 

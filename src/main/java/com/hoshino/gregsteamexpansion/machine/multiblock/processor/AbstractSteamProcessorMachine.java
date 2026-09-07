@@ -5,6 +5,7 @@ import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.IRecipeCapabilityHolder;
 import com.gregtechceu.gtceu.api.capability.recipe.IRecipeHandler;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
+import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.RecipeCapability;
 import com.gregtechceu.gtceu.api.gui.GuiTextures;
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
@@ -26,6 +27,7 @@ import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTSoundEntries;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
+import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
@@ -123,6 +125,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** Finished products waiting for output space (chances rolled exactly once). */
     @Persisted
     private final List<ItemStack> pendingOutputs = new ArrayList<>();
+    /** Finished fluids waiting for output space (chances rolled exactly once). */
+    @Persisted
+    private final List<FluidStack> pendingFluids = new ArrayList<>();
     /** 最近成功配方优先 (议题 6): survives batch completion and reloads. */
     @Persisted
     private String preferredRecipeId = "";
@@ -137,6 +142,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     private final List<SteamSupplyHatchPartMachine> supplyHatches = new ArrayList<>();
     private final List<ItemBusPartMachine> inputBuses = new ArrayList<>();
     private final List<ItemBusPartMachine> outputBuses = new ArrayList<>();
+    /** Fluid output hatches (GTCEu standard or the mod's steam fluid hatch). */
+    private final List<FluidHatchPartMachine> fluidOutputHatches = new ArrayList<>();
     /** False when the post-formation interface count rules failed. */
     private boolean interfaceCountsValid = true;
     private boolean waitingForSteam = false;
@@ -179,6 +186,15 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** Working loop sound (议题 9 声效沿用类型自带样式). */
     protected com.gregtechceu.gtceu.api.sound.SoundEntry workingSoundEntry() {
         return GTSoundEntries.COMPRESSOR;
+    }
+
+    /**
+     * Whether the recipe type carries a fluid output slot, making at least one
+     * fluid output hatch a formation requirement (议题 4 仓室口径: extractor
+     * requires ≥1, pure-dry types require none).
+     */
+    protected boolean requiresFluidOutput() {
+        return false;
     }
 
     //////////////////////////////////////
@@ -226,6 +242,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         supplyHatches.clear();
         inputBuses.clear();
         outputBuses.clear();
+        fluidOutputHatches.clear();
         capabilitiesProxy.clear();
         capabilitiesFlat.clear();
         updateWorkingAppearance();
@@ -241,7 +258,11 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (inputBuses.size() < 1 || outputBuses.size() < 1 || supplyHatches.size() < 1) {
             return false;
         }
-        int interfaces = inputBuses.size() + outputBuses.size() + supplyHatches.size();
+        if (requiresFluidOutput() && fluidOutputHatches.size() < 1) {
+            return false;
+        }
+        int interfaces = inputBuses.size() + outputBuses.size() + supplyHatches.size()
+                + fluidOutputHatches.size();
         return interfaces <= maximumInterfaces();
     }
 
@@ -268,6 +289,13 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 } else {
                     inputBuses.add(bus);
                 }
+            } else if (part instanceof FluidHatchPartMachine fluidHatch
+                    && fluidHatch.tank.handlerIO == IO.OUT) {
+                // Covers both the GTCEu standard fluid output hatch and the
+                // mod's steam fluid output hatch (steam-extractor.md 议题 4:
+                // 二者可选或混用); the steam supply hatch is IO.IN and cannot
+                // land here.
+                fluidOutputHatches.add(fluidHatch);
             }
         }
         // Stable orders (粉碎机家族口径): supply hatches and buses by block
@@ -277,6 +305,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 .comparing((ItemBusPartMachine bus) -> !isMeBus(bus))
                 .thenComparing(bus -> bus.self().getPos()));
         inputBuses.sort(Comparator.comparing(bus -> bus.self().getPos()));
+        fluidOutputHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
     }
 
     /** ME parts are detected by definition id; AE2 classes are never loaded. */
@@ -503,32 +532,53 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     /**
      * 按可输出槽位决定并行: from the candidate cap downward, find the largest
-     * parallel whose WORST-CASE output list fits the output buses right now.
-     * The worst case is the guaranteed main product plus every chanced output
-     * at one full stack per parallel (家族口径 输出最坏情况预检).
+     * parallel whose WORST-CASE output list fits the outputs right now — item
+     * outputs simulated on the output buses, fluid outputs on the fluid output
+     * hatches (家族口径 输出最坏情况预检; steam-extractor.md 议题 6 输出预检含
+     * 1 物品位 + 1 流体位).
      */
     private int largestParallelThatFits(GTRecipe recipe, int candidate) {
         List<Content> itemOutputs = recipe.outputs.get(ItemRecipeCapability.CAP);
-        if (itemOutputs == null || itemOutputs.isEmpty()) {
-            return candidate;
-        }
-        List<ItemStack> perOperation = new ArrayList<>();
-        for (Content content : itemOutputs) {
-            ItemStack stack = representativeStackOf(content);
-            if (stack == null || stack.isEmpty()) {
-                continue;
+        List<Content> fluidOutputs = recipe.outputs.get(FluidRecipeCapability.CAP);
+        List<ItemStack> perOperationItems = new ArrayList<>();
+        if (itemOutputs != null) {
+            for (Content content : itemOutputs) {
+                ItemStack stack = representativeStackOf(content);
+                if (stack == null || stack.isEmpty()) {
+                    continue;
+                }
+                if (content.chance >= content.maxChance) {
+                    perOperationItems.add(stack);
+                } else {
+                    perOperationItems.add(stack.copyWithCount(1));
+                }
             }
-            if (content.chance >= content.maxChance) {
-                perOperation.add(stack);
-            } else {
-                perOperation.add(stack.copyWithCount(1));
+        }
+        List<FluidStack> perOperationFluids = new ArrayList<>();
+        if (fluidOutputs != null) {
+            for (Content content : fluidOutputs) {
+                FluidStack stack = representativeFluidOf(content);
+                if (stack == null || stack.isEmpty()) {
+                    continue;
+                }
+                if (content.chance >= content.maxChance) {
+                    perOperationFluids.add(stack);
+                } else {
+                    FluidStack conservative = stack.copy();
+                    conservative.setAmount(1);
+                    perOperationFluids.add(conservative);
+                }
             }
         }
-        if (perOperation.isEmpty()) {
+        if (perOperationItems.isEmpty() && perOperationFluids.isEmpty()) {
             return candidate;
         }
         for (int parallel = candidate; parallel >= 1; parallel--) {
-            if (worstCaseFits(perOperation, parallel)) {
+            boolean itemsFit = perOperationItems.isEmpty()
+                    || worstCaseFits(perOperationItems, parallel);
+            boolean fluidsFit = perOperationFluids.isEmpty()
+                    || worstCaseFluidsFit(perOperationFluids, parallel);
+            if (itemsFit && fluidsFit) {
                 return parallel;
             }
         }
@@ -573,6 +623,65 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     /**
+     * Representative fluid of an output Content — FluidIngredient#getStacks
+     * already bakes the sized amount into the returned stacks.
+     */
+    @Nullable
+    private static FluidStack representativeFluidOf(Content content) {
+        var ingredient = FluidRecipeCapability.CAP.of(content.content);
+        if (ingredient == null) {
+            return null;
+        }
+        FluidStack[] stacks = ingredient.getStacks();
+        if (stacks.length == 0 || stacks[0].isEmpty()) {
+            return null;
+        }
+        return stacks[0].copy();
+    }
+
+    /**
+     * Worst-case fluid output for `parallel` operations, simulated with fill on
+     * the fluid output hatches in stable position order. Merges equal fluids
+     * first so a single hatch can take the whole amount when space allows.
+     */
+    private boolean worstCaseFluidsFit(List<FluidStack> perOperation, int parallel) {
+        List<FluidStack> simulation = new ArrayList<>();
+        for (FluidStack stack : perOperation) {
+            FluidStack scaled = stack.copy();
+            scaled.setAmount((int) Math.min(Integer.MAX_VALUE, (long) scaled.getAmount() * parallel));
+            simulation.add(scaled);
+        }
+        mergeFluids(simulation);
+        if (fluidOutputHatches.isEmpty()) {
+            return false;
+        }
+        for (FluidHatchPartMachine hatch : fluidOutputHatches) {
+            for (int i = 0; i < simulation.size(); i++) {
+                FluidStack remaining = simulation.get(i);
+                if (!remaining.isEmpty()) {
+                    int accepted = hatch.tank.fill(remaining, IFluidHandler.FluidAction.SIMULATE);
+                    remaining.shrink(accepted);
+                }
+            }
+        }
+        return simulation.stream().allMatch(FluidStack::isEmpty);
+    }
+
+    private static void mergeFluids(List<FluidStack> stacks) {
+        for (int i = 0; i < stacks.size(); i++) {
+            FluidStack keep = stacks.get(i);
+            for (int j = stacks.size() - 1; j > i; j--) {
+                FluidStack other = stacks.get(j);
+                if (!keep.isEmpty() && keep.isFluidEqual(other)) {
+                    keep.grow(other.getAmount());
+                    stacks.remove(j);
+                }
+            }
+        }
+        stacks.removeIf(FluidStack::isEmpty);
+    }
+
+    /**
      * 配方完成: one chance roll, products persisted to the pending list first,
      * then delivered atomically (议题 7).
      */
@@ -611,10 +720,33 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     /**
-     * 待输出整批原子输出: simulate the complete list over the stable bus order
-     * first, and only commit the same plan when every item can be received.
+     * Official fluid content materialization: fluid contents hold
+     * FluidIngredients whose getStacks already carry the sized amount.
+     */
+    public static List<FluidStack> materializeFluidContents(List<Content> rolled) {
+        List<FluidStack> stacks = new ArrayList<>();
+        for (Content content : rolled) {
+            FluidStack stack = representativeFluidOf(content);
+            if (stack != null && !stack.isEmpty()) {
+                stacks.add(stack);
+            }
+        }
+        return stacks;
+    }
+
+    /**
+     * 待输出整批原子输出 (议题 7): items and fluids are committed SEPARATELY —
+     * the complete item list must fit the output buses, the complete fluid list
+     * must fit the fluid output hatches, and each side only executes its plan
+     * when fully simulable.
      */
     private boolean deliverPendingOutputs() {
+        boolean itemsOk = deliverPendingItems();
+        boolean fluidsOk = deliverPendingFluids();
+        return itemsOk && fluidsOk;
+    }
+
+    private boolean deliverPendingItems() {
         if (pendingOutputs.isEmpty()) {
             return true;
         }
@@ -640,6 +772,47 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         }
         pendingOutputs.removeIf(ItemStack::isEmpty);
         return pendingOutputs.isEmpty();
+    }
+
+    private boolean deliverPendingFluids() {
+        if (pendingFluids.isEmpty()) {
+            return true;
+        }
+        if (fluidOutputHatches.isEmpty()) {
+            return false;
+        }
+        List<FluidStack> simulation = new ArrayList<>();
+        for (FluidStack stack : pendingFluids) {
+            simulation.add(stack.copy());
+        }
+        for (FluidHatchPartMachine hatch : fluidOutputHatches) {
+            for (int i = 0; i < simulation.size(); i++) {
+                FluidStack remaining = simulation.get(i);
+                if (!remaining.isEmpty()) {
+                    int accepted = hatch.tank.fill(remaining, IFluidHandler.FluidAction.SIMULATE);
+                    remaining.shrink(accepted);
+                }
+            }
+        }
+        if (simulation.stream().anyMatch(stack -> !stack.isEmpty())) {
+            return false;
+        }
+        for (FluidHatchPartMachine hatch : fluidOutputHatches) {
+            for (int i = 0; i < pendingFluids.size(); i++) {
+                FluidStack remaining = pendingFluids.get(i);
+                if (!remaining.isEmpty()) {
+                    int accepted = hatch.tank.fill(remaining, IFluidHandler.FluidAction.EXECUTE);
+                    remaining.shrink(accepted);
+                }
+            }
+        }
+        pendingFluids.removeIf(FluidStack::isEmpty);
+        return pendingFluids.isEmpty();
+    }
+
+    /** True while any finished output (item or fluid) still awaits delivery. */
+    public boolean hasPendingOutputs() {
+        return !pendingOutputs.isEmpty() || !pendingFluids.isEmpty();
     }
 
     private ItemStack insertIntoBus(ItemBusPartMachine bus, ItemStack stack, boolean simulate) {
@@ -974,16 +1147,20 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     /** `128（3 种）` style pending summary; `—` when nothing is pending. */
     private String pendingSummaryText() {
-        if (pendingOutputs.isEmpty()) {
+        long itemTotal = 0;
+        for (ItemStack stack : pendingOutputs) {
+            itemTotal += stack.getCount();
+        }
+        long fluidTotal = 0;
+        for (FluidStack stack : pendingFluids) {
+            fluidTotal += stack.getAmount();
+        }
+        if (itemTotal == 0 && fluidTotal == 0) {
             return "—";
         }
-        long total = 0;
-        for (ItemStack stack : pendingOutputs) {
-            total += stack.getCount();
-        }
-        int kinds = countPendingKinds();
+        int kinds = countPendingKinds() + countPendingFluidKinds();
         return Component.translatable(UI_PREFIX + "pending_summary",
-                FormattingUtil.formatNumbers(total), kinds).getString();
+                FormattingUtil.formatNumbers(itemTotal + fluidTotal), kinds).getString();
     }
 
     private int countPendingKinds() {
@@ -1062,8 +1239,39 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return countPendingKinds();
     }
 
+    /** Total pending fluid amount in mB (Jade snapshot). */
+    public long getPendingFluidTotal() {
+        long total = 0;
+        for (FluidStack stack : pendingFluids) {
+            total += stack.getAmount();
+        }
+        return total;
+    }
+
+    public int getPendingFluidKinds() {
+        return countPendingFluidKinds();
+    }
+
+    private int countPendingFluidKinds() {
+        List<FluidStack> kinds = new ArrayList<>();
+        for (FluidStack stack : pendingFluids) {
+            boolean merged = false;
+            for (FluidStack kind : kinds) {
+                if (kind.isFluidEqual(stack)) {
+                    kind.grow(stack.getAmount());
+                    merged = true;
+                    break;
+                }
+            }
+            if (!merged) {
+                kinds.add(stack.copy());
+            }
+        }
+        return kinds.size();
+    }
+
     public boolean isOutputBlocked() {
-        return !pendingOutputs.isEmpty();
+        return hasPendingOutputs();
     }
 
     /** 拆除清理: batch, pending outputs and preference never survive. */
@@ -1080,5 +1288,6 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchSteamPerTickMb = 0;
         batchInputDisplay = ItemStack.EMPTY;
         pendingOutputs.clear();
+        pendingFluids.clear();
     }
 }

@@ -202,6 +202,35 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_compressor.tooltip.details.9",
                 "All three difficulty tiers behave identically.");
 
+        // 蒸汽提取机 / Steam Extractor (steam-extractor.md).
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.summary.0",
+                "Pure-steam extractor multiblock running full extractor recipes at up to 8 parallel operations.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.summary.1",
+                "Fixed 3\u00d73\u00d73 structure; each recipe takes 1.5\u00d7 its base duration and 2 mB of steam per EU.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.summary.2",
+                "Hold Shift for full structure and operating rules.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.subtitle", "Structure");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.0",
+                "Fixed at 3\u00d73\u00d73; the controller sits front-bottom-centre and a Bronze Pipe Casing forms the extraction core at the structure centre.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.1",
+                "Requires at least one steam item input bus, one steam item output bus, one Steam Supply Hatch and one fluid output hatch (a GTCEu standard output hatch or this mod's Steam Fluid Output Hatch, mixable), with at most 8 buses and hatches combined; the other candidate positions use Bronze Steam Machine Casings.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.subtitle2", "Processing and Steam");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.2",
+                "Runs gtceu:extractor recipes only; each batch uses one recipe at up to 8 parallel operations with duration ceil(base \u00d7 1.5).");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.3",
+                "Recipes above LV voltage are rejected. Each operation consumes recipe EU/t \u00d7 duration \u00d7 2 mB of standard steam, and parallel scales steam demand linearly.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.4",
+                "Output is checked before startup as if every chanced output succeeds (1 item slot + 1 fluid slot); parallel is reduced or the machine stays idle if everything cannot fit, and outputs are never voided.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.subtitle3", "Control and Status");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.5",
+                "Items commit to the output buses and fluids commit to the fluid output hatches, separately and atomically; pending fluids persist with the controller and are re-delivered whole once space recovers.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.6",
+                "Accepts GTCEu standard steam only, never EU; no fluid input hatches and no Steam Exhaust Hatch.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.7",
+                "Removing or destroying the controller permanently clears its batch, pending outputs and recipe preference; item pending outputs drop, fluids are lost.");
+        add("gregsteamexpansion.machine.steam_extractor.tooltip.details.8",
+                "All three difficulty tiers behave identically.");
+
         // Shared light-processor controller GUI info-page labels
         // (steam-compressor.md 议题 9 沿用粉碎机骨架).
         add("gregsteamexpansion.machine.steam_processor.ui.status", "Status");
@@ -224,6 +253,7 @@ public final class GSELang {
         add("gregsteamexpansion.jade.steam_processor.steam", "Steam: %s / %s mB");
         add("gregsteamexpansion.jade.steam_processor.demand", "Steam demand: %s mB/t");
         add("gregsteamexpansion.jade.steam_processor.pending", "Pending: %s (%s kinds)");
+        add("gregsteamexpansion.jade.steam_processor.pending_fluid", "Pending fluids: %s mB (%s kinds)");
         add("config.jade.plugin_gregsteamexpansion.steam_compressor_info", "Steam Compressor Info");
 
         // Shared controller GUI info-page labels (steam-crushers.md 运行信息页).

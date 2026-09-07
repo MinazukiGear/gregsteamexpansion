@@ -377,5 +377,22 @@
   "gregsteamexpansion.jade.steam_processor.steam": "蒸汽：%s / %s mB",
   "gregsteamexpansion.jade.steam_processor.demand": "每刻需求：%s mB/t",
   "gregsteamexpansion.jade.steam_processor.pending": "待输出：%s（%s 种）",
-  "config.jade.plugin_gregsteamexpansion.steam_compressor_info": "蒸汽压缩机信息"
+  "config.jade.plugin_gregsteamexpansion.steam_compressor_info": "蒸汽压缩机信息",
+  "block.gregsteamexpansion.steam_extractor": "蒸汽提取机",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.summary.0": "最高 8 并行的纯蒸汽提取多方块机器，执行全部提取配方。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.summary.1": "固定 3×3×3 结构；每次配方耗时为基准的 1.5 倍，每 EU 消耗 2 mB 蒸汽。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.summary.2": "按住 Shift 查看完整结构与运行规则。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.subtitle": "结构",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.0": "固定 3×3×3；控制器位于正面底层正中，结构中心为 1 个青铜管道方块（流体提取核心）。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.1": "至少需要 1 个蒸汽物品输入总线、1 个蒸汽物品输出总线、1 个蒸汽供给仓和 1 个流体输出仓（GTCEu 标准输出仓或本模组蒸汽流体输出仓，可混用），合计最多 8 个；其余候选位置使用青铜蒸汽机械方块。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.subtitle2": "加工与蒸汽",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.2": "只执行 gtceu:extractor 配方；每批只处理同一种配方，最高 8 并行，耗时为基准耗时的 1.5 倍（向上取整）。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.3": "高于 LV 电压的配方被拒绝。每次配方消耗 配方 EU/t × 耗时 × 2 mB 标准蒸汽，蒸汽需求随并行线性放大。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.4": "启动前按全部概率产物成功的最坏情况检查输出（1 物品位 + 1 流体位）；不能完整容纳时降低并行或保持待机，绝不销毁产物。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.subtitle3": "控制与状态",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.5": "物品写入物品输出总线、流体写入流体输出仓，分别原子提交；待输出流体随控制器持久化，空间恢复后整体重送。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.6": "只接受 GTCEu 标准蒸汽，不接受 EU；不允许流体输入仓，不需要也不允许安装蒸汽排气仓。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.7": "拆除或破坏控制器会永久清除批次、待输出结果与偏好配方；待输出物品掉落，流体丢失。",
+  "gregsteamexpansion.machine.steam_extractor.tooltip.details.8": "三档工作强度行为完全相同。",
+  "gregsteamexpansion.jade.steam_processor.pending_fluid": "待输出流体：%s mB（%s 种）"
 }

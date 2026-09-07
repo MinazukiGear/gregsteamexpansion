@@ -71,6 +71,7 @@ public final class GSERecipes {
         addSteamHatchRecipes(provider);
         addSteamCrusherRecipes(provider);
         addSteamCompressorRecipe(provider);
+        addSteamExtractorRecipe(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
@@ -232,6 +233,25 @@ public final class GSERecipes {
                 new Object[]{
                         'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
                         'X', new ItemStack(Items.PISTON),
+                        'G', ChemicalHelper.get(TagPrefix.gearSmall, GTMaterials.Bronze)}));
+    }
+
+    // ------------------------------------------------------------------
+    // Steam Extractor controller
+    // (steam-extractor.md 获取配方（议题 10）): bronze plate ×7 wrapping a
+    // bronze pipe casing core (fluid extraction semantics, centred) and a
+    // small bronze gear drive at the bottom centre. Horizontally symmetric,
+    // so the vanilla shaped serializer suffices.
+    // ------------------------------------------------------------------
+
+    private static void addSteamExtractorRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/steam_extractor"),
+                GSEMachines.STEAM_EXTRACTOR.asStack(),
+                new String[]{"PPP", "PTP", "PGP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'T', GTBlocks.CASING_BRONZE_PIPE.asStack(),
                         'G', ChemicalHelper.get(TagPrefix.gearSmall, GTMaterials.Bronze)}));
     }
 
