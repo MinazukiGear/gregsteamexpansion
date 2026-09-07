@@ -720,6 +720,95 @@ public final class GSELang {
         addLargeCokeOvenLang();
         addAssemblerFamilyLang();
         addBoilerRoomLang();
+        addVoidProducerLang();
+    }
+
+    // ------------------------------------------------------------------
+    // 旗舰虚空机器 (large-steam-ore-plant.md / large-steam-fluid-drill.md
+    // 两级物品提示与共用 UI 文本)。
+    // ------------------------------------------------------------------
+    private static void addVoidProducerLang() {
+        // ---- F1 大型蒸汽采矿厂两级物品提示 ----
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.summary.0",
+                "9\u00d79\u00d77 flagship void ore plant: 4 stations each draw 8 raw ores every 200 ticks (12,000 mB/t steam at full speed).");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.summary.1",
+                "Draws are weighted-random overworld materials yielded as raw ores \u2014 feeding the washer \u2192 macerator \u2192 centrifuge chain unchanged.");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.summary.2",
+                "Hold Shift for pool, config toggle and structure details.");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle", "Production");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.0",
+                "4 stations \u00d7 200-tick cycle; per draw 8 raw ores of one weighted-random overworld material (13 entries by default).");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.1",
+                "Difficulty multiplies the output count only: Easy \u00d74 / Normal \u00d72 / Expert \u00d71; steam and cycle are identical across tiers.");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.2",
+                "The weight table is config-overridable (machines.large_steam_ore_plant.weights); empty/invalid entries fall back to the built-in table. Restart required.");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle2", "Steam and Outputs");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.3",
+                "Steam only: 3,000 mB/t per station, 12,000 mB/t full speed \u2014 needs 10 Steam Supply Hatches (1,200 mB/t per-hatch cap).");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.4",
+                "A steam shortage rewinds the cycle to 1 tick and resumes; an obstructed exhaust hatch freezes it.");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.5",
+                "Outputs go to item output buses; blocked outputs pause the plant without consuming steam.");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.6",
+                "Easy difficulty quadruples draw counts \u2014 a dedicated Steel Boiler Room sustains one plant at full speed.");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle3", "Structure and Config");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.7",
+                "Industrial top/bottom faces and 12 edge columns; steam machine casing walls are the only hatch zone, \u226416 hatches.");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.8",
+                "18 Steam Grinding Blocks on interior layers 2 and 6 (3\u00d73 grids); exactly one Steam Exhaust Hatch is required.");
+        add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.9",
+                "Config toggle machines.large_steam_ore_plant.enabled=false keeps the structure but stops it with a config-disabled status.");
+
+        // ---- F2 大型蒸汽流体钻井两级物品提示 ----
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.summary.0",
+                "Flagship void fluid drill (7 wide \u00d7 11 deep \u00d7 11 tall): 2 pumps each draw 2,000 mB every 200 ticks (6,000 mB/t steam at full speed).");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.summary.1",
+                "Default pool mirrors the upstream overworld deposits: light oil, oil, heavy oil and natural gas (natural gas kept by decision).");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.summary.2",
+                "Hold Shift for pool, config toggle and structure details.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.subtitle", "Production");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.0",
+                "2 pumps \u00d7 200-tick cycle; per draw 2,000 mB of one weighted-random overworld fluid; draws never mix.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.1",
+                "Difficulty multiplies the amount only: Easy \u00d74 / Normal \u00d72 / Expert \u00d71 \u2014 Expert full speed is about 1,440 buckets per hour.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.2",
+                "The weight table is config-overridable (machines.large_steam_fluid_drill.weights); empty/invalid entries fall back to the built-in table. Restart required.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.subtitle2", "Steam and Outputs");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.3",
+                "Steam only: 6,000 mB/t full speed \u2014 needs 5 Steam Supply Hatches; a shortage rewinds the cycle to 1 tick.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.4",
+                "Outputs go to fluid output hatches (GTCEu standard or the mod's steam fluid output hatch, freely mixed); blocked outputs pause the drill without steam.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.5",
+                "Water and lava are excluded by decision; the void oil is an energy sink (300 steam per mB) \u2014 never a fuel loophole.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.6",
+                "Expert full speed stockpiles about 1,440 buckets per hour (Easy 5,760) \u2014 banked value for the future refinery era.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.subtitle3", "Structure and Config");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.7",
+                "Industrial bottom face, corner columns and 3\u00d73 cap; steam machine casing walls and crown rings are the only hatch zone, \u226416 hatches.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.8",
+                "Centre bronze pipe column (6) with a Steam Mixing Block separator on layer 8; exactly one Steam Exhaust Hatch is required.");
+        add("gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.9",
+                "Config toggle machines.large_steam_fluid_drill.enabled=false keeps the structure but stops it with a config-disabled status.");
+
+        // ---- 虚空机器共用 UI 文本 ----
+        add("gregsteamexpansion.machine.void_producer.ui.status", "Status");
+        add("gregsteamexpansion.machine.void_producer.ui.progress", "Cycle");
+        add("gregsteamexpansion.machine.void_producer.ui.stations", "Stations");
+        add("gregsteamexpansion.machine.void_producer.ui.pool", "Draw pool");
+        add("gregsteamexpansion.machine.void_producer.ui.pool_summary", "%s entries (weight %s)");
+        add("gregsteamexpansion.machine.void_producer.ui.pool_detail",
+                "Current effective draw pool (config overrides the built-in table):");
+        add("gregsteamexpansion.machine.void_producer.ui.steam", "Steam");
+        add("gregsteamexpansion.machine.void_producer.ui.demand", "Steam demand");
+        add("gregsteamexpansion.machine.void_producer.ui.pending", "Pending output");
+        add("gregsteamexpansion.machine.void_producer.ui.pending_summary", "%s (%s kinds)");
+        add("gregsteamexpansion.machine.void_producer.ui.pending_detail", "Pending outputs:");
+        add("gregsteamexpansion.machine.void_producer.ui.pending_empty", "Nothing pending");
+        add("gregsteamexpansion.machine.void_producer.ui.not_consuming", "not consuming");
+        add("gregsteamexpansion.machine.void_producer.ui.disabled_by_config",
+                "Disabled in config (machines.*.enabled=false) \u2014 restart to apply changes");
+        add("gregsteamexpansion.machine.void_producer.ui.exhaust_obstructed",
+                "Exhaust hatch obstructed \u2014 cycle frozen");
     }
 
     // ------------------------------------------------------------------

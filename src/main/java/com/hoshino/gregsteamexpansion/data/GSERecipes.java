@@ -85,6 +85,40 @@ public final class GSERecipes {
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
         addBoilerRoomRecipes(provider);
+        addLargeSteamOrePlantRecipe(provider);
+        addLargeSteamFluidDrillRecipe(provider);
+    }
+
+    // ------------------------------------------------------------------
+    // 大型蒸汽采矿厂 / 大型蒸汽流体钻井 (large-steam-ore-plant.md 获取配方
+    // (议题 10) / large-steam-fluid-drill.md 获取配方（议题 10)): 旗舰加重
+    // 版家族骨架——钢框架 x2 + 钢双层板 x4 + 青铜构件 x2 + 主题核心方块
+    // (F1 蒸汽研磨方块 / F2 钢管道方块), 折算约 20-24 钢板当量。恒产 1,
+    // 三档相同, 不含仓室。图案水平/垂直双对称, 原版 shaped 即可。
+    // ------------------------------------------------------------------
+
+    private static void addLargeSteamOrePlantRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_ore_plant"),
+                GSEMachines.LARGE_STEAM_ORE_PLANT.asStack(),
+                new String[]{"DFD", "CMC", "DFD"},
+                new Object[]{
+                        'D', ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Steel),
+                        'F', ChemicalHelper.get(TagPrefix.frameGt, GTMaterials.Steel),
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
+                        'M', new ItemStack(GSEBlocks.STEAM_GRINDING_BLOCK.get())}));
+    }
+
+    private static void addLargeSteamFluidDrillRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_fluid_drill"),
+                GSEMachines.LARGE_STEAM_FLUID_DRILL.asStack(),
+                new String[]{"DFD", "CMC", "DFD"},
+                new Object[]{
+                        'D', ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Steel),
+                        'F', ChemicalHelper.get(TagPrefix.frameGt, GTMaterials.Steel),
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
+                        'M', GTBlocks.CASING_STEEL_PIPE.asStack()}));
     }
 
     // ------------------------------------------------------------------

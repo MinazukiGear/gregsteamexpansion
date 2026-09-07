@@ -56,12 +56,77 @@ public final class GSEDifficultyConfig {
                     "  并记录警告）。客户端必须声明与存档完全一致的档位才能进入世界，修改",
                     "  后必须完整重启才会生效。")
             .defineEnum("difficulty", Request.ASK);
+
+    // ------------------------------------------------------------------
+    // 旗舰虚空机器开关与概率权重表 (large-steam-ore-plant.md 议题 2/3,
+    // large-steam-fluid-drill.md 议题 2/3): 启用开关默认 true, 禁用时机器
+    // 不可运行(注册与结构保留); 权重表条目为字符串, 空/非法条目回退内置
+    // 默认表。两项均与 difficulty 同口径: 修改后必须完整重启才生效。
+    // ------------------------------------------------------------------
+    private static final ForgeConfigSpec.BooleanValue ORE_PLANT_ENABLED = BUILDER
+            .comment(
+                    "Large Steam Ore Plant (void ore producer) enable toggle.",
+                    "  false = the machine registers and keeps its structure but never runs,",
+                    "  showing a config-disabled status; requires a full restart to apply.",
+                    "  大型蒸汽采矿厂启用开关；false 时机器保留注册与结构但不可运行，显示",
+                    "  已在配置中禁用；修改后必须完整重启才会生效。")
+            .define("machines.large_steam_ore_plant.enabled", true);
+    private static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> ORE_PLANT_WEIGHTS = BUILDER
+            .comment(
+                    "Ore plant draw pool, overrides the built-in table. Entry format:",
+                    "  <item registry name>|<weight>|[count]   e.g. gtceu:raw_iron|15 or minecraft:redstone|6|4",
+                    "  Empty or invalid entries fall back to the built-in default table;",
+                    "  requires a full restart to apply.",
+                    "  采矿厂抽取池，覆盖内置默认表；条目格式 <物品注册名>|<权重>|[数量]，",
+                    "  留空或含非法条目时回退内置默认表；修改后必须完整重启才会生效。")
+            .defineListAllowEmpty("machines.large_steam_ore_plant.weights",
+                    java.util.List.of(), entry -> entry instanceof String);
+    private static final ForgeConfigSpec.BooleanValue FLUID_DRILL_ENABLED = BUILDER
+            .comment(
+                    "Large Steam Fluid Drill (void fluid producer) enable toggle;",
+                    "  same semantics as the ore plant toggle; requires a full restart.",
+                    "  大型蒸汽流体钻井启用开关；语义同采矿厂开关；修改后必须完整重启才会生效。")
+            .define("machines.large_steam_fluid_drill.enabled", true);
+    private static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> FLUID_DRILL_WEIGHTS = BUILDER
+            .comment(
+                    "Fluid drill draw pool, overrides the built-in table. Entry format:",
+                    "  <fluid registry name>|<weight>   e.g. gtceu:oil|20",
+                    "  Empty or invalid entries fall back to the built-in default table;",
+                    "  requires a full restart to apply.",
+                    "  流体钻井抽取池，覆盖内置默认表；条目格式 <流体注册名>|<权重>，",
+                    "  留空或含非法条目时回退内置默认表；修改后必须完整重启才会生效。")
+            .defineListAllowEmpty("machines.large_steam_fluid_drill.weights",
+                    java.util.List.of(), entry -> entry instanceof String);
+
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     private static volatile Request capturedRequest;
     private static volatile boolean suppressNextReloadWarning;
+    // 旗舰机器捕获值: 仅在 Loading 时应用 (重启生效口径, 同 capturedRequest)。
+    private static volatile boolean capturedOrePlantEnabled = true;
+    private static volatile boolean capturedFluidDrillEnabled = true;
 
     private GSEDifficultyConfig() {}
+
+    /** The ore plant's captured enable toggle; only applied at config load. */
+    public static boolean orePlantEnabled() {
+        return capturedOrePlantEnabled;
+    }
+
+    /** The fluid drill's captured enable toggle; only applied at config load. */
+    public static boolean fluidDrillEnabled() {
+        return capturedFluidDrillEnabled;
+    }
+
+    /** Raw configured weight-table entries (parsed by the machines at use time). */
+    public static java.util.List<? extends String> orePlantWeightEntries() {
+        return ORE_PLANT_WEIGHTS.get();
+    }
+
+    /** Raw configured weight-table entries (parsed by the machines at use time). */
+    public static java.util.List<? extends String> fluidDrillWeightEntries() {
+        return FLUID_DRILL_WEIGHTS.get();
+    }
 
     /** The request captured at config load; the only one the server honors. */
     public static Request capturedRequest() {
@@ -81,8 +146,11 @@ public final class GSEDifficultyConfig {
     public static void onConfigLoading(ModConfigEvent.Loading event) {
         if (event.getConfig().getSpec() == SPEC) {
             capturedRequest = REQUESTED.get();
-            GregSteamExpansion.LOGGER.info("[Difficulty] Config requests difficulty {}.",
-                    capturedRequest);
+            capturedOrePlantEnabled = ORE_PLANT_ENABLED.get();
+            capturedFluidDrillEnabled = FLUID_DRILL_ENABLED.get();
+            GregSteamExpansion.LOGGER.info(
+                    "[Difficulty] Config requests difficulty {}; flagship machines: ore plant {}, fluid drill {}.",
+                    capturedRequest, capturedOrePlantEnabled, capturedFluidDrillEnabled);
         }
     }
 
@@ -94,8 +162,8 @@ public final class GSEDifficultyConfig {
                 return;
             }
             GregSteamExpansion.LOGGER.warn(
-                    "[Difficulty] difficulty config changed to {} while running; it is ignored until the next full restart.",
-                    REQUESTED.get());
+                    "[Difficulty] config changed while running (difficulty {}, ore plant {}, fluid drill {}); it is ignored until the next full restart.",
+                    REQUESTED.get(), ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
         }
     }
 

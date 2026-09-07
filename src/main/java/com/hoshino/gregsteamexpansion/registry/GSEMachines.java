@@ -22,6 +22,8 @@ import com.hoshino.gregsteamexpansion.migration.OreCrushingMigration;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.voidproducer.LargeSteamFluidDrillMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.voidproducer.LargeSteamOrePlantMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
@@ -461,6 +463,40 @@ public final class GSEMachines {
             .allowCoverOnFront(false)
             .register();
 
+    /** 大型蒸汽采矿厂 / Large Steam Ore Plant (large-steam-ore-plant.md 议题 1). */
+    public static final MultiblockMachineDefinition LARGE_STEAM_ORE_PLANT = GSERegistration.REGISTRATE
+            .multiblock("large_steam_ore_plant", LargeSteamOrePlantMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            // 无配方类型: 纯虚空生成机器 (议题 1).
+            .appearanceBlock(GCYMBlocks.CASING_INDUSTRIAL_STEAM)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/large_steam_ore_plant")))
+            .pattern(GSEVoidPatterns::createOrePlant)
+            .shapeInfos(definition -> List.of(GSEVoidPatterns.orePlantShapeInfo(definition)))
+            .langValue("Large Steam Ore Plant")
+            .tooltipBuilder(GSEMachines::largeSteamOrePlantTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    /** 大型蒸汽流体钻井 / Large Steam Fluid Drill (large-steam-fluid-drill.md 议题 1). */
+    public static final MultiblockMachineDefinition LARGE_STEAM_FLUID_DRILL = GSERegistration.REGISTRATE
+            .multiblock("large_steam_fluid_drill", LargeSteamFluidDrillMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            // 无配方类型: 纯虚空生成机器 (议题 1).
+            .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/large_steam_fluid_drill")))
+            .pattern(GSEVoidPatterns::createFluidDrill)
+            .shapeInfos(definition -> List.of(GSEVoidPatterns.fluidDrillShapeInfo(definition)))
+            .langValue("Large Steam Fluid Drill")
+            .tooltipBuilder(GSEMachines::largeSteamFluidDrillTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
     // ------------------------------------------------------------------
     // 锅炉房 / Boiler Room (boiler-room.md): 四档终端蒸汽锅炉 (青铜/钢/钛/
     // 钨钢), 共用 BoilerRoomMachine 与 7×11×7 去角长方体图案, 产能严格上位于
@@ -702,6 +738,84 @@ public final class GSEMachines {
         for (int i = 7; i <= 9; i++) {
             tooltip.add(Component.translatable(
                     "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    private static void largeSteamOrePlantTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 0; i <= 2; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 3; i <= 6; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details." + i)
+                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 7; i <= 9; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    private static void largeSteamFluidDrillTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 0; i <= 2; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 3; i <= 6; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details." + i)
+                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 7; i <= 9; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details." + i)
                     .withStyle(ChatFormatting.GRAY));
         }
     }
