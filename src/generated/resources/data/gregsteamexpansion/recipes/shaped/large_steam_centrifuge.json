@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": {
+      "item": "gregsteamexpansion:bronze_component"
+    },
+    "G": {
+      "item": "gtceu:bronze_gear"
+    },
+    "M": {
+      "item": "gregsteamexpansion:steam_mixing_block"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "S": {
+      "item": "gregsteamexpansion:steam_centrifuge"
+    }
+  },
+  "pattern": [
+    "GSG",
+    "CMC",
+    "PPP"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_steam_centrifuge"
+  }
+}

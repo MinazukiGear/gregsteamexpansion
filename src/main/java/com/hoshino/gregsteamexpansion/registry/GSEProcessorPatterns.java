@@ -880,6 +880,265 @@ public final class GSEProcessorPatterns {
     }
 
     /**
+     * The small centrifuge's candidate rule for the 33 shell bronze-casing
+     * positions (steam-centrifuges.md 议题 4): steam machine casing with
+     * hatches as replacements. Fluid interface per 议题 3: fluid input AND
+     * output hatches are required and BOTH families are admissible (GTCEu
+     * standard hatches or the mod's steam fluid hatches, 可选或混用 — the
+     * steam fluid output hatch gains its first legal consumer here). The
+     * small machine uses NO exhaust hatch (2026-09-07 全模组裁定), so no
+     * exhaust ability is admitted. The 25-casing minimum bounds the hatch
+     * total at 8 (33 − 25, 议题 4 仓室合计上限).
+     */
+    private static TraceabilityPredicate centrifugeCandidates() {
+        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(25)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS));
+    }
+
+    /**
+     * 蒸汽离心机: fixed 3×4×3 (steam-centrifuges.md 议题 4 逐层图). Aisle
+     * rows run back -> front, so the design's front row is the LAST string
+     * of each aisle. The two interior middle-layer cells (centre column ×
+     * middle two rows) are Steam Mixing Blocks — the rotor pair fills the
+     * interior completely (用户 2026-09-07 补充: 加至 2 个, 填满内部, 无
+     * 空气腔); the controller sits front-bottom-centre.
+     */
+    public static BlockPattern createCentrifuge(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle("BBB", "BBB", "BBB", "BCB")
+                .aisle("BBB", "BMB", "BMB", "BBB")
+                .aisle("BBB", "BBB", "BBB", "BBB")
+                .where('B', centrifugeCandidates())
+                .where('M', Predicates.blocks(GSEBlocks.STEAM_MIXING_BLOCK.get()))
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Small centrifuge representative layout (steam-centrifuges.md 结构):
+     * minimum 5-hatch set — import and export buses flanking the
+     * bottom-front-centre controller, steam supply and a standard fluid
+     * import hatch on the middle-layer front wall, a standard fluid export
+     * hatch on the top-layer front wall. Axis convention as in
+     * {@code GSECrusherPatterns#smallShapeInfo} (layers bottom -> top, each
+     * layer's 4 rows back -> front, chars west -> east).
+     */
+    public static MultiblockShapeInfo centrifugeShapeInfo(MultiblockMachineDefinition definition) {
+        String[][] layers = {
+                {"BBB", "BBB", "BBB", "JKO"},
+                {"BBB", "BMB", "BMB", "BSF"},
+                {"BBB", "BBB", "BBB", "BGB"},
+        };
+        return buildShapeInfo(layers)
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
+                .where('K', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('G', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
+                .build();
+    }
+
+    /**
+     * The large centrifuge's candidate rule for the 112 side-ring positions
+     * (steam-centrifuges.md 议题 4): steam machine casing with hatches as
+     * replacements, the same fluid interface as the small machine (both
+     * families of fluid input AND output hatches admissible, 可选或混用).
+     * The exhaust hatch takes one candidate slot (大型机必须且只能 1 个,
+     * post-checked by the controller) and the 100-casing minimum bounds the
+     * hatch total at 12 (112 − 100, 议题 4 仓室合计上限).
+     */
+    private static TraceabilityPredicate largeCentrifugeCandidates() {
+        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(100)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
+                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+    }
+
+    /**
+     * 大型蒸汽离心机: fixed 7×7×9 vertical separation tower
+     * (steam-centrifuges.md 议题 4 逐层图). Aisle rows run back -> front,
+     * so the design's front row is the LAST string of each aisle. Layers 1
+     * and 9 are full 37-block disc crowns (d² ≤ 12.25 from the centre, A4
+     * disc convention); layer 1 carries the front-centre controller. Layers
+     * 2-8 are 16-cell side rings around a 21-cell interior carrying the
+     * Steam Mixing Block axis (centre) and two bronze pipe casing columns
+     * (x=3/5, z=4); interior air is STRICT air (Predicates.air).
+     */
+    public static BlockPattern createLargeCentrifuge(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle( // layer 1 (bottom crown, controller front-centre)
+                        "..BBB..",
+                        ".BBBBB.",
+                        "BBBBBBB",
+                        "BBBBBBB",
+                        "BBBBBBB",
+                        ".BBBBB.",
+                        "..BCB..")
+                .aisle( // layers 2-8 (ring + axis + pipe columns), 7 identical aisles
+                        "..BBB..",
+                        ".BAAAB.",
+                        "BAAAAAB",
+                        "BAPMPAB",
+                        "BAAAAAB",
+                        ".BAAAB.",
+                        "..BBB..")
+                .aisle(
+                        "..BBB..",
+                        ".BAAAB.",
+                        "BAAAAAB",
+                        "BAPMPAB",
+                        "BAAAAAB",
+                        ".BAAAB.",
+                        "..BBB..")
+                .aisle(
+                        "..BBB..",
+                        ".BAAAB.",
+                        "BAAAAAB",
+                        "BAPMPAB",
+                        "BAAAAAB",
+                        ".BAAAB.",
+                        "..BBB..")
+                .aisle(
+                        "..BBB..",
+                        ".BAAAB.",
+                        "BAAAAAB",
+                        "BAPMPAB",
+                        "BAAAAAB",
+                        ".BAAAB.",
+                        "..BBB..")
+                .aisle(
+                        "..BBB..",
+                        ".BAAAB.",
+                        "BAAAAAB",
+                        "BAPMPAB",
+                        "BAAAAAB",
+                        ".BAAAB.",
+                        "..BBB..")
+                .aisle(
+                        "..BBB..",
+                        ".BAAAB.",
+                        "BAAAAAB",
+                        "BAPMPAB",
+                        "BAAAAAB",
+                        ".BAAAB.",
+                        "..BBB..")
+                .aisle(
+                        "..BBB..",
+                        ".BAAAB.",
+                        "BAAAAAB",
+                        "BAPMPAB",
+                        "BAAAAAB",
+                        ".BAAAB.",
+                        "..BBB..")
+                .aisle( // layer 9 (top crown)
+                        "..BBB..",
+                        ".BBBBB.",
+                        "BBBBBBB",
+                        "BBBBBBB",
+                        "BBBBBBB",
+                        ".BBBBB.",
+                        "..BBB..")
+                .where('B', largeCentrifugeCandidates())
+                .where('M', Predicates.blocks(GSEBlocks.STEAM_MIXING_BLOCK.get()))
+                .where('P', Predicates.blocks(bronzePipeCasing()))
+                .where('A', Predicates.air())
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Large centrifuge representative layout (steam-centrifuges.md 结构):
+     * minimum 6-hatch set on the front arc — import and export buses with
+     * the exhaust hatch between them on the layer-2 front row, steam supply
+     * and both standard fluid hatches on the layer-3 front row. Axis
+     * convention as in {@code GSECrusherPatterns#smallShapeInfo} (layers
+     * bottom -> top, each layer's 7 rows back -> front, chars west -> east).
+     */
+    public static MultiblockShapeInfo largeCentrifugeShapeInfo(MultiblockMachineDefinition definition) {
+        String[] middle = {
+                "..BBB..",
+                ".BAAAB.",
+                "BAAAAAB",
+                "BAPMPAB",
+                "BAAAAAB",
+                ".BAAAB.",
+                "..BBB..",
+        };
+        String[] crown = {
+                "..BBB..",
+                ".BBBBB.",
+                "BBBBBBB",
+                "BBBBBBB",
+                "BBBBBBB",
+                ".BBBBB.",
+                "..BBB..",
+        };
+        String[] crownWithController = {
+                "..BBB..",
+                ".BBBBB.",
+                "BBBBBBB",
+                "BBBBBBB",
+                "BBBBBBB",
+                ".BBBBB.",
+                "..BKB..",
+        };
+        String[] ringWithBuses = {
+                "..BBB..",
+                ".BAAAB.",
+                "BAAAAAB",
+                "BAPMPAB",
+                "BAAAAAB",
+                ".BAAAB.",
+                "..JOE..",
+        };
+        String[] ringWithFluid = {
+                "..BBB..",
+                ".BAAAB.",
+                "BAAAAAB",
+                "BAPMPAB",
+                "BAAAAAB",
+                ".BAAAB.",
+                "..SFG..",
+        };
+        String[][] layers = {
+                crownWithController,
+                ringWithBuses,
+                ringWithFluid,
+                middle, middle, middle, middle, middle,
+                crown,
+        };
+        return buildShapeInfo(layers)
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
+                .where('P', bronzePipeCasing())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('G', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    /**
      * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
      * coordinates, keeping the controller on the north (z = 0) wall.
      */

@@ -372,6 +372,74 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.9",
                 "All three difficulty tiers behave identically.");
 
+        // 蒸汽离心机 / Steam Centrifuge (C0 small).
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.summary.0",
+                "Pure-steam centrifuge multiblock running ALL gtceu:centrifuge recipes (isotope separation, dust sorting, fluid processing and more) at up to 8 parallel operations.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.summary.1",
+                "Fixed 3\u00d74\u00d73 structure; each recipe takes 1.5\u00d7 its base duration and 2 mB of steam per EU.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.summary.2",
+                "Hold Shift for the full structure and operating rules.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.subtitle",
+                "Structure");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.0",
+                "Fixed 3\u00d74\u00d73 structure (36 blocks): a 33-block bronze steam machine casing shell (incl. the front-bottom-centre controller) whose two interior middle-layer cells are filled by a pair of Steam Mixing Blocks - the rotor, with no air cavity.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.1",
+                "The Steam Mixing Blocks are structure-only and grant no bonuses.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.2",
+                "Hatches replace ONLY shell casing positions: at least 1 item input bus, 1 item output bus, 1 steam supply hatch, 1 fluid input hatch and 1 fluid output hatch, at most 8 hatches in total. NO exhaust hatch (small steam multiblocks use none). Both fluid hatch families are admissible - GTCEu standard hatches or the mod's steam fluid hatches, freely mixed.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.subtitle2",
+                "Processing & Steam");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.3",
+                "Runs every gtceu:centrifuge recipe (add-on recipes are picked up automatically); the thermal centrifuge route stays upstream. One recipe per batch, up to 8 parallel, duration = base \u00d7 1.5 (rounded up).");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.4",
+                "Recipes above LV voltage are rejected. Each operation consumes recipe EU/t \u00d7 duration \u00d7 2 mB of standard steam; demand scales linearly with parallel.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.5",
+                "Outputs (up to 6 item slots + 6 fluid slots) leave through the item output buses and fluid output hatches; outputs are prechecked at worst case before startup and are never voided.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.6",
+                "No exhaust hatch: the machine has no exhaust obstruction check and no heat-hazard cycles at all.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.subtitle3",
+                "Control & Status");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.7",
+                "The last successful recipe is preferred; active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.8",
+                "Removing the controller drops pending output items, loses their fluids and the recipe preference; the controller holds no internal storage.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.9",
+                "All three difficulty tiers behave identically.");
+
+        // 大型蒸汽离心机 / Large Steam Centrifuge (C0 large).
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.summary.0",
+                "Large pure-steam centrifuge multiblock running ALL gtceu:centrifuge recipes at up to 64 parallel operations - the scaled-up upper tier of the Steam Centrifuge.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.summary.1",
+                "Fixed 7\u00d77\u00d79 disc tower; each recipe takes 1.5\u00d7 its base duration and 2 mB of steam per EU.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.summary.2",
+                "Hold Shift for the full structure and operating rules.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.subtitle",
+                "Structure");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.0",
+                "Fixed 7\u00d77\u00d79 vertical separation tower (333 blocks): full 37-block disc crowns top and bottom (73 bronze steam machine casings + the front-bottom-centre controller), seven 16-cell side rings (112) around a 21-cell interior carrying the 7-block Steam Mixing Block axis and two bronze pipe casing columns (18 blocks of air per layer, 126 in total).");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.1",
+                "The Steam Mixing Blocks and bronze pipe casings are structure-only and grant no bonuses.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.2",
+                "Hatches replace ONLY side-ring casing positions: at least 1 item input bus, 1 item output bus, 1 steam supply hatch, 1 fluid input hatch and 1 fluid output hatch, exactly 1 steam exhaust hatch, at most 12 hatches in total. Both fluid hatch families are admissible - GTCEu standard hatches or the mod's steam fluid hatches, freely mixed.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.subtitle2",
+                "Processing & Steam");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.3",
+                "Runs every gtceu:centrifuge recipe (add-on recipes are picked up automatically); the thermal centrifuge route stays upstream. One recipe per batch, up to 64 parallel, duration = base \u00d7 1.5 (rounded up).");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.4",
+                "Recipes above LV voltage are rejected. Each operation consumes recipe EU/t \u00d7 duration \u00d7 2 mB of standard steam; demand scales linearly with parallel.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.5",
+                "Outputs (up to 6 item slots + 6 fluid slots) leave through the item output buses and fluid output hatches; outputs are prechecked at worst case before startup and are never voided.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.6",
+                "The steam exhaust hatch must face open air (3 blocks straight ahead); an obstructed exhaust freezes progress and vents nothing until cleared, and venting deals heat damage on its cycle.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.subtitle3",
+                "Control & Status");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.7",
+                "The last successful recipe is preferred; active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.8",
+                "Removing the controller drops pending output items, loses their fluids and the recipe preference; the controller holds no internal storage.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.9",
+                "All three difficulty tiers behave identically.");
+
         // 蒸汽提取机 / Steam Extractor (steam-extractor.md).
         add("gregsteamexpansion.machine.steam_extractor.tooltip.summary.0",
                 "Pure-steam extractor multiblock running full extractor recipes at up to 8 parallel operations.");

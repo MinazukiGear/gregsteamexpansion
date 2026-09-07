@@ -78,6 +78,7 @@ public final class GSERecipes {
         addLargeSteamMaceratorRecipe(provider);
         addLargeSteamMixerRecipe(provider);
         addSteamChemicalBathRecipe(provider);
+        addSteamCentrifugeRecipes(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
@@ -352,6 +353,37 @@ public final class GSERecipes {
                                 net.minecraft.core.registries.Registries.ITEM,
                                 new ResourceLocation("c", "glass")),
                         'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get())}));
+    }
+
+    // ------------------------------------------------------------------
+    // Steam Centrifuge + Large Steam Centrifuge controllers
+    // (steam-centrifuges.md 获取配方（议题 10）, 轻量化修订版): both recipes
+    // are bronze-plate dominated, NO steam machine / industrial casings as
+    // ingredients, always yield 1 controller. The LARGE recipe consumes one
+    // Steam Centrifuge controller as the upgrade core (大型粉碎机先例, 用户
+    // 2026-09-07 更正口径). Both patterns are horizontally symmetric - the
+    // vanilla shaped serializer suffices.
+    // ------------------------------------------------------------------
+
+    private static void addSteamCentrifugeRecipes(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/steam_centrifuge"),
+                GSEMachines.STEAM_CENTRIFUGE.asStack(),
+                new String[]{"PPP", "PMP", "PGP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'M', new ItemStack(GSEBlocks.STEAM_MIXING_BLOCK.get()),
+                        'G', ChemicalHelper.get(TagPrefix.gear, GTMaterials.Bronze)}));
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_centrifuge"),
+                GSEMachines.LARGE_STEAM_CENTRIFUGE.asStack(),
+                new String[]{"GSG", "CMC", "PPP"},
+                new Object[]{
+                        'G', ChemicalHelper.get(TagPrefix.gear, GTMaterials.Bronze),
+                        'S', GSEMachines.STEAM_CENTRIFUGE.asStack(),
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
+                        'M', new ItemStack(GSEBlocks.STEAM_MIXING_BLOCK.get()),
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze)}));
     }
 
     // ------------------------------------------------------------------

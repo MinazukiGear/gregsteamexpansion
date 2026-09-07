@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "G": {
+      "item": "gtceu:bronze_gear"
+    },
+    "M": {
+      "item": "gregsteamexpansion:steam_mixing_block"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    }
+  },
+  "pattern": [
+    "PPP",
+    "PMP",
+    "PGP"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:steam_centrifuge"
+  }
+}
