@@ -492,8 +492,9 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
 
     /**
      * First ore-crushing recipe whose single item input accepts the stack.
-     * 功率门 (全局工作强度原则): 只接受基础输入功率不超过 LV (32 EU/t) 的配方,
-     * 与大型蓄热蒸汽熔炉同口径——固定 120,000 mB/份的蒸汽经济只面向 ≤LV 配方; 电力粉碎机按配方基准功率付费.
+     * 功率门 (全局工作强度原则): 只接受基础输入功率不超过 MV (128 EU/t) 的配方——
+     * 迁移配方的记录功率已 ×50 至 100 EU/t (MV 档), 固定 120,000 mB/份的蒸汽
+     * 经济以 MV 上限为前提; 电力粉碎机按配方基准功率付费.
      */
     @Nullable
     private GTRecipe findRecipeForStack(ItemStack stack) {
@@ -508,7 +509,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             }
             if (inputs.get(0).content instanceof net.minecraft.world.item.crafting.Ingredient ingredient
                     && ingredient.test(stack)) {
-                if (RecipeHelper.getRecipeEUtTier(recipe) > 1) {
+                if (RecipeHelper.getRecipeEUtTier(recipe) > 2) {
                     continue;
                 }
                 return recipe;

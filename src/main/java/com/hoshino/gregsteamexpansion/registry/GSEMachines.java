@@ -259,7 +259,7 @@ public final class GSEMachines {
 
     // ------------------------------------------------------------------
     // 电力粉碎机 / Electric Ore Crushers (ore-crushing.md 电力消费机器):
-    // ore_crushing 类型对应的电力分级单方块机器 (LV–UV, 标准不完全超频),
+    // ore_crushing 类型对应的电力分级单方块机器 (MV–UV, 标准不完全超频),
     // 与蒸汽粉碎机共享同一配方池 (4× ×难度产出已烘焙在迁移配方中);
     // 叠加层纹理在模组自身命名空间, 故不经 registerSimpleMachines 注册
     // (其模型工厂硬编码 gtceu 命名空间), 而用同形态的 registerTieredMachines。
@@ -280,8 +280,9 @@ public final class GSEMachines {
                     .tooltips(Component.translatable(
                             "gregsteamexpansion.machine.electric_ore_crusher.tooltip"))
                     .register(),
-            // 档位固定 LV–UV, 与获取配方逐档材质表一致 (高配档后续按需扩展).
-            GTValues.tiersBetween(GTValues.LV, GTValues.UV));
+            // 档位固定 MV–UV: 配方基准功率 100 EU/t 已超出 LV (32 EU/t)
+            // 上限, 电力粉碎机自 MV 起可用 (高配档后续按需扩展).
+            GTValues.tiersBetween(GTValues.MV, GTValues.UV));
 
     // ------------------------------------------------------------------
     // 轻量蒸汽多方块家族 / Light Steam Processor family

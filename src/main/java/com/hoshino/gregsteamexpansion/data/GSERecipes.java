@@ -99,7 +99,6 @@ public final class GSERecipes {
 
     private static void addElectricOreCrusherRecipes(Consumer<FinishedRecipe> provider) {
         var tiers = new Object[][]{
-                {GTValues.LV, GTMaterials.Steel, com.gregtechceu.gtceu.data.recipe.CustomTags.LV_CIRCUITS},
                 {GTValues.MV, GTMaterials.Aluminium, com.gregtechceu.gtceu.data.recipe.CustomTags.MV_CIRCUITS},
                 {GTValues.HV, GTMaterials.StainlessSteel, com.gregtechceu.gtceu.data.recipe.CustomTags.HV_CIRCUITS},
                 {GTValues.EV, GTMaterials.Titanium, com.gregtechceu.gtceu.data.recipe.CustomTags.EV_CIRCUITS},
@@ -109,7 +108,6 @@ public final class GSERecipes {
                 {GTValues.UV, GTMaterials.Darmstadtium, com.gregtechceu.gtceu.data.recipe.CustomTags.UV_CIRCUITS},
         };
         var frames = new Object[][]{
-                {GTValues.LV, GTMaterials.Steel},
                 {GTValues.MV, GTMaterials.Aluminium},
                 {GTValues.HV, GTMaterials.StainlessSteel},
                 {GTValues.EV, GTMaterials.Titanium},
@@ -118,7 +116,7 @@ public final class GSERecipes {
                 {GTValues.ZPM, GTMaterials.Iridium},
                 {GTValues.UV, GTMaterials.NaquadahAlloy},
         };
-        var tierNames = new String[]{"lv", "mv", "hv", "ev", "iv", "luv", "zpm", "uv"};
+        var tierNames = new String[]{"mv", "hv", "ev", "iv", "luv", "zpm", "uv"};
 
         for (int i = 0; i < tiers.length; i++) {
             int tier = (Integer) tiers[i][0];

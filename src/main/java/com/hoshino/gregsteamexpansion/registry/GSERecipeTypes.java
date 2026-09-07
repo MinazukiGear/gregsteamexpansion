@@ -22,13 +22,14 @@ import static com.lowdragmc.lowdraglib.gui.texture.ProgressTexture.FillDirection
  * "ore or raw ore → crushed ore" processing step for the upcoming steam
  * crusher multiblocks.
  *
- * <p>Recipes are recorded against the 2 EU/t / 400 tick baseline so vanilla GT
+ * <p>Recipes are recorded against the 100 EU/t / 400 tick baseline (20260908 ×50,
+ * matching the steam crushers’ heavy-steam economy) so vanilla GT
  * recipe logic and viewers understand them; steam consumers run them at
  * 600 ticks by their own machine spec, not by this type.</p>
  *
  * <p>Per ore-crushing.md 配方查看器与表现 the viewer category stays hidden until
  * the first obtainable consumer machine registers — the same gate that enables
- * the macerator migration (ore-crushing.md 从研磨机迁移). Flip
+ * the macerator migration (ore-crushing.md). Flip
  * {@link #CONSUMER_EXISTS} once that machine lands.</p>
  */
 public final class GSERecipeTypes {
@@ -71,10 +72,11 @@ public final class GSERecipeTypes {
         GTRecipeType recipeType = new GTRecipeType(id, GTRecipeTypes.MULTIBLOCK)
                 .setMaxIOSize(1, 4, 0, 0)
                 .setEUIO(IO.IN)
-                // ore-crushing.md 基本定义: 2 EU/t and 400 ticks are the recorded
-                // baseline; steam machines apply the fixed 1.5x / 600-tick rule
-                // in their own logic, never through this type.
-                .prepareBuilder(builder -> builder.duration(400).EUt(2))
+                // ore-crushing.md 基本定义: 100 EU/t and 400 ticks are the
+                // recorded baseline (20260908 ×50, 同步蒸汽粉碎机的重蒸汽经济);
+                // steam crushers apply their own fixed 600-tick economics and
+                // ≤MV power gate in their own logic, never through this type.
+                .prepareBuilder(builder -> builder.duration(400).EUt(100))
                 // ore-crushing.md 配方查看器与表现: the macerator's crushed-ore
                 // input overlay, dust output overlay, grinding progress bars
                 // and sounds are reused, but the category identity is new.

@@ -617,7 +617,6 @@
   "gregsteamexpansion.machine.void_producer.ui.not_consuming": "未取汽",
   "gregsteamexpansion.machine.void_producer.ui.disabled_by_config": "已在配置中禁用（machines.*.enabled=false）——修改后需完整重启生效",
   "gregsteamexpansion.machine.void_producer.ui.exhaust_obstructed": "排气仓受阻——节拍冻结",
-  "block.gregsteamexpansion.lv_electric_ore_crusher": "电力粉碎机（LV）",
   "block.gregsteamexpansion.mv_electric_ore_crusher": "电力粉碎机（MV）",
   "block.gregsteamexpansion.hv_electric_ore_crusher": "电力粉碎机（HV）",
   "block.gregsteamexpansion.ev_electric_ore_crusher": "电力粉碎机（EV）",

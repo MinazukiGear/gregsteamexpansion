@@ -379,9 +379,43 @@ public final class OreCrushingMigration {
                 mainOutput.maxChance, mainOutput.tierChanceBoost));
 
         GTRecipe detached = original.copy(ContentModifier.IDENTITY, false);
+
+        // 电力等价功率同步 (20260908 用户定案): 迁移配方的记录功率按 ×50 缩放
+        // (上游 2 EU/t -> 100 EU/t), 与蒸汽粉碎机的重蒸汽经济 (×50) 同级,
+        // 使电力粉碎机的耗电与蒸汽粉碎机的耗汽保持同量级。
+        long sourceEu = original.getInputEUt().voltage();
+        long scaledEu = sourceEu * 50;
+        var scaledTickInputs = new java.util.HashMap<RecipeCapability<?>, java.util.List<Content>>();
+        detached.tickInputs.forEach((capability, contents) -> {
+            if (capability == com.gregtechceu.gtceu.api.capability.recipe.EURecipeCapability.CAP) {
+                java.util.List<Content> scaled = new ArrayList<>();
+                for (Content content : contents) {
+                    Long eu = null;
+                    if (content.content instanceof Long value) {
+                        eu = value;
+                    } else if (content.content instanceof Integer value) {
+                        eu = value.longValue();
+                    }
+                    if (eu != null) {
+                        scaled.add(new Content(eu * 50, content.chance, content.maxChance,
+                                content.tierChanceBoost));
+                    } else {
+                        scaled.add(content);
+                    }
+                }
+                scaledTickInputs.put(capability, scaled);
+            } else {
+                scaledTickInputs.put(capability, new ArrayList<>(contents));
+            }
+        });
+        if (scaledTickInputs.isEmpty() && scaledEu > 0) {
+            scaledTickInputs.put(com.gregtechceu.gtceu.api.capability.recipe.EURecipeCapability.CAP,
+                    java.util.List.of(new Content(scaledEu, 10000, 10000, 0)));
+        }
+
         GTRecipe copy = new GTRecipe(targetType, newId,
                 detached.inputs, Map.of(ItemRecipeCapability.CAP, newOutputs),
-                detached.tickInputs, detached.tickOutputs,
+                scaledTickInputs, detached.tickOutputs,
                 detached.inputChanceLogics, detached.outputChanceLogics,
                 detached.tickInputChanceLogics, detached.tickOutputChanceLogics,
                 detached.conditions, detached.ingredientActions, detached.data,
