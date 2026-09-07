@@ -96,10 +96,14 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
 
     /** Fixed ore-crushing duration for steam consumers (ore-crushing.md 1.5×). */
     public static final int DURATION_TICKS = 600;
-    /** 2 EU/t × 600 tick × 2 mB/EU, fixed per recipe operation. */
-    public static final int STEAM_PER_OPERATION_MB = 2400;
-    /** Per-tick demand of a full-parallel batch: 4 × P mB/t. */
-    public static final int STEAM_PER_TICK_PER_PARALLEL = 4;
+    /**
+     * Fixed per-operation steam cost (20260908 大幅上调 ×50, 用户定案): 每并行
+     * 200 mB/t × 600 tick = 120,000 mB/份——以重蒸汽溢价承载矿石 4× 主产物
+     * 的高价值产出, 与锅炉房(6,000–48,000 mB/t)的产能档位对齐。
+     */
+    public static final int STEAM_PER_OPERATION_MB = 120_000;
+    /** Per-tick demand of a full-parallel batch: 200 × P mB/t. */
+    public static final int STEAM_PER_TICK_PER_PARALLEL = 200;
     /** Heat damage of one large-crusher exhaust damage cycle. */
     public static final float EXHAUST_DAMAGE = 12.0F;
 
@@ -122,7 +126,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     /** Locked per-tick demand: 4 × P mB/t. */
     @Persisted
     private long batchSteamPerTickMb = 0;
-    /** Locked batch total: 2,400 × P mB. */
+    /** Locked batch total: 120,000 × P mB. */
     @Persisted
     private long batchTotalSteamMb = 0;
     /** One copy of the locked input item, for the GUI recipe display. */
@@ -489,7 +493,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     /**
      * First ore-crushing recipe whose single item input accepts the stack.
      * 功率门 (全局工作强度原则): 只接受基础输入功率不超过 LV (32 EU/t) 的配方,
-     * 与大型蓄热蒸汽熔炉同口径——固定 2,400 mB/操作的蒸汽经济以 LV 上限为前提.
+     * 与大型蓄热蒸汽熔炉同口径——固定 120,000 mB/份的蒸汽经济只面向 ≤LV 配方; 电力粉碎机按配方基准功率付费.
      */
     @Nullable
     private GTRecipe findRecipeForStack(ItemStack stack) {

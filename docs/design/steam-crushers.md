@@ -108,7 +108,7 @@ D G D
 | 中文（`zh_cn`） | 英文（`en_us`） |
 | --- | --- |
 | 最高 8 并行的纯蒸汽矿石粉碎多方块机器。 | Pure-steam ore-crushing multiblock with up to 8 parallel operations. |
-| 固定 3×3×3 结构；每次配方耗时 600 tick、消耗 2,400 mB 蒸汽。 | Fixed 3×3×3 structure; each recipe operation takes 600 ticks and 2,400 mB of steam. |
+| 固定 3×3×3 结构；每次配方耗时 600 tick、消耗 120,000 mB 蒸汽。 | Fixed 3×3×3 structure; each recipe operation takes 600 ticks and 120,000 mB of steam. |
 | 按住 Shift 查看完整结构与运行规则。 | Hold Shift for full structure and operating rules. |
 
 - 按住 Shift 时，蒸汽粉碎机在上述机器名称下依次显示：
@@ -119,7 +119,7 @@ D G D
 | 结构 | 上、下、左、右四个面中心各需要 1 个蒸汽碾磨方块。 | One Steam Grinding Block is required at the center of each of the top, bottom, left, and right faces. |
 | 结构 | 必须且只能安装 1 个蒸汽物品输入总线、1 个蒸汽物品输出总线和 1 个蒸汽供给仓；其余 18 个候选位置使用青铜蒸汽机械方块。 | Requires exactly one Steam Item Input Bus, one Steam Item Output Bus, and one Steam Supply Hatch; the other 18 candidate positions use Bronze Steam Machine Casings. |
 | 加工与蒸汽 | 只执行矿石粉碎配方；每批只处理同一种配方，最高 8 并行，固定耗时 600 tick。 | Runs ore-crushing recipes only; each batch uses one recipe at up to 8 parallel operations and always takes 600 ticks. |
-| 加工与蒸汽 | 每次配方消耗 2,400 mB 标准蒸汽；实际并行为 P 时需要 4 × P mB/t。 | Each recipe operation consumes 2,400 mB of standard steam; a batch at parallel P requires 4 × P mB/t. |
+| 加工与蒸汽 | 每次配方消耗 120,000 mB 标准蒸汽；实际并行为 P 时需要 200 × P mB/t。 | Each recipe operation consumes 120,000 mB of standard steam; a batch at parallel P requires 200 × P mB/t. |
 | 加工与蒸汽 | 启动前按全部概率产物成功的最坏情况检查输出；不能完整容纳时降低并行或保持待机，绝不销毁产物。 | Output is checked before startup as if every chanced output succeeds; parallel is reduced or the machine stays idle if everything cannot fit, and outputs are never voided. |
 | 控制与状态 | 只接受 GTCEu 标准蒸汽，不接受 EU；不需要也不允许安装蒸汽排气仓。 | Accepts GTCEu standard steam only, never EU; a Steam Exhaust Hatch is neither required nor allowed. |
 | 控制与状态 | 主动暂停冻结原进度；缺汽或结构失效会把已启动批次回退至 1 tick；输出堵塞会保留完整待输出列表。 | Active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick; output blocking preserves the complete pending-output list. |
@@ -131,7 +131,7 @@ D G D
 | 中文（`zh_cn`） | 英文（`en_us`） |
 | --- | --- |
 | 最高 64 并行的纯蒸汽大型矿石粉碎多方块机器。 | Large pure-steam ore-crushing multiblock with up to 64 parallel operations. |
-| 固定 7×7×9 圆筒与钻头结构；每次配方耗时 600 tick、消耗 2,400 mB 蒸汽。 | Fixed 7×7×9 cylinder-and-drill structure; each recipe operation takes 600 ticks and 2,400 mB of steam. |
+| 固定 7×7×9 圆筒与钻头结构；每次配方耗时 600 tick、消耗 120,000 mB 蒸汽。 | Fixed 7×7×9 cylinder-and-drill structure; each recipe operation takes 600 ticks and 120,000 mB of steam. |
 | 警告：蒸汽排气会严重灼伤排气口前方的生物；按住 Shift 查看详情。 | Warning: steam exhaust can severely burn entities in front of the vent; hold Shift for details. |
 
 - 按住 Shift 时，大型蒸汽粉碎机在上述机器名称下依次显示：
@@ -142,7 +142,7 @@ D G D
 | 结构 | 中心轴固定使用 4 个青铜管道方块和 5 个蒸汽碾磨方块；钻头其余 40 个位置固定使用青铜蒸汽机械方块。 | The center shaft requires four Bronze Pipe Casings and five Steam Grinding Blocks; the other 40 drill positions require Bronze Steam Machine Casings. |
 | 结构 | 必须且只能安装 1 个物品输入总线和 1 个蒸汽排气仓；物品输出总线与蒸汽供给仓均至少 1 个，二者数量之和最多为 15 个，以保证圆筒至少保留 110 个青铜蒸汽机械方块。 | Requires exactly one item input bus and one Steam Exhaust Hatch; at least one item output bus and one Steam Supply Hatch are required, with at most 15 combined so the cylinder retains at least 110 Bronze Steam Machine Casings. |
 | 加工与蒸汽 | 只执行矿石粉碎配方；每批只处理同一种配方，最高 64 并行，固定耗时 600 tick。 | Runs ore-crushing recipes only; each batch uses one recipe at up to 64 parallel operations and always takes 600 ticks. |
-| 加工与蒸汽 | 每次配方消耗 2,400 mB 标准蒸汽；实际并行为 P 时需要 4 × P mB/t，多供给仓不会提高并行或效率。 | Each recipe operation consumes 2,400 mB of standard steam; a batch at parallel P requires 4 × P mB/t, and extra supply hatches do not increase parallel or efficiency. |
+| 加工与蒸汽 | 每次配方消耗 120,000 mB 标准蒸汽；实际并行为 P 时需要 200 × P mB/t，多供给仓不会提高并行或效率。 | Each recipe operation consumes 120,000 mB of standard steam; a batch at parallel P requires 200 × P mB/t, and extra supply hatches do not increase parallel or efficiency. |
 | 加工与蒸汽 | 启动前按全部概率产物成功的最坏情况检查全部输出总线；不能完整容纳时降低并行或保持待机，绝不销毁产物。 | All output buses are checked before startup as if every chanced output succeeds; parallel is reduced or the machine stays idle if everything cannot fit, and outputs are never voided. |
 | 控制与状态 | 只接受 GTCEu 标准蒸汽，不接受 EU；兼容电力时代或 ME 总线只提供物品物流。 | Accepts GTCEu standard steam only, never EU; compatible electric-tier or ME buses provide item logistics only. |
 | 控制与状态 | 排气仓正前方连续 3 格必须为空气；受阻时停止取汽并冻结原进度，不执行缺汽的 1 tick 回退。 | The three blocks directly in front of the Steam Exhaust Hatch must be air; blockage stops steam consumption and freezes progress without the 1-tick steam-shortage rollback. |
@@ -192,9 +192,9 @@ D G D
 
 ## 蒸汽消耗
 
-- 两台机器都按 `2 mB GTCEu 标准蒸汽 = 1 EU` 换算矿石粉碎配方的 `1,200 EU` 蒸汽等效总能量，因此每次配方固定消耗 `2,400 mB` 蒸汽。
+- 两台机器的蒸汽经济按用户 20260908 定案大幅上调（×50）：每并行固定 `200 mB/t`，每次配方（600 tick）固定消耗 `120,000 mB` 蒸汽——以重蒸汽溢价承载矿石主产物 `4×` 的高价值产出，并与锅炉房（青铜 `6,000` / 钢 `13,500` mB/t）的产能档位对齐。
 - 大型蒸汽粉碎机不提供单位配方蒸汽效率加成。
-- 实际并行为 `P` 时，批次总耗汽为 `2,400 × P mB`；在固定 `600 tick` 内线性消耗时，每刻需求为 `4 × P mB/t`。
+- 实际并行为 `P` 时，批次总耗汽为 `120,000 × P mB`；在固定 `600 tick` 内线性消耗时，每刻需求为 `200 × P mB/t`（小型满并行 `1,600 mB/t` 需 2 供给仓，大型满并行 `12,800 mB/t` 需 11 供给仓）。
 - 只有本 tick 的完整蒸汽需求能够取得时才能推进进度，不允许以较少供汽降低运行速度。
 - 大型蒸汽粉碎机存在多个蒸汽供给仓时，结构收集后按方块坐标形成稳定取汽顺序，并以该顺序为本 tick 的完整需求生成跨仓分配计划。
 - 只有全部供给仓合计能够满足本 tick 完整需求时才执行实际扣取；合计不足时不从任何仓扣取蒸汽。模拟成功后的提交必须复用同一来源顺序和分配量，不能重新排序或重新计算。
@@ -280,7 +280,7 @@ D G D
 - 进度显示一位小数百分比和精确 tick 数，格式为 `45.0%（270 / 600 tick）`。完成后尚未成功写出产物时固定显示 `100.0%（600 / 600 tick）`，不能因重试输出而回到 `0%`。
 - 并行显示格式为 `本批实际并行 / 固定上限`，例如蒸汽粉碎机满并行为 `8 / 8`，大型蒸汽粉碎机部分并行为 `37 / 64`。没有已启动批次时，实际并行显示 `—`，上限仍显示对应机器的 `8` 或 `64`。
 - 蒸汽显示结构内全部供给仓的 `合计存量 / 合计容量`，单位为 `mB`，数值使用千位分隔。结构未成型且当前无法取得合法供给仓集合时显示 `—`，不沿用上一次成型时的缓存容量冒充当前值。
-- 已启动且尚未完成的批次始终显示其锁定每刻需求 `4 × P mB/t`。只有处于“运行中”且本 tick 已成功原子取汽时，该值表示当前实际消耗；主动暂停、蒸汽不足、排气受阻或结构未成型时仍显示锁定需求，并追加本地化说明“当前未消耗”。这几种状态不能改显为 `0 mB/t`，以免隐藏恢复运行所需的真实供汽能力。
+- 已启动且尚未完成的批次始终显示其锁定每刻需求 `200 × P mB/t`。只有处于“运行中”且本 tick 已成功原子取汽时，该值表示当前实际消耗；主动暂停、蒸汽不足、排气受阻或结构未成型时仍显示锁定需求，并追加本地化说明“当前未消耗”。这几种状态不能改显为 `0 mB/t`，以免隐藏恢复运行所需的真实供汽能力。
 - “输出堵塞”对应的批次已经完成，不再需要蒸汽，因此每刻需求显示 `0 mB/t`。待输出行显示 `物品总数（种类数种）`，例如 `128（3 种）`；悬浮该值时按控制器中持久化列表的稳定顺序完整列出每种物品的本地化名称与数量。
 - 待输出列表只是只读显示，生成悬浮文本时不能重新判定副产物、重新合并产物或触发任何输出尝试。物品总数按所有堆叠数量求和，种类数按物品 ID 与组件数据完全相同的可合并物品计算。
 - 主状态使用文字颜色区分：结构未成型、蒸汽排气受阻和输出堵塞为红色；主动暂停和蒸汽不足为黄色；运行中为绿色；待机 / 无可用配方为灰色。状态不能只靠颜色区分，始终同时显示完整本地化文字。
@@ -512,7 +512,7 @@ W . . . . . W
 - 剩余 `127` 个 `W` 位置统一允许使用青铜蒸汽机械方块、兼容物品输入总线、兼容物品输出总线、本模组蒸汽供给仓或蒸汽排气仓，不按底座、层数、方向或圆环位置设置不同的替换资格。
 - 物品输入总线总数必须且只能为 `1` 个。该位置可以使用蒸汽时代物品输入总线、电力时代兼容物品输入总线，或安装 AE2 与对应 GTCEu 集成时可用的兼容 ME 物品输入总线；同时安装两种或更多输入总线不能成型。
 - 物品输出总线总数至少为 `1` 个。普通、电力时代与兼容 ME 物品输出总线可以混合安装，全部计入同一个输出总线数量，并与蒸汽供给仓共同受下述合计上限约束。
-- 蒸汽供给仓至少安装 `1` 个。多个供给仓可以共同提供实际已储存的 GTCEu 标准蒸汽，但不会提高或改变固定 `64` 并行、`600 tick` 处理时间、单位配方产物、`2,400 mB/次` 耗汽或任何工作强度规则；其数量与物品输出总线共同受下述合计上限约束。
+- 蒸汽供给仓至少安装 `1` 个。多个供给仓可以共同提供实际已储存的 GTCEu 标准蒸汽，但不会提高或改变固定 `64` 并行、`600 tick` 处理时间、单位配方产物、`120,000 mB/次` 耗汽或任何工作强度规则；其数量与物品输出总线共同受下述合计上限约束。
 - 圆筒的 `127` 个 `W` 位置中，至少 `110` 个必须使用青铜蒸汽机械方块，因此全部接口合计最多为 `17` 个。扣除必须且只能安装的 `1` 个物品输入总线和 `1` 个蒸汽排气仓后，若物品输出总线数为 `O`、蒸汽供给仓数为 `S`，则必须同时满足 `O >= 1`、`S >= 1` 和 `O + S <= 15`。`15` 是两类接口的合计上限，不是各自的独立上限。
 - 上述最低 `110` 个青铜蒸汽机械方块只统计圆筒的 `W` 位置；钻头中固定的 `40` 个青铜蒸汽机械方块以及中心轴、控制器和蒸汽碾磨方块均不计入该数量。
 - [蒸汽排气仓](large-heat-storage-steam-furnace.md#蒸汽排气仓注册与配方)必须且只能安装 `1` 个；缺少或安装多个时结构不能成型。
