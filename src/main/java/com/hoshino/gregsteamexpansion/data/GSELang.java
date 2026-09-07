@@ -202,6 +202,40 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_compressor.tooltip.details.9",
                 "All three difficulty tiers behave identically.");
 
+        // 大型蒸汽洗矿厂 / Large Steam Ore Washer (large-steam-ore-washer.md).
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.summary.0",
+                "Pure-steam ore washer multiblock running ALL gtceu:ore_washer recipes at up to 64 parallel operations.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.summary.1",
+                "Fixed 11\u00d711\u00d76 structure; each recipe takes 1.5\u00d7 its base duration and 2 mB of steam per EU.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.summary.2",
+                "Hold Shift for the full structure and operating rules.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle",
+                "Structure");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.0",
+                "Fixed 11\u00d711\u00d76 hollow shell: edges are industrial steam machine casings (96 incl. the front-bottom-centre controller), the top face is any glass (81), walls and floor are steam machine casings (225).");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.1",
+                "Layer 2 interior carries a 17-block Steam Mixing Block cross (central row + central column); it is structure-only and grants no bonuses.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.2",
+                "Hatches replace ONLY wall/floor steam machine casing positions: at least 1 item input bus, 1 item output bus, 1 steam supply hatch, 1 GTCEu standard fluid input hatch and exactly 1 steam exhaust hatch, at most 20 hatches in total.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle2",
+                "Processing & Steam");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.3",
+                "Runs every gtceu:ore_washer recipe (standard, fast, distilled, dirty/pure dust washing); one recipe per batch, up to 64 parallel, duration = base \u00d7 1.5 (rounded up); circuits enter through the item input bus.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.4",
+                "Recipes above LV voltage are rejected. Each batch consumes recipe EU/t \u00d7 duration \u00d7 2 mB of standard steam; demand scales linearly with parallel (full 64-parallel standard washing needs \u22652 supply hatches and \u22654 fluid input hatches).");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.5",
+                "Water enters ONLY through GTCEu standard fluid input hatches; the mod's steam fluid hatches are forbidden anywhere in the structure.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.6",
+                "The steam exhaust hatch must face open air (3 blocks straight ahead); an obstructed exhaust freezes progress and vents nothing until cleared, and venting deals heat damage on its cycle.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle3",
+                "Control & Status");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.7",
+                "The last successful recipe is preferred; active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.8",
+                "Removing the controller drops only pending outputs and loses the recipe preference; the controller holds no internal item or water storage.");
+        add("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.9",
+                "All three difficulty tiers behave identically.");
+
         // 蒸汽提取机 / Steam Extractor (steam-extractor.md).
         add("gregsteamexpansion.machine.steam_extractor.tooltip.summary.0",
                 "Pure-steam extractor multiblock running full extractor recipes at up to 8 parallel operations.");

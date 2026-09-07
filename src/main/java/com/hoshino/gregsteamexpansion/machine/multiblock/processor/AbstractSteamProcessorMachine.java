@@ -31,6 +31,8 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachin
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
@@ -144,6 +146,16 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     private final List<ItemBusPartMachine> outputBuses = new ArrayList<>();
     /** Fluid output hatches (GTCEu standard or the mod's steam fluid hatch). */
     private final List<FluidHatchPartMachine> fluidOutputHatches = new ArrayList<>();
+    /** GTCEu standard fluid input hatches (water inlet for the ore washer). */
+    private final List<FluidHatchPartMachine> fluidInputHatches = new ArrayList<>();
+    /** The mod's steam fluid hatches wherever they appear (tracked for the forbid check). */
+    private final List<FluidHatchPartMachine> steamFluidHatches = new ArrayList<>();
+    /** Steam exhaust hatch (large machines; at most one per structure). */
+    private final List<SteamExhaustHatchMachine> exhaustHatches = new ArrayList<>();
+    /** Whether the exhaust channel is obstructed this tick (freeze, no rollback). */
+    private boolean exhaustBlocked = false;
+    private int exhaustFeedbackTimer = 0;
+    private long exhaustDamageTimer = 0;
     /** False when the post-formation interface count rules failed. */
     private boolean interfaceCountsValid = true;
     private boolean waitingForSteam = false;
@@ -197,6 +209,41 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return false;
     }
 
+    /**
+     * Whether the recipe type needs a fluid input slot, making at least one
+     * GTCEu STANDARD fluid input hatch a formation requirement (ore washer
+     * 议题 3: water enters only through standard hatches).
+     */
+    protected boolean requiresFluidInput() {
+        return false;
+    }
+
+    /**
+     * Whether the mod's steam fluid input/output hatches are admissible in the
+     * structure at all. Default true — the light-family patterns simply have
+     * no fluid hatch slots; the ore washer returns false (议题 3 约束禁止).
+     */
+    protected boolean allowsSteamFluidHatches() {
+        return true;
+    }
+
+    /**
+     * Whether the structure requires exactly one Steam Exhaust Hatch (large
+     * machines). Default false — the light family bans it outright
+     * (2026-09-07 全模组裁定).
+     */
+    protected boolean requiresExhaustHatch() {
+        return false;
+    }
+
+    /**
+     * True when exhaust feedback pulses and the heat-damage cycle apply while
+     * steam is actually consumed (large-crusher / ore-washer precedent).
+     */
+    protected boolean hasExhaustHazard() {
+        return false;
+    }
+
     //////////////////////////////////////
     // ***** Pattern ******//
     //////////////////////////////////////
@@ -243,6 +290,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         inputBuses.clear();
         outputBuses.clear();
         fluidOutputHatches.clear();
+        fluidInputHatches.clear();
+        steamFluidHatches.clear();
+        exhaustHatches.clear();
+        exhaustBlocked = false;
         capabilitiesProxy.clear();
         capabilitiesFlat.clear();
         updateWorkingAppearance();
@@ -261,8 +312,19 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (requiresFluidOutput() && fluidOutputHatches.size() < 1) {
             return false;
         }
+        if (requiresFluidInput() && fluidInputHatches.size() < 1) {
+            return false;
+        }
+        if (!allowsSteamFluidHatches() && !steamFluidHatches.isEmpty()) {
+            // 议题 3 约束: steam fluid hatches must never appear in the structure.
+            return false;
+        }
+        if (requiresExhaustHatch() && exhaustHatches.size() != 1) {
+            // 大型机排气仓规则: 必须且只能 1 个 (成型后复核口径).
+            return false;
+        }
         int interfaces = inputBuses.size() + outputBuses.size() + supplyHatches.size()
-                + fluidOutputHatches.size();
+                + fluidOutputHatches.size() + fluidInputHatches.size() + exhaustHatches.size();
         return interfaces <= maximumInterfaces();
     }
 
@@ -289,13 +351,23 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 } else {
                     inputBuses.add(bus);
                 }
-            } else if (part instanceof FluidHatchPartMachine fluidHatch
-                    && fluidHatch.tank.handlerIO == IO.OUT) {
-                // Covers both the GTCEu standard fluid output hatch and the
-                // mod's steam fluid output hatch (steam-extractor.md 议题 4:
-                // 二者可选或混用); the steam supply hatch is IO.IN and cannot
-                // land here.
-                fluidOutputHatches.add(fluidHatch);
+            } else if (part instanceof SteamFluidHatchPartMachine steamFluidHatch) {
+                // The mod's steam fluid hatch — tracked separately so machines
+                // that forbid it (ore washer 议题 3) can reject the structure.
+                steamFluidHatches.add(steamFluidHatch);
+            } else if (part instanceof FluidHatchPartMachine fluidHatch) {
+                if (fluidHatch.tank.handlerIO == IO.OUT) {
+                    // Covers both the GTCEu standard fluid output hatch and the
+                    // mod's steam fluid output hatch (steam-extractor.md 议题 4:
+                    // 二者可选或混用); the steam supply hatch is IO.IN and cannot
+                    // land here.
+                    fluidOutputHatches.add(fluidHatch);
+                } else {
+                    // GTCEu standard fluid input hatch (water inlet).
+                    fluidInputHatches.add(fluidHatch);
+                }
+            } else if (part instanceof SteamExhaustHatchMachine exhaustHatch) {
+                exhaustHatches.add(exhaustHatch);
             }
         }
         // Stable orders (粉碎机家族口径): supply hatches and buses by block
@@ -306,6 +378,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 .thenComparing(bus -> bus.self().getPos()));
         inputBuses.sort(Comparator.comparing(bus -> bus.self().getPos()));
         fluidOutputHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
+        fluidInputHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
+        steamFluidHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
+        exhaustHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
     }
 
     /** ME parts are detected by definition id; AE2 classes are never loaded. */
@@ -361,6 +436,16 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return;
         }
 
+        // 排气受阻 (large machines): freeze progress WITHOUT the steam-shortage
+        // 1-tick rollback, no steam withdrawn (议题 5/8 排气受阻与缺汽明确区分).
+        exhaustBlocked = requiresExhaustHatch() && !exhaustHatches.isEmpty()
+                && exhaustHatches.get(0).isExhaustBlocked();
+        if (exhaustBlocked) {
+            lastTickConsumedSteam = false;
+            updateWorkingAppearance();
+            return;
+        }
+
         if (hasBatch) {
             runBatchTick();
         } else {
@@ -389,8 +474,25 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         }
         lastTickConsumedSteam = true;
         batchProgress++;
+        if (hasExhaustHazard() && !exhaustHatches.isEmpty()) {
+            runExhaustCycles(exhaustHatches.get(0));
+        }
         if (batchProgress >= batchDurationTicks) {
             completeBatch();
+        }
+    }
+
+    /** Exhaust feedback pulse every 20 running ticks + 200-tick damage cycle. */
+    private void runExhaustCycles(SteamExhaustHatchMachine exhaustHatch) {
+        exhaustFeedbackTimer++;
+        if (exhaustFeedbackTimer >= SteamExhaustHatchMachine.FEEDBACK_INTERVAL_TICKS) {
+            exhaustFeedbackTimer = 0;
+            exhaustHatch.performExhaustFeedback();
+        }
+        exhaustDamageTimer++;
+        if (exhaustDamageTimer >= SteamExhaustHatchMachine.DAMAGE_CYCLE_TICKS) {
+            exhaustDamageTimer = 0;
+            exhaustHatch.applyExhaustDamage();
         }
     }
 
@@ -971,7 +1073,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      */
     private void updateWorkingAppearance() {
         boolean active = isFormed() && interfaceCountsValid && isWorkingEnabled()
-                && !waitingForOutputs && lastTickConsumedSteam;
+                && !exhaustBlocked && !waitingForOutputs && lastTickConsumedSteam;
         var status = active ? RecipeLogic.Status.WORKING : RecipeLogic.Status.IDLE;
         var renderState = getRenderState();
         if (renderState.hasProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS)
@@ -1001,7 +1103,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             }
             workingSound = entry.playAutoReleasedSound(
                     () -> isFormed() && interfaceCountsValid && isWorkingEnabled()
-                            && !waitingForOutputs && lastTickConsumedSteam
+                            && !exhaustBlocked && !waitingForOutputs && lastTickConsumedSteam
                             && com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.machineSounds,
                     getPos(), true, 0, 1.0F, 1.0F);
         } else if (workingSound instanceof com.gregtechceu.gtceu.api.sound.AutoReleasedSound soundEntry) {
@@ -1022,7 +1124,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (!isFormed() || !interfaceCountsValid) {
             return "invalid_structure";
         }
-        if (!pendingOutputs.isEmpty()) {
+        if (requiresExhaustHatch() && exhaustBlocked) {
+            return "exhaust_obstructed";
+        }
+        if (hasPendingOutputs()) {
             return "insufficient_outputs";
         }
         if (!isWorkingEnabled()) {
@@ -1050,7 +1155,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     public ChatFormatting getStatusColor() {
         return switch (getStatusId()) {
-            case "invalid_structure", "insufficient_outputs" -> ChatFormatting.RED;
+            case "invalid_structure", "exhaust_obstructed", "insufficient_outputs" -> ChatFormatting.RED;
             case "working_disabled", "low_steam" -> ChatFormatting.YELLOW;
             case "working" -> ChatFormatting.GREEN;
             default -> ChatFormatting.GRAY;
@@ -1181,9 +1286,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return kinds.size();
     }
 
-    /** Hover list of every pending item in the persisted stable order. */
+    /** Hover list of every pending item/fluid in the persisted stable order. */
     private List<Component> pendingDetailTooltips() {
-        if (pendingOutputs.isEmpty()) {
+        if (!hasPendingOutputs()) {
             return List.of(Component.translatable(UI_PREFIX + "pending_empty").withStyle(ChatFormatting.GRAY));
         }
         List<Component> tooltips = new ArrayList<>();
@@ -1191,6 +1296,11 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         for (ItemStack stack : pendingOutputs) {
             tooltips.add(Component.literal("- " + stack.getHoverName().getString() + " × "
                     + FormattingUtil.formatNumbers(stack.getCount())).withStyle(ChatFormatting.WHITE));
+        }
+        for (FluidStack stack : pendingFluids) {
+            tooltips.add(Component.literal("- " + stack.getDisplayName().getString() + " × "
+                    + FormattingUtil.formatNumbers(stack.getAmount()) + " mB")
+                    .withStyle(ChatFormatting.WHITE));
         }
         return tooltips;
     }
@@ -1289,5 +1399,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchInputDisplay = ItemStack.EMPTY;
         pendingOutputs.clear();
         pendingFluids.clear();
+        exhaustFeedbackTimer = 0;
+        exhaustDamageTimer = 0;
+        exhaustBlocked = false;
     }
 }

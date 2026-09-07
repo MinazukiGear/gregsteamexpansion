@@ -11,6 +11,7 @@ import com.gregtechceu.gtceu.api.pattern.Predicates;
 import com.gregtechceu.gtceu.api.pattern.TraceabilityPredicate;
 import com.gregtechceu.gtceu.api.pattern.util.RelativeDirection;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
+import com.gregtechceu.gtceu.common.data.GCYMBlocks;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
@@ -220,6 +221,189 @@ public final class GSEProcessorPatterns {
                 .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
                 .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
                 .where('K', definition, Direction.NORTH)
+                .build();
+    }
+
+    /** gtceu:industrial_steam_casing — the industrial steam machine casing (棱部). */
+    public static Block industrialSteamCasing() {
+        return GCYMBlocks.CASING_INDUSTRIAL_STEAM.get();
+    }
+
+    /**
+     * 任意种类的玻璃 (large-steam-ore-washer.md 议题 4): every vanilla and
+     * GTCEu glass (plain/tempered/clean GlassBlock, stained, tinted) extends
+     * AbstractGlassBlock; add-on glasses qualify through the common
+     * {@code c:glass} item tag on the block's item.
+     */
+    private static TraceabilityPredicate anyGlass() {
+        return Predicates.custom(GSEProcessorPatterns::testGlass,
+                () -> new BlockInfo[]{new BlockInfo(Blocks.GLASS.defaultBlockState())});
+    }
+
+    private static boolean testGlass(com.gregtechceu.gtceu.api.pattern.MultiblockState state) {
+        Block block = state.getBlockState().getBlock();
+        if (block instanceof net.minecraft.world.level.block.AbstractGlassBlock) {
+            return true;
+        }
+        return block.asItem() != net.minecraft.world.item.Items.AIR
+                && block.asItem().builtInRegistryHolder().is(net.minecraft.tags.TagKey.create(
+                        net.minecraft.core.registries.Registries.ITEM,
+                        new net.minecraft.resources.ResourceLocation("c", "glass")));
+    }
+
+    /**
+     * The ore washer's candidate rule for the 225 wall/floor positions: steam
+     * machine casing with hatches as replacements. 蒸汽流体输入/输出仓 are NOT
+     * admissible (议题 3): the mod's steam fluid hatches register under
+     * GSEPartAbilities.STEAM_*_FLUIDS, never under the GTCEu IMPORT_FLUIDS
+     * ability admitted here. The 205-casing minimum bounds the hatch total at
+     * 20 (225 − 20, 议题 4 仓室上限); the exhaust hatch takes one candidate
+     * slot and is post-checked to exactly one by the controller.
+     */
+    private static TraceabilityPredicate washerCandidates() {
+        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(205)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+    }
+
+    /**
+     * 大型蒸汽洗矿厂: fixed 11×11×6 (large-steam-ore-washer.md 议题 4 逐层图).
+     * Aisle rows run back -> front, so the design's front row (row 0) is the
+     * LAST string of each aisle. Bottom layer: full 11×11 floor, edges are
+     * industrial casings and the controller sits front-edge-centre (one edge
+     * position). Layer 2 interior carries the mixing-block cross (central row
+     * + central column, 17 blocks). Layers 3-5 are hollow. The top face is
+     * glass (any glass). Interior air is STRICT air (Predicates.air).
+     */
+    public static BlockPattern createOreWasher(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle(
+                        "IIIIIIIIIII",
+                        "IBBBBBBBBBI",
+                        "IBBBBBBBBBI",
+                        "IBBBBBBBBBI",
+                        "IBBBBBBBBBI",
+                        "IBBBBBBBBBI",
+                        "IBBBBBBBBBI",
+                        "IBBBBBBBBBI",
+                        "IBBBBBBBBBI",
+                        "IBBBBBBBBBI",
+                        "IIIIICIIIII")
+                .aisle(
+                        "IBBBBBBBBBI",
+                        "BAAAAMAAAAB",
+                        "BAAAAMAAAAB",
+                        "BAAAAMAAAAB",
+                        "BAAAAMAAAAB",
+                        "BMMMMMMMMMB",
+                        "BAAAAMAAAAB",
+                        "BAAAAMAAAAB",
+                        "BAAAAMAAAAB",
+                        "BAAAAMAAAAB",
+                        "IBBBBBBBBBI")
+                .aisle(
+                        "IBBBBBBBBBI",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "IBBBBBBBBBI")
+                .aisle(
+                        "IBBBBBBBBBI",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "IBBBBBBBBBI")
+                .aisle(
+                        "IBBBBBBBBBI",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "BAAAAAAAAAB",
+                        "IBBBBBBBBBI")
+                .aisle(
+                        "IIIIIIIIIII",
+                        "IGGGGGGGGGI",
+                        "IGGGGGGGGGI",
+                        "IGGGGGGGGGI",
+                        "IGGGGGGGGGI",
+                        "IGGGGGGGGGI",
+                        "IGGGGGGGGGI",
+                        "IGGGGGGGGGI",
+                        "IGGGGGGGGGI",
+                        "IGGGGGGGGGI",
+                        "IIIIIIIIIII")
+                .where('I', Predicates.blocks(industrialSteamCasing()))
+                .where('B', washerCandidates())
+                .where('G', anyGlass())
+                .where('M', Predicates.blocks(GSEBlocks.STEAM_MIXING_BLOCK.get()))
+                .where('A', Predicates.air())
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Ore washer representative layout (large-steam-ore-washer.md 结构):
+     * minimum 5-hatch set on the layer-2 front wall (import bus, export bus,
+     * supply hatch, standard fluid input hatch, exhaust hatch left of the
+     * mixing cross's centre column). Axis convention as in
+     * {@code GSECrusherPatterns#smallShapeInfo} (layers bottom -> top, each
+     * layer's rows south -> north, chars west -> east).
+     */
+    public static MultiblockShapeInfo oreWasherShapeInfo(MultiblockMachineDefinition definition) {
+        String[][] layers = {
+                {"WWWWWWWWWWW", "WBBBBBBBBBW", "WBBBBBBBBBW", "WBBBBBBBBBW", "WBBBBBBBBBW",
+                        "WBBBBBBBBBW", "WBBBBBBBBBW", "WBBBBBBBBBW", "WBBBBBBBBBW",
+                        "WBBBBBBBBBW", "WWWWWKWWWWW"},
+                {"WBBBBBBBBBW", "BAAAAMAAAAB", "BAAAAMAAAAB", "BAAAAMAAAAB", "BAAAAMAAAAB",
+                        "BMMMMMMMMMB", "BAAAAMAAAAB", "BAAAAMAAAAB", "BAAAAMAAAAB",
+                        "BAAAAMAAAAB", "WBIOSFEBBBW"},
+                {"WBBBBBBBBBW", "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB",
+                        "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB",
+                        "BAAAAAAAAAB", "WBBBBBBBBBW"},
+                {"WBBBBBBBBBW", "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB",
+                        "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB",
+                        "BAAAAAAAAAB", "WBBBBBBBBBW"},
+                {"WBBBBBBBBBW", "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB",
+                        "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB", "BAAAAAAAAAB",
+                        "BAAAAAAAAAB", "WBBBBBBBBBW"},
+                {"WWWWWWWWWWW", "WGGGGGGGGGW", "WGGGGGGGGGW", "WGGGGGGGGGW", "WGGGGGGGGGW",
+                        "WGGGGGGGGGW", "WGGGGGGGGGW", "WGGGGGGGGGW", "WGGGGGGGGGW",
+                        "WGGGGGGGGGW", "WWWWWWWWWWW"},
+        };
+        return buildShapeInfo(layers)
+                .where('W', industrialSteamCasing())
+                .where('B', bronzeSteamCasing())
+                .where('G', Blocks.GLASS)
+                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
                 .build();
     }
 

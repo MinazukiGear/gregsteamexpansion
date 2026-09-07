@@ -10,6 +10,7 @@ import com.gregtechceu.gtceu.api.registry.registrate.MachineBuilder;
 import com.gregtechceu.gtceu.api.registry.registrate.provider.GTBlockstateProvider;
 import com.gregtechceu.gtceu.client.model.machine.overlays.WorkableOverlays;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
+import com.gregtechceu.gtceu.common.data.GCYMBlocks;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.data.machines.GTMachineUtils;
 import com.gregtechceu.gtceu.common.data.models.GTMachineModels;
@@ -24,6 +25,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCoke
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamOreWasherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCompressorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamExtractorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamForgeMachine;
@@ -297,6 +299,23 @@ public final class GSEMachines {
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.forgeShapeInfo(definition)))
             .langValue("Steam Forge")
             .tooltipBuilder(GSEMachines::steamForgeTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    /** 大型蒸汽洗矿厂 / Large Steam Ore Washer (large-steam-ore-washer.md 议题 1). */
+    public static final MultiblockMachineDefinition LARGE_STEAM_ORE_WASHER = GSERegistration.REGISTRATE
+            .multiblock("large_steam_ore_washer", LargeSteamOreWasherMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.ORE_WASHER_RECIPES)
+            .appearanceBlock(GCYMBlocks.CASING_INDUSTRIAL_STEAM)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/large_steam_ore_washer")))
+            .pattern(GSEProcessorPatterns::createOreWasher)
+            .shapeInfos(definition -> List.of(GSEProcessorPatterns.oreWasherShapeInfo(definition)))
+            .langValue("Large Steam Ore Washer")
+            .tooltipBuilder(GSEMachines::largeSteamOreWasherTooltips)
             .allowCoverOnFront(false)
             .register();
 
@@ -608,6 +627,39 @@ public final class GSEMachines {
                 .withStyle(ChatFormatting.YELLOW));
         tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.11")
                 .withStyle(ChatFormatting.YELLOW));
+    }
+
+    private static void largeSteamOreWasherTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 0; i <= 2; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 3; i <= 6; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details." + i)
+                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 7; i <= 9; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
     }
 
     private static void steamForgeTooltips(ItemStack stack, List<Component> tooltip) {

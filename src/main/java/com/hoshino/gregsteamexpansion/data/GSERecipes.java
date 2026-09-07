@@ -73,6 +73,7 @@ public final class GSERecipes {
         addSteamCompressorRecipe(provider);
         addSteamExtractorRecipe(provider);
         addSteamForgeRecipe(provider);
+        addLargeSteamOreWasherRecipe(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
@@ -235,6 +236,25 @@ public final class GSERecipes {
                         'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
                         'X', new ItemStack(Items.PISTON),
                         'G', ChemicalHelper.get(TagPrefix.gearSmall, GTMaterials.Bronze)}));
+    }
+
+    // ------------------------------------------------------------------
+    // Large Steam Ore Washer controller
+    // (large-steam-ore-washer.md 获取配方（议题 10）): 3×3 fully filled —
+    // mixing block centre (washing core), bronze rotors top/bottom (stirring
+    // drive shafts), bronze components left/right (load frame), bronze plates
+    // at the corners (shell). Four-way symmetric, crafting-table only.
+    // ------------------------------------------------------------------
+    private static void addLargeSteamOreWasherRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_ore_washer"),
+                GSEMachines.LARGE_STEAM_ORE_WASHER.asStack(),
+                new String[]{"PRP", "CSC", "PRP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'R', ChemicalHelper.get(TagPrefix.rotor, GTMaterials.Bronze),
+                        'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
+                        'S', new ItemStack(GSEBlocks.STEAM_MIXING_BLOCK.get())}));
     }
 
     // ------------------------------------------------------------------
