@@ -180,6 +180,50 @@ public final class GSEProcessorPatterns {
     }
 
     /**
+     * 蒸汽锻压机: 3×3×5 tower (steam-forge.md 议题 4 逐层图) — bottom two
+     * layers are full 3×3 (layer 2 centre holds the Steam Assembly Block as
+     * the forge-anvil core), the top three layers carry only the depth-centre
+     * hammer row (spaces are don't-care). No air gap inside the forge layers.
+     */
+    public static BlockPattern createForge(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle("BBB", "BBB", "BCB")
+                .aisle("BBB", "BMB", "BBB")
+                .aisle("   ", "BBB", "   ")
+                .aisle("   ", "BBB", "   ")
+                .aisle("   ", "BBB", "   ")
+                .where('B', shellCandidates())
+                .where('M', Predicates.blocks(GSEBlocks.STEAM_ASSEMBLY_BLOCK.get()))
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Forge representative layout (steam-forge.md 结构): controller
+     * front-bottom-centre, input/output buses beside it, steam supply hatch on
+     * the top hammer row centre. Spaces bake as air in the preview. Axis
+     * convention as in {@code GSECrusherPatterns#smallShapeInfo} (layers
+     * bottom -> top, each 3 rows south -> north, chars west -> east).
+     */
+    public static MultiblockShapeInfo forgeShapeInfo(MultiblockMachineDefinition definition) {
+        String[][] layers = {
+                {"BBB", "BBB", "IKO"},
+                {"BBB", "BMB", "BBB"},
+                {"   ", "BBB", "   "},
+                {"   ", "BBB", "   "},
+                {"   ", "BSB", "   "},
+        };
+        return buildShapeInfo(layers)
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('K', definition, Direction.NORTH)
+                .build();
+    }
+
+    /**
      * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
      * coordinates, keeping the controller on the north (z = 0) wall.
      */

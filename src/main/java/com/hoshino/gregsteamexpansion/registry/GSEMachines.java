@@ -26,6 +26,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrush
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCompressorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamExtractorMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamForgeMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
@@ -279,6 +280,23 @@ public final class GSEMachines {
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.extractorShapeInfo(definition)))
             .langValue("Steam Extractor")
             .tooltipBuilder(GSEMachines::steamExtractorTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    /** 蒸汽锻压机 / Steam Forge (steam-forge.md 议题 1). */
+    public static final MultiblockMachineDefinition STEAM_FORGE = GSERegistration.REGISTRATE
+            .multiblock("steam_forge", SteamForgeMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.FORGE_HAMMER_RECIPES)
+            .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/steam_forge")))
+            .pattern(GSEProcessorPatterns::createForge)
+            .shapeInfos(definition -> List.of(GSEProcessorPatterns.forgeShapeInfo(definition)))
+            .langValue("Steam Forge")
+            .tooltipBuilder(GSEMachines::steamForgeTooltips)
             .allowCoverOnFront(false)
             .register();
 
@@ -589,6 +607,42 @@ public final class GSEMachines {
         tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.10")
                 .withStyle(ChatFormatting.YELLOW));
         tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.11")
+                .withStyle(ChatFormatting.YELLOW));
+    }
+
+    private static void steamForgeTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.2")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.3")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.4")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.5")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.6")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.7")
+                .withStyle(ChatFormatting.YELLOW));
+        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.8")
                 .withStyle(ChatFormatting.YELLOW));
     }
 

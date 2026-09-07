@@ -231,6 +231,35 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_extractor.tooltip.details.8",
                 "All three difficulty tiers behave identically.");
 
+        // 蒸汽锻压机 / Steam Forge (steam-forge.md).
+        add("gregsteamexpansion.machine.steam_forge.tooltip.summary.0",
+                "Pure-steam forge multiblock running full forge hammer recipes (ORE_FORGING included) at up to 8 parallel operations.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.summary.1",
+                "Fixed 3\u00d73\u00d75 structure; each recipe takes 1.5\u00d7 its base duration and 2 mB of steam per EU.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.summary.2",
+                "Hold Shift for full structure and operating rules.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle", "Structure");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.0",
+                "3 wide \u00d7 3 deep \u00d7 5 tall; the bottom two layers are full 3\u00d73 floors with a Steam Assembly Block at the layer-2 centre (the forge-anvil core), and the top three layers carry only the depth-centre hammer row.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.1",
+                "Requires at least one steam item input bus, one steam item output bus and one Steam Supply Hatch, with at most 8 buses and hatches combined; the other candidate positions use Bronze Steam Machine Casings.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle2", "Processing and Steam");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.2",
+                "Runs gtceu:forge_hammer recipes only; each batch uses one recipe at up to 8 parallel operations with duration ceil(base \u00d7 1.5).");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.3",
+                "Recipes above LV voltage are rejected. Each operation consumes recipe EU/t \u00d7 duration \u00d7 2 mB of standard steam, and parallel scales steam demand linearly.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.4",
+                "Output is checked before startup as if every chanced output succeeds; parallel is reduced or the machine stays idle if everything cannot fit, and outputs are never voided.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle3", "Control and Status");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.5",
+                "Accepts GTCEu standard steam only, never EU; pure dry type with no fluid hatches and no Steam Exhaust Hatch.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.6",
+                "The last successful recipe is preferred; active pause freezes progress; loss of steam or structure rolls an active batch back to 1 tick.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.7",
+                "Removing or destroying the controller permanently clears its batch, pending outputs and recipe preference; the piston and gear installed during crafting are not returned.");
+        add("gregsteamexpansion.machine.steam_forge.tooltip.details.8",
+                "All three difficulty tiers behave identically.");
+
         // Shared light-processor controller GUI info-page labels
         // (steam-compressor.md 议题 9 沿用粉碎机骨架).
         add("gregsteamexpansion.machine.steam_processor.ui.status", "Status");

@@ -394,5 +394,21 @@
   "gregsteamexpansion.machine.steam_extractor.tooltip.details.6": "只接受 GTCEu 标准蒸汽，不接受 EU；不允许流体输入仓，不需要也不允许安装蒸汽排气仓。",
   "gregsteamexpansion.machine.steam_extractor.tooltip.details.7": "拆除或破坏控制器会永久清除批次、待输出结果与偏好配方；待输出物品掉落，流体丢失。",
   "gregsteamexpansion.machine.steam_extractor.tooltip.details.8": "三档工作强度行为完全相同。",
-  "gregsteamexpansion.jade.steam_processor.pending_fluid": "待输出流体：%s mB（%s 种）"
+  "gregsteamexpansion.jade.steam_processor.pending_fluid": "待输出流体：%s mB（%s 种）",
+  "block.gregsteamexpansion.steam_forge": "蒸汽锻压机",
+  "gregsteamexpansion.machine.steam_forge.tooltip.summary.0": "最高 8 并行的纯蒸汽锻压多方块机器，执行全部锻压配方（含矿石锻碎路线）。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.summary.1": "固定 3×3×5 结构；每次配方耗时为基准的 1.5 倍，每 EU 消耗 2 mB 蒸汽。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.summary.2": "按住 Shift 查看完整结构与运行规则。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle": "结构",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.0": "宽 3 × 深 3 × 高 5；底两层为完整 3×3（第 2 层中央为蒸汽装配方块，锻打工位核心），上三层仅保留深度正中的锻锤行。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.1": "至少需要 1 个蒸汽物品输入总线、1 个蒸汽物品输出总线和 1 个蒸汽供给仓，合计最多 8 个；其余候选位置使用青铜蒸汽机械方块。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle2": "加工与蒸汽",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.2": "只执行 gtceu:forge_hammer 配方；每批只处理同一种配方，最高 8 并行，耗时为基准耗时的 1.5 倍（向上取整）。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.3": "高于 LV 电压的配方被拒绝。每次配方消耗 配方 EU/t × 耗时 × 2 mB 标准蒸汽，蒸汽需求随并行线性放大。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.4": "启动前按全部概率产物成功的最坏情况检查输出；不能完整容纳时降低并行或保持待机，绝不销毁产物。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle3": "控制与状态",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.5": "只接受 GTCEu 标准蒸汽，不接受 EU；纯干式类型，不允许流体仓，不需要也不允许安装蒸汽排气仓。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.6": "优先使用最近成功配方；主动暂停冻结原进度；缺汽或结构失效会把已启动批次回退至 1 tick。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.7": "拆除或破坏控制器会永久清除批次、待输出物品与偏好配方；合成时装入的活塞与小齿轮不会返还。",
+  "gregsteamexpansion.machine.steam_forge.tooltip.details.8": "三档工作强度行为完全相同。"
 }

@@ -72,6 +72,7 @@ public final class GSERecipes {
         addSteamCrusherRecipes(provider);
         addSteamCompressorRecipe(provider);
         addSteamExtractorRecipe(provider);
+        addSteamForgeRecipe(provider);
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
@@ -252,6 +253,26 @@ public final class GSERecipes {
                 new Object[]{
                         'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
                         'T', GTBlocks.CASING_BRONZE_PIPE.asStack(),
+                        'G', ChemicalHelper.get(TagPrefix.gearSmall, GTMaterials.Bronze)}));
+    }
+
+    // ------------------------------------------------------------------
+    // Steam Forge controller
+    // (steam-forge.md 获取配方（议题 10）): bronze plate ×7 wrapping a vanilla
+    // piston core (forge semantics, centred) and a small bronze gear drive at
+    // the TOP centre — gear position moved up versus the compressor recipe so
+    // the two share no identical 3×3 input (配方重合修正). Horizontally
+    // symmetric, so the vanilla shaped serializer suffices.
+    // ------------------------------------------------------------------
+
+    private static void addSteamForgeRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/steam_forge"),
+                GSEMachines.STEAM_FORGE.asStack(),
+                new String[]{"PGP", "PXP", "PPP"},
+                new Object[]{
+                        'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                        'X', new ItemStack(Items.PISTON),
                         'G', ChemicalHelper.get(TagPrefix.gearSmall, GTMaterials.Bronze)}));
     }
 

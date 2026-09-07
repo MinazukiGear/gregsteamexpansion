@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "G": {
+      "item": "gtceu:small_bronze_gear"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "X": {
+      "item": "minecraft:piston"
+    }
+  },
+  "pattern": [
+    "PGP",
+    "PXP",
+    "PPP"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:steam_forge"
+  }
+}
