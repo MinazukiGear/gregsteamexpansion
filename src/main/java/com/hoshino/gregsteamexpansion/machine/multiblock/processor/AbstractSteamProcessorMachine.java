@@ -355,6 +355,17 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 // The mod's steam fluid hatch — tracked separately so machines
                 // that forbid it (ore washer 议题 3) can reject the structure.
                 steamFluidHatches.add(steamFluidHatch);
+                if (allowsSteamFluidHatches()) {
+                    // B4/C0 口径 (可选或混用): steam fluid hatches count as
+                    // regular fluid interfaces on the side their tank faces,
+                    // so the requiresFluidInput/Output re-check and the
+                    // interface total below treat both families equally.
+                    if (steamFluidHatch.tank.handlerIO == IO.OUT) {
+                        fluidOutputHatches.add(steamFluidHatch);
+                    } else {
+                        fluidInputHatches.add(steamFluidHatch);
+                    }
+                }
             } else if (part instanceof FluidHatchPartMachine fluidHatch) {
                 if (fluidHatch.tank.handlerIO == IO.OUT) {
                     // Covers both the GTCEu standard fluid output hatch and the

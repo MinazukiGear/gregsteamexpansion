@@ -141,6 +141,21 @@ public final class GSEProcessorPatterns {
     }
 
     /**
+     * The extractor's candidate rule for the 24 shell positions: the family
+     * shell rule plus BOTH fluid output hatch families — the GTCEu standard
+     * output hatch ({@code EXPORT_FLUIDS}) and the mod's steam fluid output
+     * hatch ({@code GSEPartAbilities.STEAM_EXPORT_FLUIDS}) — per
+     * steam-extractor.md 议题 4 仓室表 (GTCEu 标准输出仓或本模组蒸汽流体输出仓,
+     * 可选或混用). Without these abilities the required fluid output hatch
+     * could never be part of the structure at all.
+     */
+    private static TraceabilityPredicate extractorCandidates() {
+        return shellCandidates()
+                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS));
+    }
+
+    /**
      * 蒸汽提取机: fixed 3×3×3 (steam-extractor.md 议题 4 逐层图) — bottom layer
      * carries the front-centre controller, the structure's single inner cell
      * (centre of the middle layer) is one bronze pipe casing, no air gap.
@@ -150,7 +165,7 @@ public final class GSEProcessorPatterns {
                 .aisle("BBB", "BBB", "BCB")
                 .aisle("BBB", "BPB", "BBB")
                 .aisle("BBB", "BBB", "BBB")
-                .where('B', shellCandidates())
+                .where('B', extractorCandidates())
                 .where('P', Predicates.blocks(bronzePipeCasing()))
                 .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
                 .build();
@@ -686,6 +701,113 @@ public final class GSEProcessorPatterns {
                 .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
                 .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
                 .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    /**
+     * The mixer's candidate rule for the 48 wall steam-machine-casing
+     * positions (large-steam-mixer.md 议题 4): the widest fluid interface of
+     * the family — BOTH families of fluid input AND output hatches are
+     * admissible (议题 4 仓室表: GTCEu 标准仓或本模组蒸汽流体仓, 可选或混用,
+     * B4/C0 口径). The 32-casing minimum bounds the hatch total (incl. the
+     * exhaust hatch) at 16 (48 − 32, 议题 4 仓室合计上限); the exhaust hatch
+     * takes one candidate slot and is post-checked to exactly one by the
+     * controller.
+     */
+    private static TraceabilityPredicate mixerCandidates() {
+        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(32)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
+                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+    }
+
+    /**
+     * 大型蒸汽搅拌机: fixed 7×5×5 (large-steam-mixer.md 议题 4 逐层图). Aisle
+     * rows run back -> front, so the design's front row is the LAST string of
+     * each aisle. Bottom and top layers are full industrial casings (the
+     * controller sits front-bottom-centre inside the bottom industrial band);
+     * the three middle layers carry industrial vertical-edge columns and
+     * steam-machine-casing walls (16 per layer, hatch-replaceable) around the
+     * 5×3×3 interior with the mixing cross: axis column layers 2-4 centres +
+     * the equidistant impeller cross on layer 3 (arms at x=3/5 and z=2/4, all
+     * four adjacent to the hub). Interior air is STRICT air (Predicates.air).
+     */
+    public static BlockPattern createMixer(MultiblockMachineDefinition definition) {
+        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle( // layer 1 (bottom band, controller front-centre)
+                        "IIIIIII",
+                        "IIIIIII",
+                        "IIIIIII",
+                        "IIIIIII",
+                        "IIICIII")
+                .aisle( // layer 2 (axis root)
+                        "IBBBBBI",
+                        "BAAAAB",
+                        "BAAMAAB",
+                        "BAAAAB",
+                        "IBBBBBI")
+                .aisle( // layer 3 (impeller cross)
+                        "IBBBBBI",
+                        "BAAMAAB",
+                        "BAMMMAB",
+                        "BAAMAAB",
+                        "IBBBBBI")
+                .aisle( // layer 4 (axis top)
+                        "IBBBBBI",
+                        "BAAAAB",
+                        "BAAMAAB",
+                        "BAAAAB",
+                        "IBBBBBI")
+                .aisle( // layer 5 (top band)
+                        "IIIIIII",
+                        "IIIIIII",
+                        "IIIIIII",
+                        "IIIIIII",
+                        "IIIIIII")
+                .where('I', Predicates.blocks(industrialSteamCasing()))
+                .where('B', mixerCandidates())
+                .where('M', Predicates.blocks(GSEBlocks.STEAM_MIXING_BLOCK.get()))
+                .where('A', Predicates.air())
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Mixer representative layout (large-steam-mixer.md 结构): minimum
+     * 6-hatch set on the wall layers (import bus, export bus, steam supply
+     * hatch, exhaust hatch and a standard fluid import hatch on the layer-2
+     * front wall; a standard fluid export hatch on the layer-4 front wall —
+     * both fluid hatch families are admissible per 议题 4). Axis convention
+     * as in {@code GSECrusherPatterns#smallShapeInfo} (layers bottom -> top,
+     * each layer's rows back -> front, chars west -> east).
+     */
+    public static MultiblockShapeInfo mixerShapeInfo(MultiblockMachineDefinition definition) {
+        String[][] layers = {
+                {"IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIICIII"},
+                {"IBBBBBI", "BAAAAB", "BAAMAAB", "BAAAAB", "IJOSEFI"},
+                {"IBBBBBI", "BAAMAAB", "BAMMMAB", "BAAMAAB", "IBBBBBI"},
+                {"IBBBBBI", "BAAAAB", "BAAMAAB", "BAAAAB", "IGBBBBI"},
+                {"IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII"},
+        };
+        return buildShapeInfo(layers)
+                .where('I', industrialSteamCasing())
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('G', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
                 .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
                 .build();
     }
