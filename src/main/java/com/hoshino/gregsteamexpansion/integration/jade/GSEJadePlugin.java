@@ -198,6 +198,13 @@ public final class GSEJadePlugin implements IWailaPlugin {
             data.putInt("pendingKinds", processor.getPendingKinds());
             data.putLong("pendingFluidTotal", processor.getPendingFluidTotal());
             data.putInt("pendingFluidKinds", processor.getPendingFluidKinds());
+            // 议题 12: 进气室状态与缓存 (仅接受进气室的机型会带出非空状态 id).
+            data.putBoolean("hasIntake", processor.hasAirIntake());
+            if (processor.hasAirIntake()) {
+                data.putString("intakeStatusId", processor.getAirIntakeStatusId());
+                data.putLong("intakeStored", processor.getAirIntakeStored());
+                data.putLong("intakeCapacity", processor.getAirIntakeCapacity());
+            }
             serverData.put(DATA_KEY, data);
         }
 
@@ -230,6 +237,14 @@ public final class GSEJadePlugin implements IWailaPlugin {
             if (data.contains("pendingFluidTotal") && data.getLong("pendingFluidTotal") > 0) {
                 tooltip.add(line("pending_fluid", FormattingUtil.formatNumbers(data.getLong("pendingFluidTotal")),
                         String.valueOf(data.getInt("pendingFluidKinds"))));
+            }
+            if (data.getBoolean("hasIntake")) {
+                // 议题 12: 与控制器 GUI 同源 — 状态 id 复用进气室自有文本.
+                tooltip.add(line("intake", Component.translatable(
+                                "gregsteamexpansion.machine.steam_air_intake_hatch.status."
+                                        + data.getString("intakeStatusId")),
+                        FormattingUtil.formatNumbers(data.getLong("intakeStored")),
+                        FormattingUtil.formatNumbers(data.getLong("intakeCapacity"))));
             }
         }
 

@@ -646,6 +646,10 @@ public final class GSEMachines {
                     "gregsteamexpansion.machine.steam_centrifuge.tooltip.details." + i)
                     .withStyle(ChatFormatting.GRAY));
         }
+        // 议题 12: 蒸汽进气室 (可选 0 或 1) 与空气配方降权.
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.steam_centrifuge.tooltip.details.10")
+                .withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable(
                 "gregsteamexpansion.machine.steam_centrifuge.tooltip.details.subtitle3")
                 .withStyle(ChatFormatting.DARK_AQUA));
@@ -685,6 +689,10 @@ public final class GSEMachines {
                     "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details." + i)
                     .withStyle(ChatFormatting.GRAY));
         }
+        // 议题 12: 蒸汽进气室 (可选 0 或 1) 与空气配方降权.
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.10")
+                .withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable(
                 "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.subtitle3")
                 .withStyle(ChatFormatting.DARK_AQUA));

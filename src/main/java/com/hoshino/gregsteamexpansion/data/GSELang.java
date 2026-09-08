@@ -405,6 +405,8 @@ public final class GSELang {
                 "Removing the controller drops pending output items, loses their fluids and the recipe preference; the controller holds no internal storage.");
         add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.9",
                 "All three difficulty tiers behave identically.");
+        add("gregsteamexpansion.machine.steam_centrifuge.tooltip.details.10",
+                "Steam Air Intake Hatch: optional, at most one, and it counts as one of the 8 hatches. Only its 64,000 mB cache can feed the 10,000 mB air dose of air separation; recipes that consume air are sorted last so they never starve the item recipes.");
 
         // 大型蒸汽离心机 / Large Steam Centrifuge (C0 large).
         add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.summary.0",
@@ -439,6 +441,8 @@ public final class GSELang {
                 "Removing the controller drops pending output items, loses their fluids and the recipe preference; the controller holds no internal storage.");
         add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.9",
                 "All three difficulty tiers behave identically.");
+        add("gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.10",
+                "Steam Air Intake Hatch: optional, at most one, and it counts as one of the 12 hatches. Only its 64,000 mB cache can feed the 10,000 mB air dose of air separation; recipes that consume air are sorted last so they never starve the item recipes.");
 
         // 蒸汽提取机 / Steam Extractor (steam-extractor.md).
         add("gregsteamexpansion.machine.steam_extractor.tooltip.summary.0",
@@ -506,6 +510,8 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_processor.ui.parallel", "Parallel (current / cap)");
         add("gregsteamexpansion.machine.steam_processor.ui.steam", "Steam (total / capacity)");
         add("gregsteamexpansion.machine.steam_processor.ui.demand", "Steam demand");
+        // 议题 12: 进气室状态行 (仅接受进气室的机型显示).
+        add("gregsteamexpansion.machine.steam_processor.ui.intake", "Air intake");
         add("gregsteamexpansion.machine.steam_processor.ui.not_consuming", "not consuming now");
         add("gregsteamexpansion.machine.steam_processor.ui.pending", "Pending outputs");
         add("gregsteamexpansion.machine.steam_processor.ui.pending_summary", "%s (%s kinds)");
@@ -521,6 +527,8 @@ public final class GSELang {
         add("gregsteamexpansion.jade.steam_processor.demand", "Steam demand: %s mB/t");
         add("gregsteamexpansion.jade.steam_processor.pending", "Pending: %s (%s kinds)");
         add("gregsteamexpansion.jade.steam_processor.pending_fluid", "Pending fluids: %s mB (%s kinds)");
+        // 议题 12: 控制器侧的进气室汇总行 (状态 + 缓存存量 / 容量).
+        add("gregsteamexpansion.jade.steam_processor.intake", "Air intake: %s (%s / %s mB)");
         add("config.jade.plugin_gregsteamexpansion.steam_compressor_info", "Steam Compressor Info");
 
         // Shared controller GUI info-page labels (steam-crushers.md 运行信息页).

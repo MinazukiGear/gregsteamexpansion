@@ -889,6 +889,10 @@ public final class GSEProcessorPatterns {
      * small machine uses NO exhaust hatch (2026-09-07 全模组裁定), so no
      * exhaust ability is admitted. The 25-casing minimum bounds the hatch
      * total at 8 (33 − 25, 议题 4 仓室合计上限).
+     *
+     * <p>议题 12: the Steam Air Intake Hatch is admitted as an OPTIONAL
+     * replacement (0 or 1 — `setMaxGlobalLimited(1)`), counted against the
+     * same 8-hatch budget by {@code validateInterfaceCounts()}.</p>
      */
     private static TraceabilityPredicate centrifugeCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(25)
@@ -898,7 +902,8 @@ public final class GSEProcessorPatterns {
                 .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
-                .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS));
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMaxGlobalLimited(1));
     }
 
     /**
@@ -955,6 +960,10 @@ public final class GSEProcessorPatterns {
      * The exhaust hatch takes one candidate slot (大型机必须且只能 1 个,
      * post-checked by the controller) and the 100-casing minimum bounds the
      * hatch total at 12 (112 − 100, 议题 4 仓室合计上限).
+     *
+     * <p>议题 12: the Steam Air Intake Hatch is admitted as an OPTIONAL
+     * replacement (0 or 1 — `setMaxGlobalLimited(1)`), counted against the
+     * same 12-hatch budget by {@code validateInterfaceCounts()}.</p>
      */
     private static TraceabilityPredicate largeCentrifugeCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(100)
@@ -967,6 +976,7 @@ public final class GSEProcessorPatterns {
                 .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMaxGlobalLimited(1))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 

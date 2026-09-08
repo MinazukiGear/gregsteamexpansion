@@ -54,6 +54,18 @@ public abstract class AbstractSteamCentrifugeMachine extends AbstractSteamProces
     }
 
     @Override
+    protected boolean allowsAirIntake() {
+        // 议题 12: 双机接受蒸汽进气室 (可选 0 或 1).
+        return true;
+    }
+
+    @Override
+    protected int maximumAirIntakes() {
+        // 议题 12: 每台最多 1 个 (用户 2026-09-08 定).
+        return 1;
+    }
+
+    @Override
     protected SoundEntry workingSoundEntry() {
         // 议题 9: 沿用类型自带离心声效.
         return GTSoundEntries.CENTRIFUGE;

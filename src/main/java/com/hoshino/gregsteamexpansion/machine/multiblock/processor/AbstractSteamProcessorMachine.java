@@ -31,6 +31,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachin
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
@@ -155,6 +156,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     private final List<FluidHatchPartMachine> steamFluidHatches = new ArrayList<>();
     /** Steam exhaust hatch (large machines; at most one per structure). */
     private final List<SteamExhaustHatchMachine> exhaustHatches = new ArrayList<>();
+    /** Steam air intake hatches (议题 12: only the centrifuge pair, `0` or `1`). */
+    private final List<SteamAirIntakeHatchPartMachine> airIntakeHatches = new ArrayList<>();
     /** Whether the exhaust channel is obstructed this tick (freeze, no rollback). */
     private boolean exhaustBlocked = false;
     private int exhaustFeedbackTimer = 0;
@@ -247,6 +250,25 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return false;
     }
 
+    /**
+     * Whether the structure admits the Steam Air Intake Hatch at all. Default
+     * false — only controllers whose pattern declares
+     * {@code GSEPartAbilities.STEAM_AIR_INTAKE} opt in (steam-centrifuges.md
+     * 议题 12: 离心双机 true, 热力离心机 false).
+     */
+    protected boolean allowsAirIntake() {
+        return false;
+    }
+
+    /**
+     * Maximum number of air intake hatches in one structure
+     * (steam-centrifuges.md 议题 12: 离心双机 `1`, 可选 `0` 或 `1`).
+     * Ignored while {@link #allowsAirIntake()} is false.
+     */
+    protected int maximumAirIntakes() {
+        return 0;
+    }
+
     //////////////////////////////////////
     // ***** Pattern ******//
     //////////////////////////////////////
@@ -296,6 +318,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         fluidInputHatches.clear();
         steamFluidHatches.clear();
         exhaustHatches.clear();
+        airIntakeHatches.clear();
         exhaustBlocked = false;
         capabilitiesProxy.clear();
         capabilitiesFlat.clear();
@@ -326,8 +349,17 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             // 大型机排气仓规则: 必须且只能 1 个 (成型后复核口径).
             return false;
         }
+        if (!allowsAirIntake() && !airIntakeHatches.isEmpty()) {
+            // 议题 12: 未声明进气室能力的机器装了就不成型 (与图案谓词双保险).
+            return false;
+        }
+        if (airIntakeHatches.size() > maximumAirIntakes()) {
+            // 议题 12: 每台最多 1 个 (图案 setMaxGlobalLimited 之外的成型后复核).
+            return false;
+        }
         int interfaces = inputBuses.size() + outputBuses.size() + supplyHatches.size()
-                + fluidOutputHatches.size() + fluidInputHatches.size() + exhaustHatches.size();
+                + fluidOutputHatches.size() + fluidInputHatches.size() + exhaustHatches.size()
+                + airIntakeHatches.size();
         return interfaces <= maximumInterfaces();
     }
 
@@ -335,6 +367,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         supplyHatches.clear();
         inputBuses.clear();
         outputBuses.clear();
+        airIntakeHatches.clear();
         capabilitiesProxy.clear();
         capabilitiesFlat.clear();
         it.unimi.dsi.fastutil.longs.Long2ObjectMap<IO> ioMap = getMultiblockState().getMatchContext()
@@ -382,6 +415,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 }
             } else if (part instanceof SteamExhaustHatchMachine exhaustHatch) {
                 exhaustHatches.add(exhaustHatch);
+            } else if (part instanceof SteamAirIntakeHatchPartMachine airIntake) {
+                // 议题 12: 进气室走独立能力, 不是流体输入仓 — 不进 fluidInputHatches,
+                // 因此 requiresFluidInput() 仍然强制另配 1 个真流体输入仓.
+                airIntakeHatches.add(airIntake);
             }
         }
         // Stable orders (粉碎机家族口径): supply hatches and buses by block
@@ -395,6 +432,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         fluidInputHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
         steamFluidHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
         exhaustHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
+        airIntakeHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
     }
 
     /** ME parts are detected by definition id; AE2 classes are never loaded. */
@@ -555,10 +593,38 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     /**
+     * 议题 12 空气配方判定: whether the recipe consumes GTCEu standard air and
+     * can therefore only be fed by the Steam Air Intake Hatch (no standard
+     * fluid hatch holds a full `10,000 mB` dose, so these recipes are the
+     * intake's exclusive customers). Only meaningful for controllers that
+     * actually admit an intake — every other machine sees `false`.
+     */
+    private boolean isAirIntakeRecipe(GTRecipe recipe) {
+        if (!allowsAirIntake() || airIntakeHatches.isEmpty()) {
+            return false;
+        }
+        var fluids = recipe.inputs.get(FluidRecipeCapability.CAP);
+        if (fluids == null || fluids.isEmpty()) {
+            return false;
+        }
+        FluidStack probe = new FluidStack(GTMaterials.Air.getFluid(), 1000);
+        for (Content content : fluids) {
+            var ingredient = FluidRecipeCapability.CAP.of(content.content);
+            if (ingredient != null && ingredient.test(probe)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 配方选择 (议题 6): 最近成功配方优先, then the recipe type's registration
      * order. A candidate must pass the voltage gate, match the aggregated bus
      * contents, admit at least one parallel and pass the worst-case output
      * precheck before its input is consumed atomically.
+     *
+     * <p>议题 12: air-fed recipes are sorted to the very end so the intake's
+     * permanent air cache never starves the item recipes.</p>
      */
     private void tryStartBatch() {
         GTRecipeType type = recipeType();
@@ -566,15 +632,19 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return;
         }
         List<GTRecipe> candidates = new ArrayList<>();
+        // 议题 12 降权: 吃进气室空气的配方排在最后, 只有没有其他配方可跑时才执行
+        // (进气室长期有空气, 否则会一直霸占机器、挤掉物品离心配方).
+        List<GTRecipe> deferred = new ArrayList<>();
         GTRecipe preferred = findRecipeById(preferredRecipeId);
         if (preferred != null) {
-            candidates.add(preferred);
+            (isAirIntakeRecipe(preferred) ? deferred : candidates).add(preferred);
         }
         for (GTRecipe recipe : type.getRecipesInCategory(type.getCategory())) {
             if (preferred == null || !recipe.getId().equals(preferred.getId())) {
-                candidates.add(recipe);
+                (isAirIntakeRecipe(recipe) ? deferred : candidates).add(recipe);
             }
         }
+        candidates.addAll(deferred);
 
         for (GTRecipe recipe : candidates) {
             if (!passesVoltageGate(recipe)) {
@@ -609,7 +679,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             hasBatch = true;
             batchRecipe = recipe;
             batchRecipeId = recipe.getId().toString();
-            preferredRecipeId = recipe.getId().toString();
+            // 议题 12: 空气配方不写偏好, 避免跑过一次就锁死、永久挤占后续物品配方.
+            if (!isAirIntakeRecipe(recipe)) {
+                preferredRecipeId = recipe.getId().toString();
+            }
             batchParallel = parallel;
             batchProgress = 0;
             batchDurationTicks = (int) batchDurationTicks(recipe, parallel);
@@ -1251,6 +1324,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                         : "—"),
                 ChatFormatting.WHITE);
         y = infoRow(scroll, y, UI_PREFIX + "demand", this::demandText, ChatFormatting.WHITE);
+        if (allowsAirIntake()) {
+            // 议题 12: 进气室状态与缓存存量 (未安装显示 —), 仅接受进气室的机型显示.
+            y = infoRow(scroll, y, UI_PREFIX + "intake", this::intakeText, ChatFormatting.WHITE);
+        }
         scroll.addWidget(new LabelWidget(2, y, () -> Component.translatable(UI_PREFIX + "pending").getString())
                 .setTextColor(-1).setDropShadow(true));
         Integer pendingRgb = ChatFormatting.WHITE.getColor();
@@ -1306,6 +1383,21 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return demand + " (" + Component.translatable(UI_PREFIX + "not_consuming").getString() + ")";
         }
         return demand;
+    }
+
+    /**
+     * 议题 12 进气室行: `采集中（12,000 / 64,000 mB）`, 未安装时 `—`. Status
+     * text comes straight from the hatch's own synced state, so the wrong
+     * dimension / blocked / cache-full cases are visible from the controller.
+     */
+    private String intakeText() {
+        if (airIntakeHatches.isEmpty()) {
+            return "—";
+        }
+        SteamAirIntakeHatchPartMachine intake = airIntakeHatches.get(0);
+        return intake.getIntakeStatus().getDisplayName().getString() + " ("
+                + FormattingUtil.formatNumbers(intake.tank.getFluidInTank(0).getAmount()) + " / "
+                + FormattingUtil.formatNumbers(SteamAirIntakeHatchPartMachine.INITIAL_TANK_CAPACITY) + " mB)";
     }
 
     /** `128（3 种）` style pending summary; `—` when nothing is pending. */
@@ -1440,6 +1532,30 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     public boolean isOutputBlocked() {
         return hasPendingOutputs();
+    }
+
+    //////////////////////////////////////
+    // ***** Air intake snapshot (议题 12) ******//
+    //////////////////////////////////////
+
+    /** Whether a Steam Air Intake Hatch is part of the formed structure. */
+    public boolean hasAirIntake() {
+        return !airIntakeHatches.isEmpty();
+    }
+
+    /** The intake's own stable status id (structure/dimension/blocked/full/collecting). */
+    public String getAirIntakeStatusId() {
+        return airIntakeHatches.isEmpty() ? "" : airIntakeHatches.get(0).getIntakeStatus().getId();
+    }
+
+    /** Cached air in mB; 0 when no intake is installed. */
+    public long getAirIntakeStored() {
+        return airIntakeHatches.isEmpty() ? 0 : airIntakeHatches.get(0).tank.getFluidInTank(0).getAmount();
+    }
+
+    /** Fixed intake cache capacity in mB (`64,000`); 0 when no intake is installed. */
+    public long getAirIntakeCapacity() {
+        return airIntakeHatches.isEmpty() ? 0 : SteamAirIntakeHatchPartMachine.INITIAL_TANK_CAPACITY;
     }
 
     /** 拆除清理: batch, pending outputs and preference never survive. */
