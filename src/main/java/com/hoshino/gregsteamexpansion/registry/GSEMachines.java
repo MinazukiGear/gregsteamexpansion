@@ -33,6 +33,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCoke
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamAssemblerMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamBlastFurnaceMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamCentrifugeMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamCircuitAssemblerMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCentrifugeMachine;
@@ -409,6 +410,23 @@ public final class GSEMachines {
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.mixerShapeInfo(definition)))
             .langValue("Large Steam Mixer")
             .tooltipBuilder(GSEMachines::largeSteamMixerTooltips)
+            .allowCoverOnFront(false)
+            .register();
+
+    /** 大型蒸汽高炉 / Large Steam Blast Furnace (large-steam-blast-furnace.md 议题 1). */
+    public static final MultiblockMachineDefinition LARGE_STEAM_BLAST_FURNACE = GSERegistration.REGISTRATE
+            .multiblock("large_steam_blast_furnace", LargeSteamBlastFurnaceMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES)
+            .appearanceBlock(GCYMBlocks.CASING_INDUSTRIAL_STEAM)
+            .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .model(steamMultiblockModel(
+                    GregSteamExpansion.id("block/multiblock/large_steam_blast_furnace")))
+            .pattern(GSEProcessorPatterns::createBlastFurnace)
+            .shapeInfos(definition -> List.of(GSEProcessorPatterns.blastFurnaceShapeInfo(definition)))
+            .langValue("Large Steam Blast Furnace")
+            .tooltipBuilder(GSEMachines::largeSteamBlastFurnaceTooltips)
             .allowCoverOnFront(false)
             .register();
 
@@ -1267,6 +1285,45 @@ public final class GSEMachines {
         for (int i = 7; i <= 9; i++) {
             tooltip.add(Component.translatable(
                     "gregsteamexpansion.machine.large_steam_mixer.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    private static void largeSteamBlastFurnaceTooltips(ItemStack stack, List<Component> tooltip) {
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.0")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.1")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.2")
+                .withStyle(ChatFormatting.GRAY));
+        if (!GTUtil.isShiftDown()) {
+            return;
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 0; i <= 2; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details." + i)
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle2")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 3; i <= 6; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details." + i)
+                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
+        }
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle3")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        for (int i = 7; i <= 9; i++) {
+            tooltip.add(Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details." + i)
                     .withStyle(ChatFormatting.GRAY));
         }
     }

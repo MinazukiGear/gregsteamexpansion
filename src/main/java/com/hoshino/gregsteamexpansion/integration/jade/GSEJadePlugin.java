@@ -253,6 +253,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
                 case "invalid_structure" -> "gtceu.multiblock.invalid_structure";
                 case "insufficient_outputs" -> "gtceu.recipe_logic.insufficient_out";
                 case "working_disabled" -> "gtceu.top.working_disabled";
+                case "auxiliary_shortfall" -> "gregsteamexpansion.multiblock.auxiliary_shortfall";
                 case "low_steam" -> "gtceu.multiblock.steam.low_steam";
                 case "working" -> "gtceu.multiblock.large_miner.working";
                 default -> "gtceu.multiblock.idling";

@@ -422,6 +422,206 @@ public final class GSEProcessorPatterns {
                 .build();
     }
 
+
+
+    /** gtceu:coke_bricks — the coke brick casing (blast furnace hearth core). */
+    public static Block cokeBricksCasing() {
+        return GTBlocks.CASING_COKE_BRICKS.get();
+    }
+
+    /** gtceu:firebricks — the blast bricks (耐火砖块/高炉砖), the PBF's structural material. */
+    public static Block blastBricks() {
+        return GTBlocks.CASING_PRIMITIVE_BRICKS.get();
+    }
+
+    /**
+     * The blast furnace's candidate rule for the 368 wall blast-brick
+     * positions (large-steam-blast-furnace.md 议题 4, 2026-09-09 三次裁定:
+     * 结构主体以高炉砖块为主): the 13×13 tuyere deck (44) plus nine 11×11
+     * shaft layers (36 each), blast bricks with hatches as replacements.
+     * Pure-dry recipe type — NO fluid hatch ability of any kind is admitted
+     * (议题 3). The 340-brick minimum bounds the hatch total at 28 (368 − 340;
+     * 满载参考配置 16 供给仓 + 2 总线 + 1 排气仓 + 8 鼓风口 = 27); the exhaust
+     * hatch takes one candidate slot (必须且只能 1 个, post-checked by the
+     * controller) and the Steam Air Intake Hatch is the mandatory tuyere
+     * (必需, 至多 8 个 — 满载鼓风 384 mB/t 恰好需要全部 8 个才可长期自持).
+     */
+    private static TraceabilityPredicate blastFurnaceCandidates() {
+        return Predicates.blocks(blastBricks()).setMinGlobalLimited(340)
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMaxGlobalLimited(8))
+                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+    }
+
+    /** L1 hearth: 13×13 industrial ring (48) around the 11×11 coke-brick bed (121). */
+    private static final String[] BLAST_HEARTH_LAYER = {
+            "IIIIIIIIIIIII",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IKKKKKKKKKKKI",
+            "IIIIIICIIIIII"
+    };
+
+    /** L2 tuyere deck: 13×13 ring (4 industrial corners + 44 blast bricks) + 11×11 strict air. */
+    private static final String[] BLAST_TUYERE_LAYER = {
+            "IHHHHHHHHHHHI",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "HAAAAAAAAAAAH",
+            "IHHHHHHHHHHHI"
+    };
+
+    /** L3-L11 shaft: 11×11 ring (4 industrial corners + 36 blast bricks) + 9×9 strict air, inset 1 per side. */
+    private static final String[] BLAST_SHAFT_LAYER = {
+            "             ",
+            " IHHHHHHHHHI ",
+            " HAAAAAAAAAH ",
+            " HAAAAAAAAAH ",
+            " HAAAAAAAAAH ",
+            " HAAAAAAAAAH ",
+            " HAAAAAAAAAH ",
+            " HAAAAAAAAAH ",
+            " HAAAAAAAAAH ",
+            " HAAAAAAAAAH ",
+            " HAAAAAAAAAH ",
+            " IHHHHHHHHHI ",
+            "             "
+    };
+
+    /** L12 throat cap: solid 9×9 industrial, inset 2 per side. */
+    private static final String[] BLAST_CAP_LAYER = {
+            "             ",
+            "             ",
+            "  IIIIIIIII  ",
+            "  IIIIIIIII  ",
+            "  IIIIIIIII  ",
+            "  IIIIIIIII  ",
+            "  IIIIIIIII  ",
+            "  IIIIIIIII  ",
+            "  IIIIIIIII  ",
+            "  IIIIIIIII  ",
+            "  IIIIIIIII  ",
+            "             ",
+            "             "
+    };
+
+    /** L13-L15 chimney crown: solid 5×5 industrial, inset 4 per side. */
+    private static final String[] BLAST_CROWN_LAYER = {
+            "             ",
+            "             ",
+            "             ",
+            "             ",
+            "    IIIII    ",
+            "    IIIII    ",
+            "    IIIII    ",
+            "    IIIII    ",
+            "    IIIII    ",
+            "             ",
+            "             ",
+            "             ",
+            "             "
+    };
+
+    /**
+     * 大型蒸汽高炉: fixed 13×13 footprint × 15 tall three-stage tapered tower
+     * (large-steam-blast-furnace.md 议题 4 逐层图, 2026-09-09 用户裁定「结构
+     * 不要四四方方, 占地更大, 效率更高, 耗时减免」). Aisle rows run back ->
+     * front, so the design's front row is the LAST string of each aisle; all
+     * aisles are written at the full 13×13 bounding depth/width, insets use
+     * spaces (don't-care). Layer 1: hearth — 48-block industrial ring
+     * (front-centre controller) around the 121-block coke-brick bed. Layer 2:
+     * the 13×13 tuyere deck. Layers 3-11: nine 11×11 shaft layers. Layer 12:
+     * solid 9×9 industrial throat cap. Layers 13-15: solid 5×5 industrial
+     * chimney crown. Interior air is STRICT air (Predicates.air).
+     */
+    public static BlockPattern createBlastFurnace(MultiblockMachineDefinition definition) {
+        var builder = FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
+                .aisle(BLAST_HEARTH_LAYER)  // layer 1 (hearth, controller front-centre)
+                .aisle(BLAST_TUYERE_LAYER); // layer 2 (tuyere deck)
+        for (int i = 0; i < 9; i++) {
+            builder.aisle(BLAST_SHAFT_LAYER); // layers 3-11 (shaft)
+        }
+        builder.aisle(BLAST_CAP_LAYER);   // layer 12 (throat cap)
+        builder.aisle(BLAST_CROWN_LAYER); // layer 13
+        builder.aisle(BLAST_CROWN_LAYER); // layer 14
+        builder.aisle(BLAST_CROWN_LAYER); // layer 15
+        return builder
+                .where('I', Predicates.blocks(industrialSteamCasing()))
+                .where('H', blastFurnaceCandidates())
+                .where('K', Predicates.blocks(cokeBricksCasing()))
+                .where('A', Predicates.air())
+                .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
+                .build();
+    }
+
+    /**
+     * Blast furnace representative layout (large-steam-blast-furnace.md 结构):
+     * 14-hatch set — layer 2 (tuyere deck) front wall: steam import bus,
+     * export bus, two steam supply hatches, exhaust hatch and one tuyere;
+     * layer 2 west wall carries two more tuyeres; layers 3-4 front walls
+     * carry two and four more supply hatches. Axis convention as in
+     * {@code GSECrusherPatterns#smallShapeInfo} (layers bottom -> top, each
+     * layer's rows back -> front, chars west -> east); inset spaces bake as
+     * air.
+     */
+    public static MultiblockShapeInfo blastFurnaceShapeInfo(MultiblockMachineDefinition definition) {
+        // layer 2 (tuyere deck): bus/exhaust set on the front wall, tuyeres west
+        String[] tuyereDeck = BLAST_TUYERE_LAYER.clone();
+        tuyereDeck[12] = "IHJOSSEFHHHHI";
+        tuyereDeck[1] = "FAAAAAAAAAAAH";
+        tuyereDeck[11] = "FAAAAAAAAAAAH";
+        // layers 3-4 (shaft decks): six more supply hatches on the front walls
+        String[] supplyDeckA = BLAST_SHAFT_LAYER.clone();
+        supplyDeckA[11] = " IHSSHHHHHHI ";
+        String[] supplyDeckB = BLAST_SHAFT_LAYER.clone();
+        supplyDeckB[11] = " IHSSSSHHHHI ";
+
+        String[][] layers = new String[15][];
+        layers[0] = BLAST_HEARTH_LAYER;
+        layers[1] = tuyereDeck;
+        layers[2] = supplyDeckA;
+        layers[3] = supplyDeckB;
+        for (int i = 4; i <= 11; i++) {
+            layers[i] = BLAST_SHAFT_LAYER;
+        }
+        layers[12] = BLAST_CAP_LAYER;
+        layers[13] = BLAST_CROWN_LAYER;
+        layers[14] = BLAST_CROWN_LAYER;
+
+        return buildShapeInfo(layers)
+                .where('I', industrialSteamCasing())
+                .where('H', blastBricks())
+                .where('K', cokeBricksCasing())
+                .where('A', Blocks.AIR)
+                .where('C', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .where('F', GSEMachines.STEAM_AIR_INTAKE_HATCH, Direction.NORTH)
+                .build();
+    }
+
     /**
      * The thermal centrifuge's candidate rule for the 84 wall positions
      * (layers 2-4, 28 per layer): steam machine casing with hatches as

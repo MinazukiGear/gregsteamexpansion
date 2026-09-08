@@ -85,6 +85,8 @@ public final class GSERecipes {
         addFurnaceControllerRecipe(provider);
         addCokeOvenRecipes(provider);
         addLargeCokeOvenRecipes(provider);
+        addWroughtIronBlastRecipes(provider);
+        addLargeSteamBlastFurnaceRecipe(provider);
         addBoilerRoomRecipes(provider);
         addLargeSteamOrePlantRecipe(provider);
         addLargeSteamFluidDrillRecipe(provider);
@@ -302,6 +304,93 @@ public final class GSERecipes {
                         'C', GTMachines.COKE_OVEN_HATCH.asStack(),
                         'P', GTMachines.WOODEN_DRUM.asStack()}));
     }
+
+    // ------------------------------------------------------------------
+    // 大型蒸汽高炉控制器 (large-steam-blast-furnace.md 获取配方 议题 10,
+    // 2026-09-09 裁定 极高造价): 四角砖砌锻铁外壳 (每个 5 锻铁板 + 3 砖,
+    // 点明"锻铁巨构"定位)、四边钢双层板、正中原始高炉 (升级核心, 仅消耗
+    // 物品形态, 不转移任何世界状态)。固定有序工作台配方, 每次恒产 1,
+    // 三档相同。
+    // ------------------------------------------------------------------
+    private static void addLargeSteamBlastFurnaceRecipe(Consumer<FinishedRecipe> provider) {
+        provider.accept(upstreamShaped(
+                GregSteamExpansion.id("shaped/large_steam_blast_furnace"),
+                GSEMachines.LARGE_STEAM_BLAST_FURNACE.asStack(),
+                new String[]{"HSH", "SPS", "HSH"},
+                new Object[]{
+                        'H', GTBlocks.STEEL_BRICKS_HULL.asStack(),
+                        'S', ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Steel),
+                        'P', GTMultiMachines.PRIMITIVE_BLAST_FURNACE.asStack()}));
+    }
+
+    // ------------------------------------------------------------------
+    // 锻铁配方注入 (large-steam-blast-furnace.md 锻铁配方注入专节):
+    // GTCEu 7.5.3 上游蒸汽时代没有锻铁产出 (熔炉铁粉出铁锭, 锻铁仅电弧炉
+    // LV+/HV EBF); 本组 6 条"铁粉 + 燃料 → 锻铁"配方以 add-only 方式注入
+    // 上游 primitive_blast_furnace 类型, 原始高炉与本模组大型蒸汽高炉共用。
+    // 燃料表/时长/副产与上游 steel_from_*_wrought 逐条镜像; 铁粉 (dust) 与
+    // 上游铁源 (ingot/block) 前缀互斥, 无匹配歧义。三档一致。
+    // ------------------------------------------------------------------
+    private static void addWroughtIronBlastRecipes(Consumer<FinishedRecipe> provider) {
+        // 煤/木炭线: 镜像 steel_from_coal/charcoal_*_wrought (800t, 2 小撮黑灰)。
+        GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_coal_gem"))
+                .inputItems(TagPrefix.dust, GTMaterials.Iron)
+                .inputItems(TagPrefix.gem, GTMaterials.Coal, 2)
+                .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
+                .outputItems(TagPrefix.dustTiny, GTMaterials.DarkAsh, 2)
+                .duration(800)
+                .save(provider);
+        GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_coal_dust"))
+                .inputItems(TagPrefix.dust, GTMaterials.Iron)
+                .inputItems(TagPrefix.dust, GTMaterials.Coal, 2)
+                .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
+                .outputItems(TagPrefix.dustTiny, GTMaterials.DarkAsh, 2)
+                .duration(800)
+                .save(provider);
+        GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_charcoal_gem"))
+                .inputItems(TagPrefix.dust, GTMaterials.Iron)
+                .inputItems(TagPrefix.gem, GTMaterials.Charcoal, 2)
+                .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
+                .outputItems(TagPrefix.dustTiny, GTMaterials.DarkAsh, 2)
+                .duration(800)
+                .save(provider);
+        GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_charcoal_dust"))
+                .inputItems(TagPrefix.dust, GTMaterials.Iron)
+                .inputItems(TagPrefix.dust, GTMaterials.Charcoal, 2)
+                .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
+                .outputItems(TagPrefix.dustTiny, GTMaterials.DarkAsh, 2)
+                .duration(800)
+                .save(provider);
+
+        // 焦炭线: 镜像 steel_from_coke_*_wrought (600t, 1/9 灰机会副产)。
+        GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_coke_gem"))
+                .inputItems(TagPrefix.dust, GTMaterials.Iron)
+                .inputItems(TagPrefix.gem, GTMaterials.Coke, 1)
+                .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
+                .chancedOutput(TagPrefix.dust, GTMaterials.Ash, "1/9", 0)
+                .duration(600)
+                .save(provider);
+        GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_coke_dust"))
+                .inputItems(TagPrefix.dust, GTMaterials.Iron)
+                .inputItems(TagPrefix.dust, GTMaterials.Coke, 1)
+                .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
+                .chancedOutput(TagPrefix.dust, GTMaterials.Ash, "1/9", 0)
+                .duration(600)
+                .save(provider);
+    }
+
+
+    // ------------------------------------------------------------------
+    // 注：铁粒 → 锻铁粒的熔炉配方为上游既有内容（CraftingRecipeLoader 注册的
+    // gtceu:wrought_iron_nugget，forge:nuggets/iron → 锻铁粒），2026-09-09
+    // 用户裁定本模组不重复添加。
+    // ------------------------------------------------------------------
 
     // ------------------------------------------------------------------
     // 普通焦炉控制器 / 可配置焦炉仓 (coke-ovens.md 获取配方): 精确覆盖上游

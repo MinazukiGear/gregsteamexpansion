@@ -25,6 +25,7 @@ import com.hoshino.gregsteamexpansion.registry.GSEPartAbilities;
 import com.hoshino.gregsteamexpansion.steamcompat.LegacySteamHatchCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.ItemStack;
@@ -493,6 +494,46 @@ public final class GSEGameTests {
 
     private static final BlockPos HATCH_POS = new BlockPos(0, 0, 0);
     private static final BlockPos HATCH_POS_EAST = new BlockPos(1, 0, 0);
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void largeSteamBlastFurnaceWiredToPrimitiveBlastFurnaceType(GameTestHelper helper) {
+        // large-steam-blast-furnace.md 实现验收: 控制器注册并绑定上游
+        // primitive_blast_furnace 配方类型。
+        MachineDefinition definition = GTRegistries.MACHINES.get(GregSteamExpansion.id("large_steam_blast_furnace"));
+        helper.assertTrue(definition != null, "Large steam blast furnace is not registered");
+        if (definition == null) {
+            return;
+        }
+        helper.assertTrue(
+                java.util.List.of(definition.getRecipeTypes())
+                        .contains(com.gregtechceu.gtceu.common.data.GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES),
+                "Large steam blast furnace must run the primitive_blast_furnace recipe type");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void wroughtIronRecipesInjectedIntoPrimitiveBlastFurnace(GameTestHelper helper) {
+        // large-steam-blast-furnace.md 锻铁配方注入验收: 6 条铁粉配方进入上游
+        // primitive_blast_furnace 类型 (PBF 与本机共用); 蒸汽时代锻铁缺口修复。
+        GTRecipeType type = com.gregtechceu.gtceu.common.data.GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES;
+        java.util.Set<ResourceLocation> ids = new java.util.HashSet<>();
+        for (var recipe : type.getRecipesInCategory(type.getCategory())) {
+            ids.add(recipe.getId());
+        }
+        String[] expected = {
+                "wrought_iron_from_dust_coal_gem",
+                "wrought_iron_from_dust_coal_dust",
+                "wrought_iron_from_dust_charcoal_gem",
+                "wrought_iron_from_dust_charcoal_dust",
+                "wrought_iron_from_dust_coke_gem",
+                "wrought_iron_from_dust_coke_dust",
+        };
+        for (String path : expected) {
+            helper.assertTrue(ids.contains(GregSteamExpansion.id(path)),
+                    "Wrought iron blast recipe missing from the primitive blast furnace type: " + path);
+        }
+        helper.succeed();
+    }
 
     private static <T extends MetaMachine> T placeHatch(GameTestHelper helper, MachineDefinition definition,
                                                         BlockPos pos) {

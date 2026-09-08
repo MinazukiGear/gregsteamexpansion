@@ -165,6 +165,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** False when the post-formation interface count rules failed. */
     private boolean interfaceCountsValid = true;
     private boolean waitingForSteam = false;
+    /** True when this tick froze on the auxiliary input (blast air) shortfall. */
+    private boolean waitingForAuxiliary = false;
     private boolean waitingForOutputs = false;
     /** Whether this tick actually consumed the full steam demand. */
     private boolean lastTickConsumedSteam = false;
@@ -269,6 +271,16 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return 0;
     }
 
+    /**
+     * Whether the structure requires at least one Steam Air Intake Hatch to
+     * form (大型蒸汽高炉鼓风口口径: 进气室必需化). Only meaningful while
+     * {@link #allowsAirIntake()} is true — the centrifuge family keeps it
+     * optional (`false`), the blast furnace opts in.
+     */
+    protected boolean requiresAirIntake() {
+        return false;
+    }
+
     //////////////////////////////////////
     // ***** Pattern ******//
     //////////////////////////////////////
@@ -355,6 +367,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         }
         if (airIntakeHatches.size() > maximumAirIntakes()) {
             // 议题 12: 每台最多 1 个 (图案 setMaxGlobalLimited 之外的成型后复核).
+            return false;
+        }
+        if (requiresAirIntake() && airIntakeHatches.isEmpty()) {
+            // 大型蒸汽高炉鼓风口口径: 进气室必需 (成型后复核, 与图案双保险).
             return false;
         }
         int interfaces = inputBuses.size() + outputBuses.size() + supplyHatches.size()
@@ -463,6 +479,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return;
         }
         waitingForSteam = false;
+        waitingForAuxiliary = false;
         waitingForOutputs = false;
 
         // 待输出优先送出 (also while paused: delivering is not recipe work).
@@ -516,6 +533,14 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 return;
             }
         }
+        if (!drawAuxiliaryInputs(batchParallel, true)) {
+            // 鼓风等辅助输入短缺: 与缺汽同口径 — no consumption, rollback to 1 tick.
+            lastTickConsumedSteam = false;
+            waitingForAuxiliary = true;
+            batchProgress = Math.min(batchProgress, 1);
+            updateWorkingAppearance();
+            return;
+        }
         if (!drawSteam(batchSteamPerTickMb)) {
             lastTickConsumedSteam = false;
             waitingForSteam = true;
@@ -523,6 +548,11 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             batchProgress = Math.min(batchProgress, 1);
             updateWorkingAppearance();
             return;
+        }
+        if (!drawAuxiliaryInputs(batchParallel, false)) {
+            GregSteamExpansion.LOGGER.warn(
+                    "Steam processor at {} auxiliary draw fell short after the steam draw succeeded",
+                    getPos());
         }
         lastTickConsumedSteam = true;
         batchProgress++;
@@ -582,6 +612,28 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** Locked per-tick steam demand; family default is linear in the parallel. */
     protected long batchSteamPerTickMb(GTRecipe recipe, long eu, int parallel) {
         return eu * STEAM_PER_EU_MB * parallel;
+    }
+
+    /**
+     * The recipe's input EU/t for economics purposes. Family default reads the
+     * EU content; the primitive blast furnace type carries NO EU at all, so
+     * EU-less recipes resolve to `0` instead of throwing (大型蒸汽高炉 议题 3).
+     */
+    protected long batchEu(GTRecipe recipe) {
+        var eut = recipe.getInputEUt();
+        return eut.isEmpty() ? 0 : eut.voltage();
+    }
+
+    /**
+     * Per-tick auxiliary input drawn alongside steam, e.g. the blast furnace's
+     * tuyere air (大型蒸汽高炉 议题 5). Called once with `simulate=true` before
+     * the steam draw — return `false` to freeze this tick with the
+     * steam-shortage rollback semantics — and once with `simulate=false` AFTER
+     * the steam draw succeeded, so an auxiliary shortfall never wastes steam.
+     * Family default consumes nothing.
+     */
+    protected boolean drawAuxiliaryInputs(int parallel, boolean simulate) {
+        return true;
     }
 
     /**
@@ -675,7 +727,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 continue;
             }
 
-            long eu = recipe.getInputEUt().voltage();
+            long eu = batchEu(recipe);
             hasBatch = true;
             batchRecipe = recipe;
             batchRecipeId = recipe.getId().toString();
@@ -1264,6 +1316,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (!isWorkingEnabled()) {
             return "working_disabled";
         }
+        if (waitingForAuxiliary) {
+            return "auxiliary_shortfall";
+        }
         if (waitingForSteam) {
             return "low_steam";
         }
@@ -1273,11 +1328,21 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return "idle";
     }
 
+    /**
+     * Display text for the "auxiliary_shortfall" status (blast air 鼓风不足 for
+     * the blast furnace). Only reachable on controllers that consume auxiliary
+     * inputs; family default never triggers it.
+     */
+    protected Component auxiliaryShortfallText() {
+        return Component.translatable("gtceu.multiblock.steam.low_steam");
+    }
+
     public Component getStatusText() {
         return switch (getStatusId()) {
             case "invalid_structure" -> Component.translatable("gtceu.multiblock.invalid_structure");
             case "insufficient_outputs" -> Component.translatable("gtceu.recipe_logic.insufficient_out");
             case "working_disabled" -> Component.translatable("gtceu.top.working_disabled");
+            case "auxiliary_shortfall" -> auxiliaryShortfallText();
             case "low_steam" -> Component.translatable("gtceu.multiblock.steam.low_steam");
             case "working" -> Component.translatable("gtceu.multiblock.large_miner.working");
             default -> Component.translatable("gtceu.multiblock.idling");
@@ -1287,7 +1352,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     public ChatFormatting getStatusColor() {
         return switch (getStatusId()) {
             case "invalid_structure", "exhaust_obstructed", "insufficient_outputs" -> ChatFormatting.RED;
-            case "working_disabled", "low_steam" -> ChatFormatting.YELLOW;
+            case "working_disabled", "low_steam", "auxiliary_shortfall" -> ChatFormatting.YELLOW;
             case "working" -> ChatFormatting.GREEN;
             default -> ChatFormatting.GRAY;
         };
@@ -1541,6 +1606,17 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** Whether a Steam Air Intake Hatch is part of the formed structure. */
     public boolean hasAirIntake() {
         return !airIntakeHatches.isEmpty();
+    }
+
+    /** The structure's first air intake in stable position order, or null. */
+    @Nullable
+    protected SteamAirIntakeHatchPartMachine primaryAirIntake() {
+        return airIntakeHatches.isEmpty() ? null : airIntakeHatches.get(0);
+    }
+
+    /** All air intake hatches in stable position order (大型蒸汽高炉多鼓风口聚合抽取用). */
+    protected List<SteamAirIntakeHatchPartMachine> airIntakes() {
+        return airIntakeHatches;
     }
 
     /** The intake's own stable status id (structure/dimension/blocked/full/collecting). */

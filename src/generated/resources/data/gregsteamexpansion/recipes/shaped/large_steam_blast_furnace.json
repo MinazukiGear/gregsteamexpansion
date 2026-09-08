@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "H": {
+      "item": "gtceu:steel_brick_casing"
+    },
+    "P": {
+      "item": "gtceu:primitive_blast_furnace"
+    },
+    "S": {
+      "item": "gtceu:double_steel_plate"
+    }
+  },
+  "pattern": [
+    "HSH",
+    "SPS",
+    "HSH"
+  ],
+  "result": {
+    "count": 1,
+    "item": "gregsteamexpansion:large_steam_blast_furnace"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "type": "gtceu:primitive_blast_furnace",
+  "category": "gtceu:primitive_blast_furnace",
+  "duration": 600,
+  "inputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "forge:dusts/iron"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "forge:dusts/coke"
+          }
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "gtceu:wrought_iron_ingot"
+          }
+        }
+      },
+      {
+        "chance": 1111,
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "gtceu:ash_dust"
+          }
+        },
+        "maxChance": 9999
+      }
+    ]
+  }
+}

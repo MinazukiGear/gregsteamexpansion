@@ -338,6 +338,45 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_mixer.tooltip.details.9",
                 "All three difficulty tiers behave identically.");
 
+        // 大型蒸汽高炉 / Large Steam Blast Furnace (large-steam-blast-furnace.md,
+        // 2026-09-09 裁定: 极高造价与极大的结构换取极高效率).
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.0",
+                "A pure-steam MEGASTRUCTURE blast furnace running ALL gtceu:primitive_blast_furnace recipes (iron dust + fuel \u2192 wrought iron, iron or wrought iron + fuel \u2192 steel) at up to 96 parallel operations \u2014 240\u00d7 the primitive blast furnace's throughput.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.1",
+                "Colossal three-stage tapered tower, 13\u00d713 at the base and 15 tall, walled in ~370 blast bricks; each recipe takes 0.4\u00d7 its base duration with a flat 200 mB of steam per tick per parallel plus scaling tuyere air.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.2",
+                "Hold Shift for the full structure and operating rules.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle",
+                "Structure");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.0",
+                "Fixed three-stage tapered megastructure, 13\u00d713 footprint and 15 tall (733 solid blocks): the hearth is a 48-block industrial ring (incl. the front-centre controller) around a 121-block coke-brick bed; the 13\u00d713 tuyere deck and nine 11\u00d711 shaft layers are walled in blast bricks (368, gtceu:firebricks - the primitive blast furnace's own material); a solid 9\u00d79 throat cap and the 5\u00d75\u00d73 chimney crown complete the taper.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.1",
+                "The coke-brick hearth bed is structure-only and grants no bonuses. The walls alone take ~370 blast bricks (\u2248 1,500 fireclay bricks) \u2014 a true megaproject in bricks; wrought iron stays reserved for the controller and the steel machinery it unlocks.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.2",
+                "Hatches replace ONLY wall blast brick positions: at least 1 item input bus, 1 item output bus and 1 steam supply hatch, EXACTLY 1 steam exhaust hatch, at least 1 steam air intake hatch (tuyere, up to 8), at most 28 hatches in total. No fluid hatch of any family is admissible. Full-load reference: 16 supply hatches + 2 buses + 1 exhaust + 8 tuyeres = 27.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle2",
+                "Processing & Steam");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.3",
+                "Runs every gtceu:primitive_blast_furnace recipe (steel from iron or wrought iron plus coal, charcoal or coke; wrought iron comes from iron dust + fuel here, on top of the upstream iron nugget smelting route); one recipe per batch, up to 96 parallel, duration = base \u00d7 0.4 (rounded up) \u2014 240\u00d7 the primitive blast furnace's throughput.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.4",
+                "The recipe type carries no EU/t: steam is a flat 200 mB/t per parallel \u2014 19,200 mB/t at full load, exactly 16 supply hatches at their 1,200 mB/t caps. Every consuming tick also draws blast air at 4 mB/t per parallel (384 mB/t full load) across the tuyeres; each intake collects 50 mB/t, so sustained full load needs ALL 8 tuyeres. An air or steam shortfall rolls the batch back to 1 tick and the status shows blast air shortage when air runs out.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.5",
+                "Outputs only leave through the item output buses; worst-case outputs are prechecked before startup and are never voided.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.6",
+                "The steam exhaust hatch must face open air (3 blocks straight ahead); an obstructed exhaust freezes progress and vents nothing until cleared, and venting deals heat damage on its cycle.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle3",
+                "Control & Status");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.7",
+                "The last successful recipe is preferred; active pause freezes progress; loss of steam, blast air or structure rolls an active batch back to 1 tick.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.8",
+                "Removing the controller drops only pending outputs and loses the recipe preference; the controller holds no internal item storage.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.9",
+                "All three difficulty tiers behave identically.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.low_blast",
+                "Blast Air Shortage");
+        add("gregsteamexpansion.multiblock.auxiliary_shortfall",
+                "Auxiliary supply shortage");
+
         // 蒸汽化学浸洗厂 / Steam Chemical Bath (B4).
         add("gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.0",
                 "Pure-steam chemical bath multiblock running ALL gtceu:chemical_bath recipes (ore bathing, paper making, treated planks and more) at up to 8 parallel operations.");
