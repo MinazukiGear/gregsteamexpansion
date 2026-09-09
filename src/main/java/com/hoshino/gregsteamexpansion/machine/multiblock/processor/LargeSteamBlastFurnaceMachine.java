@@ -106,6 +106,11 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         return true;
     }
 
+    // 不覆写 acceptsRecipe: 本机执行 primitive_blast_furnace 类型的**全部**配方
+    // (本模组 3 条铁粉 → 锻铁 + 上游 18 条炼钢配方, 含 steel_from_*_wrought
+    // 锻铁 → 钢), 即上游 PBF 同语义的 96 并行规模化上位。共用类型的切开只做在
+    // 上游那一侧 (RecipeLogicMixin: 原版 PBF 不执行本模组注入的锻铁配方)。
+
     @Override
     protected boolean passesVoltageGate(GTRecipe recipe) {
         // 议题 3: PBF 配方无 EU/t (能量即配方内固体燃料), 直接放行;

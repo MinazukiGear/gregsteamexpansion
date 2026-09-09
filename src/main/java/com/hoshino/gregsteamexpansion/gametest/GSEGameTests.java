@@ -513,25 +513,34 @@ public final class GSEGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void wroughtIronRecipesInjectedIntoPrimitiveBlastFurnace(GameTestHelper helper) {
-        // large-steam-blast-furnace.md 锻铁配方注入验收: 6 条铁粉配方进入上游
+        // large-steam-blast-furnace.md 锻铁配方注入验收: 3 条纯粉配方进入上游
         // primitive_blast_furnace 类型 (PBF 与本机共用); 蒸汽时代锻铁缺口修复。
+        // 2026-09-09 裁定: 铁源与燃料都必须是 dust, gem 版已移除。
         GTRecipeType type = com.gregtechceu.gtceu.common.data.GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES;
         java.util.Set<ResourceLocation> ids = new java.util.HashSet<>();
         for (var recipe : type.getRecipesInCategory(type.getCategory())) {
             ids.add(recipe.getId());
         }
+        // 配方 id 由 datagen 的文件路径决定: data/gregsteamexpansion/recipes/
+        // <type path>/<name>.json → gregsteamexpansion:<type path>/<name>, 因此
+        // 这里按 path 后缀匹配而不是整体相等 (避免类型前缀变化导致误判)。
         String[] expected = {
-                "wrought_iron_from_dust_coal_gem",
                 "wrought_iron_from_dust_coal_dust",
-                "wrought_iron_from_dust_charcoal_gem",
                 "wrought_iron_from_dust_charcoal_dust",
-                "wrought_iron_from_dust_coke_gem",
                 "wrought_iron_from_dust_coke_dust",
         };
         for (String path : expected) {
-            helper.assertTrue(ids.contains(GregSteamExpansion.id(path)),
+            boolean found = ids.stream().anyMatch(id -> GregSteamExpansion.MOD_ID.equals(id.getNamespace())
+                    && id.getPath().endsWith(path));
+            helper.assertTrue(found,
                     "Wrought iron blast recipe missing from the primitive blast furnace type: " + path);
         }
+        long modRecipes = ids.stream()
+                .filter(id -> GregSteamExpansion.MOD_ID.equals(id.getNamespace()))
+                .filter(id -> id.getPath().contains("wrought_iron_from_dust"))
+                .count();
+        helper.assertTrue(modRecipes == expected.length,
+                "Expected exactly " + expected.length + " wrought iron recipes, found " + modRecipes);
         helper.succeed();
     }
 

@@ -601,6 +601,16 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     /**
+     * 配方白名单 hook: 默认收下配方类型内的全部配方; 控制器可覆写为只接受特定
+     * 命名空间/前缀, 把共用配方类型在机器侧切开, 而不必修改或删除任何配方数据
+     * (当前无覆写者——大型蒸汽高炉仍执行 primitive_blast_furnace 全类型, 切开只
+     * 做在上游原始高炉那一侧, 见 mixins/RecipeLogicMixin)。
+     */
+    protected boolean acceptsRecipe(GTRecipe recipe) {
+        return true;
+    }
+
+    /**
      * Locked batch economics for an accepted recipe (议题 5): ×1.5 duration,
      * 2 mB/EU linear in the parallel. B1/B2 override both with the sub-linear
      * ladder (large-steam-assembler.md 议题 5).
@@ -688,10 +698,16 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         // (进气室长期有空气, 否则会一直霸占机器、挤掉物品离心配方).
         List<GTRecipe> deferred = new ArrayList<>();
         GTRecipe preferred = findRecipeById(preferredRecipeId);
-        if (preferred != null) {
+        if (preferred != null && acceptsRecipe(preferred)) {
             (isAirIntakeRecipe(preferred) ? deferred : candidates).add(preferred);
+        } else {
+            preferred = null;
         }
         for (GTRecipe recipe : type.getRecipesInCategory(type.getCategory())) {
+            if (!acceptsRecipe(recipe)) {
+                // 白名单之外的配方直接跳过 (机器侧切开共用配方类型).
+                continue;
+            }
             if (preferred == null || !recipe.getId().equals(preferred.getId())) {
                 (isAirIntakeRecipe(recipe) ? deferred : candidates).add(recipe);
             }

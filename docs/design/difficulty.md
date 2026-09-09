@@ -364,7 +364,7 @@
 大型蒸汽高炉（large-steam-blast-furnace.md）按“三档一致”基线执行：
 
 - 三档的并行（`96`）、耗时倍率（`0.4×`）、蒸汽马力费（`200 mB/t`/并行）、鼓风空气（`4 mB/t`/并行）、产率、结构、接口、GUI/Jade 完全一致；锻铁与钢是进度主链材料，主链机器不做差异化（与粉碎机家族/大型焦炉同口径）。
-- 随附注入上游 `primitive_blast_furnace` 类型的 `6` 条锻铁配方（见下文上游覆盖白名单）为配方内容 add-only，不参与难度差异化，三档完全相同。
+- 随附注入上游 `primitive_blast_furnace` 类型的 `3` 条锻铁配方（见下文上游覆盖白名单）为配方内容 add-only，不参与难度差异化，三档完全相同。
 
 ## 上游模组设置覆盖
 
@@ -380,7 +380,7 @@
 | GTCEu | `7.5.3` | `recipes.casingsPerCraft` | `2` | `1` | `1` | 按存档实际工作强度强制使用对应整数值 |
 | GTCEu | `7.5.3` | 专用蒸汽锅炉的实际蒸汽产出 | `5×` | `5×` | `2×` | 在锅炉默认产量计算完成后乘以对应倍率 |
 | GTCEu | `7.5.3` | 单方块专用蒸汽锅炉的内部蒸汽缓存容量 | `2×` | `1×` | `1×` | 在锅炉默认蒸汽缓存容量上乘以对应倍率 |
-| GTCEu | `7.5.3` | `primitive_blast_furnace` 配方类型（新增 `6` 条锻铁配方） | 一致 | 一致 | 一致 | 数据生成向该类型追加 add-only 配方 JSON（`data/gregsteamexpansion/recipes/primitive_blast_furnace/`），不删除、不修改任何上游配方 |
+| GTCEu | `7.5.3` | `primitive_blast_furnace` 配方类型（新增 `3` 条纯粉锻铁配方） | 一致 | 一致 | 一致 | 数据生成向该类型追加 add-only 配方 JSON（`data/gregsteamexpansion/recipes/primitive_blast_furnace/`），不删除、不修改任何上游配方 |
 
 - `recipes.casingsPerCraft` 是 GTCEu 的机械方块配方产量参数，合法范围为 `1–3`，GTCEu 默认值为 `2`。Easy 使用上游默认值 `2`，Normal 与 Expert 均使用 `1`；工作强度机制不使用允许范围内的 `3`。
 - 该覆盖作用于 GTCEu 读取此参数的全部机械方块配方，也作用于本模组所有明确复用此参数的补充配方，不能只为工业蒸汽机械方块建立一份例外产量。

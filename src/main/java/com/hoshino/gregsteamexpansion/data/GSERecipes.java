@@ -326,33 +326,22 @@ public final class GSERecipes {
     // ------------------------------------------------------------------
     // 锻铁配方注入 (large-steam-blast-furnace.md 锻铁配方注入专节):
     // GTCEu 7.5.3 上游蒸汽时代没有锻铁产出 (熔炉铁粉出铁锭, 锻铁仅电弧炉
-    // LV+/HV EBF); 本组 6 条"铁粉 + 燃料 → 锻铁"配方以 add-only 方式注入
+    // LV+/HV EBF); 本组 3 条"铁粉 + 燃料粉 → 锻铁"配方以 add-only 方式注入
     // 上游 primitive_blast_furnace 类型, 原始高炉与本模组大型蒸汽高炉共用。
     // 燃料表/时长/副产与上游 steel_from_*_wrought 逐条镜像; 铁粉 (dust) 与
     // 上游铁源 (ingot/block) 前缀互斥, 无匹配歧义。三档一致。
+    //
+    // 🚫 2026-09-09 用户裁定: 锻铁路线只接受粉尘形态——铁源 dust 且燃料也必须是
+    // dust (煤粉/木炭粉/焦炭粉), 原 gem 版 (煤/木炭/焦炭整块) 3 条已移除。
+    // 效果: 锻铁路线与上游用 gem/block 燃料的钢路线在输入形态上彻底区分;
+    // 想用整块燃料的玩家必须先把煤/木炭/焦炭粉碎, 与"纯粉料高炉"的调性一致。
     // ------------------------------------------------------------------
     private static void addWroughtIronBlastRecipes(Consumer<FinishedRecipe> provider) {
         // 煤/木炭线: 镜像 steel_from_coal/charcoal_*_wrought (800t, 2 小撮黑灰)。
         GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
-                .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_coal_gem"))
-                .inputItems(TagPrefix.dust, GTMaterials.Iron)
-                .inputItems(TagPrefix.gem, GTMaterials.Coal, 2)
-                .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
-                .outputItems(TagPrefix.dustTiny, GTMaterials.DarkAsh, 2)
-                .duration(800)
-                .save(provider);
-        GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
                 .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_coal_dust"))
                 .inputItems(TagPrefix.dust, GTMaterials.Iron)
                 .inputItems(TagPrefix.dust, GTMaterials.Coal, 2)
-                .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
-                .outputItems(TagPrefix.dustTiny, GTMaterials.DarkAsh, 2)
-                .duration(800)
-                .save(provider);
-        GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
-                .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_charcoal_gem"))
-                .inputItems(TagPrefix.dust, GTMaterials.Iron)
-                .inputItems(TagPrefix.gem, GTMaterials.Charcoal, 2)
                 .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
                 .outputItems(TagPrefix.dustTiny, GTMaterials.DarkAsh, 2)
                 .duration(800)
@@ -367,14 +356,6 @@ public final class GSERecipes {
                 .save(provider);
 
         // 焦炭线: 镜像 steel_from_coke_*_wrought (600t, 1/9 灰机会副产)。
-        GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
-                .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_coke_gem"))
-                .inputItems(TagPrefix.dust, GTMaterials.Iron)
-                .inputItems(TagPrefix.gem, GTMaterials.Coke, 1)
-                .outputItems(TagPrefix.ingot, GTMaterials.WroughtIron)
-                .chancedOutput(TagPrefix.dust, GTMaterials.Ash, "1/9", 0)
-                .duration(600)
-                .save(provider);
         GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
                 .recipeBuilder(GregSteamExpansion.id("wrought_iron_from_dust_coke_dust"))
                 .inputItems(TagPrefix.dust, GTMaterials.Iron)
