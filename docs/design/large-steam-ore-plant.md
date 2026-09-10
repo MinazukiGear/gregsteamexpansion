@@ -75,7 +75,7 @@
 
 符号:`I` 工业、`B` 蒸汽墙体(可替换)、`M` 蒸汽研磨方块、`A` 空气、`C` 控制器。行序正面 → 背面。
 
-第 1 层(底):`IIIIICIII` 于正面行,其余 `IIIIIIIII` ×8 行。
+第 1 层(底):`IIIICIIII` 于正面行,其余 `IIIIIIIII` ×8 行。
 第 2、6 层(工位):`IBBBBBBBI` / `BAAAAAAAB` / `BAMAMAMAB` / `BAAAAAAAB` / `BAMAMAMAB` / `BAAAAAAAB` / `BAMAMAMAB` / `BAAAAAAAB` / `IBBBBBBBI`。
 第 3–5 层(空心):`IBBBBBBBI` / `BAAAAAAAB` ×7 / `IBBBBBBBI`。
 第 7 层(顶):`IIIIIIIII` ×9 行。

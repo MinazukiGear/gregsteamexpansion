@@ -45,6 +45,9 @@ public class LargeCokeOvenRenderer extends DynamicRender<LargeCokeOvenMachine, L
         DynamicRenderManager.register(GregSteamExpansion.id("large_coke_oven"), TYPE);
     }
 
+    /** Forces the renderer type to register before machine model JSON is decoded. */
+    public static void bootstrap() {}
+
     private static final Material DOOR_OFF = new Material(TextureAtlas.LOCATION_BLOCKS,
             GregSteamExpansion.id("block/large_coke_oven/furnace_door"));
     private static final Material DOOR_LIT = new Material(TextureAtlas.LOCATION_BLOCKS,

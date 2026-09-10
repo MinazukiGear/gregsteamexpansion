@@ -789,26 +789,6 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     }
 
     //////////////////////////////////////
-    // ****** 模式/朝向锁 (供仓查询) ******//
-    //////////////////////////////////////
-
-    /** 正在推进批次或持有待输出快照时禁止切换仓模式/旋转仓。 */
-    public boolean isModeSwitchLocked() {
-        return isFormed() && ovenLogic.isBatchActiveOrPending();
-    }
-
-    /** 结构中各模式仓数量 (配额校验: 切换后三种模式各至少一个)。 */
-    public int[] countHatchModes() {
-        int[] counts = new int[CokeOvenMode.values().length];
-        for (var part : getParts()) {
-            if (part instanceof LargeCokeOvenHatchPartMachine hatch) {
-                counts[hatch.getMode().ordinal()]++;
-            }
-        }
-        return counts;
-    }
-
-    //////////////////////////////////////
     // ****** 库存访问 (GUI/仓代理) ******//
     //////////////////////////////////////
 

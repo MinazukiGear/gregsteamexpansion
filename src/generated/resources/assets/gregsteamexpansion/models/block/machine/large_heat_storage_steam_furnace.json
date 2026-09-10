@@ -8,8 +8,8 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/machine/large_heat_storage_steam_furnace/overlay_front",
-            "overlay_front_emissive": "gregsteamexpansion:block/machine/large_heat_storage_steam_furnace/overlay_front_emissive"
+            "overlay_front": "gtceu:block/machines/electric_furnace/overlay_front",
+            "overlay_front_emissive": "gtceu:block/machines/electric_furnace/overlay_front_emissive"
           }
         }
       },
@@ -22,8 +22,8 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/machine/large_heat_storage_steam_furnace/overlay_front_active",
-            "overlay_front_emissive": "gregsteamexpansion:block/machine/large_heat_storage_steam_furnace/overlay_front_active_emissive"
+            "overlay_front": "gtceu:block/machines/electric_furnace/overlay_front_active",
+            "overlay_front_emissive": "gtceu:block/machines/electric_furnace/overlay_front_active_emissive"
           }
         }
       },
@@ -36,8 +36,8 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/machine/large_heat_storage_steam_furnace/overlay_front_active",
-            "overlay_front_emissive": "gregsteamexpansion:block/machine/large_heat_storage_steam_furnace/overlay_front_active_emissive"
+            "overlay_front": "gtceu:block/machines/electric_furnace/overlay_front_active",
+            "overlay_front_emissive": "gtceu:block/machines/electric_furnace/overlay_front_active_emissive"
           }
         }
       },
@@ -50,8 +50,8 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/machine/large_heat_storage_steam_furnace/overlay_front",
-            "overlay_front_emissive": "gregsteamexpansion:block/machine/large_heat_storage_steam_furnace/overlay_front_emissive"
+            "overlay_front": "gtceu:block/machines/electric_furnace/overlay_front",
+            "overlay_front_emissive": "gtceu:block/machines/electric_furnace/overlay_front_emissive"
           }
         }
       },

@@ -101,7 +101,7 @@ public final class GSECokeOvenInit {
     private static void verifySingleRecipe(net.minecraft.world.item.crafting.RecipeManager manager,
                                            net.minecraft.core.RegistryAccess registryAccess,
                                            ResourceLocation recipeId, String expectedItemId) {
-        var expectedItem = ForgeRegistries.ITEMS.getValue(new ResourceLocation(expectedItemId));
+        var expectedItem = ForgeRegistries.ITEMS.getValue(ResourceLocation.tryParse(expectedItemId));
         if (expectedItem == null) {
             GregSteamExpansion.LOGGER.error("[Coke Oven] Verification failed: expected item {} not registered",
                     expectedItemId);
@@ -192,7 +192,7 @@ public final class GSECokeOvenInit {
         public static void onChunkLoad(ChunkEvent.Load event) {
             if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel serverLevel)) return;
             if (!(event.getChunk() instanceof net.minecraft.world.level.chunk.LevelChunk chunk)) return;
-            CokeOvenWorldData.getOrCreate(serverLevel).pruneStaleClaims(serverLevel, chunk.getPos());
+            CokeOvenWorldData.getOrCreate(serverLevel).pruneStaleClaims(chunk);
         }
     }
 }

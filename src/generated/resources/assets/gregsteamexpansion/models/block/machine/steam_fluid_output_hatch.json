@@ -13,7 +13,7 @@
         "parent": "gtceu:block/machine/template/sided/sided",
         "textures": {
           "bottom": "gtceu:block/casings/steam/bronze/bottom",
-          "overlay_front": "gregsteamexpansion:block/machine/part/steam_fluid_output_hatch",
+          "overlay_front": "gtceu:block/overlay/machine/overlay_fluid_hatch_output",
           "side": "gtceu:block/casings/steam/bronze/side",
           "top": "gtceu:block/casings/steam/bronze/top"
         }
@@ -24,7 +24,7 @@
         "parent": "gtceu:block/machine/template/sided/sided",
         "textures": {
           "bottom": "gtceu:block/casings/steam/steel/bottom",
-          "overlay_front": "gregsteamexpansion:block/machine/part/steam_fluid_output_hatch",
+          "overlay_front": "gtceu:block/overlay/machine/overlay_fluid_hatch_output",
           "side": "gtceu:block/casings/steam/steel/side",
           "top": "gtceu:block/casings/steam/steel/top"
         }

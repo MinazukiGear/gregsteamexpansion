@@ -8,7 +8,7 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/steam_forge/overlay_front"
+            "overlay_front": "gtceu:block/machines/forge_hammer/overlay_front"
           }
         }
       },
@@ -21,8 +21,8 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/steam_forge/overlay_front_active",
-            "overlay_front_emissive": "gregsteamexpansion:block/multiblock/steam_forge/overlay_front_active_emissive"
+            "overlay_front": "gtceu:block/machines/forge_hammer/overlay_front_active",
+            "overlay_front_emissive": "gtceu:block/machines/forge_hammer/overlay_front_active_emissive"
           }
         }
       },
@@ -35,8 +35,8 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/steam_forge/overlay_front_active",
-            "overlay_front_emissive": "gregsteamexpansion:block/multiblock/steam_forge/overlay_front_active_emissive"
+            "overlay_front": "gtceu:block/machines/forge_hammer/overlay_front_active",
+            "overlay_front_emissive": "gtceu:block/machines/forge_hammer/overlay_front_active_emissive"
           }
         }
       },
@@ -49,7 +49,7 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/steam_forge/overlay_front"
+            "overlay_front": "gtceu:block/machines/forge_hammer/overlay_front"
           }
         }
       },

@@ -72,7 +72,7 @@
 第 `1` 层（底层，外圈工业区 + 中央炉膛）：
 
 ```text
-IIIIICIIII  ← 正面（控制器位于正面底层正中）
+IIIICIIII  ← 正面（控制器位于正面底层正中）
 IFFFFFFFI
 IFFFFFFFI
 IFFFFFFFI

@@ -1013,10 +1013,6 @@ public final class GSELang {
         // ---- 大型焦炉仓 ----
         add("gregsteamexpansion.large_coke_oven_hatch.facing.locked",
                 "This hatch must face %s at its candidate position.");
-        add("gregsteamexpansion.large_coke_oven_hatch.mode.locked",
-                "The large coke oven is running or holding a pending batch; hatch modes are locked.");
-        add("gregsteamexpansion.large_coke_oven_hatch.mode.last_of_mode",
-                "Cannot remove the last hatch of a required mode.");
 
         addLargeCokeOvenTooltips();
     }
@@ -1061,7 +1057,7 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.4",
                 "Item input only accepts insertion; the controller pushes item and fluid outputs every 5 ticks in a fixed order.");
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.5",
-                "Modes cannot be switched while the oven is running or holding a pending batch; other states must keep one hatch of each mode.");
+                "Sneak + screwdriver always cycles the mode; the structure is checked immediately, becomes invalid if a mode is missing, and reforms after a valid assignment is restored.");
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.6",
                 "A front cover can only further restrict logistics the current mode already allows; it never changes the mode or controls crafting.");
 

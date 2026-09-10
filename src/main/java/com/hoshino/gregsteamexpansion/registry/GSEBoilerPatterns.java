@@ -1,5 +1,6 @@
 package com.hoshino.gregsteamexpansion.registry;
 
+import com.gregtechceu.gtceu.api.GTValues;
 import com.gregtechceu.gtceu.api.machine.MachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
@@ -123,7 +124,7 @@ public final class GSEBoilerPatterns {
      */
     public static MultiblockShapeInfo shapeInfo(MultiblockMachineDefinition definition, TierBlocks tier) {
         String[] fireboxRingWithHatches = FIREBOX_RING_LAYER.clone();
-        fireboxRingWithHatches[10] = "CFFJLOC";
+        fireboxRingWithHatches[10] = "CFFJLCC";
         String[][] layers = {
                 BOTTOM_LAYER,
                 fireboxRingWithHatches,
@@ -137,8 +138,8 @@ public final class GSEBoilerPatterns {
         for (int depthIndex = layers[0].length - 1; depthIndex >= 0; depthIndex--) {
             String[] rows = new String[layers.length];
             for (int layer = 0; layer < layers.length; layer++) {
-                StringBuilder sb = new StringBuilder();
-                for (int a = layers[layer][depthIndex].length() - 1; a >= 0; a--) {
+                StringBuilder sb = new StringBuilder(layers[layer][depthIndex].length());
+                for (int a = 0; a < layers[layer][depthIndex].length(); a++) {
                     sb.append(layers[layer][depthIndex].charAt(a));
                 }
                 rows[layer] = sb.toString();
@@ -149,7 +150,10 @@ public final class GSEBoilerPatterns {
                 .where('C', tier.casing().get())
                 .where('X', tier.firebox().get())
                 .where('P', tier.pipe().get())
-                .where('M', GTMachines.MUFFLER_HATCH[0], Direction.UP)
+                // MUFFLER_HATCH 用 ELECTRIC_TIERS 注册, ULV 槽 (index 0) 为 null,
+                // 取 LV (index 1) 才非空; 否则 .where 传入 null Supplier 会在
+                // MultiblockShapeInfo#where 里 NPE, 连结构预览都会崩。
+                .where('M', GTMachines.MUFFLER_HATCH[GTValues.LV], Direction.UP)
                 .where('A', GSEMachines.STEAM_AIR_INTAKE_HATCH, Direction.DOWN)
                 .where('S', definition, Direction.NORTH)
                 .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)

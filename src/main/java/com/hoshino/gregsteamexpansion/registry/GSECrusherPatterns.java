@@ -250,8 +250,8 @@ private static MultiblockShapeInfo.ShapeInfoBuilder buildShapeInfo(String[][] la
     for (int r = depth - 1; r >= 0; r--) {
         String[] rows = new String[height];
         for (int l = 0; l < height; l++) {
-            StringBuilder sb = new StringBuilder();
-            for (int a = width - 1; a >= 0; a--) {
+            StringBuilder sb = new StringBuilder(width);
+            for (int a = 0; a < width; a++) {
                 sb.append(layers[l][r].charAt(a));
             }
             rows[l] = sb.toString();

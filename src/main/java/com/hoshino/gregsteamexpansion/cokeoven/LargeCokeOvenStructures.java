@@ -170,8 +170,8 @@ public final class LargeCokeOvenStructures {
      * 固体输出 / 流体输出模式仓、两个侧面候选位保持焦炉砖 (仅示例, 不强制)。
      *
      * <p>ShapeInfo 约定: aisle 索引 → 深度 z (正面墙 z=0), 行 → 高度 y (自下
-     * 而上), 字符 → 世界 X; 逐层图宽度字符 (正面视角左→右) 反序映射到 X
-     * (朝北时正面视角左侧 = 世界 +X)。全部机器正面朝结构外部。</p>
+     * 而上), 字符 → 世界 X; 逐层图宽度字符与 ShapeInfo 的 X 顺序一致。
+     * 全部机器正面朝结构外部。</p>
      */
     public static List<MultiblockShapeInfo> shapeInfos(MultiblockMachineDefinition definition) {
         MultiblockShapeInfo basic = buildShapeInfo(definition, null);
@@ -192,13 +192,14 @@ public final class LargeCokeOvenStructures {
                                                       java.util.Map<Integer, Character> backHatches) {
         int backDepth = DEPTH - 1;
         var builder = MultiblockShapeInfo.builder();
+        // The pattern uses start(BACK, UP, LEFT), while ShapeInfo is consumed
+        // as world [x][y][z]. Build one world-Z aisle per depth row; the LEFT
+        // pattern axis already has the same index order as ShapeInfo's X axis.
         for (int d = 0; d < DEPTH; d++) {
             String[] rows = new String[LAYER_COUNT];
             for (int layer = 0; layer < LAYER_COUNT; layer++) {
-                StringBuilder sb = new StringBuilder();
-                for (int x = 0; x < WIDTH; x++) {
-                    // 世界 X 自西向东 = 逐层图宽度自右向左 (正面视角左→右反序)。
-                    int w = WIDTH - 1 - x;
+                StringBuilder sb = new StringBuilder(WIDTH);
+                for (int w = 0; w < WIDTH; w++) {
                     char c = layerRow(layer, d).charAt(w);
                     if (c == 'I') {
                         // 候选位: 代表布局的背面候选位放仓, 其余 (含侧面) 用焦炉砖。

@@ -7,7 +7,7 @@
       "model": {
         "parent": "gtceu:block/casings/voltage/uv",
         "textures": {
-          "overlay_front": "gregsteamexpansion:block/machines/electric_ore_crusher/overlay_front"
+          "overlay_front": "gtceu:block/machines/rock_crusher/overlay_front"
         }
       }
     },
@@ -15,7 +15,7 @@
       "model": {
         "parent": "gtceu:block/casings/voltage/uv",
         "textures": {
-          "overlay_front": "gregsteamexpansion:block/machines/electric_ore_crusher/overlay_front"
+          "overlay_front": "gtceu:block/machines/rock_crusher/overlay_front"
         }
       }
     },
@@ -23,8 +23,7 @@
       "model": {
         "parent": "gtceu:block/casings/voltage/uv",
         "textures": {
-          "overlay_front": "gregsteamexpansion:block/machines/electric_ore_crusher/overlay_front_active",
-          "overlay_front_emissive": "gregsteamexpansion:block/machines/electric_ore_crusher/overlay_front_active_emissive"
+          "overlay_front": "gtceu:block/machines/rock_crusher/overlay_front_active"
         }
       }
     },
@@ -32,8 +31,7 @@
       "model": {
         "parent": "gtceu:block/casings/voltage/uv",
         "textures": {
-          "overlay_front": "gregsteamexpansion:block/machines/electric_ore_crusher/overlay_front_active",
-          "overlay_front_emissive": "gregsteamexpansion:block/machines/electric_ore_crusher/overlay_front_active_emissive"
+          "overlay_front": "gtceu:block/machines/rock_crusher/overlay_front_active"
         }
       }
     }

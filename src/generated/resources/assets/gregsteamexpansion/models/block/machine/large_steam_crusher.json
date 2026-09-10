@@ -8,7 +8,7 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/large_steam_crusher/overlay_front"
+            "overlay_front": "gtceu:block/machines/rock_crusher/overlay_front"
           }
         }
       },
@@ -21,8 +21,7 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/large_steam_crusher/overlay_front_active",
-            "overlay_front_emissive": "gregsteamexpansion:block/multiblock/large_steam_crusher/overlay_front_active_emissive"
+            "overlay_front": "gtceu:block/machines/rock_crusher/overlay_front_active"
           }
         }
       },
@@ -35,8 +34,7 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/large_steam_crusher/overlay_front_active",
-            "overlay_front_emissive": "gregsteamexpansion:block/multiblock/large_steam_crusher/overlay_front_active_emissive"
+            "overlay_front": "gtceu:block/machines/rock_crusher/overlay_front_active"
           }
         }
       },
@@ -49,7 +47,7 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/large_steam_crusher/overlay_front"
+            "overlay_front": "gtceu:block/machines/rock_crusher/overlay_front"
           }
         }
       },

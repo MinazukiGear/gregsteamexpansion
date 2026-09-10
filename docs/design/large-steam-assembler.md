@@ -82,7 +82,7 @@
 第 `1` 层（底层，工业区）：
 
 ```text
-IIIIICIIII  ← 正面
+IIIICIIII  ← 正面
 IIIIIIIIII
 IIIIIIIIII
 IIIIIIIIII

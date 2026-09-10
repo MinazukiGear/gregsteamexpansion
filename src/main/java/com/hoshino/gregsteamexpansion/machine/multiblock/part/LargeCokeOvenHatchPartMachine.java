@@ -39,8 +39,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
  *
  * <ul>
  * <li>物品输入 / 固体输出 / 流体输出三种互斥模式; 新放置默认物品输入并持久化;
- *     潜行螺丝刀按固定顺序循环, 成型未运行时切换必须保持三模式各至少一个,
- *     运行/待输出时锁定;</li>
+ *     潜行螺丝刀始终按固定顺序循环, 切换后立即重新验证结构;</li>
  * <li>只在面向机器外部的正面暴露当前模式能力; 背面 3 仓位必须朝机器后方,
  *     左/右侧仓位必须朝机器左/右侧, 成型后扳手无法转向非法方向 (不消耗耐久);</li>
  * <li>不自行推送: 固体与流体由控制器每 5 tick 按固定顺序轮询;</li>
@@ -128,6 +127,12 @@ public class LargeCokeOvenHatchPartMachine extends MultiblockPartMachine {
     /** 成型后保持仓自身外观 (模式标志所在正面持续可见)。 */
     @Override
     public boolean replacePartModelWhenFormed() {
+        return false;
+    }
+
+    /** 仓只通过 Jade 展示状态，不打开独立库存界面。 */
+    @Override
+    public boolean shouldOpenUI(Player player, InteractionHand hand, BlockHitResult hit) {
         return false;
     }
 

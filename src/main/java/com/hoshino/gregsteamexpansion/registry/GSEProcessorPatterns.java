@@ -601,10 +601,11 @@ public final class GSEProcessorPatterns {
         layers[1] = tuyereDeck;
         layers[2] = supplyDeckA;
         layers[3] = supplyDeckB;
-        for (int i = 4; i <= 11; i++) {
+        for (int i = 4; i <= 10; i++) {
             layers[i] = BLAST_SHAFT_LAYER;
         }
-        layers[12] = BLAST_CAP_LAYER;
+        layers[11] = BLAST_CAP_LAYER;
+        layers[12] = BLAST_CROWN_LAYER;
         layers[13] = BLAST_CROWN_LAYER;
         layers[14] = BLAST_CROWN_LAYER;
 
@@ -669,7 +670,7 @@ public final class GSEProcessorPatterns {
                         "IFFFFFFFI",
                         "IFFFFFFFI",
                         "IFFFFFFFI",
-                        "IIIIICIII")
+                        "IIIICIIII")
                 .aisle(
                         "IBBBBBBBI",
                         "BAAAAAAAB",
@@ -751,7 +752,7 @@ public final class GSEProcessorPatterns {
     public static MultiblockShapeInfo thermalCentrifugeShapeInfo(MultiblockMachineDefinition definition) {
         String[][] layers = {
                 {"WWWWWWWWW", "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW",
-                        "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW", "WWWWWKWWW"},
+                        "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW", "WWWWKWWWW"},
                 {"WBBBBBBBW", "BAAAAAAAB", "BAAAMAAAB", "BAAAAAAAB", "BAMAMAMAB",
                         "BAAAAAAAB", "BAAAMAAAB", "BAAAAAAAB", "WBIOSEBBW"},
                 {"WBBBBBBBW", "BAAAAAAAB", "BAAAAAAAB", "BAAAAAAAB", "BAAAMAAAB",
@@ -897,7 +898,7 @@ public final class GSEProcessorPatterns {
                 .where('B', bronzeSteamCasing())
                 .where('M', GSEBlocks.STEAM_GRINDING_BLOCK.get())
                 .where('A', Blocks.AIR)
-                .where('K', definition, Direction.NORTH)
+                .where('C', definition, Direction.NORTH)
                 .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
                 .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
                 .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
@@ -950,9 +951,9 @@ public final class GSEProcessorPatterns {
                         "IIICIII")
                 .aisle( // layer 2 (axis root)
                         "IBBBBBI",
-                        "BAAAAB",
+                        "BAAAAAB",
                         "BAAMAAB",
-                        "BAAAAB",
+                        "BAAAAAB",
                         "IBBBBBI")
                 .aisle( // layer 3 (impeller cross)
                         "IBBBBBI",
@@ -962,9 +963,9 @@ public final class GSEProcessorPatterns {
                         "IBBBBBI")
                 .aisle( // layer 4 (axis top)
                         "IBBBBBI",
-                        "BAAAAB",
+                        "BAAAAAB",
                         "BAAMAAB",
-                        "BAAAAB",
+                        "BAAAAAB",
                         "IBBBBBI")
                 .aisle( // layer 5 (top band)
                         "IIIIIII",
@@ -991,10 +992,10 @@ public final class GSEProcessorPatterns {
      */
     public static MultiblockShapeInfo mixerShapeInfo(MultiblockMachineDefinition definition) {
         String[][] layers = {
-                {"IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIICIII"},
-                {"IBBBBBI", "BAAAAB", "BAAMAAB", "BAAAAB", "IJOSEFI"},
+                {"IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIKIII"},
+                {"IBBBBBI", "BAAAAAB", "BAAMAAB", "BAAAAAB", "IJOSEFI"},
                 {"IBBBBBI", "BAAMAAB", "BAMMMAB", "BAAMAAB", "IBBBBBI"},
-                {"IBBBBBI", "BAAAAB", "BAAMAAB", "BAAAAB", "IGBBBBI"},
+                {"IBBBBBI", "BAAAAAB", "BAAMAAB", "BAAAAAB", "IGBBBBI"},
                 {"IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII"},
         };
         return buildShapeInfo(layers)
@@ -1268,6 +1269,9 @@ public final class GSEProcessorPatterns {
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_MIXING_BLOCK.get()))
                 .where('P', Predicates.blocks(bronzePipeCasing()))
                 .where('A', Predicates.air())
+                // 圆盘四角: 不参与检测。FactoryBlockPattern 要求图案里出现的每个字符
+                // 都有 where 定义，漏一个就会在成型时抛 "Predicates for character(s) . are missing"。
+                .where('.', Predicates.any())
                 .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
                 .build();
     }
@@ -1338,6 +1342,7 @@ public final class GSEProcessorPatterns {
                 .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
                 .where('P', bronzePipeCasing())
                 .where('A', Blocks.AIR)
+                .where('.', Blocks.AIR)
                 .where('K', definition, Direction.NORTH)
                 .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
                 .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
@@ -1411,7 +1416,7 @@ public final class GSEProcessorPatterns {
                 .aisle( // layer 1 (bottom industrial face, controller front-centre)
                         "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
                         "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIIICIII")
+                        "IIIICIIII")
                 .aisle(ASSEMBLER_WORKLAYER)
                 .aisle(ASSEMBLER_HOLLOW_LAYER)
                 .aisle(ASSEMBLER_HOLLOW_LAYER)
@@ -1443,7 +1448,7 @@ public final class GSEProcessorPatterns {
         String[] bottom = {
                 "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
                 "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
-                "WWWWWKWWW",
+                "WWWWKWWWW",
         };
         String[] hollow = ASSEMBLER_HOLLOW_LAYER.clone();
         String[] workWithHatches = {
@@ -1472,6 +1477,7 @@ public final class GSEProcessorPatterns {
         };
         return buildShapeInfo(layers)
                 .where('W', industrialSteamCasing())
+                .where('I', industrialSteamCasing())
                 .where('B', bronzeSteamCasing())
                 .where('M', GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())
                 .where('A', Blocks.AIR)
@@ -1513,19 +1519,10 @@ public final class GSEProcessorPatterns {
      * @param towerChar the centre-column block char (M / G / S / P)
      */
     private static String[] circuitTowerLayer(char towerChar) {
-        String tower = "B" + towerChar + "ABB";
-        String plain = "BABBB";
+        String tower = "BA" + towerChar + "AB";
         return new String[]{
                 "BBBBB",
-                tower,
-                plain,
-                tower,
-                plain,
-                tower,
-                plain,
-                tower,
-                plain,
-                tower,
+                tower, tower, tower, tower, tower, tower, tower, tower, tower,
                 "BBBBB",
         };
     }
@@ -1552,9 +1549,9 @@ public final class GSEProcessorPatterns {
                 .aisle(circuitTowerLayer('S')) // layer 4 (general assembly layer)
                 .aisle(circuitTowerLayer('P')) // layer 5 (fluid distribution layer)
                 .aisle( // layer 6 (industrial centre ridge)
-                        "..I..", "..I..", "..I..", "..I..", "..I..",
-                        "..I..", "..I..", "..I..", "..I..", "..I..",
-                        "..I..")
+                        "AAIAA", "AAIAA", "AAIAA", "AAIAA", "AAIAA",
+                        "AAIAA", "AAIAA", "AAIAA", "AAIAA", "AAIAA",
+                        "AAIAA")
                 .where('B', circuitAssemblerCandidates())
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get()))
                 .where('G', Predicates.blocks(GTBlocks.CASING_BRONZE_GEARBOX.get()))
@@ -1590,9 +1587,9 @@ public final class GSEProcessorPatterns {
         String[] towerQ = circuitTowerLayer('Q');
         String[] towerP = circuitTowerLayer('P');
         String[] ridge = {
-                "..I..", "..I..", "..I..", "..I..", "..I..",
-                "..I..", "..I..", "..I..", "..I..", "..I..",
-                "..I..",
+                "AAIAA", "AAIAA", "AAIAA", "AAIAA", "AAIAA",
+                "AAIAA", "AAIAA", "AAIAA", "AAIAA", "AAIAA",
+                "AAIAA",
         };
         String[][] layers = {
                 bottom,
@@ -1628,11 +1625,15 @@ public final class GSEProcessorPatterns {
         int width = layers[0][0].length();
         int depth = layers[0].length;
         var builder = MultiblockShapeInfo.builder();
+        // MultiblockShapeInfo is always consumed as world [x][y][z]. The
+        // source arrays are pattern aisles for start(LEFT, FRONT, UP): layer
+        // is Y, row is Z (south to north), and character is X. Transpose Y/Z
+        // and reverse FRONT so the north-facing controller remains at z = 0.
         for (int r = depth - 1; r >= 0; r--) {
             String[] rows = new String[height];
             for (int l = 0; l < height; l++) {
-                StringBuilder sb = new StringBuilder();
-                for (int a = width - 1; a >= 0; a--) {
+                StringBuilder sb = new StringBuilder(width);
+                for (int a = 0; a < width; a++) {
                     sb.append(layers[l][r].charAt(a));
                 }
                 rows[l] = sb.toString();

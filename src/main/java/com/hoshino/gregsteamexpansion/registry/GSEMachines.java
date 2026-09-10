@@ -28,7 +28,6 @@ import com.gregtechceu.gtceu.api.GTValues;
 import com.gregtechceu.gtceu.api.machine.SimpleTieredMachine;
 import com.gregtechceu.gtceu.common.data.GTRecipeModifiers;
 import com.gregtechceu.gtceu.common.data.machines.GTMachineUtils;
-import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.LargeSteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
@@ -46,6 +45,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCompress
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamExtractorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamForgeMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
@@ -86,7 +86,7 @@ public final class GSEMachines {
                             .regressWhenWaiting(false)
                             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
                             .model(mixedFuelBoilerModel(highPressure,
-                                    GregSteamExpansion.id("block/generators/boiler/mixed_fuel")))
+                                    GregSteamExpansion.gtceuId("block/generators/boiler/coal")))
                             .tooltips(
                                     Component.translatable("gtceu.universal.tooltip.produces_fluid",
                                             highPressure ? 40 : 16),
@@ -117,7 +117,8 @@ public final class GSEMachines {
         BlockModelBuilder model = provider.models().nested()
                 .parent(provider.models().getExistingFile(GTMachineModels.SIDED_SIDED_OVERLAY_MODEL));
         GTMachineModels.steamCasingTextures(model, false);
-        model.texture("overlay_front", GregSteamExpansion.id("block/machine/part/steam_exhaust_hatch"));
+        model.texture("overlay_front",
+                GregSteamExpansion.gtceuId("block/overlay/machine/overlay_steam_vent"));
         builder.forAllStatesModels(state -> model);
         builder.addReplaceableTextures("bottom", "top", "side");
     }
@@ -132,7 +133,8 @@ public final class GSEMachines {
             .abilities(PartAbility.STEAM)
             .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
                     com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
-            .model(steamHatchModel(GregSteamExpansion.id("block/machine/part/steam_supply_hatch")))
+            .model(steamHatchModel(
+                    GregSteamExpansion.gtceuId("block/overlay/machine/overlay_steam_miner")))
             .langValue("Steam Supply Hatch")
             .tooltipBuilder(GSEMachines::steamSupplyHatchTooltips)
             .allowCoverOnFront(true)
@@ -149,7 +151,8 @@ public final class GSEMachines {
             .abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS)
             .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
                     com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
-            .model(steamHatchModel(GregSteamExpansion.id("block/machine/part/steam_fluid_input_hatch")))
+            .model(steamHatchModel(
+                    GregSteamExpansion.gtceuId("block/overlay/machine/overlay_fluid_hatch_input")))
             .langValue("Steam Fluid Input Hatch")
             .tooltipBuilder(GSEMachines::steamFluidImportHatchTooltips)
             .allowCoverOnFront(true)
@@ -161,7 +164,8 @@ public final class GSEMachines {
             .abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS)
             .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
                     com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
-            .model(steamHatchModel(GregSteamExpansion.id("block/machine/part/steam_fluid_output_hatch")))
+            .model(steamHatchModel(
+                    GregSteamExpansion.gtceuId("block/overlay/machine/overlay_fluid_hatch_output")))
             .langValue("Steam Fluid Output Hatch")
             .tooltipBuilder(GSEMachines::steamFluidExportHatchTooltips)
             .allowCoverOnFront(true)
@@ -176,7 +180,8 @@ public final class GSEMachines {
             .abilities(GSEPartAbilities.STEAM_AIR_INTAKE)
             .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
                     com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
-            .model(steamHatchModel(GregSteamExpansion.id("block/machine/part/steam_air_intake_hatch")))
+            .model(steamHatchModel(
+                    GregSteamExpansion.gtceuId("block/overlay/machine/overlay_air_vent")))
             .langValue("Steam Air Intake Hatch")
             .tooltipBuilder(GSEMachines::steamAirIntakeHatchTooltips)
             // 进气正面拒绝封面: with allowCoverOnFront(false) and a six-way
@@ -234,7 +239,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/steam_crusher")))
+                    GregSteamExpansion.gtceuId("block/machines/rock_crusher")))
             .pattern(GSECrusherPatterns::createSmall)
             .shapeInfos(definition -> List.of(GSECrusherPatterns.smallShapeInfo(definition)))
             .langValue("Steam Crusher")
@@ -250,7 +255,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_crusher")))
+                    GregSteamExpansion.gtceuId("block/machines/rock_crusher")))
             .pattern(GSECrusherPatterns::createLarge)
             .shapeInfos(definition -> List.of(GSECrusherPatterns.largeShapeInfo(definition)))
             .langValue("Large Steam Crusher")
@@ -277,7 +282,8 @@ public final class GSEMachines {
                             GregSteamExpansion.id("electric_ore_crusher"), GSERecipeTypes.ORE_CRUSHING_RECIPES))
                     .rotationState(RotationState.NON_Y_AXIS)
                     .recipeType(GSERecipeTypes.ORE_CRUSHING_RECIPES)
-                    .workableTieredHullModel(GregSteamExpansion.id("block/machines/electric_ore_crusher"))
+                    .workableTieredHullModel(
+                            GregSteamExpansion.gtceuId("block/machines/rock_crusher"))
                     .tooltips(Component.translatable(
                             "gregsteamexpansion.machine.electric_ore_crusher.tooltip"))
                     .register(),
@@ -303,7 +309,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/steam_compressor")))
+                    GregSteamExpansion.gtceuId("block/machines/compressor")))
             .pattern(GSEProcessorPatterns::createCompressor)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.compressorShapeInfo(definition)))
             .langValue("Steam Compressor")
@@ -320,7 +326,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/steam_extractor")))
+                    GregSteamExpansion.gtceuId("block/machines/extractor")))
             .pattern(GSEProcessorPatterns::createExtractor)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.extractorShapeInfo(definition)))
             .langValue("Steam Extractor")
@@ -337,7 +343,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/steam_forge")))
+                    GregSteamExpansion.gtceuId("block/machines/forge_hammer")))
             .pattern(GSEProcessorPatterns::createForge)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.forgeShapeInfo(definition)))
             .langValue("Steam Forge")
@@ -354,7 +360,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_ore_washer")))
+                    GregSteamExpansion.gtceuId("block/machines/ore_washer")))
             .pattern(GSEProcessorPatterns::createOreWasher)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.oreWasherShapeInfo(definition)))
             .langValue("Large Steam Ore Washer")
@@ -371,7 +377,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_thermal_centrifuge")))
+                    GregSteamExpansion.gtceuId("block/machines/thermal_centrifuge")))
             .pattern(GSEProcessorPatterns::createThermalCentrifuge)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.thermalCentrifugeShapeInfo(definition)))
             .langValue("Large Steam Thermal Centrifuge")
@@ -388,7 +394,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_macerator")))
+                    GregSteamExpansion.gtceuId("block/machines/macerator")))
             .pattern(GSEProcessorPatterns::createMacerator)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.maceratorShapeInfo(definition)))
             .langValue("Large Steam Macerator")
@@ -405,7 +411,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_mixer")))
+                    GregSteamExpansion.gtceuId("block/machines/mixer")))
             .pattern(GSEProcessorPatterns::createMixer)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.mixerShapeInfo(definition)))
             .langValue("Large Steam Mixer")
@@ -422,7 +428,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_blast_furnace")))
+                    GregSteamExpansion.gtceuId("block/multiblock/primitive_blast_furnace")))
             .pattern(GSEProcessorPatterns::createBlastFurnace)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.blastFurnaceShapeInfo(definition)))
             .langValue("Large Steam Blast Furnace")
@@ -438,7 +444,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/steam_chemical_bath")))
+                    GregSteamExpansion.gtceuId("block/machines/chemical_bath")))
             .pattern(GSEProcessorPatterns::createChemicalBath)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.chemicalBathShapeInfo(definition)))
             .langValue("Steam Chemical Bath")
@@ -454,7 +460,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/steam_centrifuge")))
+                    GregSteamExpansion.gtceuId("block/machines/centrifuge")))
             .pattern(GSEProcessorPatterns::createCentrifuge)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.centrifugeShapeInfo(definition)))
             .langValue("Steam Centrifuge")
@@ -470,7 +476,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_centrifuge")))
+                    GregSteamExpansion.gtceuId("block/machines/centrifuge")))
             .pattern(GSEProcessorPatterns::createLargeCentrifuge)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.largeCentrifugeShapeInfo(definition)))
             .langValue("Large Steam Centrifuge")
@@ -487,7 +493,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_assembler")))
+                    GregSteamExpansion.gtceuId("block/machines/assembler")))
             .pattern(GSEProcessorPatterns::createLargeSteamAssembler)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.assemblerShapeInfo(definition)))
             .langValue("Large Steam Assembler")
@@ -504,7 +510,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_circuit_assembler")))
+                    GregSteamExpansion.gtceuId("block/machines/circuit_assembler")))
             .pattern(GSEProcessorPatterns::createLargeSteamCircuitAssembler)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.circuitAssemblerShapeInfo(definition)))
             .langValue("Large Steam Circuit Assembler")
@@ -521,7 +527,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_ore_plant")))
+                    GregSteamExpansion.gtceuId("block/machines/miner")))
             .pattern(GSEVoidPatterns::createOrePlant)
             .shapeInfos(definition -> List.of(GSEVoidPatterns.orePlantShapeInfo(definition)))
             .langValue("Large Steam Ore Plant")
@@ -538,7 +544,7 @@ public final class GSEMachines {
             .blockProp(properties -> properties.strength(5.0F, 6.0F).sound(SoundType.METAL))
             .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/multiblock/large_steam_fluid_drill")))
+                    GregSteamExpansion.gtceuId("block/multiblock/fluid_drilling_rig")))
             .pattern(GSEVoidPatterns::createFluidDrill)
             .shapeInfos(definition -> List.of(GSEVoidPatterns.fluidDrillShapeInfo(definition)))
             .langValue("Large Steam Fluid Drill")
@@ -1085,15 +1091,13 @@ public final class GSEMachines {
             .recipeType(GTRecipeTypes.FURNACE_RECIPES)
             .appearanceBlock(GTBlocks.CASING_BRONZE_BRICKS)
             .pattern(definition -> GSEFurnacePatterns.create(definition, 15))
-            .shapeInfos(definition -> {
-                List<MultiblockShapeInfo> infos = new ArrayList<>();
-                for (int width : GSEFurnacePatterns.WIDTHS) {
-                    infos.add(GSEFurnacePatterns.createShapeInfo(definition, width));
-                }
-                return infos;
-            })
+            // XEI validates every ShapeInfo against this definition's single
+            // canonical pattern. Smaller runtime widths are checked by the
+            // controller itself and cannot be represented as alternate pages
+            // here without being rejected as malformed 15x15 previews.
+            .shapeInfos(definition -> List.of(GSEFurnacePatterns.createShapeInfo(definition, 15)))
             .model(steamMultiblockModel(
-                    GregSteamExpansion.id("block/machine/large_heat_storage_steam_furnace")))
+                    GregSteamExpansion.gtceuId("block/machines/electric_furnace")))
             .langValue("Large Heat-Storage Steam Furnace")
             .tooltipBuilder(GSEMachines::furnaceTooltips)
             .register();
@@ -1577,7 +1581,7 @@ public final class GSEMachines {
             .machine("large_coke_oven_hatch", LargeCokeOvenHatchPartMachine::new)
             .rotationState(RotationState.ALL)
             .modelProperty(GTMachineModelProperties.IS_FORMED, false)
-            // 占位外观: 沿用上游普通焦炉仓模型, 第 5 步替换为三色模式箭头/水滴标志。
+            // 沿用上游普通焦炉仓底模，客户端模型包装器叠加当前模式标志。
             .simpleModel(com.gregtechceu.gtceu.GTCEu.id("block/machine/part/coke_oven_hatch"))
             .langValue("Large Coke Oven Hatch")
             .tooltipBuilder((stack, lines) -> appendClientTooltip(

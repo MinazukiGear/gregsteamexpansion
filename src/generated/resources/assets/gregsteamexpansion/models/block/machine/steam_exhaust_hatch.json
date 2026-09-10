@@ -13,7 +13,7 @@
         "parent": "gtceu:block/machine/template/sided/sided",
         "textures": {
           "bottom": "gtceu:block/casings/steam/bronze/bottom",
-          "overlay_front": "gregsteamexpansion:block/machine/part/steam_exhaust_hatch",
+          "overlay_front": "gtceu:block/overlay/machine/overlay_steam_vent",
           "side": "gtceu:block/casings/steam/bronze/side",
           "top": "gtceu:block/casings/steam/bronze/top"
         }

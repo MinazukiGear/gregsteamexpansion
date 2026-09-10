@@ -1,11 +1,15 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenMode;
+import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenWorldData;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 
 import com.gregtechceu.gtceu.GTCEu;
+import com.gregtechceu.gtceu.api.GTValues;
 import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
@@ -21,11 +25,13 @@ import com.gregtechceu.gtceu.common.data.GTRecipes;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.AbstractSteamAssemblerMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEPartAbilities;
 import com.hoshino.gregsteamexpansion.steamcompat.LegacySteamHatchCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.item.ItemStack;
@@ -495,6 +501,71 @@ public final class GSEGameTests {
     private static final BlockPos HATCH_POS = new BlockPos(0, 0, 0);
     private static final BlockPos HATCH_POS_EAST = new BlockPos(1, 0, 0);
 
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void largeCokeOvenHatchUsesModeAwareImplementation(GameTestHelper helper) {
+        MetaMachine machine = placeHatch(helper, GSEMachines.LARGE_COKE_OVEN_HATCH, HATCH_POS);
+        helper.assertTrue(machine instanceof LargeCokeOvenHatchPartMachine,
+                "Large coke oven hatch registration created the placeholder implementation");
+        if (machine instanceof LargeCokeOvenHatchPartMachine hatch) {
+            helper.assertTrue(hatch.getMode() == CokeOvenMode.ITEM_INPUT,
+                    "New large coke oven hatch did not default to item input mode");
+            helper.assertTrue(hatch.getConnectionState().equals("none"),
+                    "Unconnected large coke oven hatch reported an incorrect connection state");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void cokeOvenStaleClaimPruningUsesLoadedChunk(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos controllerPos = helper.absolutePos(HATCH_POS);
+        CokeOvenWorldData data = CokeOvenWorldData.getOrCreate(level);
+        var result = data.claim(level,
+                CokeOvenWorldData.regularClaim(controllerPos, Direction.NORTH, false), null);
+        helper.assertTrue(result instanceof CokeOvenWorldData.ClaimResult.Success,
+                "Could not create the stale coke oven claim used by the pruning test");
+        helper.assertTrue(data.hasClaim(controllerPos), "Test stale claim was not registered");
+
+        data.pruneStaleClaims(level.getChunkAt(controllerPos));
+        helper.assertTrue(!data.hasClaim(controllerPos),
+                "Stale coke oven claim survived after its loaded chunk confirmed no controller");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void steamAssemblerControllerSlotsAcceptOnlyMatchingMachines(GameTestHelper helper) {
+        AbstractSteamAssemblerMachine assembler = placeHatch(
+                helper, GSEMachines.LARGE_STEAM_ASSEMBLER, HATCH_POS);
+        AbstractSteamAssemblerMachine circuitAssembler = placeHatch(
+                helper, GSEMachines.LARGE_STEAM_CIRCUIT_ASSEMBLER, HATCH_POS_EAST);
+
+        ItemStack assemblerRemainder = assembler.getAssemblerSlotHandler().insertItem(
+                0, GTMachines.ASSEMBLER[GTValues.LV].asStack(5), false);
+        helper.assertTrue(assemblerRemainder.getCount() == 1 && assembler.getAssemblerCount() == 4,
+                "Large steam assembler slot did not accept a four-machine LV stack");
+        helper.assertTrue(assembler.getAssemblerTier() == GTValues.LV && assembler.maximumParallel() == 16,
+                "Large steam assembler slot did not update its tier and parallel cap");
+        assembler.getAssemblerSlotHandler().setStackInSlot(0, ItemStack.EMPTY);
+        ItemStack wrongAssembler = assembler.getAssemblerSlotHandler().insertItem(
+                0, GTMachines.CIRCUIT_ASSEMBLER[GTValues.LV].asStack(), false);
+        helper.assertTrue(!wrongAssembler.isEmpty() && assembler.getAssemblerStack().isEmpty(),
+                "Large steam assembler slot accepted a circuit assembler");
+
+        ItemStack circuitRemainder = circuitAssembler.getAssemblerSlotHandler().insertItem(
+                0, GTMachines.CIRCUIT_ASSEMBLER[GTValues.EV].asStack(4), false);
+        helper.assertTrue(circuitRemainder.isEmpty() && circuitAssembler.getAssemblerCount() == 4,
+                "Large steam circuit assembler slot refused matching EV circuit assemblers");
+        helper.assertTrue(circuitAssembler.getAssemblerTier() == GTValues.EV &&
+                        circuitAssembler.maximumParallel() == 16,
+                "Large steam circuit assembler slot did not update its tier and parallel cap");
+        circuitAssembler.getAssemblerSlotHandler().setStackInSlot(0, ItemStack.EMPTY);
+        ItemStack wrongCircuitAssembler = circuitAssembler.getAssemblerSlotHandler().insertItem(
+                0, GTMachines.ASSEMBLER[GTValues.LV].asStack(), false);
+        helper.assertTrue(!wrongCircuitAssembler.isEmpty() && circuitAssembler.getAssemblerStack().isEmpty(),
+                "Large steam circuit assembler slot accepted a normal assembler");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void largeSteamBlastFurnaceWiredToPrimitiveBlastFurnaceType(GameTestHelper helper) {
         // large-steam-blast-furnace.md 实现验收: 控制器注册并绑定上游
@@ -542,6 +613,110 @@ public final class GSEGameTests {
         helper.assertTrue(modRecipes == expected.length,
                 "Expected exactly " + expected.length + " wrought iron recipes, found " + modRecipes);
         helper.succeed();
+    }
+
+    //////////////////////////////////////
+    // *** 结构成型（照 shapeInfo 铺，验证图案本身）***//
+    //////////////////////////////////////
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void steamChemicalBathFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.STEAM_CHEMICAL_BATH);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void steamCrusherFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.STEAM_CRUSHER);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamCrusherFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_CRUSHER);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void steamCompressorFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.STEAM_COMPRESSOR);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void steamExtractorFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.STEAM_EXTRACTOR);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void steamForgeFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.STEAM_FORGE);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamOreWasherFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_ORE_WASHER);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamThermalCentrifugeFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_THERMAL_CENTRIFUGE);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamMaceratorFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_MACERATOR);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamMixerFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_MIXER);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void steamCentrifugeFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.STEAM_CENTRIFUGE);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamCentrifugeFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_CENTRIFUGE);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamBlastFurnaceFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_BLAST_FURNACE);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamAssemblerFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_ASSEMBLER);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamCircuitAssemblerFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_CIRCUIT_ASSEMBLER);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamOrePlantFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_ORE_PLANT);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamFluidDrillFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_FLUID_DRILL);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeHeatStorageSteamFurnaceFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_HEAT_STORAGE_STEAM_FURNACE);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeCokeOvenFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_COKE_OVEN);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void boilerRoomBronzeFormsFromShape(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.BOILER_ROOM_BRONZE);
     }
 
     private static <T extends MetaMachine> T placeHatch(GameTestHelper helper, MachineDefinition definition,

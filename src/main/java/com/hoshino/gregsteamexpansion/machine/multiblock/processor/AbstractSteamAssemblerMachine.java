@@ -5,6 +5,7 @@ import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.MachineDefinition;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
+import com.gregtechceu.gtceu.api.transfer.item.CustomItemStackHandler;
 import com.gregtechceu.gtceu.api.sound.SoundEntry;
 import com.gregtechceu.gtceu.common.data.GTSoundEntries;
 import com.gregtechceu.gtceu.utils.GTUtil;
@@ -12,6 +13,7 @@ import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 
 import com.gregtechceu.gtceu.api.gui.GuiTextures;
+import com.gregtechceu.gtceu.api.gui.UITemplate;
 import com.gregtechceu.gtceu.api.gui.widget.SlotWidget;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
@@ -25,9 +27,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraftforge.items.ItemStackHandler;
-
-import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -70,26 +69,37 @@ public abstract class AbstractSteamAssemblerMachine extends AbstractSteamProcess
      * Persisted so the content survives chunk unload and world reload;
      * {@link #onMachineRemoved()} returns it as an item entity.
      */
+    /**
+     * 组装机槽位 (议题 3): single slot, same-tier stacks only, hard cap 4.
+     * Persisted so the content survives chunk unload and world reload;
+     * {@link #onMachineRemoved()} returns it as an item entity.
+     *
+     * <p>🚩 类型必须是 {@link CustomItemStackHandler}（它实现了 ldlib 的
+     * {@code ITagSerializable}），不能直接用 Forge 的 {@code ItemStackHandler}：
+     * ldlib 的同步字段注册表里没有 {@code ItemStackHandler} 的 payload，
+     * 方块实体一被 {@code clearRemoved()}（放置 / 读档 / 邻块更新）就抛
+     * {@code No payload found for class ItemStackHandler} 直接崩服。
+     */
     @Persisted
-    private final ItemStackHandler assemblerSlot = new ItemStackHandler(1) {
-        @Override
-        public boolean isItemValid(int slot, @NotNull ItemStack stack) {
-            return assemblerTierOf(stack) > 0;
+    private final CustomItemStackHandler assemblerSlot = new AssemblerSlotHandler();
+
+    protected AbstractSteamAssemblerMachine(IMachineBlockEntity holder) {
+        super(holder);
+        assemblerSlot.setFilter(stack -> assemblerTierOf(stack) > 0);
+        assemblerSlot.setOnContentsChanged(this::markDirty);
+    }
+
+    /** 单槽、硬上限 {@link #MAX_SLOT_STACK}。具名类而非匿名类，避免同步字段按匿名类型查 payload。 */
+    private static final class AssemblerSlotHandler extends CustomItemStackHandler {
+
+        private AssemblerSlotHandler() {
+            super(1);
         }
 
         @Override
         public int getSlotLimit(int slot) {
             return MAX_SLOT_STACK;
         }
-
-        @Override
-        protected void onContentsChanged(int slot) {
-            markDirty();
-        }
-    };
-
-    protected AbstractSteamAssemblerMachine(IMachineBlockEntity holder) {
-        super(holder);
     }
 
     @Override
@@ -121,6 +131,11 @@ public abstract class AbstractSteamAssemblerMachine extends AbstractSteamProcess
     /** Current slot stack for UI display (may hold a corrupted non-assembler after upgrades). */
     public ItemStack getAssemblerStack() {
         return assemblerSlot.getStackInSlot(0);
+    }
+
+    /** Internal controller slot; exposed for UI wiring and behavior verification, never as a block capability. */
+    public CustomItemStackHandler getAssemblerSlotHandler() {
+        return assemblerSlot;
     }
 
     /** Slot tier: 0 (ULV-only) when empty; the stacked kind's tier otherwise. */
@@ -262,12 +277,18 @@ public abstract class AbstractSteamAssemblerMachine extends AbstractSteamProcess
     @Override
     public ModularUI createUI(Player entityPlayer) {
         ModularUI ui = super.createUI(entityPlayer);
+        // The shared processor UI has no player inventory because most family
+        // members expose no controller slots. These two machines do: without
+        // binding the inventory there is no in-GUI source from which a player
+        // can move an assembler into the dedicated slot.
+        ui.setSize(260, 256);
         // 组装机槽位 (议题 9): fixed beside the power button, below the scroll
         // area; the live tier/parallel summary sits to its right.
         ui.widget(new SlotWidget(assemblerSlot, 0, 30, 146)
                 .setBackgroundTexture(GuiTextures.SLOT));
         ui.widget(new LabelWidget(52, 152, this::slotSummaryText)
                 .setTextColor(-1).setDropShadow(true));
+        ui.widget(UITemplate.bindPlayerInventory(entityPlayer.getInventory(), GuiTextures.SLOT, 49, 174, true));
         return ui;
     }
 

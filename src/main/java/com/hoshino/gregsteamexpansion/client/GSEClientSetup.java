@@ -1,5 +1,6 @@
 package com.hoshino.gregsteamexpansion.client;
 
+import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenRenderer;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyMessages;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.registry.GSEMenuTypes;
@@ -17,6 +18,15 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 public final class GSEClientSetup {
     private GSEClientSetup() {}
+
+    /**
+     * Registers client-only model codecs while mods are being constructed.
+     * Machine models are decoded before {@link FMLClientSetupEvent}, so this
+     * cannot be deferred to {@link #init(FMLClientSetupEvent)}.
+     */
+    public static void registerEarly() {
+        LargeCokeOvenRenderer.bootstrap();
+    }
 
     public static void init(FMLClientSetupEvent event) {
         event.enqueueWork(() ->

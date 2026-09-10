@@ -8,7 +8,10 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/large_steam_ore_plant/overlay_front"
+            "overlay_back": "gtceu:block/machines/miner/overlay_back",
+            "overlay_front": "gtceu:block/machines/miner/overlay_front",
+            "overlay_side": "gtceu:block/machines/miner/overlay_side",
+            "overlay_top": "gtceu:block/machines/miner/overlay_top"
           }
         }
       },
@@ -21,8 +24,10 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/large_steam_ore_plant/overlay_front_active",
-            "overlay_front_emissive": "gregsteamexpansion:block/multiblock/large_steam_ore_plant/overlay_front_active_emissive"
+            "overlay_back": "gtceu:block/machines/miner/overlay_back",
+            "overlay_front": "gtceu:block/machines/miner/overlay_front",
+            "overlay_side": "gtceu:block/machines/miner/overlay_side",
+            "overlay_top": "gtceu:block/machines/miner/overlay_top"
           }
         }
       },
@@ -35,8 +40,10 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/large_steam_ore_plant/overlay_front_active",
-            "overlay_front_emissive": "gregsteamexpansion:block/multiblock/large_steam_ore_plant/overlay_front_active_emissive"
+            "overlay_back": "gtceu:block/machines/miner/overlay_back",
+            "overlay_front": "gtceu:block/machines/miner/overlay_front",
+            "overlay_side": "gtceu:block/machines/miner/overlay_side",
+            "overlay_top": "gtceu:block/machines/miner/overlay_top"
           }
         }
       },
@@ -49,7 +56,10 @@
         "model": {
           "parent": "gtceu:block/casings/steam/bricked_bronze",
           "textures": {
-            "overlay_front": "gregsteamexpansion:block/multiblock/large_steam_ore_plant/overlay_front"
+            "overlay_back": "gtceu:block/machines/miner/overlay_back",
+            "overlay_front": "gtceu:block/machines/miner/overlay_front",
+            "overlay_side": "gtceu:block/machines/miner/overlay_side",
+            "overlay_top": "gtceu:block/machines/miner/overlay_top"
           }
         }
       },

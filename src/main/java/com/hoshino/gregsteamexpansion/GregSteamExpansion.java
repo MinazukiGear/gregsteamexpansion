@@ -72,6 +72,7 @@ public final class GregSteamExpansion {
         // listener and config screen only wire up on the client dist because
         // referencing their classes on a dedicated server fails dist cleaning.
         if (FMLEnvironment.dist.isClient()) {
+            GSEClientSetup.registerEarly();
             modEventBus.addListener(GSEClientSetup::init);
             ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
                     () -> new ConfigScreenHandler.ConfigScreenFactory(GSEConfigScreen::new));

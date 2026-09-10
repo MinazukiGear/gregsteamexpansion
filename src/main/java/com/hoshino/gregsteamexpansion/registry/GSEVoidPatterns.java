@@ -104,7 +104,7 @@ public final class GSEVoidPatterns {
                 .aisle( // layer 1 (bottom industrial face, controller front-centre)
                         "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
                         "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIIICIII")
+                        "IIIICIIII")
                 .aisle(ORE_PLANT_WORK_LAYER)     // layer 2 (workstation array)
                 .aisle(ORE_PLANT_HOLLOW_LAYER)   // layer 3
                 .aisle(ORE_PLANT_HOLLOW_LAYER)   // layer 4
@@ -162,6 +162,7 @@ public final class GSEVoidPatterns {
         };
         return buildShapeInfo(layers)
                 .where('W', industrialSteamCasing())
+                .where('I', industrialSteamCasing())
                 .where('B', bronzeSteamCasing())
                 .where('M', GSEBlocks.STEAM_GRINDING_BLOCK.get())
                 .where('A', Blocks.AIR)
@@ -196,7 +197,7 @@ public final class GSEVoidPatterns {
 
     /** Row set of a drill ring layer (h2-h7: pipe column; h8: mixing separator). */
     private static String[] fluidDrillRingLayer(char centreChar) {
-        String centreRow = "CAA" + centreChar + "AC";
+        String centreRow = "CAA" + centreChar + "AAC";
         String plainRow = "CAAAAAC";
         return new String[]{
                 "ICCCCCI",
@@ -251,7 +252,7 @@ public final class GSEVoidPatterns {
                 .aisle( // h1 (bottom industrial face, controller front-centre)
                         "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII",
                         "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII",
-                        "IIIIKII")
+                        "IIIKIII")
                 .aisle(fluidDrillRingLayer('P')) // h2 (pipe column root)
                 .aisle(fluidDrillRingLayer('P')) // h3
                 .aisle(fluidDrillRingLayer('P')) // h4
@@ -325,8 +326,8 @@ public final class GSEVoidPatterns {
         for (int r = depth - 1; r >= 0; r--) {
             String[] rows = new String[height];
             for (int l = 0; l < height; l++) {
-                StringBuilder sb = new StringBuilder();
-                for (int a = width - 1; a >= 0; a--) {
+                StringBuilder sb = new StringBuilder(width);
+                for (int a = 0; a < width; a++) {
                     sb.append(layers[l][r].charAt(a));
                 }
                 rows[l] = sb.toString();

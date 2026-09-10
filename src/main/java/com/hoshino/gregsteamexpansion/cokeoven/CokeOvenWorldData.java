@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.cokeoven;
 
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 
@@ -12,6 +13,7 @@ import net.minecraft.nbt.LongTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.Map;
@@ -382,13 +384,20 @@ public final class CokeOvenWorldData extends SavedData {
      * 相关区块加载后确认控制器方块已消失的陈旧记录必须释放, 不能仅因区块暂时
      * 不可用而删除 (coke-ovens.md 结构独占保存数据条目)。
      */
-    public void pruneStaleClaims(ServerLevel level, ChunkPos chunkPos) {
+    public void pruneStaleClaims(LevelChunk chunk) {
+        ChunkPos chunkPos = chunk.getPos();
         LongList stale = null;
         for (var entry : claims.entrySet()) {
             BlockPos controller = entry.getValue().controllerPos;
             if (!chunkPos.equals(new ChunkPos(controller))) continue;
-            if (level.isLoaded(controller) &&
-                    !(MetaMachine.getMachine(level, controller) instanceof OwnedCokeOven)) {
+            // This method runs from ChunkEvent.Load. Going back through Level
+            // or MetaMachine.getMachine here can request this same chunk from
+            // ServerChunkCache before its load future has completed, causing
+            // the integrated server to wait on itself forever. Inspect the
+            // event's already-materialized LevelChunk directly instead.
+            var blockEntity = chunk.getBlockEntity(controller);
+            if (!(blockEntity instanceof IMachineBlockEntity holder &&
+                    holder.getMetaMachine() instanceof OwnedCokeOven)) {
                 if (stale == null) stale = new LongArrayList();
                 stale.add(entry.getKey());
             }

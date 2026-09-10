@@ -158,8 +158,8 @@ public final class GSEFurnacePatterns {
      *
      * <p>LDLib's builder bakes {@code [char][row][aisle]}, which
      * {@code PatternPreviewWidget} places at positive {@code [x][y][z]}.
-     * Reverse the pattern's LEFT and FRONT axes: shape aisles run north to
-     * south, rows bottom to top, and chars west to east.
+     * Reverse the pattern's FRONT axis: shape aisles run north to south, rows
+     * bottom to top, and chars retain the pattern's X order.
      * The controller faces NORTH out of z = 0.
      * The steam hatch is this mod's supply hatch
      * — the legacy upstream hatch no longer satisfies {@code PartAbility.STEAM}
@@ -190,8 +190,8 @@ public final class GSEFurnacePatterns {
         for (int b = width - 1; b >= 0; b--) {
             String[] rows = new String[height];
             for (int y = 0; y < height; y++) {
-                StringBuilder sb = new StringBuilder();
-                for (int a = width - 1; a >= 0; a--) {
+                StringBuilder sb = new StringBuilder(width);
+                for (int a = 0; a < width; a++) {
                     sb.append(grid[y][b][a]);
                 }
                 rows[y] = sb.toString();
