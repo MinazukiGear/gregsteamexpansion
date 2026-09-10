@@ -324,6 +324,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         for (IMultiPart part : getParts()) {
             IO io = ioMap.getOrDefault(part.self().getPos().asLong(), IO.BOTH);
             if (io == IO.NONE) continue;
+            if (com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat.isPatternBuffer(part)) {
+                io = IO.IN;
+            }
             for (RecipeHandlerList handlerList : part.getRecipeHandlers()) {
                 if (!handlerList.isValid(io)) continue;
                 addHandlerList(handlerList);

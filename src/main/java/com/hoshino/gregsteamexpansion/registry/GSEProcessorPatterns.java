@@ -151,7 +151,7 @@ public final class GSEProcessorPatterns {
      */
     private static TraceabilityPredicate extractorCandidates() {
         return shellCandidates()
-                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS));
     }
 
@@ -278,11 +278,11 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate washerCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(205)
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
-                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 
@@ -449,9 +449,9 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate blastFurnaceCandidates() {
         return Predicates.blocks(blastBricks()).setMinGlobalLimited(340)
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMaxGlobalLimited(8))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
@@ -636,9 +636,9 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate thermalCentrifugeCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(68)
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
@@ -793,9 +793,9 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate maceratorCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(85)
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
@@ -919,12 +919,12 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate mixerCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(32)
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
-                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
-                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
@@ -1030,7 +1030,7 @@ public final class GSEProcessorPatterns {
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
-                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS));
     }
 
@@ -1100,8 +1100,8 @@ public final class GSEProcessorPatterns {
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
-                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
-                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMaxGlobalLimited(1));
@@ -1169,12 +1169,12 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate largeCentrifugeCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(100)
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
-                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
-                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMaxGlobalLimited(1))
@@ -1368,11 +1368,11 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate assemblerCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(180)
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
-                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
@@ -1503,11 +1503,11 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate circuitAssemblerCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(149)
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM))
-                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }

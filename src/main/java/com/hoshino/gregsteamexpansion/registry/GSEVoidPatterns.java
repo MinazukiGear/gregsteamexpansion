@@ -62,7 +62,7 @@ public final class GSEVoidPatterns {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(124)
                 .or(Predicates.abilities(PartAbility.STEAM))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.blocks(STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 
@@ -190,7 +190,7 @@ public final class GSEVoidPatterns {
     private static TraceabilityPredicate fluidDrillCandidates() {
         return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(156)
                 .or(Predicates.abilities(PartAbility.STEAM))
-                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
                 .or(Predicates.blocks(STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }

@@ -86,7 +86,10 @@ public abstract class AbstractSteamAssemblerMachine extends AbstractSteamProcess
     protected AbstractSteamAssemblerMachine(IMachineBlockEntity holder) {
         super(holder);
         assemblerSlot.setFilter(stack -> assemblerTierOf(stack) > 0);
-        assemblerSlot.setOnContentsChanged(this::markDirty);
+        assemblerSlot.setOnContentsChanged(() -> {
+            markDirty();
+            requestRecipeSearch();
+        });
     }
 
     /** 单槽、硬上限 {@link #MAX_SLOT_STACK}。具名类而非匿名类，避免同步字段按匿名类型查 payload。 */

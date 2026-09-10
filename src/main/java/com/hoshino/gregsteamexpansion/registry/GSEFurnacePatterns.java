@@ -71,9 +71,9 @@ public final class GSEFurnacePatterns {
     private static TraceabilityPredicate interfaces() {
         return Predicates.blocks(GTBlocks.CASING_BRONZE_BRICKS.get())
                 .or(Predicates.abilities(PartAbility.STEAM))
-                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS));
     }

@@ -31,6 +31,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachin
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.recipe.RecipeCacheLifecycle;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
@@ -40,6 +41,7 @@ import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
+import com.lowdragmc.lowdraglib.syncdata.ISubscription;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 
 import net.minecraft.ChatFormatting;
@@ -146,7 +148,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     private TickableSubscription tickSubscription;
     /** 供汽仓 stable position order (议题 5). */
     private final List<SteamSupplyHatchPartMachine> supplyHatches = new ArrayList<>();
-    private final List<ItemBusPartMachine> inputBuses = new ArrayList<>();
+    private final List<IMultiPart> inputBuses = new ArrayList<>();
     private final List<ItemBusPartMachine> outputBuses = new ArrayList<>();
     /** Fluid output hatches (GTCEu standard or the mod's steam fluid hatch). */
     private final List<FluidHatchPartMachine> fluidOutputHatches = new ArrayList<>();
@@ -180,6 +182,43 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** Part recipe handlers aggregated on formation. */
     private final Map<IO, List<RecipeHandlerList>> capabilitiesProxy = new EnumMap<>(IO.class);
     private final Map<IO, Map<RecipeCapability<?>, List<IRecipeHandler<?>>>> capabilitiesFlat = new EnumMap<>(IO.class);
+
+    private static final int IDLE_RECIPE_RETRY_TICKS = 20;
+    private final List<ISubscription> searchSubscriptions = new ArrayList<>();
+    private boolean recipeSearchDirty = true;
+    private long nextRecipeSearchTick;
+    private long recipeCacheRevision = -1;
+    private GTRecipeType cachedRecipeType;
+    private List<GTRecipe> cachedRecipes = List.of();
+    private final Map<ResourceLocation, GTRecipe> recipesById = new HashMap<>();
+
+    protected final void requestRecipeSearch() {
+        recipeSearchDirty = true;
+    }
+
+    private void clearSearchSubscriptions() {
+        searchSubscriptions.forEach(ISubscription::unsubscribe);
+        searchSubscriptions.clear();
+        requestRecipeSearch();
+    }
+
+    @Override
+    public void onUnload() {
+        clearSearchSubscriptions();
+        super.onUnload();
+    }
+
+    private void refreshRecipeCache() {
+        long revision = RecipeCacheLifecycle.revision();
+        GTRecipeType type = recipeType();
+        if (recipeCacheRevision == revision && cachedRecipeType == type) return;
+        recipeCacheRevision = revision;
+        cachedRecipeType = type;
+        cachedRecipes = type == null ? List.of() : List.copyOf(type.getRecipesInCategory(type.getCategory()));
+        recipesById.clear();
+        for (GTRecipe recipe : cachedRecipes) recipesById.put(recipe.getId(), recipe);
+        requestRecipeSearch();
+    }
 
     protected AbstractSteamProcessorMachine(IMachineBlockEntity holder) {
         super(holder);
@@ -316,6 +355,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     @Override
     public void onStructureInvalid() {
+        clearSearchSubscriptions();
         super.onStructureInvalid();
         // 结构失效: keep the batch and locked parameters, roll progress back to
         // 1 tick (议题 8).
@@ -380,6 +420,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     private void collectParts() {
+        clearSearchSubscriptions();
         supplyHatches.clear();
         inputBuses.clear();
         outputBuses.clear();
@@ -391,12 +432,21 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         for (IMultiPart part : getParts()) {
             IO io = ioMap.getOrDefault(part.self().getPos().asLong(), IO.BOTH);
             if (io == IO.NONE) continue;
+            if (com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat.isPatternBuffer(part)) {
+                io = IO.IN;
+            }
             for (RecipeHandlerList handlerList : part.getRecipeHandlers()) {
                 if (!handlerList.isValid(io)) continue;
                 addHandlerList(handlerList);
+                if (!(part instanceof SteamSupplyHatchPartMachine)) {
+                    searchSubscriptions.add(handlerList.subscribe(this::requestRecipeSearch, ItemRecipeCapability.CAP));
+                    searchSubscriptions.add(handlerList.subscribe(this::requestRecipeSearch, FluidRecipeCapability.CAP));
+                }
             }
             if (part instanceof SteamSupplyHatchPartMachine supplyHatch) {
                 supplyHatches.add(supplyHatch);
+            } else if (com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat.isPatternBuffer(part)) {
+                inputBuses.add(part);
             } else if (part instanceof ItemBusPartMachine bus) {
                 if (bus.getInventory().getHandlerIO() == IO.OUT) {
                     outputBuses.add(bus);
@@ -478,6 +528,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (level == null || level.isClientSide) {
             return;
         }
+        refreshRecipeCache();
         waitingForSteam = false;
         waitingForAuxiliary = false;
         waitingForOutputs = false;
@@ -517,7 +568,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
         if (hasBatch) {
             runBatchTick();
-        } else {
+        } else if (recipeSearchDirty || level.getGameTime() >= nextRecipeSearchTick) {
+            recipeSearchDirty = false;
+            // Fallback for external handlers or recipe conditions that do not emit notifications.
+            nextRecipeSearchTick = level.getGameTime() + IDLE_RECIPE_RETRY_TICKS;
             tryStartBatch();
         }
         updateWorkingAppearance();
@@ -693,76 +747,68 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (type == null || !hasCapabilityProxies()) {
             return;
         }
-        List<GTRecipe> candidates = new ArrayList<>();
-        // 议题 12 降权: 吃进气室空气的配方排在最后, 只有没有其他配方可跑时才执行
-        // (进气室长期有空气, 否则会一直霸占机器、挤掉物品离心配方).
-        List<GTRecipe> deferred = new ArrayList<>();
         GTRecipe preferred = findRecipeById(preferredRecipeId);
-        if (preferred != null && acceptsRecipe(preferred)) {
-            (isAirIntakeRecipe(preferred) ? deferred : candidates).add(preferred);
-        } else {
-            preferred = null;
+        boolean preferredIsAir = preferred != null && isAirIntakeRecipe(preferred);
+        if (preferred != null && !preferredIsAir && tryStartRecipe(preferred)) return;
+        // Preserve registration order within both priority groups. Air recipes stay last.
+        for (GTRecipe recipe : cachedRecipes) {
+            if (recipe != preferred && !isAirIntakeRecipe(recipe) && tryStartRecipe(recipe)) return;
         }
-        for (GTRecipe recipe : type.getRecipesInCategory(type.getCategory())) {
-            if (!acceptsRecipe(recipe)) {
-                // 白名单之外的配方直接跳过 (机器侧切开共用配方类型).
-                continue;
-            }
-            if (preferred == null || !recipe.getId().equals(preferred.getId())) {
-                (isAirIntakeRecipe(recipe) ? deferred : candidates).add(recipe);
-            }
+        if (preferredIsAir && tryStartRecipe(preferred)) return;
+        for (GTRecipe recipe : cachedRecipes) {
+            if (recipe != preferred && isAirIntakeRecipe(recipe) && tryStartRecipe(recipe)) return;
         }
-        candidates.addAll(deferred);
+    }
 
-        for (GTRecipe recipe : candidates) {
-            if (!passesVoltageGate(recipe)) {
-                continue;
-            }
-            if (!RecipeHelper.matchRecipe(this, recipe).isSuccess()) {
-                continue;
-            }
-            int byInputs = ParallelLogic.getMaxByInput(this, recipe, maximumParallel(), List.of());
-            if (byInputs <= 0) {
-                continue;
-            }
-            // 按可输出槽位决定并行: worst-case output (every chanced output
-            // assumed successful, per-parallel) simulated through the EXACT
-            // insertion path deliverPendingOutputs uses, so a batch that
-            // passes this check can never end in output blocking later.
-            int parallel = largestParallelThatFits(recipe, Math.min(maximumParallel(), byInputs));
-            if (parallel <= 0) {
-                continue;
-            }
-
-            GTRecipe multiplied = recipe.copy(ContentModifier.multiplier(parallel));
-            multiplied.parallels = parallel;
-            // 原子扣取: extract the full parallel input in one operation.
-            var result = RecipeHelper.handleRecipe(this, multiplied, IO.IN,
-                    multiplied.inputs, new HashMap<>(), false, false);
-            if (!result.isSuccess()) {
-                continue;
-            }
-
-            long eu = batchEu(recipe);
-            hasBatch = true;
-            batchRecipe = recipe;
-            batchRecipeId = recipe.getId().toString();
-            // 议题 12: 空气配方不写偏好, 避免跑过一次就锁死、永久挤占后续物品配方.
-            if (!isAirIntakeRecipe(recipe)) {
-                preferredRecipeId = recipe.getId().toString();
-            }
-            batchParallel = parallel;
-            batchProgress = 0;
-            batchDurationTicks = (int) batchDurationTicks(recipe, parallel);
-            batchSteamPerTickMb = batchSteamPerTickMb(recipe, eu, parallel);
-            batchTotalSteamMb = batchSteamPerTickMb * batchDurationTicks;
-            batchOutputMultiplier = batchOutputMultiplier();
-            batchInputDisplay = firstInputDisplay(recipe);
-            GregSteamExpansion.LOGGER.debug(
-                    "Steam processor at {} started batch {} with parallel {} ({} ticks, {} mB total, {} mB/t)",
-                    getPos(), batchRecipeId, parallel, batchDurationTicks, batchTotalSteamMb, batchSteamPerTickMb);
-            return;
+    private boolean tryStartRecipe(GTRecipe recipe) {
+        if (!acceptsRecipe(recipe)) return false;
+        if (!passesVoltageGate(recipe)) {
+            return false;
         }
+        if (!RecipeHelper.matchRecipe(this, recipe).isSuccess()) {
+            return false;
+        }
+        int byInputs = ParallelLogic.getMaxByInput(this, recipe, maximumParallel(), List.of());
+        if (byInputs <= 0) {
+            return false;
+        }
+        // 按可输出槽位决定并行: worst-case output (every chanced output
+        // assumed successful, per-parallel) simulated through the EXACT
+        // insertion path deliverPendingOutputs uses, so a batch that
+        // passes this check can never end in output blocking later.
+        int parallel = largestParallelThatFits(recipe, Math.min(maximumParallel(), byInputs));
+        if (parallel <= 0) {
+            return false;
+        }
+
+        GTRecipe multiplied = recipe.copy(ContentModifier.multiplier(parallel));
+        multiplied.parallels = parallel;
+        // 原子扣取: extract the full parallel input in one operation.
+        var result = RecipeHelper.handleRecipe(this, multiplied, IO.IN,
+                multiplied.inputs, new HashMap<>(), false, false);
+        if (!result.isSuccess()) {
+            return false;
+        }
+
+        long eu = batchEu(recipe);
+        hasBatch = true;
+        batchRecipe = recipe;
+        batchRecipeId = recipe.getId().toString();
+        // 议题 12: 空气配方不写偏好, 避免跑过一次就锁死、永久挤占后续物品配方.
+        if (!isAirIntakeRecipe(recipe)) {
+            preferredRecipeId = recipe.getId().toString();
+        }
+        batchParallel = parallel;
+        batchProgress = 0;
+        batchDurationTicks = (int) batchDurationTicks(recipe, parallel);
+        batchSteamPerTickMb = batchSteamPerTickMb(recipe, eu, parallel);
+        batchTotalSteamMb = batchSteamPerTickMb * batchDurationTicks;
+        batchOutputMultiplier = batchOutputMultiplier();
+        batchInputDisplay = firstInputDisplay(recipe);
+        GregSteamExpansion.LOGGER.debug(
+                "Steam processor at {} started batch {} with parallel {} ({} ticks, {} mB total, {} mB/t)",
+                getPos(), batchRecipeId, parallel, batchDurationTicks, batchTotalSteamMb, batchSteamPerTickMb);
+        return true;
     }
 
     /** First sized item input of the recipe, for the GUI display. */
@@ -796,12 +842,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (id == null) {
             return null;
         }
-        for (GTRecipe recipe : type.getRecipesInCategory(type.getCategory())) {
-            if (recipe.getId().equals(id)) {
-                return recipe;
-            }
-        }
-        return null;
+        refreshRecipeCache();
+        return recipesById.get(id);
     }
 
     //////////////////////////////////////
@@ -964,6 +1006,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      * then delivered atomically (议题 7).
      */
     private void completeBatch() {
+        requestRecipeSearch();
         if (batchRecipe == null) {
             hasBatch = false;
             return;
@@ -1263,6 +1306,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     public void setWorkingEnabled(boolean workingEnabled) {
         this.workingEnabled = workingEnabled;
+        requestRecipeSearch();
         updateWorkingAppearance();
     }
 

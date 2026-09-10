@@ -1,7 +1,6 @@
 package com.hoshino.gregsteamexpansion.machine.steam;
 
 import com.gregtechceu.gtceu.api.GTValues;
-import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.chemical.material.Material;
@@ -31,6 +30,7 @@ import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.gregtechceu.gtceu.utils.GTTransferUtils;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
+import com.hoshino.gregsteamexpansion.recipe.BoilerFuelCache;
 import com.hoshino.gregsteamexpansion.registry.GSETags;
 
 import com.lowdragmc.lowdraglib.gui.editor.ColorPattern;
@@ -67,7 +67,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraftforge.fluids.FluidType;
 import net.minecraftforge.fluids.FluidUtil;
@@ -77,12 +76,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
-import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
-import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -97,7 +92,7 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
     private static final int CO_FIRING_OUTPUT_HP = 1200;
     private static final int TENTHS_PER_POWDER_BURN_TICK_LP = 3;
     private static final int TENTHS_PER_POWDER_BURN_TICK_HP = 6;
-    private static final Object2BooleanMap<Fluid> FUEL_CACHE = new Object2BooleanOpenHashMap<>();
+    private final BoilerFuelCache fuelCache = new BoilerFuelCache();
     private static final String ICON_ROOT =
             "gregsteamexpansion:textures/gui/icon/mixed_fuel_boiler/";
     private static final ResourceTexture MODE_LIQUID_ICON = icon("mode_liquid");
@@ -188,15 +183,9 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
 
     private NotifiableFluidTank createFuelTank() {
         return new NotifiableFluidTank(this, 1, 16 * FluidType.BUCKET_VOLUME, IO.IN)
-                .setFilter(stack -> FUEL_CACHE.computeIfAbsent(stack.getFluid(), fluid -> {
-                    if (isRemote()) return true;
-                    return recipeLogic.getRecipeManager().getAllRecipesFor(getRecipeType()).stream().anyMatch(recipe -> {
-                        var inputs = recipe.inputs.getOrDefault(FluidRecipeCapability.CAP, Collections.emptyList());
-                        if (inputs.isEmpty()) return false;
-                        return Arrays.stream(FluidRecipeCapability.CAP.of(inputs.get(0).content).getStacks())
-                                .anyMatch(candidate -> candidate.getFluid() == fluid);
-                    });
-                }));
+                // Client prediction must never populate the authoritative server cache.
+                .setFilter(stack -> isRemote() || fuelCache.accepts(
+                        recipeLogic.getRecipeManager(), getRecipeType(), stack.getFluid()));
     }
 
     @Override

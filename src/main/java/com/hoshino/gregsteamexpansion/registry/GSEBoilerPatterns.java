@@ -49,9 +49,9 @@ public final class GSEBoilerPatterns {
      */
     private static TraceabilityPredicate casingCandidates(TierBlocks tier) {
         return Predicates.blocks(tier.casing().get()).setMinGlobalLimited(220)
-                .or(Predicates.abilities(PartAbility.IMPORT_FLUIDS))
-                .or(Predicates.abilities(PartAbility.IMPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.EXPORT_FLUIDS));
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS));
     }
 
     // Row sets (back -> front, 11 rows × 7 chars) per height layer.

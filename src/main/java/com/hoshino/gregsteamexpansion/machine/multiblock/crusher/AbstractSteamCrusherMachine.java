@@ -150,7 +150,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     private TickableSubscription tickSubscription;
     /** 供汽仓 stable position order (steam-crushers.md 蒸汽消耗). */
     private final List<SteamSupplyHatchPartMachine> supplyHatches = new ArrayList<>();
-    private final List<ItemBusPartMachine> inputBuses = new ArrayList<>();
+    private final List<IMultiPart> inputBuses = new ArrayList<>();
     /** 输出总线 stable order: ME first, then block position (steam-crushers.md). */
     private final List<ItemBusPartMachine> outputBuses = new ArrayList<>();
     private final List<SteamExhaustHatchMachine> exhaustHatches = new ArrayList<>();
@@ -293,6 +293,9 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         for (IMultiPart part : getParts()) {
             IO io = ioMap.getOrDefault(part.self().getPos().asLong(), IO.BOTH);
             if (io == IO.NONE) continue;
+            if (com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat.isPatternBuffer(part)) {
+                io = IO.IN;
+            }
             for (RecipeHandlerList handlerList : part.getRecipeHandlers()) {
                 if (!handlerList.isValid(io)) continue;
                 addHandlerList(handlerList);
@@ -301,6 +304,8 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
                 supplyHatches.add(supplyHatch);
             } else if (part instanceof SteamExhaustHatchMachine exhaustHatch) {
                 exhaustHatches.add(exhaustHatch);
+            } else if (com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat.isPatternBuffer(part)) {
+                inputBuses.add(part);
             } else if (part instanceof ItemBusPartMachine bus) {
                 if (bus.getInventory().getHandlerIO() == IO.OUT) {
                     outputBuses.add(bus);
@@ -444,9 +449,17 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         if (inputBuses.size() != 1) {
             return;
         }
-        var inventory = inputBuses.get(0).getInventory();
-        for (int slot = 0; slot < inventory.getSlots(); slot++) {
-            ItemStack stack = inventory.getStackInSlot(slot);
+        List<ItemStack> inputs = new ArrayList<>();
+        for (var handlers : inputBuses.get(0).getRecipeHandlers()) {
+            if (!handlers.isValid(IO.IN)) continue;
+            for (var handler : handlers.getHandlerMap().getOrDefault(ItemRecipeCapability.CAP, List.of())) {
+                if (!handler.shouldSearchContent()) continue;
+                for (Object content : handler.getContents()) {
+                    if (content instanceof ItemStack stack) inputs.add(stack);
+                }
+            }
+        }
+        for (ItemStack stack : inputs) {
             if (stack.isEmpty()) {
                 continue;
             }
