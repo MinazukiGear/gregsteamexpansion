@@ -768,6 +768,7 @@ public final class GSELang {
         addAssemblerFamilyLang();
         addBoilerRoomLang();
         addVoidProducerLang();
+        addStructureDiagnosticsLang();
     }
 
     // ------------------------------------------------------------------
@@ -1013,6 +1014,10 @@ public final class GSELang {
         // ---- 大型焦炉仓 ----
         add("gregsteamexpansion.large_coke_oven_hatch.facing.locked",
                 "This hatch must face %s at its candidate position.");
+        // 模式名与普通焦炉仓分开维护: 同一枚举 CokeOvenMode 复用两套文案。
+        add("gregsteamexpansion.large_coke_oven_hatch.mode.item_input", "Item Input");
+        add("gregsteamexpansion.large_coke_oven_hatch.mode.item_output", "Item Output");
+        add("gregsteamexpansion.large_coke_oven_hatch.mode.fluid_output", "Fluid Output");
 
         addLargeCokeOvenTooltips();
     }
@@ -1199,6 +1204,46 @@ public final class GSELang {
                 "All hatches proxy the controller's shared inventories; adding hatches never adds slots, tanks, capacity or parallelism.");
         add("gregsteamexpansion.machine.coke_oven_hatch.tooltip.details.5",
                 "An unconnected hatch keeps its mode and can still be reconfigured with a screwdriver.");
+    }
+
+    /**
+     * 结构诊断 (structure-diagnostics.md): 多方块未成型时显示原因。
+     *
+     * <p>类别与阈值文本全部自建, 不复用上游 {@code gtceu.multiblock.pattern.error.*} ——
+     * 那些键带 §c 内联着色且是句子片段, 拼进 Jade 行会破坏统一的灰色样式。
+     * 唯一例外是不一致类 (线圈/过滤器/电池), 它们本来就是完整句子, 直接透传上游键。
+     */
+    private static void addStructureDiagnosticsLang() {
+        // ---- Jade 原因行 (P5: 只说原因, 不重复"结构未成型"状态行) ----
+        add("gregsteamexpansion.jade.structure.title", "First problem: %s");
+        add("gregsteamexpansion.jade.structure.pos", "At: %s, %s, %s");
+        add("gregsteamexpansion.jade.structure.expected", "Expects: %s");
+        // P6: 引擎只记录首个失败点, 明写以免玩家以为修好这处就完事。
+        add("gregsteamexpansion.jade.structure.maybe_more", "More problems may surface after this one is fixed");
+
+        // ---- L1 类别 ----
+        add("gregsteamexpansion.structure.problem.missing", "missing or wrong block");
+        add("gregsteamexpansion.structure.problem.count.max", "too many blocks: at most %s");
+        add("gregsteamexpansion.structure.problem.count.min", "too few blocks: at least %s");
+        add("gregsteamexpansion.structure.problem.count.max_layer", "too many blocks per layer: at most %s");
+        add("gregsteamexpansion.structure.problem.count.min_layer", "too few blocks per layer: at least %s");
+        add("gregsteamexpansion.structure.problem.chunk_unloaded", "the structure's chunks are not loaded");
+        add("gregsteamexpansion.structure.problem.uninitialized", "the structure has not been checked yet");
+        add("gregsteamexpansion.structure.problem.unknown", "unrecognized structure error");
+
+        // ---- L3 候选拼接 ----
+        add("gregsteamexpansion.structure.list_separator", ", ");
+        add("gregsteamexpansion.structure.expected.more", "%s and %s more");
+
+        // ---- /gse structure 调试指令 (P4) ----
+        add("gregsteamexpansion.command.structure.no_controller",
+                "Look at a multiblock controller within %s blocks.");
+        add("gregsteamexpansion.command.structure.valid", "Structure is valid.");
+        add("gregsteamexpansion.command.structure.reason", "Reason: %s");
+        add("gregsteamexpansion.command.structure.position", "Position: %s");
+        add("gregsteamexpansion.command.structure.expected", "Expected candidates: %s");
+        add("gregsteamexpansion.command.structure.truncated", "(%s types total, showing %s)");
+        add("gregsteamexpansion.command.structure.raw_key", "Raw engine key: %s");
     }
 
     private static void add(String key, String value) {

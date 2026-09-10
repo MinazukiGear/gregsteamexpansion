@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.integration.jade;
 
 import com.gregtechceu.gtceu.api.block.MetaMachineBlock;
 import com.gregtechceu.gtceu.api.blockentity.MetaMachineBlockEntity;
+import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.client.cokeoven.OwnedBrickClient;
@@ -15,6 +16,9 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.part.GSECokeOvenHatch;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
+import com.hoshino.gregsteamexpansion.structure.StructureDiagnostics;
+import com.hoshino.gregsteamexpansion.structure.StructureProblem;
+import com.hoshino.gregsteamexpansion.structure.StructureText;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -34,6 +38,8 @@ import snownee.jade.api.IWailaPlugin;
 import snownee.jade.api.WailaPlugin;
 import snownee.jade.api.config.IPluginConfig;
 
+import java.util.List;
+
 @WailaPlugin
 public final class GSEJadePlugin implements IWailaPlugin {
     @Override
@@ -46,6 +52,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockDataProvider(CokeOvenProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(CokeOvenHatchProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(LargeCokeOvenHatchProvider.INSTANCE, MetaMachineBlockEntity.class);
+        registration.registerBlockDataProvider(StructureDiagnosticsProvider.INSTANCE, MetaMachineBlockEntity.class);
     }
 
     @Override
@@ -59,6 +66,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockComponent(CokeOvenHatchProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(LargeCokeOvenProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(LargeCokeOvenHatchProvider.INSTANCE, MetaMachineBlock.class);
+        registration.registerBlockComponent(StructureDiagnosticsProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(OwnedBrickProvider.INSTANCE,
                 com.gregtechceu.gtceu.common.data.GTBlocks.CASING_COKE_BRICKS.get().getClass());
     }
@@ -813,6 +821,72 @@ public final class GSEJadePlugin implements IWailaPlugin {
 
         private static Component line(String name, Object... arguments) {
             return Component.translatable("gregsteamexpansion.jade.mixed_fuel_boiler." + name, arguments)
+                    .withStyle(ChatFormatting.GRAY);
+        }
+
+        @Override
+        public ResourceLocation getUid() {
+            return UID;
+        }
+    }
+
+    /**
+     * 结构诊断 Jade 数据协议 (structure-diagnostics.md 通道 T1 / 决策 P5)。
+     *
+     * <p>一处实现覆盖全部多方块机器: Jade 按方块类型注册, 不像既有 8 个 provider
+     * 那样逐台机器写。未成型时显示**首个问题**的类别 / 坐标 / 期望方块候选。
+     *
+     * <p>分工约定 (P5): 既有 provider 保留它们的状态行 ("结构未成型"), 本 provider
+     * 只补原因, 不重复状态。
+     *
+     * <p>为什么必须走服务端数据通道: GTCEu 的结构检查只在服务端异步线程执行
+     * ({@code MultiblockControllerMachine#asyncCheckPattern}), 客户端的
+     * {@code MultiblockState} 永远是初始态, 直接读拿不到任何原因。诊断以
+     * ItemStack/坐标的形式序列化, 方块名由客户端按本地语言渲染 (设计文档 R6)。
+     */
+    private enum StructureDiagnosticsProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+        INSTANCE;
+
+        private static final ResourceLocation UID = GregSteamExpansion.id("structure_diagnostics");
+        private static final String DATA_KEY = "GregSteamExpansionStructureDiagnostics";
+
+        @Override
+        public void appendServerData(CompoundTag serverData, BlockAccessor accessor) {
+            if (!(accessor.getBlockEntity() instanceof MetaMachineBlockEntity blockEntity) ||
+                    !(blockEntity.getMetaMachine() instanceof IMultiController controller)) {
+                return;
+            }
+            if (controller.isFormed()) {
+                return; // 成型后引擎已清空 error, 不再发数据
+            }
+            StructureDiagnostics.describe(controller)
+                    .ifPresent(problem -> serverData.put(DATA_KEY, problem.toTag()));
+        }
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            CompoundTag serverData = accessor.getServerData();
+            if (!serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)) {
+                return; // 未成型但没有已知原因 (尚未跑过校验, 或结构其实有效)
+            }
+            StructureProblem problem = StructureProblem.fromTag(serverData.getCompound(DATA_KEY));
+            if (problem == null) {
+                return;
+            }
+            tooltip.add(line("title", StructureText.reason(problem)));
+            if (problem.hasPosition()) {
+                BlockPos pos = problem.pos();
+                tooltip.add(line("pos", pos.getX(), pos.getY(), pos.getZ()));
+            }
+            if (!problem.expected().isEmpty()) {
+                tooltip.add(line("expected", StructureText.expectedNames(problem)));
+            }
+            // P6: 引擎只记录首个失败点, 明写以免玩家误以为修好这一处就完事。
+            tooltip.add(line("maybe_more"));
+        }
+
+        private static Component line(String name, Object... arguments) {
+            return Component.translatable("gregsteamexpansion.jade.structure." + name, arguments)
                     .withStyle(ChatFormatting.GRAY);
         }
 

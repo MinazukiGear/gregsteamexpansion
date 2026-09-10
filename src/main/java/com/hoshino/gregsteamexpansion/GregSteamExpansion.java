@@ -6,6 +6,7 @@ import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.common.data.GTCreativeModeTabs;
 import com.hoshino.gregsteamexpansion.client.GSEClientSetup;
 import com.hoshino.gregsteamexpansion.client.GSEConfigScreen;
+import com.hoshino.gregsteamexpansion.command.GSECommands;
 import com.hoshino.gregsteamexpansion.data.GSEBlockStates;
 import com.hoshino.gregsteamexpansion.data.GSEBlockTags;
 import com.hoshino.gregsteamexpansion.data.GSEItemModels;
@@ -85,6 +86,8 @@ public final class GregSteamExpansion {
         MinecraftForge.EVENT_BUS.addListener(GSEDifficultyEvents::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(GSEDifficultyEvents::onServerStopped);
         MinecraftForge.EVENT_BUS.addListener(GSEDifficultyEvents::onPlayerLoggedIn);
+        // 结构诊断调试指令 /gse structure (structure-diagnostics.md 通道 T6)。
+        MinecraftForge.EVENT_BUS.addListener(GSECommands::onRegisterCommands);
     }
 
     public static net.minecraft.resources.ResourceLocation id(String path) {
