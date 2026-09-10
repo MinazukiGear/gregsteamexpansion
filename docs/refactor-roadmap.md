@@ -1,0 +1,376 @@
+# 代码优化方向清单（工程重构路线图）
+
+本文档登记 Greg Steam Expansion 当前代码库的**工程结构与运行时性能**优化方向，按优先级排序。它不改变 `docs/design/` 中任何已定案的玩法数值、机器结构、接口约定或注册身份；所有条目都是"行为等价的内部重构"或"不改变对外表现的性能修正"。
+
+> **状态**：分析已定案，尚未开工。所有度量基于当前工作区快照（`main` @ `bcaf777`，113 个 Java 文件 / 27,781 行）。
+>
+> **性质**：工程债清单，不是设计文档。凡涉及玩法语义的改动，仍须先回到 `docs/design/` 走设计流程。
+>
+> **度量口径**：文中所有数字均由只读扫描脚本实测得出，复现方式见[附录](#附录度量脚本)。
+
+## 结论速览
+
+| 优先级 | 项 | 主要收益 | 规模 | 风险 |
+| --- | --- | --- | --- | --- |
+| **P0-1** | 抽取统一蒸汽多方块引擎基类 | 消除 4 份引擎拷贝；把每台新机器成本从 ~3000 行降到数百行 | 大 | 中（需先补测试） |
+| **P0-2** | 配方缓存改为静态共享 + 按输入索引 | 消除每实例全量拷贝与空闲机器全表线性扫描 | 小 | 低 |
+| **P1-3** | 结构图案与预览 shape 单一数据源 | 结构微调从改 3 处变为改 1 处 | 中 | 中 |
+| **P1-4** | `GSEMachines` tooltip 表驱动化 | 约 900 行样板降到 100 行量级 | 小 | 低 |
+| **P1-5** | 建立 CI 并把 GameTest 接进构建门禁 | 45 个既有测试从"靠人记得跑"变为自动保护 | 小 | 低 |
+| **P2-6** | 收敛侵入性 Mixin | 降低上游版本升级时的整体报废风险 | 小～中 | 中 |
+| **P2-7** | 补齐引擎行为测试 | 为 P0-1 铺安全网 | 中 | 低 |
+| **P2-8** | reload 路径消除全量 Map 深拷贝 | 数据包重载耗时 | 小 | 低 |
+| **P2-9** | 仓库与工具链卫生 | 降低认知负担 | 小 | 极低 |
+
+**排期建议**：P2-7 → P0-2 → P1-5 → P0-1 → P1-3 / P1-4 → P2-6 / P2-8 / P2-9。
+
+---
+
+## 度量基线
+
+| 指标 | 实测值 |
+| --- | --- |
+| `src/main/java` | 113 文件 / 27,781 行 |
+| 四个多方块引擎类合计 | 5,129 行（1717 / 1289 / 1147 / 976） |
+| 四个引擎类中的方法 | 269 个 / 方法体合计 3,378 行 |
+| 其中存在跨类近同构孪生的方法 | 58 个 / 2,517 行（**74%**） |
+| 全仓库跨文件**逐字节相同**的函数体 | 82 组 / 230 个重复实例 / 可删 840 行 |
+| `GSEProcessorPatterns` | 1,645 行；74 处 `.aisle()`、42 行 shape 层、**182 处 `.where()`** |
+| `GSEMachines` tooltip 区块 | L644–L1521，约 30 个同构方法，约 900 行 |
+| GameTest | 45 个 `@GameTest`（44 个方法），其中 20 个结构成型断言、**3 个引擎行为测试** |
+| `docs/` 设计文档 | 27 文件 / 10,403 行 |
+
+### 已经发生的破坏（不是理论风险）
+
+引擎拷贝之间**已经出现行为漂移**：
+
+- `demandText()`：`AbstractSteamProcessorMachine.java:1502` 判据为 `!lastTickConsumedSteam`；`AbstractSteamVoidMachine.java:798` 被改成 `getStatusId().equals("working") && !lastTickConsumedSteam`。
+- `pendingSummaryText()`：processor / crusher / void 三家实现互不相同。
+
+git 历史同样印证该模式——同一个 bug 在不同引擎拷贝里被反复单独修复：
+
+| commit | 说明 | 只改了 |
+| --- | --- | --- |
+| `0f79012` | 进度行改为纯 Java 拼接，根治 format error | crusher |
+| `bcd6556` | 粉碎机/熔炉界面数值百分号转义 | crusher |
+| `7fd8403` | 修复粉碎机/熔炉取汽被供给仓能力面拦截 | crusher |
+| `d4c03b0` | 修复并行产物平方与熔炉供给仓收集 | crusher |
+| `8778fd2` | 修复蒸汽流体仓入场均计数的两处潜在结构缺陷 | processor |
+
+---
+
+## P0-1　抽取统一蒸汽多方块引擎基类
+
+### 问题
+
+四个巨型基类实为**同一台引擎的四份拷贝**：
+
+| 文件 | 行数 |
+| --- | --- |
+| `machine/multiblock/processor/AbstractSteamProcessorMachine.java` | 1,717 |
+| `machine/multiblock/LargeHeatStorageSteamFurnaceMachine.java` | 1,289 |
+| `machine/multiblock/crusher/AbstractSteamCrusherMachine.java` | 1,147 |
+| `machine/multiblock/voidproducer/AbstractSteamVoidMachine.java` | 976 |
+
+每个类都同时承担了**部件收集、接口数量校验、取汽预算、批次状态机、并行度计算、最坏情况输出预检、待输出暂存与投递、排气循环、鼓风辅助输入、工作状态渲染、状态文案、完整 ModularUI**这十余项职责。
+
+### 证据
+
+四个类共 269 个方法、3,378 行方法体，其中 **58 个方法（2,517 行，74%）在另一个引擎类里存在近同构孪生**（token 重合度 ≥0.60）：
+
+| 方法 | 份数 | 合计行数 | 相似度 |
+| --- | --- | --- | --- |
+| `collectParts()` | 4 | 207 | 1.00 |
+| `createUI()` | 4 | 174 | 1.00 |
+| `drawSteam()` | 4 | 161 | 0.98 |
+| `getStatusId()` | 4 | 102 | 0.90 |
+| `completeBatch()` | 3 | 101 | 1.00 |
+| `runBatchTick()` | 3 | 95 | 0.96 |
+| `insertIntoBus()` | 4 | 91 | **1.00（逐字节相同，每份 23 行）** |
+| `largestParallelThatFits()` | 2 | 76 | 0.97 |
+| `deliverPendingFluids()` | 2 | 70 | 1.00 |
+| `validateInterfaceCounts()` | 3 | 66 | 0.75 |
+| `deliverPendingOutputs()` | 4 | 64 | 1.00 |
+| `onStructureFormed()` | 4 | 63 | 0.94 |
+| `updateWorkingSoundClient()` | 3 | 62 | 0.95 |
+| `onStructureInvalid()` | 4 | 60 | 1.00 |
+| `runExhaustCycles()` | 4 | 51 | 1.00 |
+| `mergeStacks()` | 3 | 51 | 1.00 |
+| `updateWorkingAppearance()` | 4 | 49 | 1.00 |
+| … | | | |
+
+全仓库层面，**逐字节完全相同**的跨文件函数体有 82 组、230 个重复实例，仅此一项即可删除约 840 行（不含上述近似重复，也不含只有常量不同的分支）。
+
+### 影响
+
+1. **路线图成本被乘法级放大**。`docs/design/next-machine-candidates.md` 第七节把蒸汽拉线机 / 切割机 / 折弯机 / 成型机 / 包装机列为"骨架现成，设计量最低"。实测每台机器的真实成本是：
+   - `7daf3f4`（大型蒸汽组装机 + 电路组装机 + 锅炉房）：**53 文件 / +3,390 行**
+   - `4ab9f73`（F1 采矿厂 + F2 流体钻井）：**30 文件 / +2,761 行**，其中 `AbstractSteamVoidMachine` 是 976 行**新增的引擎拷贝**，真正的业务逻辑不到 300 行。
+
+2. **持续性损耗**。任何一个引擎级修复都要重复落地 4 次，且已经出现漂移（见上文）。这与项目既有原则直接冲突——`docs/design/steam-crushers.md:28` 明确写着"**共用行为的修复应优先落在基类**"；当前的 4 份引擎拷贝使这条原则在跨家族层面无法执行。
+
+### 建议方案
+
+先补测试（P2-7），再按以下粒度分 5 次提交，每一块都能独立用现有 GameTest 回归：
+
+1. `SteamPartCollector` —— 部件收集 + `validateInterfaceCounts` 接口计数校验
+2. `PendingOutputBuffer` —— 待输出暂存、稳定序投递、`insertIntoBus` 模拟/执行路径
+3. `SteamBudget` —— 取汽、总额度、辅助输入（鼓风）
+4. `BatchStateMachine` —— 批次状态与四类冻结/回退语义（本项最该收口，四份实现已分化）
+5. `SteamStatusText` + `SteamProcessorUI` —— 状态文案族与 ModularUI
+
+### 验收方式
+
+- 45 个既有 GameTest 全绿；
+- 新增的引擎行为测试（P2-7）全绿；
+- 四个引擎类的行为差异被压缩为**显式覆写点**，且每个覆写点有注释说明差异原因。
+
+### 风险
+
+中。这是全项目最大的一次结构调整。**必须先有 P2-7 的测试网**，否则并行度、回退、投递这些没有测试覆盖的语义在搬移过程中极易静默改变。
+
+---
+
+## P0-2　配方缓存改为静态共享 + 按输入索引
+
+### 问题
+
+`AbstractSteamProcessorMachine.refreshRecipeCache()`（L211–L221）在**每个实例**上做全量拷贝：
+
+```java
+cachedRecipes = type == null ? List.of() : List.copyOf(type.getRecipesInCategory(type.getCategory())); // L217
+for (GTRecipe recipe : cachedRecipes) recipesById.put(recipe.getId(), recipe);                          // L219
+```
+
+调用点：`processorServerTick()` L531（**每 tick**）、`findRecipeById()` L845。
+
+### 证据与影响
+
+1. **每实例一份全量拷贝**。revision 变化时，每台已成型机器各自复制该类型的全部配方并重建 `id → recipe` 的 HashMap。而 `difficulty` 系统会在**开服**（`GSEDifficultyEvents.java:97`）和**首次选择难度**（`GSEDifficultyEvents.java:169`）各触发一次**整包 datapack reload**，正好把这一刻放大成「机器数 × 配方数」的卡顿尖峰。
+
+2. **空闲机器仍线性全表扫描**。`tryStartBatch()` L745–L761：
+
+```java
+for (GTRecipe recipe : cachedRecipes) {        // L754
+    if (recipe != preferred && !isAirIntakeRecipe(recipe) && tryStartRecipe(recipe)) return;
+}
+```
+
+无输入的机器必然扫完全表，且由 `IDLE_RECIPE_RETRY_TICKS = 20`（L186）保证每 20 tick 重来一次。每个候选走 `acceptsRecipe` → `passesVoltageGate` → `isAirIntakeRecipe`（L718，**每个候选分配一个 `FluidStack`**）→ `RecipeHelper.matchRecipe`。20 台空闲大型组装机 × assembler 类型数千条配方 ÷ 20 tick，量级已不可忽略。
+
+### 建议方案
+
+1. 把配方缓存提升为**进程级静态缓存**，键为 `(RecipeCacheLifecycle.revision(), GTRecipeType)`，所有实例共享同一份 `List` 与索引。
+2. 在构建缓存时顺手建索引（`recipesById` 已经在建，加两张表成本极低）：`Map<Item, List<GTRecipe>>` / `Map<Fluid, List<GTRecipe>>`，让 `tryStartBatch` 按总线实际内容取候选，而不是全表遍历。
+3. 廉价兜底（可先单独提交）：`tryStartBatch()` 入口加"所有输入总线为空则直接 return"的短路。
+4. 顺带修掉 `isAirIntakeRecipe` 的重复调用与每候选 `FluidStack` 分配（两个循环各调一次，L755 / L759）。
+
+### 验收方式
+
+- `GSERecipeOptimizationTests` 的缓存失效与空闲唤醒测试继续通过；
+- 新增：断言多台同类型机器共享同一份缓存实例；断言空输入机器不进入候选遍历。
+
+### 风险
+
+低。改动面小、可独立提交、现有测试即可验证。
+
+---
+
+## P1-3　结构图案与预览 shape 改为单一数据源
+
+### 问题
+
+`registry/GSEProcessorPatterns.java`（1,645 行）中，每台机器的几何写了**两遍**：
+
+- 一遍 `FactoryBlockPattern` 的 `.aisle()`（**74 处**）
+- 一遍 `MultiblockShapeInfo` 的 `String[][]` 层（**42 行**）+ 各自独立的 `.where()` 字符映射（**共 182 处**）
+
+改一次结构要动 pattern、shape、以及设计文档三处。
+
+### 现状缓解（重要）
+
+`gametest/GSEStructureTestUtils.java:39 assertFirstShapeForms()` 会用机器上注册的 `MultiblockShapeInfo` 反铺方块，再反过来用 pattern 校验（L56），因此**"shape 与 pattern 打架"会被现有的 20 个 `*FormsFromShape` 测试抓到**。这是本项目做得很好的一点，也是本项排 P1 而非 P0 的原因。
+
+### 残余风险
+
+- 只校验 `shapes.get(0)`（L45），多形状机器的其余形状无保护（如熔炉的 7/11/15 三种宽度）；
+- 每次结构微调仍需人工同步三处，且文档那一处完全没有校验。
+
+### 建议方案
+
+让 shape 从 pattern 的 aisle 数据派生：同一份 `String[]` 层数据，同时挂"谓词映射表"与"代表方块映射表"，只在确实需要特定代表性摆法时做局部覆写。
+
+---
+
+## P1-4　`GSEMachines` tooltip 表驱动化
+
+### 问题
+
+`registry/GSEMachines.java`（1,620 行）的 L644–L1521 是约 30 个形如 `xxxTooltips(ItemStack, List<Component>)` 的方法，每个约 40 行，全部是同一张信息卡片的骨架 + 不同的 lang key。合计约 **900 行纯样板**，占该文件一半以上。
+
+### 建议方案
+
+改为一张 `List<TooltipRow>` 数据表 + 一个渲染器，可降到 100 行量级。副作用是新机器加 tooltip 从"复制 40 行"变成"加 5 行数据"——与 P0-1 的方向一致。
+
+### 验收方式
+
+- 逐机器对比重构前后的 tooltip 输出（可用 GameTest 断言关键条目的 lang key 序列）。
+
+### 风险
+
+低。纯展示层，行为等价性易验证。
+
+---
+
+## P1-5　建立 CI 并把 GameTest 接进构建门禁
+
+### 问题
+
+- 仓库**无任何 CI 配置**（无 `.github/`、无 `.gitlab-ci.yml`）。
+- `build.gradle` L50–L52 已定义 `gameTestServer` 运行配置，commit 记录也写着"all 43 GameTests passed"，但 **README 的「开始开发」段（L46–L51）没有任何 GameTest 命令**，`docs/` 全库 0 处提及。新贡献者无从得知这 45 个测试存在。
+- `src/test/java`、`src/test/resources` 是**空目录**；`build.gradle` 中没有任何 `testImplementation` / JUnit 依赖；而 README L49 的构建命令是 `gradlew.bat build -x test`——测试任务实际处于被显式跳过的状态。
+
+三者叠加的后果：**当前所有回归保护都依赖人工记得运行 GameTest**。
+
+### 建议方案
+
+1. 补 CI（push / PR 触发）：至少 `runGameTestServer` + `build`。
+2. README「开始开发」补上 GameTest 运行命令。
+3. 决定 `src/test` 的去留：要么接入 JUnit 并去掉 `-x test`，要么删除空目录并明确"本项目只用 GameTest"。
+
+### 附带的构建优化
+
+`build.gradle` L270–L272 主动禁用了 `compileJava` 的构建缓存（因为 Mixin AP 写的 refmap 是旁路产物，`outputs.cacheIf { false }`）。有 CI 之后这个代价才值得，同时应专门缓存 `extractGtceuEmbeddedDependencies`（L105–L125，每次都强制 `outputs.upToDateWhen { false }`）来补偿。
+
+---
+
+## P2-6　收敛侵入性 Mixin
+
+现有 mixin 注释写得很清楚，但风险等级不同：
+
+| Mixin | 现状 | 建议 |
+| --- | --- | --- |
+| `GTCEuMixin.java:34` | 每次 `GTCEu.isClientThread()` 调用都走 `Class.forName` + `getMethod`（**每次分配一个 Method 对象**）+ `invoke` | 改为一次性 lazy holder，近乎零风险 |
+| `PartAbilityMixin.java:28` | 在 `PartAbility.register` 的 HEAD 处**取消上游注册**，让 `gtceu:steam_input_hatch` 永不入表 | 属"改变上游行为"而非扩展；配合 `defaultRequire: 1`，上游一改就硬崩。建议加启动自检并在行为不符时给出可读降级路径 |
+| `RecipeManagerAccessor.java` + `OreCrushingMigration` / `BoilerRoomFuelSync` | 运行时把 vanilla `RecipeManager` 的 `recipes` / `byName` 整体取出、复制、改写、写回 | 功能上很严谨（先校验 5 个前置条件再动刀，失败只记日志不删配方），但同时依赖 Mixin accessor、vanilla 内部字段结构与 GTCEu staging API，是**最容易随版本升级整体报废**的一处，建议在 CI 中加针对性的加载断言 |
+| `MinecraftMixin.java` / `WorldListEntryMixin.java` | 改写窗口标题与存档列表条目 | 纯客户端装饰，风险可接受 |
+
+---
+
+## P2-7　补齐引擎行为测试
+
+45 个 GameTest 中，**20 个是结构成型**、其余多为注册与仓室行为、**真正的引擎核心只有 3 个**（`GSERecipeOptimizationTests`：燃料缓存跨世界与 reload 失效、空闲唤醒）。
+
+引擎最复杂、最容易出错、且已被 4 份拷贝放大的部分**完全没有测试**：
+
+- 并行度计算（`largestParallelThatFits` L860、最坏情况输出预检 `worstCaseFits` L909 / `worstCaseFluidsFit` L967）
+- 缺汽回退（`runBatchTick` 中 `batchProgress` 回退到 1 tick 的语义）
+- 排气阻塞与排气伤害循环（`runExhaustCycles` L622）
+- 鼓风辅助输入（`drawAuxiliaryInputs` L699）
+- 批次结算与机会产出（`completeBatch` L1008、`materializeItemContents` L1191）
+- 结构失效时的批次保留与进度回退
+
+**建议：这是 P0-1 的前置条件，应当先做。**
+
+---
+
+## P2-8　reload 路径消除全量 Map 深拷贝
+
+`machine/multiblock/BoilerRoomFuelSync.java:139` 的 `recipes()` 只为了读 `STEAM_BOILER_RECIPES` 一张表，却把 `RecipeManager` 里**所有类型的全部配方表**深拷贝成新的 HashMap（L145–L147）；同一段代码在 `migration/OreCrushingMigration.java` 里又抄了一份（属 P0-1 扫出的 82 组重复之一）。服务端与客户端各执行一次。
+
+**建议**：只复制目标类型（约 5 行改动）；提取为共享工具方法（与 P0-1 同批处理）。
+
+---
+
+## P2-9　仓库与工具链卫生
+
+| 项 | 现状 | 建议 |
+| --- | --- | --- |
+| `changelog.txt` | 1,061 行 / 74 KB，经 `git log` 确认是 **Forge MDK 自带的 Forge changelog**，非本项目变更记录；`.gitignore` 的 `forge*changelog.txt` 规则未覆盖 | 删除 |
+| `tools/` | 两代工具并存：Python 版 11 个 + PowerShell 版 3 个，其中 `generate_empty_gametest_structure.ps1` 与 `gen_empty_gametest_structure.py` 功能重复 | 统一到一种语言 |
+| 资产生成 | 生成物（贴图、`.nbt` 模板）全部提交进仓库，但**脚本没有接到任何 Gradle 任务**，目前靠人工保证一致 | 增加 `genAssets` 校验任务 |
+| 文案一致性 | 当前 `en_us` 655 / `en_ud` 657 / `zh_cn` 655 键，`en_us ↔ zh_cn` **零差异（做得很好）**；但 `en_us.json` 由 `GSELang.java` 生成、`zh_cn.json` 手工维护，**没有任何东西阻止下一次提交打破这个对齐** | CI 中加入键集合一致性检查 |
+| 文档一致性 | 27 份设计文档共 10,403 行，其中的结构尺寸与并行数与代码完全靠人工同步 | 对可机检的数字（并行上限、结构边长）做抽样断言 |
+
+---
+
+## 与既有设计文档的关系
+
+本清单**不修改**任何已定案设计。相关条目与既有文档的关系：
+
+- P0-1 是 `docs/design/steam-crushers.md:28`「共用行为的修复应优先落在基类」这一既有原则在**跨家族层面**的推广；当前四个引擎拷贝使该原则无法执行。
+- P0-2 / P2-8 只改缓存与拷贝策略，不改任何配方语义。
+- P1-3 不改任何结构规则，只把同一份结构数据的书写位置从 3 处收敛到 1 处。
+- P1-4 不改任何 tooltip 文案内容。
+- P2-6 涉及上游行为的 Mixin 若需要调整策略，须先回到 `docs/design/machines-and-hatches.md` 确认"禁用上游蒸汽输入仓"的既定口径不变。
+
+## 建议执行顺序
+
+| 顺序 | 项 | 理由 |
+| --- | --- | --- |
+| 1 | **P1-5 建 CI** | 越早越好，后续每一步都需要门禁 |
+| 2 | **P2-7 补引擎行为测试** | P0-1 的前置安全网 |
+| 3 | **P0-2 配方缓存** | 独立、可验证、立即见效 |
+| 4 | **P0-1 引擎基类抽取** | 按 5 个粒度分批提交 |
+| 5 | **P1-3 / P1-4 数据驱动化** | 与 P0-1 方向一致，可并行推进 |
+| 6 | **P2-6 / P2-8 / P2-9 收尾** | 低成本、可随时插入 |
+
+## 附录：度量脚本
+
+本文件中的所有数字可用下列脚本复现（写入任意 `.cjs` 文件后 `node <file> src/main/java`）：
+
+```js
+// 跨文件「逐字节相同」的函数体扫描
+const fs = require('fs'), path = require('path'), crypto = require('crypto');
+function walk(d, out = []) {
+  for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+    const p = path.join(d, e.name);
+    if (e.isDirectory()) walk(p, out); else if (e.name.endsWith('.java')) out.push(p);
+  }
+  return out;
+}
+const sigRe = /^\s{4}(?:@\w+\s+)*(?:public|private|protected)\s+(?:static\s+)?(?:final\s+)?(?:abstract\s+)?[\w<>\[\],.\s?]+\s+(\w+)\s*\([^;]*\)\s*\{?\s*$/;
+const methods = [];
+for (const f of walk(process.argv[2])) {
+  const lines = fs.readFileSync(f, 'utf8').split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const m = sigRe.exec(lines[i]);
+    if (!m) continue;
+    let depth = 0, started = false, end = -1;
+    for (let j = i; j < lines.length && end < 0; j++) {
+      for (const ch of lines[j]) {
+        if (ch === '{') { depth++; started = true; }
+        else if (ch === '}') { depth--; if (started && depth === 0) { end = j; break; } }
+      }
+    }
+    if (end < 0) continue;
+    methods.push({
+      file: path.relative(process.argv[2], f), name: m[1], lines: end - i + 1,
+      body: lines.slice(i, end + 1).join('\n')
+        .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+        .replace(/\s+/g, ' ').trim(),
+    });
+  }
+}
+const byHash = new Map();
+for (const m of methods) {
+  const h = crypto.createHash('sha1').update(m.body).digest('hex');
+  if (!byHash.has(h)) byHash.set(h, []);
+  byHash.get(h).push(m);
+}
+let groups = 0, instances = 0, removable = 0;
+for (const [, g] of byHash) {
+  if (g.length < 2 || new Set(g.map(x => x.file)).size < 2) continue;
+  groups++; instances += g.length; removable += g[0].lines * (g.length - 1);
+}
+console.log({ methods: methods.length, groups, instances, removableLines: removable });
+```
+
+四个引擎类的**近同构**度量（token 重合度 ≥0.60）为同族脚本，只需把上面的"哈希完全相同"判据换成 `intersection / min(|A|,|B|)` 的 token 集合重合度，并把扫描范围限定为：
+
+```
+machine/multiblock/processor/AbstractSteamProcessorMachine.java
+machine/multiblock/crusher/AbstractSteamCrusherMachine.java
+machine/multiblock/voidproducer/AbstractSteamVoidMachine.java
+machine/multiblock/LargeHeatStorageSteamFurnaceMachine.java
+```

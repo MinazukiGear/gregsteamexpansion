@@ -44,13 +44,43 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 ## 开始开发
 
 ```powershell
-.\gradlew.bat genIntellijRuns   # 生成 IDEA 运行配置（JDK 17）
-.\gradlew.bat runClient         # 启动开发客户端
-.\gradlew.bat build -x test     # 构建发布 JAR（build/libs/）
-.\gradlew.bat runData           # 重新生成数据（资源/配方/语言）
+.\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
+.\gradlew.bat runClient             # 启动开发客户端
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（约 45 个，见下）
+.\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
+.\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
 
 若系统默认 Java 不是 17，先设置 `$env:JAVA_HOME` 指向 JDK 17。
+
+### 测试与 CI
+
+本项目的回归保护全部由 **GameTest** 承担，测试代码在
+`src/main/java/com/hoshino/gregsteamexpansion/gametest/`：
+
+| 文件 | 覆盖内容 |
+| --- | --- |
+| `GSEGameTests` | 结构成型、仓室行为、注册一致性、难度与配方注入 |
+| `GSERecipeOptimizationTests` | 配方缓存失效与空闲机器唤醒 |
+| `GSEStructureTestUtils` | 结构辅助：用机器注册的 `MultiblockShapeInfo` 反铺方块，再用图案校验 |
+
+> `src/test` 为空目录，本项目**不使用 JUnit**；`build` 任务中的 `-x test` 是 Forge MDK 模板遗留，
+> 没有任何测试任务会被它跳过（该选项保留只是为了避免 Gradle 报"无测试源"）。
+
+提交前跑一遍完整门禁：
+
+```powershell
+.\gradlew.bat compileJava runGameTestServer build   # 最小集
+bash tools/verify.sh                                # 与 CI 完全一致的完整门禁
+```
+
+`tools/verify.sh` 是 `.github/workflows/build.yml` 的本地镜像，依次执行编译 →
+GameTest → datagen 新鲜度（`runData` 后不应产生 git diff）→ `en_us`/`zh_cn` 键集合一致性 →
+构建。CI 在 push 与 PR 上执行同一组步骤，因此本地通过即可认为 CI 会通过。
+
+构建缓存：`compileJava` 因 Mixin 注解处理器把 refmap 写成旁路产物而禁用了构建缓存
+（`build.gradle` 的 `outputs.cacheIf { false }`），CI 上以缓存 `~/.gradle` 与
+`extractGtceuEmbeddedDependencies` 的固定重跑作为补偿。
 
 ## 项目信息
 

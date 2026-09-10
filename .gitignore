@@ -33,3 +33,7 @@ forge*changelog.txt
 
 # one-off build logs
 compile_errors.log
+
+# Forge MDK baseline changelog (upstream Forge release notes, not this
+# project's change history); see CREDITS.txt for attribution.
+changelog-forge-mdk.txt
