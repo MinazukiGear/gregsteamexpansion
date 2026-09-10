@@ -6,6 +6,8 @@ public final class GSELang {
     private GSELang() {}
 
     public static void init() {
+        add("config.jade.plugin_gregsteamexpansion.structure_diagnostics", "Structure Diagnostics");
+
         add("block.gregsteamexpansion.crafting_station", "Crafting Station");
         add("block.gregsteamexpansion.crafting_station_slab", "Crafting Station Slab");
         add("gregsteamexpansion.crafting_station.in_use", "Crafting Station is in use");

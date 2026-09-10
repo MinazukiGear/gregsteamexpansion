@@ -1,4 +1,5 @@
 {
+  "config.jade.plugin_gregsteamexpansion.structure_diagnostics": "结构诊断",
   "block.gregsteamexpansion.lp_steam_mixed_fuel_boiler": "低压混合燃料蒸汽锅炉",
   "block.gregsteamexpansion.hp_steam_mixed_fuel_boiler": "高压混合燃料蒸汽锅炉",
   "block.gregsteamexpansion.boiler_room_bronze": "青铜锅炉房",

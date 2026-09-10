@@ -66,6 +66,7 @@
   "config.jade.plugin_gregsteamexpansion.steam_air_intake_hatch_info": "Steam Air Intake Hatch Info",
   "config.jade.plugin_gregsteamexpansion.steam_compressor_info": "Steam Compressor Info",
   "config.jade.plugin_gregsteamexpansion.steam_crusher_info": "Steam Crusher Info",
+  "config.jade.plugin_gregsteamexpansion.structure_diagnostics": "Structure Diagnostics",
   "gregsteamexpansion.bronze_component.tooltip": "A standardized load-bearing component for assembling large steam machinery.",
   "gregsteamexpansion.coke_oven.gui.progress": "%s · about %s remaining",
   "gregsteamexpansion.coke_oven.gui.progress.idle": "%s · idle",

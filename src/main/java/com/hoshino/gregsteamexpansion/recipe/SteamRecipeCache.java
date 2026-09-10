@@ -9,6 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.IdentityHashMap;
 import java.util.Map;
 
 /**
@@ -22,11 +23,9 @@ import java.util.Map;
  * exactly when the server was already busy. The tables are immutable and
  * identical for every machine of a type, so they are shared here instead.</p>
  *
- * <p>A stale entry is unreachable rather than removed: the key carries the
- * revision, so the previous revision's tables simply stop being looked up and
- * become garbage once the last machine on that revision retargets. No
- * invalidation pass, no cross-world interference — the same property
- * {@code BoilerFuelCache} relies on.</p>
+ * <p>All types share a revision-scoped identity map. On revision changes the
+ * map is cleared; machines may retain their old immutable entries until they
+ * refresh, but future lookups only return entries from the current revision.</p>
  */
 public final class SteamRecipeCache {
 
@@ -36,9 +35,7 @@ public final class SteamRecipeCache {
      *
      * @param recipes   registration-ordered recipes of the machine's category
      * @param byId      {@code recipes} indexed by recipe id
-     * @param byItem    recipes bucketed by the items they accept as input, for
-     *                  candidate lookup from bus contents
-     * @param byFluid   recipes bucketed by the fluids they accept as input
+     * @param byContent recipes bucketed by capability and accepted input content
      */
     public record Entry(List<GTRecipe> recipes,
                         Map<ResourceLocation, GTRecipe> byId,
@@ -53,9 +50,7 @@ public final class SteamRecipeCache {
     private static final Entry EMPTY = new Entry(List.of(), Map.of(), Map.of());
 
     private static long revision = Long.MIN_VALUE;
-    @Nullable
-    private static GTRecipeType type;
-    private static Entry entry = EMPTY;
+    private static final Map<GTRecipeType, Entry> entries = new IdentityHashMap<>();
 
     private SteamRecipeCache() {}
 
@@ -63,21 +58,18 @@ public final class SteamRecipeCache {
      * Shared entry for {@code type} at the current revision, built on first use
      * after a reload. Never {@code null}; a null type yields the empty entry.
      *
-     * <p>Not synchronized: entries are immutable and building twice is
-     * harmless, so the worst case under a race is one duplicated build.</p>
+     * <p>Synchronizing the lookup keeps the revision and all type entries
+     * consistent and prevents duplicate builds for concurrent callers.</p>
      */
-    public static Entry get(@Nullable GTRecipeType type) {
+    public static synchronized Entry get(@Nullable GTRecipeType type) {
         if (type == null) {
             return EMPTY;
         }
         long currentRevision = RecipeCacheLifecycle.revision();
-        if (entry != EMPTY && revision == currentRevision && SteamRecipeCache.type == type) {
-            return entry;
+        if (revision != currentRevision) {
+            entries.clear();
+            revision = currentRevision;
         }
-        Entry built = SteamRecipeIndex.build(type);
-        revision = currentRevision;
-        SteamRecipeCache.type = type;
-        entry = built;
-        return built;
+        return entries.computeIfAbsent(type, SteamRecipeIndex::build);
     }
 }

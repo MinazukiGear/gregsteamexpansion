@@ -318,10 +318,16 @@ public final class GSERecipeOptimizationTests {
     public static void recipeCacheIsSharedAcrossMachines(GameTestHelper helper) {
         var type = GTRecipeTypes.COMPRESSOR_RECIPES;
         SteamRecipeCache.Entry first = SteamRecipeCache.get(type);
+        var otherType = GTRecipeTypes.CENTRIFUGE_RECIPES;
+        SteamRecipeCache.Entry other = SteamRecipeCache.get(otherType);
         SteamRecipeCache.Entry second = SteamRecipeCache.get(type);
         helper.assertTrue(first == second, "Two lookups of the same type returned different cache entries");
         helper.assertTrue(first.recipes() == second.recipes(), "Recipe list was not shared between lookups");
         helper.assertTrue(first.byId() == second.byId(), "Recipe id index was not shared between lookups");
+        helper.assertTrue(first.byContent() == second.byContent(), "Content index was not shared between lookups");
+        helper.assertTrue(SteamRecipeCache.get(otherType) == other,
+                "Alternating recipe types evicted the centrifuge cache");
+        helper.assertTrue(first != other, "Different recipe types shared one entry");
 
         // The entry must be the type's live recipe set, so a machine can still
         // resolve by id through it.
@@ -334,18 +340,21 @@ public final class GSERecipeOptimizationTests {
         RecipeCacheLifecycle.invalidate();
         SteamRecipeCache.Entry afterReload = SteamRecipeCache.get(type);
         helper.assertTrue(afterReload != first, "Recipe cache survived a revision change unchanged");
+        SteamRecipeCache.Entry otherAfterReload = SteamRecipeCache.get(otherType);
+        helper.assertTrue(otherAfterReload != other, "Second recipe type survived a revision change unchanged");
+        helper.assertTrue(SteamRecipeCache.get(type) == afterReload,
+                "Alternating types after reload rebuilt the compressor cache");
+        helper.assertTrue(SteamRecipeCache.get(otherType) == otherAfterReload,
+                "Alternating types after reload rebuilt the centrifuge cache");
+        helper.assertTrue(first.byId(sample.getId()) == sample, "Reload mutated the retained old entry");
         helper.succeed();
     }
 
     /**
      * P0-2: an idle machine with empty input buses must not start anything.
      *
-     * <p>Scope note: this is a behaviour guard, not an optimisation guard. With
-     * the empty-input short circuit removed the machine walks the full recipe
-     * list and still finds no match, so this test passes either way — it catches
-     * the failure mode that matters (a machine starting phantom batches once
-     * candidate collection is rewritten), and the index's correctness is covered
-     * by {@link #idleProcessorWakesOnInput} plus the structure tests.</p>
+     * <p>Also inspect candidate selection: removing the empty-input short circuit
+     * must fail even if the machine still cannot start a batch.</p>
      */
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void emptyInputsSkipRecipeSearch(GameTestHelper helper) {
@@ -357,8 +366,20 @@ public final class GSERecipeOptimizationTests {
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(), "Compressor did not form"))
                 // Well past several 20-tick idle retries with empty buses.
                 .thenIdle(70)
-                .thenExecute(() -> helper.assertTrue(machine.getBatchParallel() == 0,
-                        "Empty-input compressor started a batch"))
+                .thenExecute(() -> {
+                    helper.assertTrue(machine.getBatchParallel() == 0,
+                            "Empty-input compressor started a batch");
+                    helper.assertTrue(!SteamRecipeCache.get(GTRecipeTypes.COMPRESSOR_RECIPES).recipes().isEmpty(),
+                            "Empty recipe cache would make the candidate assertion vacuous");
+                    try {
+                        var selectCandidates = AbstractSteamProcessorMachine.class.getDeclaredMethod("candidateRecipes");
+                        selectCandidates.setAccessible(true);
+                        var candidates = (List<?>) selectCandidates.invoke(machine);
+                        helper.assertTrue(candidates.isEmpty(), "Empty inputs reached recipe candidate traversal");
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError("Could not inspect recipe candidates", e);
+                    }
+                })
                 .thenSucceed();
     }
 }
