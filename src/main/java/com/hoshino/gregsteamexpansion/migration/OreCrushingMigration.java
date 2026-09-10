@@ -18,6 +18,7 @@ import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.recipe.RecipeManagerTables;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
@@ -110,13 +111,14 @@ public final class OreCrushingMigration {
         if (targetType == null) {
             return;
         }
-        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes = recipes(manager);
+        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes = RecipeManagerTables.mutableTablesOf(manager);
         if (recipes == null) {
             throw migrationFailure("cannot access the loaded recipe map", client);
         }
-        // The RecipeManager maps are Guava ImmutableMaps after apply(): copy
-        // everything into mutable maps, run the transaction on the copies, then
-        // write the whole set back through the accessor.
+        // The RecipeManager maps are Guava ImmutableMaps after apply(): the two
+        // tables this transaction mutates are converted to mutable copies on
+        // demand (RecipeManagerTables), the rest of the index is passed through
+        // untouched, then the whole set is written back through the accessor.
         Map<ResourceLocation, Recipe<?>> maceratorMap = recipes.get(GTRecipeTypes.MACERATOR_RECIPES);
         if (maceratorMap == null) {
             // no macerator recipes at all: nothing to migrate, consumers stay empty
@@ -178,13 +180,14 @@ public final class OreCrushingMigration {
 
         // 不可分割的"复制后移除": remove originals, insert copies, re-stage both
         // DBs, then write the mutable copies back into the RecipeManager.
+        maceratorMap = RecipeManagerTables.mutableTable(recipes, GTRecipeTypes.MACERATOR_RECIPES);
         for (GTRecipe candidate : candidates) {
             Recipe<?> removed = maceratorMap.remove(candidate.getId());
             if (removed == null) {
                 throw migrationFailure("target " + candidate.getId() + " vanished mid-migration", client);
             }
         }
-        Map<ResourceLocation, Recipe<?>> targetMap = recipes.computeIfAbsent(targetType, type -> new HashMap<>());
+        Map<ResourceLocation, Recipe<?>> targetMap = RecipeManagerTables.mutableTable(recipes, targetType);
         for (GTRecipe copy : migrated) {
             targetMap.put(copy.getId(), copy);
         }
@@ -452,16 +455,7 @@ public final class OreCrushingMigration {
 
     @Nullable
     private static Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes(RecipeManager manager) {
-        if (manager instanceof com.hoshino.gregsteamexpansion.mixins.RecipeManagerAccessor accessor) {
-            Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> immutable = accessor.gse$getRecipes();
-            if (immutable == null) {
-                return null;
-            }
-            Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> mutable = new HashMap<>();
-            immutable.forEach((type, map) -> mutable.put(type, new HashMap<>(map)));
-            return mutable;
-        }
-        return null;
+        return RecipeManagerTables.mutableTablesOf(manager);
     }
 
     /** Rebuilds the by-name index over the post-migration recipe set. */

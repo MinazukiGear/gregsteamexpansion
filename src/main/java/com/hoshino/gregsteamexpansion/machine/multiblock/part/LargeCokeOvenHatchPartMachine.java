@@ -207,7 +207,8 @@ public class LargeCokeOvenHatchPartMachine extends MultiblockPartMachine {
         mode = mode.next();
         onModeChanged();
         playerIn.displayClientMessage(Component.translatable("gregsteamexpansion.coke_oven_hatch.mode.changed",
-                Component.translatable(mode.getTranslationKey())).withStyle(ChatFormatting.GREEN), true);
+                Component.translatable(mode.translationKey(CokeOvenMode.LARGE_KEY_PREFIX)))
+                .withStyle(ChatFormatting.GREEN), true);
         return InteractionResult.sidedSuccess(isRemote());
     }
 

@@ -9,6 +9,7 @@ import com.gregtechceu.gtceu.api.recipe.content.ContentModifier;
 import com.gregtechceu.gtceu.api.recipe.lookup.RecipeManagerHandler;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.recipe.RecipeManagerTables;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 
 import net.minecraft.resources.ResourceLocation;
@@ -71,10 +72,13 @@ public final class BoilerRoomFuelSync {
         if (target == null) {
             throw new IllegalStateException("[Boiler Room] recipe type missing at sync time");
         }
-        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes = recipes(manager);
+        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes = RecipeManagerTables.mutableTablesOf(manager);
         if (recipes == null) {
             throw new IllegalStateException("[Boiler Room] recipe manager inaccessible at sync time");
         }
+        // Reader only: the boiler-room table is rebuilt from the source recipes
+        // and re-staged, nothing in the manager is removed or added, so the
+        // per-type tables stay as the originals — no copy.
         Map<ResourceLocation, Recipe<?>> sourceMap = recipes.get(GTRecipeTypes.STEAM_BOILER_RECIPES);
         List<GTRecipe> candidates = new ArrayList<>();
         if (sourceMap != null) {
@@ -137,16 +141,7 @@ public final class BoilerRoomFuelSync {
 
     @Nullable
     private static Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes(RecipeManager manager) {
-        if (manager instanceof com.hoshino.gregsteamexpansion.mixins.RecipeManagerAccessor accessor) {
-            Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> immutable = accessor.gse$getRecipes();
-            if (immutable == null) {
-                return null;
-            }
-            Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> mutable = new HashMap<>();
-            immutable.forEach((type, map) -> mutable.put(type, new HashMap<>(map)));
-            return mutable;
-        }
-        return null;
+        return RecipeManagerTables.mutableTablesOf(manager);
     }
 
     private static void restage(GTRecipeType type, Map<ResourceLocation, Recipe<?>> postSyncMap) {

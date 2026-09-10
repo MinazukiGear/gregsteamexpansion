@@ -14,6 +14,7 @@ import com.gregtechceu.gtceu.api.machine.feature.IUIMachine;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.machine.property.GTMachineModelProperties;
+import com.gregtechceu.gtceu.api.machine.trait.IRecipeHandlerTrait;
 import com.gregtechceu.gtceu.api.machine.trait.RecipeHandlerList;
 import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
@@ -32,6 +33,8 @@ import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.recipe.RecipeCacheLifecycle;
+import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
+import com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
@@ -55,6 +58,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 
 import org.jetbrains.annotations.NotNull;
@@ -64,8 +68,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -184,13 +190,22 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     private final Map<IO, Map<RecipeCapability<?>, List<IRecipeHandler<?>>>> capabilitiesFlat = new EnumMap<>(IO.class);
 
     private static final int IDLE_RECIPE_RETRY_TICKS = 20;
+    /**
+     * Upper bound on the distinct input kinds probed from a pattern buffer, so a
+     * deep ME network view cannot make candidate collection unbounded. Reaching
+     * the bound is not a correctness problem: exceeding it only widens the
+     * candidate set, which {@code tryStartRecipe} still filters.
+     */
+    private static final int MAX_INDEXED_INPUT_KINDS = 64;
     private final List<ISubscription> searchSubscriptions = new ArrayList<>();
     private boolean recipeSearchDirty = true;
     private long nextRecipeSearchTick;
-    private long recipeCacheRevision = -1;
-    private GTRecipeType cachedRecipeType;
-    private List<GTRecipe> cachedRecipes = List.of();
-    private final Map<ResourceLocation, GTRecipe> recipesById = new HashMap<>();
+    /**
+     * Shared, revision-keyed view of the recipe type (see {@link SteamRecipeCache}):
+     * the list and indexes are identical across every machine of a type, so they
+     * live in a process-wide cache rather than being copied per instance.
+     */
+    private SteamRecipeCache.Entry recipeCache = SteamRecipeCache.get(null);
 
     protected final void requestRecipeSearch() {
         recipeSearchDirty = true;
@@ -209,14 +224,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     private void refreshRecipeCache() {
-        long revision = RecipeCacheLifecycle.revision();
-        GTRecipeType type = recipeType();
-        if (recipeCacheRevision == revision && cachedRecipeType == type) return;
-        recipeCacheRevision = revision;
-        cachedRecipeType = type;
-        cachedRecipes = type == null ? List.of() : List.copyOf(type.getRecipesInCategory(type.getCategory()));
-        recipesById.clear();
-        for (GTRecipe recipe : cachedRecipes) recipesById.put(recipe.getId(), recipe);
+        recipeCache = SteamRecipeCache.get(recipeType());
         requestRecipeSearch();
     }
 
@@ -716,7 +724,16 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      * actually admit an intake — every other machine sees `false`.
      */
     private boolean isAirIntakeRecipe(GTRecipe recipe) {
-        if (!allowsAirIntake() || airIntakeHatches.isEmpty()) {
+        return isAirIntakeRecipe(recipe, allowsAirIntake() && !airIntakeHatches.isEmpty());
+    }
+
+    /**
+     * {@link #isAirIntakeRecipe(GTRecipe)} with the machine-level gate already
+     * resolved, so hot loops can hoist it and pay for the probe stack once per
+     * candidate instead of twice (the caller iterates each recipe exactly once).
+     */
+    private boolean isAirIntakeRecipe(GTRecipe recipe, boolean airIntakeUsable) {
+        if (!airIntakeUsable) {
             return false;
         }
         var fluids = recipe.inputs.get(FluidRecipeCapability.CAP);
@@ -741,22 +758,177 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      *
      * <p>议题 12: air-fed recipes are sorted to the very end so the intake's
      * permanent air cache never starves the item recipes.</p>
+     *
+     * <p>候选集来自总线实际内容 (而不是全表): an idle machine on the 20-tick
+     * retry used to walk every recipe of its type, allocating an air probe per
+     * candidate. Now the candidate list is the union of the content buckets for
+     * what the input buses and fluid hatches actually hold, so an empty machine
+     * short-circuits and a loaded one only walks plausible recipes. Bucket
+     * membership is a filter, not a verdict — {@code tryStartRecipe} still runs
+     * the full match.</p>
      */
     private void tryStartBatch() {
         GTRecipeType type = recipeType();
         if (type == null || !hasCapabilityProxies()) {
             return;
         }
-        GTRecipe preferred = findRecipeById(preferredRecipeId);
-        boolean preferredIsAir = preferred != null && isAirIntakeRecipe(preferred);
-        if (preferred != null && !preferredIsAir && tryStartRecipe(preferred)) return;
-        // Preserve registration order within both priority groups. Air recipes stay last.
-        for (GTRecipe recipe : cachedRecipes) {
-            if (recipe != preferred && !isAirIntakeRecipe(recipe) && tryStartRecipe(recipe)) return;
+        // Air is not counted as an input here on purpose: the intake's air cache
+        // is effectively infinite, so an air-only recipe must stay a last resort
+        // rather than waking the machine ahead of real item/fluid work.
+        List<GTRecipe> candidates = candidateRecipes();
+        if (candidates.isEmpty()) {
+            return;
         }
-        if (preferredIsAir && tryStartRecipe(preferred)) return;
-        for (GTRecipe recipe : cachedRecipes) {
-            if (recipe != preferred && isAirIntakeRecipe(recipe) && tryStartRecipe(recipe)) return;
+        boolean airIntakeUsable = allowsAirIntake() && !airIntakeHatches.isEmpty();
+        GTRecipe preferred = findRecipeById(preferredRecipeId);
+        boolean preferredIsAir = preferred != null && isAirIntakeRecipe(preferred, airIntakeUsable);
+
+        // 双优先级组: prefer the last successful recipe, else walk the candidates
+        // in registration order; both skip air recipes, which are deferred to a
+        // second pass. One evaluation per candidate per pass — the air predicate
+        // allocates a probe stack, so it is computed once and reused.
+        List<GTRecipe> airCandidates = null;
+        for (GTRecipe recipe : candidates) {
+            if (recipe == preferred) continue;
+            if (isAirIntakeRecipe(recipe, airIntakeUsable)) {
+                if (airCandidates == null) airCandidates = new ArrayList<>();
+                airCandidates.add(recipe);
+                continue;
+            }
+            if (tryStartRecipe(recipe)) return;
+        }
+        if (preferred != null && !preferredIsAir && tryStartRecipe(preferred)) return;
+        if (airCandidates != null) {
+            for (GTRecipe recipe : airCandidates) {
+                if (tryStartRecipe(recipe)) return;
+            }
+        }
+        if (preferredIsAir) {
+            tryStartRecipe(preferred);
+        }
+    }
+
+    /**
+     * Recipes that could plausibly run with the current bus and hatch contents:
+     * the union of the item/fluid index buckets for everything present, falling
+     * back to the full list when no input content is available at all (a machine
+     * fed by something this index does not see must not lose its recipes).
+     */
+    private List<GTRecipe> candidateRecipes() {
+        Set<Object> itemKeys = inputBusContents();
+        Set<Object> fluidKeys = inputFluidContents();
+        if (!allowsAirIntake() && itemKeys.isEmpty() && fluidKeys.isEmpty()) {
+            // Dry-only machine with nothing in the input buses: no candidate can
+            // ever match, so skip the walk entirely (the 20-tick idle retry).
+            return List.of();
+        }
+        List<GTRecipe> candidates = new ArrayList<>();
+        for (Object key : itemKeys) {
+            addBucket(candidates, ItemRecipeCapability.CAP, key);
+        }
+        for (Object key : fluidKeys) {
+            addBucket(candidates, FluidRecipeCapability.CAP, key);
+        }
+        if (candidates.isEmpty()) {
+            // No indexable input: keep the previous full-list behaviour rather
+            // than silently disabling the machine.
+            return recipeCache.recipes();
+        }
+        return candidates;
+    }
+
+    /** Item kinds currently held by the input buses (deduplicated, in slot order). */
+    private Set<Object> inputBusContents() {
+        Set<Object> keys = new LinkedHashSet<>();
+        for (IMultiPart part : inputBuses) {
+            if (part instanceof ItemBusPartMachine bus) {
+                collectContainerItems(bus.getInventory().storage, keys);
+            } else if (GSEPatternBufferCompat.isPatternBuffer(part)) {
+                // ME pattern buffers are item-input interfaces but not
+                // ItemBusPartMachine; probe their capability view instead.
+                collectCapabilityItems(part, keys);
+            }
+        }
+        return keys;
+    }
+
+    /**
+     * Fluid kinds currently held by the fluid input hatches (incl. the steam ones).
+     *
+     * <p>Air intake hatches are read here too, even though they are not
+     * {@link FluidHatchPartMachine}s and do not appear in
+     * {@link #fluidInputHatches}: the recipes the intake feeds — {@code air_separation}
+     * and friends — declare their air as an ordinary fluid input, so the machine
+     * must see that fluid when building its candidate set. Omitting it would make
+     * the index blind to exactly the recipes the intake exists to run, and the
+     * machine would sit idle with a full intake tank.</p>
+     */
+    private Set<Object> inputFluidContents() {
+        Set<Object> keys = new LinkedHashSet<>();
+        for (FluidHatchPartMachine hatch : fluidInputHatches) {
+            FluidStack stack = hatch.tank.getFluidInTank(0);
+            if (!stack.isEmpty() && stack.getFluid() != null) {
+                keys.add(stack.getFluid());
+            }
+        }
+        for (SteamAirIntakeHatchPartMachine intake : airIntakeHatches) {
+            FluidStack stack = intake.tank.getFluidInTank(0);
+            if (!stack.isEmpty() && stack.getFluid() != null) {
+                keys.add(stack.getFluid());
+            }
+        }
+        return keys;
+    }
+
+    private static void collectContainerItems(IItemHandler handler, Set<Object> keys) {
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (!stack.isEmpty()) {
+                keys.add(stack.getItem());
+            }
+        }
+    }
+
+    /**
+     * Item kinds reachable through a part's recipe handlers, used for pattern
+     * buffers. Bounded so a huge ME network view cannot materialise unboundedly:
+     * a handful of keys is already enough to reach every plausible bucket, and
+     * the fallback below covers the keys this truncates away.
+     */
+    private static void collectCapabilityItems(IMultiPart part, Set<Object> keys) {
+        for (RecipeHandlerList handlerList : part.getRecipeHandlers()) {
+            for (IRecipeHandler<?> handler : handlerList.getHandlersFlat()) {
+                if (handler instanceof IRecipeHandlerTrait<?> trait && !trait.getHandlerIO().support(IO.IN)) {
+                    continue;
+                }
+                for (Object content : handler.getContents()) {
+                    if (content instanceof ItemStack stack && !stack.isEmpty()) {
+                        keys.add(stack.getItem());
+                        if (keys.size() >= MAX_INDEXED_INPUT_KINDS) {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** Appends one content bucket, skipping recipes already collected. */
+    private void addBucket(List<GTRecipe> candidates, RecipeCapability<?> capability, Object key) {
+        Map<Object, List<GTRecipe>> buckets = recipeCache.byContent().get(capability);
+        if (buckets == null) {
+            return;
+        }
+        List<GTRecipe> bucket = buckets.get(key);
+        if (bucket == null) {
+            return;
+        }
+        for (GTRecipe recipe : bucket) {
+            // Buckets are small and can share recipes across capacities, so a
+            // linear contains() beats the allocation cost of a seen-set here.
+            if (!candidates.contains(recipe)) {
+                candidates.add(recipe);
+            }
         }
     }
 
@@ -843,7 +1015,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return null;
         }
         refreshRecipeCache();
-        return recipesById.get(id);
+        return recipeCache.byId(id);
     }
 
     //////////////////////////////////////
@@ -963,6 +1135,14 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      * Worst-case fluid output for `parallel` operations, simulated with fill on
      * the fluid output hatches in stable position order. Merges equal fluids
      * first so a single hatch can take the whole amount when space allows.
+     *
+     * <p>{@code fillInternal} is used rather than the capability-facing
+     * {@code fill}: an output hatch's {@code capabilityIO} deliberately excludes
+     * {@code IO.IN}, so {@code fill} short-circuits to {@code 0} and this
+     * precheck would reject every recipe that produces fluid — including
+     * {@code air_separation}. The mod's own output path
+     * ({@code LargeCokeOvenRecipeLogic}) writes through the same internal hook,
+     * so the simulation stays faithful to what delivery actually does.</p>
      */
     private boolean worstCaseFluidsFit(List<FluidStack> perOperation, int parallel) {
         List<FluidStack> simulation = new ArrayList<>();
@@ -979,7 +1159,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             for (int i = 0; i < simulation.size(); i++) {
                 FluidStack remaining = simulation.get(i);
                 if (!remaining.isEmpty()) {
-                    int accepted = hatch.tank.fill(remaining, IFluidHandler.FluidAction.SIMULATE);
+                    int accepted = hatch.tank.fillInternal(remaining, IFluidHandler.FluidAction.SIMULATE);
                     remaining.shrink(accepted);
                 }
             }
@@ -1125,6 +1305,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (fluidOutputHatches.isEmpty()) {
             return false;
         }
+        // fillInternal, not the capability-facing fill: an output hatch's
+        // capabilityIO excludes IO.IN by design, so fill() returns 0 for every
+        // call and pending fluid outputs could never be delivered. The coke
+        // oven's output path (LargeCokeOvenRecipeLogic) uses the same hook.
         List<FluidStack> simulation = new ArrayList<>();
         for (FluidStack stack : pendingFluids) {
             simulation.add(stack.copy());
@@ -1133,7 +1317,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             for (int i = 0; i < simulation.size(); i++) {
                 FluidStack remaining = simulation.get(i);
                 if (!remaining.isEmpty()) {
-                    int accepted = hatch.tank.fill(remaining, IFluidHandler.FluidAction.SIMULATE);
+                    int accepted = hatch.tank.fillInternal(remaining, IFluidHandler.FluidAction.SIMULATE);
                     remaining.shrink(accepted);
                 }
             }
@@ -1145,7 +1329,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             for (int i = 0; i < pendingFluids.size(); i++) {
                 FluidStack remaining = pendingFluids.get(i);
                 if (!remaining.isEmpty()) {
-                    int accepted = hatch.tank.fill(remaining, IFluidHandler.FluidAction.EXECUTE);
+                    int accepted = hatch.tank.fillInternal(remaining, IFluidHandler.FluidAction.EXECUTE);
                     remaining.shrink(accepted);
                 }
             }

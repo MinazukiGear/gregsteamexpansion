@@ -164,9 +164,12 @@ public class SteamAirIntakeHatchPartMachine extends MultiblockPartMachine implem
                 // Direct write: the capability-facing fill() is disabled by
                 // design (capabilityIO = IO.NONE) and the written stack is
                 // always GTCEu standard air, matching the tank filter.
-                FluidStack result = stored.isEmpty() ? new FluidStack(GTMaterials.Air.getFluid(), addAmount) :
-                        new FluidStack(stored, addAmount);
-                tank.setFluidInTank(0, result);
+                // The new stack must carry stored.amount + addAmount: this
+                // cache has to accumulate across cycles or it can never reach
+                // the 10,000 mB that air_separation (and every other air
+                // recipe) declares as a single fluid input.
+                int total = stored.isEmpty() ? addAmount : stored.getAmount() + addAmount;
+                tank.setFluidInTank(0, new FluidStack(GTMaterials.Air.getFluid(), total));
             }
         }
     }
