@@ -37,12 +37,6 @@ public class SteamForgeMachine extends AbstractSteamProcessorMachine {
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 仓室合计 ≤ 8: 25 个可替换位中至少保留 17 个青铜蒸汽机械方块 (议题 4).
-        return 8;
-    }
-
-    @Override
     protected com.gregtechceu.gtceu.api.sound.SoundEntry workingSoundEntry() {
         // 锻压声效沿用类型自带样式 (议题 9): FORGE_HAMMER strike sound.
         return GTSoundEntries.FORGE_HAMMER;

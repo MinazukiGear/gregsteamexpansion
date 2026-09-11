@@ -9,9 +9,9 @@ import javax.annotation.ParametersAreNonnullByDefault;
 
 /**
  * 大型蒸汽粉碎机 / Large Steam Crusher controller (steam-crushers.md 大型蒸汽
- * 粉碎机结构): fixed 7×7×9 cylinder-and-drill. The cylinder keeps at least 110
- * bronze steam machine casings among its 127 candidate positions, the drill is
- * fully fixed, and exactly one Steam Exhaust Hatch is required — its blockage
+ * 粉碎机结构): fixed 7×7×9 cylinder-and-drill. Its candidate positions may use
+ * any admitted interface mix, the drill is fully fixed, and exactly one Steam
+ * Exhaust Hatch is required — its blockage
  * freezes progress instead of the 1-tick steam rollback, and its damage cycle
  * runs on accumulated actually-running ticks.
  */
@@ -36,16 +36,6 @@ public class LargeSteamCrusherMachine extends AbstractSteamCrusherMachine {
     @Override
     protected boolean hasExhaustHazard() {
         return true;
-    }
-
-    @Override
-    protected int minimumCasings() {
-        return 110;
-    }
-
-    @Override
-    protected int candidatePositions() {
-        return 127;
     }
 
     @Override

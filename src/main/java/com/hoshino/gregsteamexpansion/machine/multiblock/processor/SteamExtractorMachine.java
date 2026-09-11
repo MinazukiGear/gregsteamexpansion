@@ -36,12 +36,6 @@ public class SteamExtractorMachine extends AbstractSteamProcessorMachine {
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 仓室合计 ≤ 8: 25 个可替换位中至少保留 17 个青铜蒸汽机械方块 (议题 4).
-        return 8;
-    }
-
-    @Override
     protected boolean requiresFluidOutput() {
         // 类型自带 1 个流体输出槽 (议题 3/4): at least one fluid output hatch
         // (GTCEu standard or the mod's steam fluid output hatch) is required.

@@ -46,12 +46,6 @@ public class LargeSteamOreWasherMachine extends AbstractSteamProcessorMachine {
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 仓室合计 (含排气仓) 最多 20 个 (议题 4 残项定案).
-        return 20;
-    }
-
-    @Override
     protected boolean requiresFluidInput() {
         // 议题 3: 水仅经 GTCEu 标准流体输入仓进入.
         return true;

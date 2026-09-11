@@ -35,12 +35,6 @@ public class SteamCompressorMachine extends AbstractSteamProcessorMachine {
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 仓室合计 ≤ 8: 24 个可替换位中至少保留 16 个青铜蒸汽机械方块 (议题 4).
-        return 8;
-    }
-
-    @Override
     public BlockPattern getPattern() {
         return GSEProcessorPatterns.createCompressor(getDefinition());
     }

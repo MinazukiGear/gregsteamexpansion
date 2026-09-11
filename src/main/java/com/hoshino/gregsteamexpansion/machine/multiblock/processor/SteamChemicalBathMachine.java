@@ -53,12 +53,6 @@ public class SteamChemicalBathMachine extends AbstractSteamProcessorMachine {
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 议题 4 仓室表: 仓室合计最多 8 个 (流体输入/物品总线/蒸汽供给仓).
-        return 8;
-    }
-
-    @Override
     protected boolean requiresFluidInput() {
         // 议题 4 仓室表: 流体输入仓 ≥1 (浸洗液入口, 流体按配方声明原样兼容).
         return true;

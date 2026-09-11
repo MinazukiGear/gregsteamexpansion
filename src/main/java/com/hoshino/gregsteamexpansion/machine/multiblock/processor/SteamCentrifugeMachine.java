@@ -33,12 +33,6 @@ public class SteamCentrifugeMachine extends AbstractSteamCentrifugeMachine {
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 仓室合计最多 8 个 (议题 4, 小型机不使用排气仓).
-        return 8;
-    }
-
-    @Override
     public BlockPattern getPattern() {
         return GSEProcessorPatterns.createCentrifuge(getDefinition());
     }

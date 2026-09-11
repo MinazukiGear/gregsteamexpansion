@@ -44,11 +44,11 @@ public final class GSEBoilerPatterns {
      * powder, and a standard fluid output hatch for the steam. 蒸汽流体仓、
      * 蒸汽物品总线与蒸汽排气仓 are never admissible (P2#9 hard constraint) —
      * the mod's hatches register under GSEPartAbilities, never under these
-     * GTCEu abilities. The 220-casing minimum bounds the hatch total at 20
-     * (240 − 220, P2#9 数量上限口径).
+     * GTCEu abilities. Any of the 240 shell positions may use one of these
+     * admitted interfaces; there is no ordinary-casing minimum.
      */
     private static TraceabilityPredicate casingCandidates(TierBlocks tier) {
-        return Predicates.blocks(tier.casing().get()).setMinGlobalLimited(220)
+        return Predicates.blocks(tier.casing().get())
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS));

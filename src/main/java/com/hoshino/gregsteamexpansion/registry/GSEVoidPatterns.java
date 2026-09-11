@@ -25,8 +25,8 @@ import static com.hoshino.gregsteamexpansion.registry.GSEMachines.STEAM_SUPPLY_H
  * bottom-up, each aisle string is one row from the machine's back (index 0)
  * to its front (last index), chars run left to right.
  *
- * <p>Interface counts (supply hatch ≥1, exhaust hatch 恰好 1, required output
- * present, combined ≤16) cannot be expressed as per-predicate pattern limits,
+ * <p>Required interface counts (supply hatch ≥1, exhaust hatch 恰好 1 and the
+ * required output present) cannot be expressed as per-predicate pattern limits,
  * so {@code AbstractSteamVoidMachine} re-checks them against the collected
  * parts after formation.</p>
  */
@@ -55,12 +55,12 @@ public final class GSEVoidPatterns {
      * casings). 产出机器无输入面 — no item input bus, no fluid hatch of any
      * family is admitted; outputs are item output buses only. The exhaust
      * hatch takes one candidate slot (必须且只能 1 个, post-checked by the
-     * controller) and the 124-casing minimum bounds the hatch total at 16
-     * (140 − 124, 议题 4 仓室合计上限).
+     * controller). Candidate positions have no casing minimum or
+     * total-interface cap.
      */
     private static TraceabilityPredicate orePlantCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(124)
-                .or(Predicates.abilities(PartAbility.STEAM))
+        return Predicates.blocks(bronzeSteamCasing())
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.blocks(STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
@@ -184,12 +184,12 @@ public final class GSEVoidPatterns {
      * 产出机器无输入面 — no item bus, no fluid INPUT hatch of any family;
      * outputs are fluid output hatches of BOTH families (GTCEu standard or
      * the mod's steam fluid output hatch, 可选或混用). The exhaust hatch
-     * takes one candidate slot (必须且只能 1 个) and the 156-casing minimum
-     * bounds the hatch total at 16 (172 − 156).
+     * takes one candidate slot (必须且只能 1 个). Candidate positions have no
+     * casing minimum or total-interface cap.
      */
     private static TraceabilityPredicate fluidDrillCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(156)
-                .or(Predicates.abilities(PartAbility.STEAM))
+        return Predicates.blocks(bronzeSteamCasing())
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
                 .or(Predicates.blocks(STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));

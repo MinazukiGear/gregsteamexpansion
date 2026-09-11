@@ -28,7 +28,7 @@ import net.minecraft.world.level.block.Block;
  * left (west when the controller faces south) to right.</p>
  *
  * <p>Cross-type interface counts (exactly one input bus across steam/electric/ME
- * candidates, output-bus + supply-hatch combined limit) cannot be expressed as
+ * candidates and the required output/supply/exhaust minima) cannot be expressed as
  * per-predicate pattern limits, so {@code AbstractSteamCrusherMachine} re-checks
  * them against the collected parts after formation.</p>
  */
@@ -54,7 +54,7 @@ public final class GSECrusherPatterns {
         return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS).setExactLimit(1))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS).setExactLimit(1))
-                .or(Predicates.abilities(PartAbility.STEAM).setExactLimit(1));
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1));
     }
 
     /**
@@ -64,12 +64,12 @@ public final class GSECrusherPatterns {
      * same. Cross-type counts are re-checked post-formation.
      */
     private static TraceabilityPredicate largeCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(110)
+        return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 

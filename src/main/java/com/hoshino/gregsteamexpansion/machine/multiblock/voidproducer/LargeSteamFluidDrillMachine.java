@@ -105,12 +105,6 @@ public class LargeSteamFluidDrillMachine extends AbstractSteamVoidMachine {
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 议题 4: 仓室合计 ≤ 16 (5 供给仓 + 1 排气仓 + 流体输出仓).
-        return 16;
-    }
-
-    @Override
     protected boolean requiresFluidOutput() {
         return true;
     }

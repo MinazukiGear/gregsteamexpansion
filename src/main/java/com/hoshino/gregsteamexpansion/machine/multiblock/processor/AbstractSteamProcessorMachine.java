@@ -247,9 +247,6 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** Fixed parallel cap: 8 across the light family (议题 6). */
     public abstract int maximumParallel();
 
-    /** Maximum total interface count incl. buses and supply hatches (议题 4 仓室合计上限). */
-    protected abstract int maximumInterfaces();
-
     /** Working loop sound (议题 9 声效沿用类型自带样式). */
     protected com.gregtechceu.gtceu.api.sound.SoundEntry workingSoundEntry() {
         return GTSoundEntries.COMPRESSOR;
@@ -387,9 +384,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     /**
      * Post-formation check of the interface count rules (议题 4 仓室): at least
-     * one item input bus, one item output bus and one steam supply hatch, with
-     * their combined total at {@link #maximumInterfaces()} so the candidate
-     * positions keep the design's minimum casing count.
+     * one item input bus, one item output bus and one steam supply hatch.
+     * Ordinary casing positions have no retained minimum and therefore do not
+     * impose a derived total-interface cap.
      */
     private boolean validateInterfaceCounts() {
         if (inputBuses.size() < 1 || outputBuses.size() < 1 || supplyHatches.size() < 1) {
@@ -421,10 +418,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             // 大型蒸汽高炉鼓风口口径: 进气室必需 (成型后复核, 与图案双保险).
             return false;
         }
-        int interfaces = inputBuses.size() + outputBuses.size() + supplyHatches.size()
-                + fluidOutputHatches.size() + fluidInputHatches.size() + exhaustHatches.size()
-                + airIntakeHatches.size();
-        return interfaces <= maximumInterfaces();
+        return true;
     }
 
     private void collectParts() {
@@ -1682,9 +1676,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 + " / " + FormattingUtil.formatNumbers(batchDurationTicks) + "t)";
     }
 
-    /** 锁定每刻需求 EU/t × 2 × P; only "运行中" with a successful draw consumes. */
+    /** 当前每刻需求为 EU/t × 2 × P；仅运行中且成功扣取蒸汽时才算实际消耗。 */
     private String demandText() {
-        if (!hasBatch) {
+        if (currentSteamDemandPerTick() == 0) {
             return "0 mB/t";
         }
         String demand = FormattingUtil.formatNumbers(batchSteamPerTickMb) + " mB/t";
@@ -1789,7 +1783,14 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     public long getBatchSteamPerTick() {
-        return hasBatch ? batchSteamPerTickMb : 0;
+        return currentSteamDemandPerTick();
+    }
+
+    private long currentSteamDemandPerTick() {
+        if (!hasBatch) return 0;
+        String status = getStatusId();
+        return status.equals("working") || status.equals("low_steam") || status.equals("auxiliary_shortfall")
+                ? batchSteamPerTickMb : 0;
     }
 
     public boolean isConsumingSteam() {

@@ -114,12 +114,6 @@ public class LargeSteamOrePlantMachine extends AbstractSteamVoidMachine {
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 议题 4: 仓室合计 ≤ 16 (10 供给仓 + 1 排气仓 + 输出总线).
-        return 16;
-    }
-
-    @Override
     protected boolean requiresItemOutput() {
         return true;
     }

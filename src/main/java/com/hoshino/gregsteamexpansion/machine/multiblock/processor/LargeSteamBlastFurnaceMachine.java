@@ -71,13 +71,6 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 仓室合计 (含排气仓与全部鼓风口) 最多 28 个:
-        // 满载参考配置 16 供给仓 + 2 总线 + 1 排气仓 + 8 进气室 = 27.
-        return 28;
-    }
-
-    @Override
     protected boolean requiresExhaustHatch() {
         // 大型机口径: 必须且只能 1 个排气仓.
         return true;

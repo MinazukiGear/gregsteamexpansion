@@ -53,12 +53,6 @@ public class LargeSteamMixerMachine extends AbstractSteamProcessorMachine {
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 仓室合计 (含排气仓) 最多 16 个 (议题 4 仓室表).
-        return 16;
-    }
-
-    @Override
     protected boolean allowsSteamFluidHatches() {
         // 议题 4 仓室表: 流体输入/输出仓均可为 GTCEu 标准仓或本模组蒸汽流体仓,
         // 可选或混用 (B4/C0 口径).

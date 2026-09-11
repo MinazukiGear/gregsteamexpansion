@@ -56,7 +56,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * 200 tick 节拍, 期间逐刻跨全部蒸汽供给仓原子取汽 (单仓 1,200 mB/t 上限, 断汽回退
  * 1 tick 续跑); 节拍完成时每个工位独立按配置权重表抽取一份产出, 产物进入待输出
  * 缓存并原子提交 (阻塞则暂停且不耗汽)。大型机规则: 蒸汽排气仓必须且只能 1 个
- * (受阻冻结进度、反馈脉冲与热伤害), 仓室合计上限由子类声明。
+ * (受阻冻结进度、反馈脉冲与热伤害)，普通外壳候选位不设接口合计上限。
  *
  * <p>配置门禁 (议题 2/7): {@link #configEnabled()} 为 false 时优先级高于一切运行
  * 条件 — 结构与注册保留, 机器不启动, 状态栏显示"已在配置中禁用"。三档难度倍率
@@ -145,9 +145,6 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     /** 三档产出倍率 (议题 6): Easy 4 / Normal 2 / Expert 1, 只放大产出数量. */
     public abstract int outputMultiplier();
 
-    /** Maximum total interface count incl. buses, supply and exhaust hatches. */
-    protected abstract int maximumInterfaces();
-
     /** Whether at least one item output bus is required (F1). */
     protected boolean requiresItemOutput() {
         return false;
@@ -216,8 +213,9 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     }
 
     /**
-     * Post-formation check of the interface count rules: supply hatch ≥1, exhaust
-     * hatch 恰好 1, required outputs present, total at {@link #maximumInterfaces()}.
+     * Post-formation check of the interface count rules: supply hatch ≥1,
+     * exhaust hatch 恰好 1 and required outputs present. Ordinary casing
+     * positions impose no total-interface cap.
      */
     private boolean validateInterfaceCounts() {
         if (supplyHatches.size() < 1 || exhaustHatches.size() != 1) {
@@ -229,9 +227,7 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
         if (requiresFluidOutput() && fluidOutputHatches.size() < 1) {
             return false;
         }
-        int interfaces = outputBuses.size() + fluidOutputHatches.size()
-                + supplyHatches.size() + exhaustHatches.size();
-        return interfaces <= maximumInterfaces();
+        return true;
     }
 
     private void collectParts() {
@@ -793,12 +789,18 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
 
     /** 总需求 = 工位 × 单工位; only "运行中" with a successful draw consumes. */
     private String demandText() {
-        long demand = steamPerStationTick() * stationCount();
+        long demand = currentSteamDemandPerTick();
         String demandText = FormattingUtil.formatNumbers(demand) + " mB/t";
         if (getStatusId().equals("working") && !lastTickConsumedSteam) {
             return demandText + " (" + Component.translatable(UI_PREFIX + "not_consuming").getString() + ")";
         }
         return demandText;
+    }
+
+    private long currentSteamDemandPerTick() {
+        String status = getStatusId();
+        return status.equals("working") || status.equals("low_steam")
+                ? steamPerStationTick() * stationCount() : 0;
     }
 
     /** `128（3 种）` style pending summary; `—` when nothing is pending. */

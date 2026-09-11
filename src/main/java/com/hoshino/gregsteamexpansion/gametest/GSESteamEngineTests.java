@@ -74,13 +74,9 @@ public final class GSESteamEngineTests {
         h.assertTrue(!supplies.isEmpty(), "Fixture has no steam supply");
         fillSteam(m, 32_000);
         long before = steam(m);
-        // Crusher documentation conflicts about per-hatch flow (see roadmap).
-        // Do not silently impose the other families' cap during characterization.
-        if (!(m instanceof AbstractSteamCrusherMachine)) {
-            h.assertTrue(!(boolean) call(m, "drawSteam", supplies.size() * 1200L + 1),
-                    "Per-hatch 1200 mB/t limit was exceeded");
-            eq(h, steam(m), before, "Over-budget simulation consumed steam");
-        }
+        h.assertTrue(!(boolean) call(m, "drawSteam", supplies.size() * 1200L + 1),
+                "Per-hatch 1200 mB/t limit was exceeded");
+        eq(h, steam(m), before, "Over-budget simulation consumed steam");
         fillSteam(m, 1);
         h.assertTrue(!(boolean) call(m, "drawSteam", supplies.size() + 1L), "Partial supply satisfied full demand");
         eq(h, steam(m), supplies.size(), "Failed draw partially drained hatches");
@@ -91,6 +87,7 @@ public final class GSESteamEngineTests {
 
         seedBatch(m, itemRecipe(), 2);
         set(m, progressField(m), 7);
+        long expectedDemand = demand(m);
         SteamExhaustHatchMachine exhaust = m.getParts().stream()
                 .filter(SteamExhaustHatchMachine.class::isInstance)
                 .map(SteamExhaustHatchMachine.class::cast).findFirst().orElseThrow();
@@ -101,6 +98,7 @@ public final class GSESteamEngineTests {
 
         // Pause and obstruction freeze; neither is the shortage rollback.
         call(m, "setWorkingEnabled", false);
+        eq(h, demand(m), 0, "Paused machine displayed a current steam demand");
         before = steam(m);
         tick(m);
         eq(h, progress(m), 7, "Pause rolled back progress");
@@ -108,6 +106,7 @@ public final class GSESteamEngineTests {
         call(m, "setWorkingEnabled", true);
         h.getLevel().setBlockAndUpdate(front, Blocks.STONE.defaultBlockState());
         tick(m);
+        eq(h, demand(m), 0, "Exhaust-blocked machine displayed a current steam demand");
         eq(h, progress(m), 7, "Blocked exhaust rolled back progress");
         eq(h, steam(m), before, "Blocked exhaust consumed steam");
         eq(h, number(m, "exhaustDamageTimer"), 198, "Inactive tick advanced exhaust damage");
@@ -116,6 +115,7 @@ public final class GSESteamEngineTests {
         // A failed consuming tick rolls back but keeps locked batch economics.
         fillSteam(m, 1);
         tick(m);
+        eq(h, demand(m), expectedDemand, "Steam shortage hid the demand needed to resume");
         eq(h, progress(m), 1, "Steam shortage did not roll back to one tick");
         eq(h, steam(m), supplies.size(), "Shortage consumed a partial steam budget");
         eq(h, number(m, "exhaustDamageTimer"), 198, "Shortage advanced exhaust damage");
@@ -134,6 +134,7 @@ public final class GSESteamEngineTests {
         float health = target.getHealth();
         fillSteam(m, 32_000);
         tick(m);
+        eq(h, demand(m), expectedDemand, "Running machine displayed the wrong current demand");
         eq(h, progress(m), 2, "Steam recovery did not continue retained progress");
         eq(h, number(m, "exhaustFeedbackTimer"), 0, "20th active tick did not reset feedback cycle");
         eq(h, number(m, "exhaustDamageTimer"), 199, "Active tick did not advance damage cycle");
@@ -148,9 +149,8 @@ public final class GSESteamEngineTests {
         set(m, progressField(m), 7);
         call(m, "setWorkingEnabled", false);
         m.onStructureInvalid();
-        // The furnace explicitly freezes on invalidation; the other families roll back.
-        eq(h, progress(m), m instanceof LargeHeatStorageSteamFurnaceMachine ? 7 : 1,
-                "Structure invalidation violated the family's progress rule");
+        eq(h, demand(m), 0, "Invalid structure displayed a current steam demand");
+        eq(h, progress(m), 1, "Structure invalidation did not roll progress back to one tick");
         eq(h, count(pending(m), Items.DIAMOND), 3, "Invalidation lost pending output");
         if (!(m instanceof AbstractSteamVoidMachine)) {
             h.assertTrue((boolean) get(m, "hasBatch"), "Invalidation discarded the locked batch");
@@ -391,6 +391,16 @@ public final class GSESteamEngineTests {
         call(m, m instanceof AbstractSteamProcessorMachine ? "processorServerTick"
                 : m instanceof AbstractSteamVoidMachine ? "voidServerTick"
                 : m instanceof LargeHeatStorageSteamFurnaceMachine ? "furnaceServerTick" : "crusherServerTick");
+    }
+
+    private static long demand(MultiblockControllerMachine m) {
+        if (m instanceof AbstractSteamProcessorMachine || m instanceof AbstractSteamCrusherMachine) {
+            return ((Number) call(m, "getBatchSteamPerTick")).longValue();
+        }
+        if (m instanceof LargeHeatStorageSteamFurnaceMachine) {
+            return ((Number) call(m, "getCurrentBatchSteamPerTick")).longValue();
+        }
+        return ((Number) call(m, "currentSteamDemandPerTick")).longValue();
     }
 
     private static String progressField(Object m) {

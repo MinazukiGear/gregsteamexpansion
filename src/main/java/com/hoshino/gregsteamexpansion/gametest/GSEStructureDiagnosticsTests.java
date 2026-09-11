@@ -87,7 +87,7 @@ public final class GSEStructureDiagnosticsTests {
             return;
         }
         // 外壳本身就在该位置的候选列表里, 所以位置仍然匹配 —— 失败的是
-        // "恰好 1 个蒸汽供给仓" 这条数量限制, 而不是方块类型。
+        // "至少 1 个蒸汽供给仓" 这条数量限制, 而不是方块类型。
         helper.setBlock(supply, GTBlocks.CASING_BRONZE_BRICKS.get().defaultBlockState());
 
         StructureProblem problem = recheckAndDiagnose(helper, controller);

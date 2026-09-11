@@ -32,16 +32,6 @@ public class SteamCrusherMachine extends AbstractSteamCrusherMachine {
     }
 
     @Override
-    protected int minimumCasings() {
-        return 18;
-    }
-
-    @Override
-    protected int candidatePositions() {
-        return 21;
-    }
-
-    @Override
     public BlockPattern getPattern() {
         return GSECrusherPatterns.createSmall(getDefinition());
     }

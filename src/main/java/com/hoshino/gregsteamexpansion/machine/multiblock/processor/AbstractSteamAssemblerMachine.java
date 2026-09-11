@@ -169,12 +169,6 @@ public abstract class AbstractSteamAssemblerMachine extends AbstractSteamProcess
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 议题 4: 仓室合计 ≤ 16 (EV 满并行 16 需 7 供给仓 + 排气 + 物品/流体仓).
-        return 16;
-    }
-
-    @Override
     protected boolean requiresFluidInput() {
         // 议题 3/4: 类型有 1 个流体输入槽 (B2 强制焊液; B1 按配方声明), ≥1 仓.
         return true;

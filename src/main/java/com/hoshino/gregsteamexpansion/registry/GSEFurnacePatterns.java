@@ -70,7 +70,7 @@ public final class GSEFurnacePatterns {
      * intended steam-age logistics parts. */
     private static TraceabilityPredicate interfaces() {
         return Predicates.blocks(GTBlocks.CASING_BRONZE_BRICKS.get())
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))

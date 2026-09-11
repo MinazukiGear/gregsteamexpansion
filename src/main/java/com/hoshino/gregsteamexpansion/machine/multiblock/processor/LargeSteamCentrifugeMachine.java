@@ -18,9 +18,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * recipes at up to 64 parallel.
  *
  * <p>Machine-specific: exactly one Steam Exhaust Hatch whose obstruction
- * freezes progress and whose hazard cycles run on actually-consuming ticks;
- * ring casing floor 100 bounds the hatch total (incl. the exhaust hatch) at
- * 12 (112 − 100, 议题 4 仓室合计上限).</p>
+     * freezes progress and whose hazard cycles run on actually-consuming ticks.
+     * Ring candidates have no casing minimum or total-interface cap.</p>
  */
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -34,12 +33,6 @@ public class LargeSteamCentrifugeMachine extends AbstractSteamCentrifugeMachine 
     public int maximumParallel() {
         // 议题 6: 固定 64, 与大型蒸汽粉碎机/洗矿厂/研磨厂同级.
         return 64;
-    }
-
-    @Override
-    protected int maximumInterfaces() {
-        // 仓室合计 (含排气仓) 最多 12 个 (议题 4).
-        return 12;
     }
 
     @Override

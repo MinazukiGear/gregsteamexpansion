@@ -36,7 +36,7 @@ import java.util.List;
  * aisles stack bottom-up, each aisle string is one row from the machine's back
  * (index 0) to its front (last index), chars run left to right.</p>
  *
- * <p>Interface counts (buses/supply hatch each ≥1, combined ≤8) cannot be
+ * <p>Required interface counts (buses/supply hatch each ≥1) cannot be
  * expressed as per-predicate pattern limits, so
  * {@code AbstractSteamProcessorMachine} re-checks them against the collected
  * parts after formation.</p>
@@ -59,7 +59,7 @@ public final class GSEProcessorPatterns {
         return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM));
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1));
     }
 
     /**
@@ -271,17 +271,16 @@ public final class GSEProcessorPatterns {
      * machine casing with hatches as replacements. 蒸汽流体输入/输出仓 are NOT
      * admissible (议题 3): the mod's steam fluid hatches register under
      * GSEPartAbilities.STEAM_*_FLUIDS, never under the GTCEu IMPORT_FLUIDS
-     * ability admitted here. The 205-casing minimum bounds the hatch total at
-     * 20 (225 − 20, 议题 4 仓室上限); the exhaust hatch takes one candidate
-     * slot and is post-checked to exactly one by the controller.
+     * ability admitted here. Candidate positions have no casing minimum or
+     * total-interface cap; the exhaust hatch is post-checked to exactly one.
      */
     private static TraceabilityPredicate washerCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(205)
+        return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
@@ -440,19 +439,18 @@ public final class GSEProcessorPatterns {
      * 结构主体以高炉砖块为主): the 13×13 tuyere deck (44) plus nine 11×11
      * shaft layers (36 each), blast bricks with hatches as replacements.
      * Pure-dry recipe type — NO fluid hatch ability of any kind is admitted
-     * (议题 3). The 340-brick minimum bounds the hatch total at 28 (368 − 340;
-     * 满载参考配置 16 供给仓 + 2 总线 + 1 排气仓 + 8 鼓风口 = 27); the exhaust
-     * hatch takes one candidate slot (必须且只能 1 个, post-checked by the
-     * controller) and the Steam Air Intake Hatch is the mandatory tuyere
+     * (议题 3). Candidate positions have no brick minimum or total-interface
+     * cap. The exhaust hatch is post-checked to exactly one, and the Steam Air
+     * Intake Hatch is the mandatory tuyere
      * (必需, 至多 8 个 — 满载鼓风 384 mB/t 恰好需要全部 8 个才可长期自持).
      */
     private static TraceabilityPredicate blastFurnaceCandidates() {
-        return Predicates.blocks(blastBricks()).setMinGlobalLimited(340)
+        return Predicates.blocks(blastBricks())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMaxGlobalLimited(8))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
@@ -628,18 +626,17 @@ public final class GSEProcessorPatterns {
      * (layers 2-4, 28 per layer): steam machine casing with hatches as
      * replacements. Pure-dry recipe type — NO fluid hatch ability of any kind
      * is admitted (large-steam-thermal-centrifuge.md 议题 4 仓室表 流体仓 0),
-     * so the mod's steam fluid hatches cannot appear either. The 68-casing
-     * minimum bounds the hatch total (incl. the exhaust hatch) at 16
-     * (84 − 68, 议题 4 仓室合计上限); the exhaust hatch takes one candidate
-     * slot and is post-checked to exactly one by the controller.
+     * so the mod's steam fluid hatches cannot appear either. Candidate
+     * positions have no casing minimum or total-interface cap; the exhaust
+     * hatch is post-checked to exactly one by the controller.
      */
     private static TraceabilityPredicate thermalCentrifugeCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(68)
+        return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 
@@ -785,18 +782,17 @@ public final class GSEProcessorPatterns {
      * positions (large-steam-macerator.md 议题 4): the spherical shell with
      * hatches as replacements. Pure-dry recipe type — NO fluid hatch ability
      * of any kind is admitted (议题 4 仓室表 流体仓 0), so the mod's steam
-     * fluid hatches cannot appear either. The 85-casing minimum bounds the
-     * hatch total (incl. the exhaust hatch) at 12 (97 − 85, 议题 4 仓室合计
-     * 上限); the exhaust hatch takes one candidate slot and is post-checked
-     * to exactly one by the controller.
+     * fluid hatches cannot appear either. Candidate positions have no casing
+     * minimum or total-interface cap; the exhaust hatch is post-checked to
+     * exactly one by the controller.
      */
     private static TraceabilityPredicate maceratorCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(85)
+        return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 
@@ -911,18 +907,16 @@ public final class GSEProcessorPatterns {
      * positions (large-steam-mixer.md 议题 4): the widest fluid interface of
      * the family — BOTH families of fluid input AND output hatches are
      * admissible (议题 4 仓室表: GTCEu 标准仓或本模组蒸汽流体仓, 可选或混用,
-     * B4/C0 口径). The 32-casing minimum bounds the hatch total (incl. the
-     * exhaust hatch) at 16 (48 − 32, 议题 4 仓室合计上限); the exhaust hatch
-     * takes one candidate slot and is post-checked to exactly one by the
-     * controller.
+     * B4/C0 口径). Candidate positions have no casing minimum or
+     * total-interface cap; the exhaust hatch is post-checked to exactly one.
      */
     private static TraceabilityPredicate mixerCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(32)
+        return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
@@ -1022,14 +1016,14 @@ public final class GSEProcessorPatterns {
      * {@code STEAM_IMPORT_FLUIDS}, 可选或混用); NO fluid output hatch of
      * either family and NO steam exhaust hatch is admissible at all (议题
      * 3 连带后果: 本机不安装流体输出仓; 2026-09-07 全模组裁定: 非大型蒸汽
-     * 多方块不使用排气仓). The 25-casing minimum bounds the hatch total at
-     * 8 (33 − 25, 议题 4 仓室合计上限).
+     * 多方块不使用排气仓). Candidate positions have no casing minimum or
+     * total-interface cap.
      */
     private static TraceabilityPredicate chemicalBathCandidates() {
-        return Predicates.blocks(industrialSteamCasing()).setMinGlobalLimited(25)
+        return Predicates.blocks(industrialSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS));
     }
@@ -1088,18 +1082,18 @@ public final class GSEProcessorPatterns {
      * standard hatches or the mod's steam fluid hatches, 可选或混用 — the
      * steam fluid output hatch gains its first legal consumer here). The
      * small machine uses NO exhaust hatch (2026-09-07 全模组裁定), so no
-     * exhaust ability is admitted. The 25-casing minimum bounds the hatch
-     * total at 8 (33 − 25, 议题 4 仓室合计上限).
+     * exhaust ability is admitted. Candidate positions have no casing minimum
+     * or total-interface cap.
      *
      * <p>议题 12: the Steam Air Intake Hatch is admitted as an OPTIONAL
-     * replacement (0 or 1 — `setMaxGlobalLimited(1)`), counted against the
-     * same 8-hatch budget by {@code validateInterfaceCounts()}.</p>
+     * replacement (0 or 1 — `setMaxGlobalLimited(1)`), independent of any
+     * total-interface cap.</p>
      */
     private static TraceabilityPredicate centrifugeCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(25)
+        return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
@@ -1159,20 +1153,20 @@ public final class GSEProcessorPatterns {
      * replacements, the same fluid interface as the small machine (both
      * families of fluid input AND output hatches admissible, 可选或混用).
      * The exhaust hatch takes one candidate slot (大型机必须且只能 1 个,
-     * post-checked by the controller) and the 100-casing minimum bounds the
-     * hatch total at 12 (112 − 100, 议题 4 仓室合计上限).
+     * post-checked by the controller); candidates have no casing minimum or
+     * total-interface cap.
      *
      * <p>议题 12: the Steam Air Intake Hatch is admitted as an OPTIONAL
-     * replacement (0 or 1 — `setMaxGlobalLimited(1)`), counted against the
-     * same 12-hatch budget by {@code validateInterfaceCounts()}.</p>
+     * replacement (0 or 1 — `setMaxGlobalLimited(1)`), independent of any
+     * total-interface cap.</p>
      */
     private static TraceabilityPredicate largeCentrifugeCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(100)
+        return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
@@ -1362,16 +1356,16 @@ public final class GSEProcessorPatterns {
      * standard or the mod's steam fluid input hatch, 可选或混用, B4 口径); NO
      * fluid output hatch of either family (类型无流体输出槽). The exhaust
      * hatch takes one candidate slot (必须且只能 1 个, post-checked by the
-     * controller) and the 180-casing minimum bounds the hatch total at 16
-     * (196 − 180, 议题 4 仓室合计上限).
+     * controller). Candidate positions have no casing minimum or
+     * total-interface cap.
      */
     private static TraceabilityPredicate assemblerCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(180)
+        return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
@@ -1497,16 +1491,16 @@ public final class GSEProcessorPatterns {
      * layer-6 industrial ridge and the controller. Fluid interface per 仓室
      * 表: the fluid input hatch is REQUIRED (每条配方强制焊液) and BOTH
      * families are admissible (可选或混用); NO fluid output hatch. The
-     * exhaust hatch takes one candidate slot (必须且只能 1 个) and the
-     * 149-casing minimum bounds the hatch total at 16 (165 − 149).
+     * exhaust hatch takes one candidate slot (必须且只能 1 个). Candidate
+     * positions have no casing minimum or total-interface cap.
      */
     private static TraceabilityPredicate circuitAssemblerCandidates() {
-        return Predicates.blocks(bronzeSteamCasing()).setMinGlobalLimited(149)
+        return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.abilities(PartAbility.STEAM))
+                .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));

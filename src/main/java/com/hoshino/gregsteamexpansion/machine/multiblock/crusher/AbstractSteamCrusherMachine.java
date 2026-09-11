@@ -104,6 +104,8 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     public static final int STEAM_PER_OPERATION_MB = 120_000;
     /** Per-tick demand of a full-parallel batch: 200 × P mB/t. */
     public static final int STEAM_PER_TICK_PER_PARALLEL = 200;
+    /** Each physical Steam Supply Hatch can provide at most this much per tick. */
+    public static final long PER_HATCH_STEAM_CAP_MB = 1200;
     /** Heat damage of one large-crusher exhaust damage cycle. */
     public static final float EXHAUST_DAMAGE = 12.0F;
 
@@ -192,12 +194,6 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     /** Whether the structure requires exactly one Steam Exhaust Hatch. */
     protected abstract boolean requiresExhaustHatch();
 
-    /** Minimum bronze steam machine casings among the candidate positions. */
-    protected abstract int minimumCasings();
-
-    /** Total candidate (replaceable) positions in the structure. */
-    protected abstract int candidatePositions();
-
     /** True for the large crusher (exhaust feedback + damage cycles). */
     protected boolean hasExhaustHazard() {
         return false;
@@ -259,9 +255,9 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     /**
      * Post-formation check of the interface count rules the pattern cannot
      * express across types (steam-crushers.md 圆筒接口): exactly one input bus,
-     * exactly the required exhaust hatches, at least one output bus and supply
-     * hatch, and their combined limit so the candidate positions keep the
-     * minimum bronze steam machine casings.
+     * exactly the required exhaust hatches, at least one output bus and at
+     * least one supply hatch. Ordinary casing positions
+     * impose no total-interface cap.
      */
     private boolean validateInterfaceCounts() {
         if (inputBuses.size() != 1) {
@@ -274,11 +270,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         if (outputBuses.size() < 1 || supplyHatches.size() < 1) {
             return false;
         }
-        int interfaces = inputBuses.size() + outputBuses.size() + supplyHatches.size() + exhaustHatches.size();
-        if (outputBuses.size() + supplyHatches.size() > 15) {
-            return false;
-        }
-        return candidatePositions() - interfaces >= minimumCasings();
+        return true;
     }
 
     private void collectParts() {
@@ -785,7 +777,8 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         // outside callers; machine-internal withdrawal uses the internal path.
         long remaining = amountMb;
         for (SteamSupplyHatchPartMachine hatch : supplyHatches) {
-            FluidStack simulated = hatch.tank.drainInternal(steamFluid(remaining), IFluidHandler.FluidAction.SIMULATE);
+            long share = Math.min(remaining, PER_HATCH_STEAM_CAP_MB);
+            FluidStack simulated = hatch.tank.drainInternal(steamFluid(share), IFluidHandler.FluidAction.SIMULATE);
             remaining -= simulated.getAmount();
             if (remaining <= 0) {
                 break;
@@ -796,7 +789,8 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         }
         remaining = amountMb;
         for (SteamSupplyHatchPartMachine hatch : supplyHatches) {
-            FluidStack drained = hatch.tank.drainInternal(steamFluid(remaining), IFluidHandler.FluidAction.EXECUTE);
+            long share = Math.min(remaining, PER_HATCH_STEAM_CAP_MB);
+            FluidStack drained = hatch.tank.drainInternal(steamFluid(share), IFluidHandler.FluidAction.EXECUTE);
             remaining -= drained.getAmount();
             if (remaining <= 0) {
                 break;
@@ -1024,9 +1018,9 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
                 + " / " + FormattingUtil.formatNumbers(DURATION_TICKS) + "t)";
     }
 
-    /** 锁定每刻需求 4×P; only "运行中" with a successful draw is actually consuming. */
+    /** 当前每刻需求为 4×P；仅运行中且成功扣取蒸汽时才算实际消耗。 */
     private String demandText() {
-        if (!hasBatch) {
+        if (currentSteamDemandPerTick() == 0) {
             return "0 mB/t";
         }
         String demand = FormattingUtil.formatNumbers(batchSteamPerTickMb) + " mB/t";
@@ -1107,7 +1101,13 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     }
 
     public long getBatchSteamPerTick() {
-        return hasBatch ? batchSteamPerTickMb : 0;
+        return currentSteamDemandPerTick();
+    }
+
+    private long currentSteamDemandPerTick() {
+        if (!hasBatch) return 0;
+        String status = getStatusId();
+        return status.equals("working") || status.equals("low_steam") ? batchSteamPerTickMb : 0;
     }
 
     public boolean isConsumingSteam() {

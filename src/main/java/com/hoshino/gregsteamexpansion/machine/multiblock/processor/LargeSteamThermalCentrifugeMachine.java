@@ -48,12 +48,6 @@ public class LargeSteamThermalCentrifugeMachine extends AbstractSteamProcessorMa
     }
 
     @Override
-    protected int maximumInterfaces() {
-        // 仓室合计 (含排气仓) 最多 16 个 (议题 4 仓室表).
-        return 16;
-    }
-
-    @Override
     protected boolean allowsSteamFluidHatches() {
         // 议题 4 仓室表: 类型纯干式, 流体仓为 0 — 图案本就不放行任何流体仓,
         // 此处复核兜底, 蒸汽流体仓同样不可出现.

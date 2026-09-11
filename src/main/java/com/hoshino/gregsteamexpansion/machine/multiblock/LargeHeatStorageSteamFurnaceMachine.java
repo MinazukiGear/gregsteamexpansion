@@ -301,6 +301,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         // Keep the tick subscription: an invalid-but-loaded furnace still cools
         // at the idle rate (large-heat-storage-steam-furnace.md 结构失效).
         super.onStructureInvalid();
+        if (hasBatch) {
+            batchProgress = Math.min(batchProgress, 1);
+        }
         exhaustBlocked = false;
         fireboxActive = false;
         updateFireboxBlocks(false);
@@ -1169,7 +1172,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     }
 
     private long currentDemandPerTick() {
-        return hasBatch ? batchSteamPerTickMb : 0;
+        if (!hasBatch) return 0;
+        String status = getStatusId();
+        return status.equals("working") || status.equals("low_steam") ? batchSteamPerTickMb : 0;
     }
 
     private String unlimitedText() {
@@ -1250,7 +1255,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     }
 
     public long getCurrentBatchSteamPerTick() {
-        return batchSteamPerTickMb;
+        return currentDemandPerTick();
     }
 
     /** 普通供汽接口合计机器侧上限 (mB/t); 不限流时调用方应显示"无限制". */
