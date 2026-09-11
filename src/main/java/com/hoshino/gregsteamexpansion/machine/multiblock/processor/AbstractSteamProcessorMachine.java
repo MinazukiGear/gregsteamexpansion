@@ -32,17 +32,18 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachin
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
-import com.hoshino.gregsteamexpansion.recipe.RecipeCacheLifecycle;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BatchStateMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.PendingOutputBuffer;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamStatusText;
 import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 import com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
-import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
-import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
-import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
-import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.ISubscription;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
@@ -57,15 +58,12 @@ import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.ItemHandlerHelper;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -103,7 +101,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** 2 mB of standard steam per EU (家族换算率). */
     public static final long STEAM_PER_EU_MB = 2;
     /** Machine-side per-hatch withdrawal cap (家族口径 1,200 mB/t). */
-    public static final long PER_HATCH_STEAM_CAP_MB = 1200;
+    public static final long PER_HATCH_STEAM_CAP_MB = SteamBudget.PHYSICAL_HATCH_LIMIT_MB;
 
     //////////////////////////////////////
     // ***** Persisted state ******//
@@ -142,6 +140,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** Finished fluids waiting for output space (chances rolled exactly once). */
     @Persisted
     private final List<FluidStack> pendingFluids = new ArrayList<>();
+    private final PendingOutputBuffer pendingBuffer = new PendingOutputBuffer(pendingOutputs, pendingFluids);
     /** 最近成功配方优先 (议题 6): survives batch completion and reloads. */
     @Persisted
     private String preferredRecipeId = "";
@@ -152,32 +151,29 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     @Nullable
     private TickableSubscription tickSubscription;
+    private final SteamPartCollector partCollector = new SteamPartCollector();
     /** 供汽仓 stable position order (议题 5). */
-    private final List<SteamSupplyHatchPartMachine> supplyHatches = new ArrayList<>();
-    private final List<IMultiPart> inputBuses = new ArrayList<>();
-    private final List<ItemBusPartMachine> outputBuses = new ArrayList<>();
+    private final List<SteamSupplyHatchPartMachine> supplyHatches = partCollector.supplyHatches();
+    private final SteamBudget steamBudget = new SteamBudget(supplyHatches);
+    private final BatchStateMachine batchState = new BatchStateMachine();
+    private final List<IMultiPart> inputBuses = partCollector.inputParts();
+    private final List<ItemBusPartMachine> outputBuses = partCollector.outputBuses();
     /** Fluid output hatches (GTCEu standard or the mod's steam fluid hatch). */
-    private final List<FluidHatchPartMachine> fluidOutputHatches = new ArrayList<>();
+    private final List<FluidHatchPartMachine> fluidOutputHatches = partCollector.fluidOutputHatches();
     /** GTCEu standard fluid input hatches (water inlet for the ore washer). */
-    private final List<FluidHatchPartMachine> fluidInputHatches = new ArrayList<>();
+    private final List<FluidHatchPartMachine> fluidInputHatches = partCollector.fluidInputHatches();
     /** The mod's steam fluid hatches wherever they appear (tracked for the forbid check). */
-    private final List<FluidHatchPartMachine> steamFluidHatches = new ArrayList<>();
+    private final List<FluidHatchPartMachine> steamFluidHatches = partCollector.steamFluidHatches();
     /** Steam exhaust hatch (large machines; at most one per structure). */
-    private final List<SteamExhaustHatchMachine> exhaustHatches = new ArrayList<>();
+    private final List<SteamExhaustHatchMachine> exhaustHatches = partCollector.exhaustHatches();
     /** Steam air intake hatches (议题 12: only the centrifuge pair, `0` or `1`). */
-    private final List<SteamAirIntakeHatchPartMachine> airIntakeHatches = new ArrayList<>();
+    private final List<SteamAirIntakeHatchPartMachine> airIntakeHatches = partCollector.airIntakeHatches();
     /** Whether the exhaust channel is obstructed this tick (freeze, no rollback). */
     private boolean exhaustBlocked = false;
     private int exhaustFeedbackTimer = 0;
     private long exhaustDamageTimer = 0;
     /** False when the post-formation interface count rules failed. */
     private boolean interfaceCountsValid = true;
-    private boolean waitingForSteam = false;
-    /** True when this tick froze on the auxiliary input (blast air) shortfall. */
-    private boolean waitingForAuxiliary = false;
-    private boolean waitingForOutputs = false;
-    /** Whether this tick actually consumed the full steam demand. */
-    private boolean lastTickConsumedSteam = false;
     /** Live recipe instance re-resolved from {@link #batchRecipeId} after reloads. */
     @Nullable
     private GTRecipe batchRecipe;
@@ -364,18 +360,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         super.onStructureInvalid();
         // 结构失效: keep the batch and locked parameters, roll progress back to
         // 1 tick (议题 8).
-        if (hasBatch) {
-            batchProgress = Math.min(batchProgress, 1);
-        }
-        lastTickConsumedSteam = false;
-        supplyHatches.clear();
-        inputBuses.clear();
-        outputBuses.clear();
-        fluidOutputHatches.clear();
-        fluidInputHatches.clear();
-        steamFluidHatches.clear();
-        exhaustHatches.clear();
-        airIntakeHatches.clear();
+        batchProgress = batchState.invalidate(batchProgress, hasBatch);
+        partCollector.clear();
         exhaustBlocked = false;
         capabilitiesProxy.clear();
         capabilitiesFlat.clear();
@@ -389,124 +375,31 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      * impose a derived total-interface cap.
      */
     private boolean validateInterfaceCounts() {
-        if (inputBuses.size() < 1 || outputBuses.size() < 1 || supplyHatches.size() < 1) {
-            return false;
-        }
-        if (requiresFluidOutput() && fluidOutputHatches.size() < 1) {
-            return false;
-        }
-        if (requiresFluidInput() && fluidInputHatches.size() < 1) {
-            return false;
-        }
-        if (!allowsSteamFluidHatches() && !steamFluidHatches.isEmpty()) {
-            // 议题 3 约束: steam fluid hatches must never appear in the structure.
-            return false;
-        }
-        if (requiresExhaustHatch() && exhaustHatches.size() != 1) {
-            // 大型机排气仓规则: 必须且只能 1 个 (成型后复核口径).
-            return false;
-        }
-        if (!allowsAirIntake() && !airIntakeHatches.isEmpty()) {
-            // 议题 12: 未声明进气室能力的机器装了就不成型 (与图案谓词双保险).
-            return false;
-        }
-        if (airIntakeHatches.size() > maximumAirIntakes()) {
-            // 议题 12: 每台最多 1 个 (图案 setMaxGlobalLimited 之外的成型后复核).
-            return false;
-        }
-        if (requiresAirIntake() && airIntakeHatches.isEmpty()) {
-            // 大型蒸汽高炉鼓风口口径: 进气室必需 (成型后复核, 与图案双保险).
-            return false;
-        }
-        return true;
+        boolean airAllowed = allowsAirIntake();
+        return partCollector.validate(new SteamPartCollector.InterfaceRules(
+                1, -1,
+                1, 1,
+                requiresExhaustHatch() ? 1 : -1,
+                requiresFluidInput() ? 1 : 0,
+                requiresFluidOutput() ? 1 : 0,
+                allowsSteamFluidHatches(),
+                requiresAirIntake() ? 1 : 0,
+                airAllowed ? maximumAirIntakes() : 0));
     }
 
     private void collectParts() {
         clearSearchSubscriptions();
-        supplyHatches.clear();
-        inputBuses.clear();
-        outputBuses.clear();
-        airIntakeHatches.clear();
         capabilitiesProxy.clear();
         capabilitiesFlat.clear();
-        it.unimi.dsi.fastutil.longs.Long2ObjectMap<IO> ioMap = getMultiblockState().getMatchContext()
-                .getOrCreate("ioMap", it.unimi.dsi.fastutil.longs.Long2ObjectMaps::emptyMap);
-        for (IMultiPart part : getParts()) {
-            IO io = ioMap.getOrDefault(part.self().getPos().asLong(), IO.BOTH);
-            if (io == IO.NONE) continue;
-            if (com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat.isPatternBuffer(part)) {
-                io = IO.IN;
-            }
-            for (RecipeHandlerList handlerList : part.getRecipeHandlers()) {
-                if (!handlerList.isValid(io)) continue;
-                addHandlerList(handlerList);
-                if (!(part instanceof SteamSupplyHatchPartMachine)) {
-                    searchSubscriptions.add(handlerList.subscribe(this::requestRecipeSearch, ItemRecipeCapability.CAP));
-                    searchSubscriptions.add(handlerList.subscribe(this::requestRecipeSearch, FluidRecipeCapability.CAP));
-                }
-            }
-            if (part instanceof SteamSupplyHatchPartMachine supplyHatch) {
-                supplyHatches.add(supplyHatch);
-            } else if (com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat.isPatternBuffer(part)) {
-                inputBuses.add(part);
-            } else if (part instanceof ItemBusPartMachine bus) {
-                if (bus.getInventory().getHandlerIO() == IO.OUT) {
-                    outputBuses.add(bus);
-                } else {
-                    inputBuses.add(bus);
-                }
-            } else if (part instanceof SteamFluidHatchPartMachine steamFluidHatch) {
-                // The mod's steam fluid hatch — tracked separately so machines
-                // that forbid it (ore washer 议题 3) can reject the structure.
-                steamFluidHatches.add(steamFluidHatch);
-                if (allowsSteamFluidHatches()) {
-                    // B4/C0 口径 (可选或混用): steam fluid hatches count as
-                    // regular fluid interfaces on the side their tank faces,
-                    // so the requiresFluidInput/Output re-check and the
-                    // interface total below treat both families equally.
-                    if (steamFluidHatch.tank.handlerIO == IO.OUT) {
-                        fluidOutputHatches.add(steamFluidHatch);
-                    } else {
-                        fluidInputHatches.add(steamFluidHatch);
-                    }
-                }
-            } else if (part instanceof FluidHatchPartMachine fluidHatch) {
-                if (fluidHatch.tank.handlerIO == IO.OUT) {
-                    // Covers both the GTCEu standard fluid output hatch and the
-                    // mod's steam fluid output hatch (steam-extractor.md 议题 4:
-                    // 二者可选或混用); the steam supply hatch is IO.IN and cannot
-                    // land here.
-                    fluidOutputHatches.add(fluidHatch);
-                } else {
-                    // GTCEu standard fluid input hatch (water inlet).
-                    fluidInputHatches.add(fluidHatch);
-                }
-            } else if (part instanceof SteamExhaustHatchMachine exhaustHatch) {
-                exhaustHatches.add(exhaustHatch);
-            } else if (part instanceof SteamAirIntakeHatchPartMachine airIntake) {
-                // 议题 12: 进气室走独立能力, 不是流体输入仓 — 不进 fluidInputHatches,
-                // 因此 requiresFluidInput() 仍然强制另配 1 个真流体输入仓.
-                airIntakeHatches.add(airIntake);
+        partCollector.collect(this);
+        for (SteamPartCollector.HandlerBinding binding : partCollector.recipeHandlers()) {
+            RecipeHandlerList handlerList = binding.handlers();
+            addHandlerList(handlerList);
+            if (!(binding.part() instanceof SteamSupplyHatchPartMachine)) {
+                searchSubscriptions.add(handlerList.subscribe(this::requestRecipeSearch, ItemRecipeCapability.CAP));
+                searchSubscriptions.add(handlerList.subscribe(this::requestRecipeSearch, FluidRecipeCapability.CAP));
             }
         }
-        // Stable orders (粉碎机家族口径): supply hatches and buses by block
-        // position; ME output buses first within the output group.
-        supplyHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
-        outputBuses.sort(Comparator
-                .comparing((ItemBusPartMachine bus) -> !isMeBus(bus))
-                .thenComparing(bus -> bus.self().getPos()));
-        inputBuses.sort(Comparator.comparing(bus -> bus.self().getPos()));
-        fluidOutputHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
-        fluidInputHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
-        steamFluidHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
-        exhaustHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
-        airIntakeHatches.sort(Comparator.comparing(hatch -> hatch.self().getPos()));
-    }
-
-    /** ME parts are detected by definition id; AE2 classes are never loaded. */
-    private static boolean isMeBus(IMultiPart part) {
-        String path = part.self().getDefinition().getId().getPath();
-        return path.startsWith("me_");
     }
 
     @NotNull
@@ -531,29 +424,26 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return;
         }
         refreshRecipeCache();
-        waitingForSteam = false;
-        waitingForAuxiliary = false;
-        waitingForOutputs = false;
+        batchState.beginTick();
 
         // 待输出优先送出 (also while paused: delivering is not recipe work).
         if (isFormed() && !pendingOutputs.isEmpty() && !deliverPendingOutputs()) {
-            waitingForOutputs = true;
+            batchState.freeze(BatchStateMachine.HoldReason.OUTPUTS);
         }
-        if (!pendingOutputs.isEmpty() && waitingForOutputs) {
-            lastTickConsumedSteam = false;
+        if (!pendingOutputs.isEmpty() && batchState.isWaitingFor(BatchStateMachine.HoldReason.OUTPUTS)) {
             updateWorkingAppearance();
             return;
         }
 
         // 主动暂停: freeze progress and locked parameters, no rollback.
         if (!isWorkingEnabled()) {
-            lastTickConsumedSteam = false;
+            batchState.freeze(BatchStateMachine.HoldReason.PAUSED);
             updateWorkingAppearance();
             return;
         }
         if (!isFormed() || !interfaceCountsValid) {
             // 结构失效 rollback already applied in onStructureInvalid.
-            lastTickConsumedSteam = false;
+            batchState.freeze(BatchStateMachine.HoldReason.INVALID_STRUCTURE);
             updateWorkingAppearance();
             return;
         }
@@ -563,7 +453,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         exhaustBlocked = requiresExhaustHatch() && !exhaustHatches.isEmpty()
                 && exhaustHatches.get(0).isExhaustBlocked();
         if (exhaustBlocked) {
-            lastTickConsumedSteam = false;
+            batchState.freeze(BatchStateMachine.HoldReason.EXHAUST_BLOCKED);
             updateWorkingAppearance();
             return;
         }
@@ -585,37 +475,30 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             // 区块/世界重载后按 id 重新解析; 配方消失时批次冻结等待.
             batchRecipe = findRecipeById(batchRecipeId);
             if (batchRecipe == null) {
-                lastTickConsumedSteam = false;
+                batchState.freeze(BatchStateMachine.HoldReason.RECIPE_MISSING);
                 return;
             }
         }
-        if (!drawAuxiliaryInputs(batchParallel, true)) {
-            // 鼓风等辅助输入短缺: 与缺汽同口径 — no consumption, rollback to 1 tick.
-            lastTickConsumedSteam = false;
-            waitingForAuxiliary = true;
-            batchProgress = Math.min(batchProgress, 1);
+        BatchStateMachine.TickResult tick = batchState.runTick(
+                batchProgress,
+                batchDurationTicks,
+                () -> drawAuxiliaryInputs(batchParallel, true),
+                () -> drawSteam(batchSteamPerTickMb),
+                () -> drawAuxiliaryInputs(batchParallel, false));
+        batchProgress = tick.progress();
+        if (!tick.consumed()) {
             updateWorkingAppearance();
             return;
         }
-        if (!drawSteam(batchSteamPerTickMb)) {
-            lastTickConsumedSteam = false;
-            waitingForSteam = true;
-            // 缺汽回退: keep the batch and locked parameters, progress → 1 tick.
-            batchProgress = Math.min(batchProgress, 1);
-            updateWorkingAppearance();
-            return;
-        }
-        if (!drawAuxiliaryInputs(batchParallel, false)) {
+        if (tick.auxiliaryExecutionShortfall()) {
             GregSteamExpansion.LOGGER.warn(
                     "Steam processor at {} auxiliary draw fell short after the steam draw succeeded",
                     getPos());
         }
-        lastTickConsumedSteam = true;
-        batchProgress++;
         if (hasExhaustHazard() && !exhaustHatches.isEmpty()) {
             runExhaustCycles(exhaustHatches.get(0));
         }
-        if (batchProgress >= batchDurationTicks) {
+        if (tick.completed()) {
             completeBatch();
         }
     }
@@ -1081,13 +964,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             simulation.add(scaled);
         }
         // merge equal stacks first so the simulation respects stacking capacity
-        mergeStacks(simulation);
-        for (ItemBusPartMachine bus : outputBuses) {
-            for (int i = 0; i < simulation.size(); i++) {
-                simulation.set(i, insertIntoBus(bus, simulation.get(i), true));
-            }
-        }
-        return simulation.stream().allMatch(ItemStack::isEmpty);
+        PendingOutputBuffer.mergeItems(simulation);
+        return PendingOutputBuffer.itemsFit(simulation, outputBuses);
     }
 
     /** Representative stack of an output Content (sized amount preserved). */
@@ -1145,34 +1023,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             scaled.setAmount((int) Math.min(Integer.MAX_VALUE, (long) scaled.getAmount() * parallel));
             simulation.add(scaled);
         }
-        mergeFluids(simulation);
-        if (fluidOutputHatches.isEmpty()) {
-            return false;
-        }
-        for (FluidHatchPartMachine hatch : fluidOutputHatches) {
-            for (int i = 0; i < simulation.size(); i++) {
-                FluidStack remaining = simulation.get(i);
-                if (!remaining.isEmpty()) {
-                    int accepted = hatch.tank.fillInternal(remaining, IFluidHandler.FluidAction.SIMULATE);
-                    remaining.shrink(accepted);
-                }
-            }
-        }
-        return simulation.stream().allMatch(FluidStack::isEmpty);
-    }
-
-    private static void mergeFluids(List<FluidStack> stacks) {
-        for (int i = 0; i < stacks.size(); i++) {
-            FluidStack keep = stacks.get(i);
-            for (int j = stacks.size() - 1; j > i; j--) {
-                FluidStack other = stacks.get(j);
-                if (!keep.isEmpty() && keep.isFluidEqual(other)) {
-                    keep.grow(other.getAmount());
-                    stacks.remove(j);
-                }
-            }
-        }
-        stacks.removeIf(FluidStack::isEmpty);
+        PendingOutputBuffer.mergeFluids(simulation);
+        return PendingOutputBuffer.fluidsFit(
+                simulation, fluidOutputHatches, PendingOutputBuffer.FluidInsertion.INTERNAL);
     }
 
     /**
@@ -1204,8 +1057,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             produced.addAll(materializeItemContents(rolled));
         });
         List<ItemStack> scaledProduced = scaleByMultiplier(produced, batchOutputMultiplier);
-        mergeStacks(scaledProduced);
-        pendingOutputs.addAll(scaledProduced);
+        pendingBuffer.addMergedItems(scaledProduced);
 
         hasBatch = false;
         batchRecipe = null;
@@ -1259,106 +1111,13 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      * when fully simulable.
      */
     private boolean deliverPendingOutputs() {
-        boolean itemsOk = deliverPendingItems();
-        boolean fluidsOk = deliverPendingFluids();
-        return itemsOk && fluidsOk;
-    }
-
-    private boolean deliverPendingItems() {
-        if (pendingOutputs.isEmpty()) {
-            return true;
-        }
-        if (outputBuses.isEmpty()) {
-            return false;
-        }
-        List<ItemStack> simulation = new ArrayList<>();
-        for (ItemStack stack : pendingOutputs) {
-            simulation.add(stack.copy());
-        }
-        for (ItemBusPartMachine bus : outputBuses) {
-            for (int i = 0; i < simulation.size(); i++) {
-                simulation.set(i, insertIntoBus(bus, simulation.get(i), true));
-            }
-        }
-        if (simulation.stream().anyMatch(stack -> !stack.isEmpty())) {
-            return false;
-        }
-        for (ItemBusPartMachine bus : outputBuses) {
-            for (int i = 0; i < pendingOutputs.size(); i++) {
-                pendingOutputs.set(i, insertIntoBus(bus, pendingOutputs.get(i), false));
-            }
-        }
-        pendingOutputs.removeIf(ItemStack::isEmpty);
-        return pendingOutputs.isEmpty();
-    }
-
-    private boolean deliverPendingFluids() {
-        if (pendingFluids.isEmpty()) {
-            return true;
-        }
-        if (fluidOutputHatches.isEmpty()) {
-            return false;
-        }
-        // fillInternal, not the capability-facing fill: an output hatch's
-        // capabilityIO excludes IO.IN by design, so fill() returns 0 for every
-        // call and pending fluid outputs could never be delivered. The coke
-        // oven's output path (LargeCokeOvenRecipeLogic) uses the same hook.
-        List<FluidStack> simulation = new ArrayList<>();
-        for (FluidStack stack : pendingFluids) {
-            simulation.add(stack.copy());
-        }
-        for (FluidHatchPartMachine hatch : fluidOutputHatches) {
-            for (int i = 0; i < simulation.size(); i++) {
-                FluidStack remaining = simulation.get(i);
-                if (!remaining.isEmpty()) {
-                    int accepted = hatch.tank.fillInternal(remaining, IFluidHandler.FluidAction.SIMULATE);
-                    remaining.shrink(accepted);
-                }
-            }
-        }
-        if (simulation.stream().anyMatch(stack -> !stack.isEmpty())) {
-            return false;
-        }
-        for (FluidHatchPartMachine hatch : fluidOutputHatches) {
-            for (int i = 0; i < pendingFluids.size(); i++) {
-                FluidStack remaining = pendingFluids.get(i);
-                if (!remaining.isEmpty()) {
-                    int accepted = hatch.tank.fillInternal(remaining, IFluidHandler.FluidAction.EXECUTE);
-                    remaining.shrink(accepted);
-                }
-            }
-        }
-        pendingFluids.removeIf(FluidStack::isEmpty);
-        return pendingFluids.isEmpty();
+        return pendingBuffer.deliverAll(
+                outputBuses, fluidOutputHatches, PendingOutputBuffer.FluidInsertion.INTERNAL);
     }
 
     /** True while any finished output (item or fluid) still awaits delivery. */
     public boolean hasPendingOutputs() {
-        return !pendingOutputs.isEmpty() || !pendingFluids.isEmpty();
-    }
-
-    private ItemStack insertIntoBus(ItemBusPartMachine bus, ItemStack stack, boolean simulate) {
-        if (stack.isEmpty()) {
-            return stack;
-        }
-        // insertItemInternal, not insertItemStacked: the output bus inventory's
-        // capability face is IO.OUT (extract only), so the capability-level
-        // insert is gated off for outside callers. Same stacking semantics as
-        // ItemHandlerHelper.insertItemStacked, on the internal path.
-        var inventory = bus.getInventory();
-        ItemStack remaining = stack;
-        for (int slot = 0; slot < inventory.getSlots() && !remaining.isEmpty(); slot++) {
-            ItemStack current = inventory.getStackInSlot(slot);
-            if (!current.isEmpty() && ItemHandlerHelper.canItemStacksStack(current, remaining)) {
-                remaining = inventory.insertItemInternal(slot, remaining, simulate);
-            }
-        }
-        for (int slot = 0; slot < inventory.getSlots() && !remaining.isEmpty(); slot++) {
-            if (inventory.getStackInSlot(slot).isEmpty()) {
-                remaining = inventory.insertItemInternal(slot, remaining, simulate);
-            }
-        }
-        return remaining;
+        return pendingBuffer.hasAny();
     }
 
     /**
@@ -1387,24 +1146,6 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return stacks;
     }
 
-    private static void mergeStacks(List<ItemStack> stacks) {
-        for (int i = 0; i < stacks.size(); i++) {
-            ItemStack keep = stacks.get(i);
-            for (int j = stacks.size() - 1; j > i; j--) {
-                ItemStack other = stacks.get(j);
-                if (!keep.isEmpty() && ItemHandlerHelper.canItemStacksStack(keep, other)) {
-                    int moved = Math.min(other.getCount(), keep.getMaxStackSize() - keep.getCount());
-                    keep.grow(moved);
-                    other.shrink(moved);
-                    if (other.isEmpty()) {
-                        stacks.remove(j);
-                    }
-                }
-            }
-        }
-        stacks.removeIf(ItemStack::isEmpty);
-    }
-
     //////////////////////////////////////
     // ***** Steam supply ******//
     //////////////////////////////////////
@@ -1416,62 +1157,19 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      * same plan when every hatch can deliver its share.
      */
     private boolean drawSteam(long amountMb) {
-        if (amountMb <= 0 || supplyHatches.isEmpty()) {
-            return false;
-        }
-        // drainInternal, not drain(): the supply hatch's capability face is
-        // IO.IN (input only), so the capability-level drain is gated off for
-        // outside callers; machine-internal withdrawal uses the internal path.
-        long remaining = amountMb;
-        for (SteamSupplyHatchPartMachine hatch : supplyHatches) {
-            long share = Math.min(remaining, PER_HATCH_STEAM_CAP_MB);
-            FluidStack simulated = hatch.tank.drainInternal(steamFluid(share), IFluidHandler.FluidAction.SIMULATE);
-            remaining -= simulated.getAmount();
-            if (remaining <= 0) {
-                break;
-            }
-        }
-        if (remaining > 0) {
-            return false;
-        }
-        remaining = amountMb;
-        for (SteamSupplyHatchPartMachine hatch : supplyHatches) {
-            long share = Math.min(remaining, PER_HATCH_STEAM_CAP_MB);
-            FluidStack drained = hatch.tank.drainInternal(steamFluid(share), IFluidHandler.FluidAction.EXECUTE);
-            remaining -= drained.getAmount();
-            if (remaining <= 0) {
-                break;
-            }
-        }
-        if (remaining > 0) {
-            GregSteamExpansion.LOGGER.warn(
-                    "Steam processor at {} draw execution fell short of the simulated plan by {} mB",
-                    getPos(), remaining);
-            return false;
-        }
-        return true;
-    }
-
-    private static FluidStack steamFluid(long amountMb) {
-        return GTMaterials.Steam.getFluid((int) Math.min(amountMb, Integer.MAX_VALUE));
+        return steamBudget.drawSteam(amountMb, remaining -> GregSteamExpansion.LOGGER.warn(
+                "Steam processor at {} draw execution fell short of the simulated plan by {} mB",
+                getPos(), remaining));
     }
 
     /** 供给仓合计存量 (mB). */
     public long getSteamTotalStored() {
-        long total = 0;
-        for (SteamSupplyHatchPartMachine hatch : supplyHatches) {
-            total += hatch.tank.getFluidInTank(0).getAmount();
-        }
-        return total;
+        return steamBudget.totalStoredMb();
     }
 
     /** 供给仓合计容量 (mB); 0 when the structure is not formed. */
     public long getSteamTotalCapacity() {
-        long total = 0;
-        for (SteamSupplyHatchPartMachine hatch : supplyHatches) {
-            total += SteamSupplyHatchPartMachine.INITIAL_TANK_CAPACITY;
-        }
-        return total;
+        return steamBudget.totalCapacityMb();
     }
 
     //////////////////////////////////////
@@ -1494,7 +1192,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      */
     private void updateWorkingAppearance() {
         boolean active = isFormed() && interfaceCountsValid && isWorkingEnabled()
-                && !exhaustBlocked && !waitingForOutputs && lastTickConsumedSteam;
+                && !exhaustBlocked && batchState.consumedThisTick();
         var status = active ? RecipeLogic.Status.WORKING : RecipeLogic.Status.IDLE;
         var renderState = getRenderState();
         if (renderState.hasProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS)
@@ -1523,8 +1221,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 workingSound = null;
             }
             workingSound = entry.playAutoReleasedSound(
-                    () -> isFormed() && interfaceCountsValid && isWorkingEnabled()
-                            && !exhaustBlocked && !waitingForOutputs && lastTickConsumedSteam
+                () -> isFormed() && interfaceCountsValid && isWorkingEnabled()
+                        && !exhaustBlocked && batchState.consumedThisTick()
                             && com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.machineSounds,
                     getPos(), true, 0, 1.0F, 1.0F);
         } else if (workingSound instanceof com.gregtechceu.gtceu.api.sound.AutoReleasedSound soundEntry) {
@@ -1554,10 +1252,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (!isWorkingEnabled()) {
             return "working_disabled";
         }
-        if (waitingForAuxiliary) {
+        if (batchState.isWaitingFor(BatchStateMachine.HoldReason.AUXILIARY)) {
             return "auxiliary_shortfall";
         }
-        if (waitingForSteam) {
+        if (batchState.isWaitingFor(BatchStateMachine.HoldReason.STEAM)) {
             return "low_steam";
         }
         if (hasBatch) {
@@ -1576,24 +1274,12 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     public Component getStatusText() {
-        return switch (getStatusId()) {
-            case "invalid_structure" -> Component.translatable("gtceu.multiblock.invalid_structure");
-            case "insufficient_outputs" -> Component.translatable("gtceu.recipe_logic.insufficient_out");
-            case "working_disabled" -> Component.translatable("gtceu.top.working_disabled");
-            case "auxiliary_shortfall" -> auxiliaryShortfallText();
-            case "low_steam" -> Component.translatable("gtceu.multiblock.steam.low_steam");
-            case "working" -> Component.translatable("gtceu.multiblock.large_miner.working");
-            default -> Component.translatable("gtceu.multiblock.idling");
-        };
+        String statusId = getStatusId();
+        return statusId.equals("auxiliary_shortfall") ? auxiliaryShortfallText() : SteamStatusText.text(statusId);
     }
 
     public ChatFormatting getStatusColor() {
-        return switch (getStatusId()) {
-            case "invalid_structure", "exhaust_obstructed", "insufficient_outputs" -> ChatFormatting.RED;
-            case "working_disabled", "low_steam", "auxiliary_shortfall" -> ChatFormatting.YELLOW;
-            case "working" -> ChatFormatting.GREEN;
-            default -> ChatFormatting.GRAY;
-        };
+        return SteamStatusText.color(getStatusId());
     }
 
     //////////////////////////////////////
@@ -1608,84 +1294,43 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      */
     @Override
     public ModularUI createUI(Player entityPlayer) {
-        int uiWidth = 260;
-        int uiHeight = 170;
-        var ui = new ModularUI(uiWidth, uiHeight, this, entityPlayer)
+        int uiHeight = SteamProcessorUI.DEFAULT_HEIGHT;
+        var ui = new ModularUI(SteamProcessorUI.WIDTH, uiHeight, this, entityPlayer)
                 .background(GuiTextures.BACKGROUND);
-        var scroll = new DraggableScrollableWidgetGroup(5, 5, uiWidth - 10, uiHeight - 32);
+        var scroll = SteamProcessorUI.scrollArea(uiHeight);
         int y = 2;
-        y = infoRow(scroll, y, UI_PREFIX + "status", () -> getStatusText().getString(), getStatusColor());
-        y = infoRow(scroll, y, UI_PREFIX + "recipe",
+        y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "status",
+                () -> getStatusText().getString(), getStatusColor());
+        y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "recipe",
                 () -> hasBatch ? batchInputDisplay.getHoverName().getString() : "—", ChatFormatting.WHITE);
-        y = infoRow(scroll, y, UI_PREFIX + "progress", this::progressText, ChatFormatting.WHITE);
-        y = infoRow(scroll, y, UI_PREFIX + "parallel",
+        y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "progress", this::progressText, ChatFormatting.WHITE);
+        y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "parallel",
                 () -> (hasBatch ? batchParallel + " / " : "— / ") + maximumParallel(), ChatFormatting.WHITE);
-        y = infoRow(scroll, y, UI_PREFIX + "steam",
-                () -> (isFormed()
-                        ? FormattingUtil.formatNumbers(getSteamTotalStored()) + " / "
-                                + FormattingUtil.formatNumbers(getSteamTotalCapacity()) + " mB"
-                        : "—"),
+        y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "steam",
+                () -> SteamProcessorUI.steamStorage(isFormed(), getSteamTotalStored(), getSteamTotalCapacity()),
                 ChatFormatting.WHITE);
-        y = infoRow(scroll, y, UI_PREFIX + "demand", this::demandText, ChatFormatting.WHITE);
+        y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "demand", this::demandText, ChatFormatting.WHITE);
         if (allowsAirIntake()) {
             // 议题 12: 进气室状态与缓存存量 (未安装显示 —), 仅接受进气室的机型显示.
-            y = infoRow(scroll, y, UI_PREFIX + "intake", this::intakeText, ChatFormatting.WHITE);
+            y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "intake", this::intakeText, ChatFormatting.WHITE);
         }
-        scroll.addWidget(new LabelWidget(2, y, () -> Component.translatable(UI_PREFIX + "pending").getString())
-                .setTextColor(-1).setDropShadow(true));
-        Integer pendingRgb = ChatFormatting.WHITE.getColor();
-        // Hover lists the persisted pending items in their stable order, live.
-        LabelWidget pendingValue = new LabelWidget(104, y, () -> pendingSummaryText().replace("%", "%%")) {
-            @Override
-            public java.util.List<Component> getTooltipTexts() {
-                return pendingDetailTooltips();
-            }
-        };
-        pendingValue.setTextColor(pendingRgb == null ? -1 : (pendingRgb.intValue() & 0xFFFFFF)).setDropShadow(true);
-        scroll.addWidget(pendingValue);
-        y += 10;
+        SteamProcessorUI.tooltipRow(scroll, y, UI_PREFIX + "pending", this::pendingSummaryText,
+                this::pendingDetailTooltips);
         ui.widget(scroll);
         // GTCEu standard power button fixed outside the scroll area.
-        ui.widget(new ToggleButtonWidget(6, uiHeight - 24, 18, 18, GuiTextures.BUTTON_POWER,
-                this::isWorkingEnabled, this::setWorkingEnabled));
+        SteamProcessorUI.addPowerButton(ui, uiHeight, this::isWorkingEnabled, this::setWorkingEnabled);
         return ui;
-    }
-
-    private int infoRow(DraggableScrollableWidgetGroup group, int y, String labelKey,
-                        java.util.function.Supplier<String> value, ChatFormatting valueColor) {
-        group.addWidget(new LabelWidget(2, y, () -> Component.translatable(labelKey).getString())
-                .setTextColor(-1).setDropShadow(true));
-        Integer rgb = valueColor.getColor();
-        // LabelWidget runs LocalizationUtils.format even on already formatted
-        // values. Escape literal percent signs at this UI boundary so progress
-        // and item names survive that final formatting pass.
-        group.addWidget(new LabelWidget(104, y, () -> value.get().replace("%", "%%"))
-                .setTextColor(rgb == null ? -1 : (rgb.intValue() & 0xFFFFFF)).setDropShadow(true));
-        return y + 10;
     }
 
     /** `45.0%（135 / 300 tick）`; completed-but-undelivered stays at 100%. */
     private String progressText() {
-        if (!hasBatch) {
-            return "—";
-        }
-        double percent = Math.round(Math.min(batchProgress, batchDurationTicks) * 1000.0
-                / Math.max(1, batchDurationTicks)) / 10.0;
-        String percentText = String.format(java.util.Locale.ROOT, "%.1f%%", percent);
-        return percentText + " (" + FormattingUtil.formatNumbers(Math.min(batchProgress, batchDurationTicks))
-                + " / " + FormattingUtil.formatNumbers(batchDurationTicks) + "t)";
+        return SteamProcessorUI.progress(hasBatch, batchProgress, batchDurationTicks);
     }
 
     /** 当前每刻需求为 EU/t × 2 × P；仅运行中且成功扣取蒸汽时才算实际消耗。 */
     private String demandText() {
-        if (currentSteamDemandPerTick() == 0) {
-            return "0 mB/t";
-        }
-        String demand = FormattingUtil.formatNumbers(batchSteamPerTickMb) + " mB/t";
-        if (!lastTickConsumedSteam) {
-            return demand + " (" + Component.translatable(UI_PREFIX + "not_consuming").getString() + ")";
-        }
-        return demand;
+        return SteamProcessorUI.demand(currentSteamDemandPerTick(), batchSteamPerTickMb,
+                batchState.consumedThisTick(), UI_PREFIX + "not_consuming");
     }
 
     /**
@@ -1705,57 +1350,13 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     /** `128（3 种）` style pending summary; `—` when nothing is pending. */
     private String pendingSummaryText() {
-        long itemTotal = 0;
-        for (ItemStack stack : pendingOutputs) {
-            itemTotal += stack.getCount();
-        }
-        long fluidTotal = 0;
-        for (FluidStack stack : pendingFluids) {
-            fluidTotal += stack.getAmount();
-        }
-        if (itemTotal == 0 && fluidTotal == 0) {
-            return "—";
-        }
-        int kinds = countPendingKinds() + countPendingFluidKinds();
-        return Component.translatable(UI_PREFIX + "pending_summary",
-                FormattingUtil.formatNumbers(itemTotal + fluidTotal), kinds).getString();
-    }
-
-    private int countPendingKinds() {
-        List<ItemStack> kinds = new ArrayList<>();
-        for (ItemStack stack : pendingOutputs) {
-            boolean merged = false;
-            for (ItemStack kind : kinds) {
-                if (ItemHandlerHelper.canItemStacksStack(kind, stack)) {
-                    kind.grow(stack.getCount());
-                    merged = true;
-                    break;
-                }
-            }
-            if (!merged) {
-                kinds.add(stack.copy());
-            }
-        }
-        return kinds.size();
+        return SteamProcessorUI.pendingSummary(pendingOutputs, pendingFluids, UI_PREFIX + "pending_summary");
     }
 
     /** Hover list of every pending item/fluid in the persisted stable order. */
     private List<Component> pendingDetailTooltips() {
-        if (!hasPendingOutputs()) {
-            return List.of(Component.translatable(UI_PREFIX + "pending_empty").withStyle(ChatFormatting.GRAY));
-        }
-        List<Component> tooltips = new ArrayList<>();
-        tooltips.add(Component.translatable(UI_PREFIX + "pending_detail").withStyle(ChatFormatting.GRAY));
-        for (ItemStack stack : pendingOutputs) {
-            tooltips.add(Component.literal("- " + stack.getHoverName().getString() + " × "
-                    + FormattingUtil.formatNumbers(stack.getCount())).withStyle(ChatFormatting.WHITE));
-        }
-        for (FluidStack stack : pendingFluids) {
-            tooltips.add(Component.literal("- " + stack.getDisplayName().getString() + " × "
-                    + FormattingUtil.formatNumbers(stack.getAmount()) + " mB")
-                    .withStyle(ChatFormatting.WHITE));
-        }
-        return tooltips;
+        return SteamProcessorUI.pendingTooltips(pendingOutputs, pendingFluids,
+                UI_PREFIX + "pending_empty", UI_PREFIX + "pending_detail");
     }
 
     //////////////////////////////////////
@@ -1794,50 +1395,24 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     public boolean isConsumingSteam() {
-        return lastTickConsumedSteam;
+        return batchState.consumedThisTick();
     }
 
     public long getPendingTotalCount() {
-        long total = 0;
-        for (ItemStack stack : pendingOutputs) {
-            total += stack.getCount();
-        }
-        return total;
+        return SteamProcessorUI.itemTotal(pendingOutputs);
     }
 
     public int getPendingKinds() {
-        return countPendingKinds();
+        return SteamProcessorUI.itemKinds(pendingOutputs);
     }
 
     /** Total pending fluid amount in mB (Jade snapshot). */
     public long getPendingFluidTotal() {
-        long total = 0;
-        for (FluidStack stack : pendingFluids) {
-            total += stack.getAmount();
-        }
-        return total;
+        return SteamProcessorUI.fluidTotal(pendingFluids);
     }
 
     public int getPendingFluidKinds() {
-        return countPendingFluidKinds();
-    }
-
-    private int countPendingFluidKinds() {
-        List<FluidStack> kinds = new ArrayList<>();
-        for (FluidStack stack : pendingFluids) {
-            boolean merged = false;
-            for (FluidStack kind : kinds) {
-                if (kind.isFluidEqual(stack)) {
-                    kind.grow(stack.getAmount());
-                    merged = true;
-                    break;
-                }
-            }
-            if (!merged) {
-                kinds.add(stack.copy());
-            }
-        }
-        return kinds.size();
+        return SteamProcessorUI.fluidKinds(pendingFluids);
     }
 
     public boolean isOutputBlocked() {
@@ -1893,10 +1468,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchSteamPerTickMb = 0;
         batchOutputMultiplier = 1.0f;
         batchInputDisplay = ItemStack.EMPTY;
-        pendingOutputs.clear();
-        pendingFluids.clear();
+        pendingBuffer.clear();
         exhaustFeedbackTimer = 0;
         exhaustDamageTimer = 0;
         exhaustBlocked = false;
+        batchState.reset();
     }
 }

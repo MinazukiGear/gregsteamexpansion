@@ -4,14 +4,13 @@ import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
-import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.network.chat.Component;
-import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import java.util.List;
@@ -132,23 +131,9 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         // 鼓风随并行线性缩放, 跨全部鼓风口聚合抽取 (SIMULATE 先行, 缺风不取汽;
         // EXECUTE 仅在蒸汽成功扣取后调用).
         List<SteamAirIntakeHatchPartMachine> intakes = airIntakes();
-        if (intakes.isEmpty()) {
-            return false;
-        }
-        int demand = (int) (BLAST_AIR_PER_PARALLEL_MB * parallel);
-        if (demand <= 0) {
-            return true;
-        }
-        int remaining = demand;
-        for (var intake : intakes) {
-            FluidStack drained = intake.tank.drainInternal(GTMaterials.Air.getFluid(remaining),
-                    simulate ? IFluidHandler.FluidAction.SIMULATE : IFluidHandler.FluidAction.EXECUTE);
-            remaining -= drained.getAmount();
-            if (remaining <= 0) {
-                return true;
-            }
-        }
-        return remaining <= 0;
+        long demand = BLAST_AIR_PER_PARALLEL_MB * parallel;
+        return SteamBudget.drawBlastAir(intakes, demand,
+                simulate ? IFluidHandler.FluidAction.SIMULATE : IFluidHandler.FluidAction.EXECUTE);
     }
 
     @Override

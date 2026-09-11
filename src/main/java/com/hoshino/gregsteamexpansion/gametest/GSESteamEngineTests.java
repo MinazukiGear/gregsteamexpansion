@@ -103,12 +103,14 @@ public final class GSESteamEngineTests {
         tick(m);
         eq(h, progress(m), 7, "Pause rolled back progress");
         eq(h, steam(m), before, "Pause consumed steam");
+        h.assertTrue(!(boolean) call(m, "isConsumingSteam"), "Paused machine retained a stale consuming state");
         call(m, "setWorkingEnabled", true);
         h.getLevel().setBlockAndUpdate(front, Blocks.STONE.defaultBlockState());
         tick(m);
         eq(h, demand(m), 0, "Exhaust-blocked machine displayed a current steam demand");
         eq(h, progress(m), 7, "Blocked exhaust rolled back progress");
         eq(h, steam(m), before, "Blocked exhaust consumed steam");
+        h.assertTrue(!(boolean) call(m, "isConsumingSteam"), "Blocked machine retained a stale consuming state");
         eq(h, number(m, "exhaustDamageTimer"), 198, "Inactive tick advanced exhaust damage");
         h.getLevel().setBlockAndUpdate(front, Blocks.AIR.defaultBlockState());
 
@@ -118,6 +120,7 @@ public final class GSESteamEngineTests {
         eq(h, demand(m), expectedDemand, "Steam shortage hid the demand needed to resume");
         eq(h, progress(m), 1, "Steam shortage did not roll back to one tick");
         eq(h, steam(m), supplies.size(), "Shortage consumed a partial steam budget");
+        h.assertTrue(!(boolean) call(m, "isConsumingSteam"), "Steam shortage reported active consumption");
         eq(h, number(m, "exhaustDamageTimer"), 198, "Shortage advanced exhaust damage");
         if (!(m instanceof AbstractSteamVoidMachine)) {
             h.assertTrue((boolean) get(m, "hasBatch"), "Shortage discarded the locked batch");
@@ -136,6 +139,7 @@ public final class GSESteamEngineTests {
         tick(m);
         eq(h, demand(m), expectedDemand, "Running machine displayed the wrong current demand");
         eq(h, progress(m), 2, "Steam recovery did not continue retained progress");
+        h.assertTrue((boolean) call(m, "isConsumingSteam"), "Recovered machine did not report active consumption");
         eq(h, number(m, "exhaustFeedbackTimer"), 0, "20th active tick did not reset feedback cycle");
         eq(h, number(m, "exhaustDamageTimer"), 199, "Active tick did not advance damage cycle");
         h.assertTrue(target.getHealth() == health, "Exhaust damage occurred before tick 200");
