@@ -4,6 +4,7 @@ import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.common.machine.multiblock.primitive.PrimitiveBlastFurnaceMachine;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.recipe.NamespaceExcludingRecipeIterator;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -41,31 +42,6 @@ public abstract class RecipeLogicMixin {
         if (!(self.machine instanceof PrimitiveBlastFurnaceMachine)) {
             return original;
         }
-        return new Iterator<>() {
-
-            private GTRecipe next = advance();
-
-            private GTRecipe advance() {
-                while (original.hasNext()) {
-                    GTRecipe candidate = original.next();
-                    if (!GregSteamExpansion.MOD_ID.equals(candidate.getId().getNamespace())) {
-                        return candidate;
-                    }
-                }
-                return null;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return next != null;
-            }
-
-            @Override
-            public GTRecipe next() {
-                GTRecipe current = next;
-                next = advance();
-                return current;
-            }
-        };
+        return new NamespaceExcludingRecipeIterator(original, GregSteamExpansion.MOD_ID);
     }
 }

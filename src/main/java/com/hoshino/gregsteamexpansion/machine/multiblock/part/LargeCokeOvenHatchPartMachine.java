@@ -28,6 +28,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -322,16 +323,13 @@ public class LargeCokeOvenHatchPartMachine extends MultiblockPartMachine {
         return null;
     }
 
-    /** Jade: 流体输出模式的流体摘要; 其他模式返回 null。 */
+    /** Jade 服务端数据: 流体输出模式可见的共享储罐; 其他模式或未成型时返回 null。 */
     @Nullable
-    public String getFluidSummary() {
+    public FluidStack getFluidForDisplay() {
         if (mode != CokeOvenMode.FLUID_OUTPUT) return null;
         var oven = getConnectedOven();
         if (oven == null) return null;
-        var stack = oven.exportFluids.getStorages()[0].getFluid();
-        return stack.isEmpty()
-                ? Component.translatable("gregsteamexpansion.jade.coke_oven_hatch.empty").getString()
-                : stack.getDisplayName().getString() + " " + stack.getAmount() + " mB";
+        return oven.exportFluids.getStorages()[0].getFluid().copy();
     }
 
     //////////////////////////////////////

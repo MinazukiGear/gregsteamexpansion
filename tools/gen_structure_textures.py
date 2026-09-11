@@ -566,11 +566,34 @@ def write_png(path, canvas):
         body = tag + data
         return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
 
+    def stored_zlib_stream(data):
+        """Encode a canonical zlib stream without implementation-dependent compression.
+
+        ``zlib.compress(..., 9)`` can emit different, equally valid DEFLATE streams
+        across Python-bundled zlib versions.  The asset gate compares committed PNGs
+        byte for byte, so use stored DEFLATE blocks and construct the tiny stream
+        explicitly.  These 16x16 images are small enough that compression is not
+        worth trading away cross-version reproducibility.
+        """
+        stream = bytearray(b"\x78\x01")
+        if not data:
+            blocks = [b""]
+        else:
+            blocks = [data[offset:offset + 0xFFFF]
+                      for offset in range(0, len(data), 0xFFFF)]
+        for index, block in enumerate(blocks):
+            stream.append(1 if index == len(blocks) - 1 else 0)
+            length = len(block)
+            stream.extend(struct.pack("<HH", length, length ^ 0xFFFF))
+            stream.extend(block)
+        stream.extend(struct.pack(">I", zlib.adler32(data) & 0xFFFFFFFF))
+        return bytes(stream)
+
     ihdr = struct.pack(">IIBBBBB", SIZE, SIZE, 8, 6, 0, 0, 0)
     with open(path, "wb") as fh:
         fh.write(b"\x89PNG\r\n\x1a\n")
         fh.write(chunk(b"IHDR", ihdr))
-        fh.write(chunk(b"IDAT", zlib.compress(raw, 9)))
+        fh.write(chunk(b"IDAT", stored_zlib_stream(raw)))
         fh.write(chunk(b"IEND", b""))
 
 

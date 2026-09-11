@@ -718,12 +718,17 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     private Set<Object> inputBusContents() {
         Set<Object> keys = new LinkedHashSet<>();
         for (IMultiPart part : inputBuses) {
-            if (part instanceof ItemBusPartMachine bus) {
-                collectContainerItems(bus.getInventory().storage, keys);
-            } else if (GSEPatternBufferCompat.isPatternBuffer(part)) {
+            // MEPatternBufferPartMachine inherits ItemBusPartMachine, but its
+            // injected crafting inputs live in the per-pattern recipe handlers
+            // rather than getInventory().storage. Classify it first or the
+            // ordinary-bus branch sees an empty inventory and hides every
+            // autocrafting recipe from the candidate index.
+            if (GSEPatternBufferCompat.isPatternBuffer(part)) {
                 // ME pattern buffers are item-input interfaces but not
-                // ItemBusPartMachine; probe their capability view instead.
+                // ordinary inventory-backed buses; probe their handler view.
                 collectCapabilityItems(part, keys);
+            } else if (part instanceof ItemBusPartMachine bus) {
+                collectContainerItems(bus.getInventory().storage, keys);
             }
         }
         return keys;

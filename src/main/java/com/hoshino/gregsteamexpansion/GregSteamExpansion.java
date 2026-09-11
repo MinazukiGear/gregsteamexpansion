@@ -42,6 +42,8 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 import org.slf4j.Logger;
 
+import java.util.List;
+
 @Mod(GregSteamExpansion.MOD_ID)
 public final class GregSteamExpansion {
     public static final String MOD_ID = "gregsteamexpansion";
@@ -49,6 +51,7 @@ public final class GregSteamExpansion {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public GregSteamExpansion(final FMLJavaModLoadingContext context) {
+        validateDevelopmentRuntime();
         IEventBus modEventBus = context.getModEventBus();
         GSERegistration.REGISTRATE.registerEventListeners(modEventBus);
         GSERegistration.REGISTRATE.creativeModeTab(GTCreativeModeTabs.MACHINE);
@@ -141,5 +144,22 @@ public final class GregSteamExpansion {
                 .getModContainerById(modId)
                 .map(container -> container.getModInfo().getVersion().toString())
                 .orElse("not loaded on this side");
+    }
+
+    private static void validateDevelopmentRuntime() {
+        if (FMLEnvironment.production) {
+            return;
+        }
+
+        List<String> missingFixtureMods = List.of("ae2", "guideme", "gtmthings").stream()
+                .filter(modId -> !ModList.get().isLoaded(modId))
+                .toList();
+        if (!missingFixtureMods.isEmpty()) {
+            throw new IllegalStateException(
+                    "Unsafe GSE development runtime: missing fixture mods " + missingFixtureMods + ". " +
+                            "Refresh the Gradle project or launch the Gradle runClient task. " +
+                            "Startup is blocked so worlds containing their registered blocks are not opened and rewritten."
+            );
+        }
     }
 }

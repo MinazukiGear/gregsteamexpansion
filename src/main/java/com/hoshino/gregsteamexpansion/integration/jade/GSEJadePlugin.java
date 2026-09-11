@@ -675,10 +675,19 @@ public final class GSEJadePlugin implements IWailaPlugin {
                 return;
             }
             CompoundTag data = new CompoundTag();
+            data.putString("mode", hatch.getMode().getSerializedName());
+            Direction legalFacing = hatch.getLegalFacing();
+            data.putString("facing", (legalFacing == null ? hatch.getFrontFacing() : legalFacing).getName());
+            data.putBoolean("covered", hatch.getCoverContainer().hasCover(hatch.getFrontFacing()));
+            data.putString("connection", hatch.getConnectionState());
             String slots = hatch.getSlotSummary();
             data.putString("slotSummary", slots == null ? "" : slots);
-            String fluid = hatch.getFluidSummary();
-            data.putString("fluidSummary", fluid == null ? "" : fluid);
+            var fluid = hatch.getFluidForDisplay();
+            if (fluid != null) {
+                data.putString("fluidName", fluid.isEmpty() ? "" : Component.Serializer.toJson(fluid.getDisplayName()));
+                data.putLong("fluidAmount", fluid.getAmount());
+                data.putLong("fluidCapacity", LargeCokeOvenMachine.FLUID_TANK_CAPACITY_MB);
+            }
             serverData.put(DATA_KEY, data);
         }
 
@@ -688,30 +697,47 @@ public final class GSEJadePlugin implements IWailaPlugin {
                     !(blockEntity.getMetaMachine() instanceof LargeCokeOvenHatchPartMachine hatch)) {
                 return;
             }
-            tooltip.add(line("mode", Component.translatable("gregsteamexpansion.coke_oven_hatch.mode."
-                    + hatch.getMode().getSerializedName())));
-            Direction legal = hatch.getLegalFacing();
+            CompoundTag serverData = accessor.getServerData();
+            CompoundTag data = serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)
+                    ? serverData.getCompound(DATA_KEY)
+                    : new CompoundTag();
+
+            String mode = data.contains("mode", Tag.TAG_STRING)
+                    ? data.getString("mode")
+                    : hatch.getMode().getSerializedName();
+            tooltip.add(line("mode", Component.translatable(
+                    "gregsteamexpansion.large_coke_oven_hatch.mode." + mode)));
+
+            String facing = data.contains("facing", Tag.TAG_STRING)
+                    ? data.getString("facing")
+                    : hatch.getFrontFacing().getName();
             tooltip.add(line("facing", Component.translatable(
-                    "gregsteamexpansion.jade.large_coke_oven_hatch.direction."
-                            + (legal == null ? hatch.getFrontFacing() : legal).getName())));
-            if (hatch.getCoverContainer().hasCover(hatch.getFrontFacing())) {
+                    "gregsteamexpansion.jade.large_coke_oven_hatch.direction." + facing)));
+            if (data.getBoolean("covered")) {
                 tooltip.add(line("covered"));
             }
-            String connection = hatch.getConnectionState();
+
+            String connection = data.contains("connection", Tag.TAG_STRING)
+                    ? data.getString("connection")
+                    : hatch.getConnectionState();
             tooltip.add(line("connection", Component.translatable(
                     "gregsteamexpansion.jade.coke_oven_hatch.connection." + connection)));
             if ("formed".equals(connection)) {
-                CompoundTag serverData = accessor.getServerData();
-                if (serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)) {
-                    CompoundTag data = serverData.getCompound(DATA_KEY);
-                    String slots = data.getString("slotSummary");
-                    if (!slots.isEmpty()) {
-                        tooltip.add(line("slots", slots));
+                String slots = data.getString("slotSummary");
+                if (!slots.isEmpty()) {
+                    tooltip.add(line("slots", slots));
+                }
+                if (data.contains("fluidCapacity", Tag.TAG_LONG)) {
+                    Component fluidName = Component.translatable(
+                            "gregsteamexpansion.jade.large_coke_oven_hatch.empty");
+                    String fluidJson = data.getString("fluidName");
+                    if (!fluidJson.isEmpty()) {
+                        Component parsedName = Component.Serializer.fromJson(fluidJson);
+                        if (parsedName != null) fluidName = parsedName;
                     }
-                    String fluid = data.getString("fluidSummary");
-                    if (!fluid.isEmpty()) {
-                        tooltip.add(line("fluid", fluid));
-                    }
+                    tooltip.add(line("fluid", fluidName,
+                            FormattingUtil.formatNumbers(data.getLong("fluidAmount")),
+                            FormattingUtil.formatNumbers(data.getLong("fluidCapacity"))));
                 }
             }
         }

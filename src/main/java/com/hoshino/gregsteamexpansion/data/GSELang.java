@@ -1074,10 +1074,13 @@ public final class GSELang {
         add("gregsteamexpansion.jade.large_coke_oven.recipe", "Recipe: %s (parallel %s)");
         add("gregsteamexpansion.jade.large_coke_oven.progress", "Progress: %s (%s left)");
         add("gregsteamexpansion.jade.large_coke_oven.waiting", "Waiting for output: %s, products pending commit");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.mode", "Mode: %s");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.facing", "Working face: %s");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.covered", "Cover installed on the front");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.connection", "Connection: %s");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.slots", "Inventory: %s slots used");
-        add("gregsteamexpansion.jade.large_coke_oven_hatch.fluid", "Fluid: %s");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.fluid", "Fluid: %s %s / %s mB");
+        add("gregsteamexpansion.jade.large_coke_oven_hatch.empty", "Empty");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.direction.north", "north");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.direction.south", "south");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.direction.east", "east");

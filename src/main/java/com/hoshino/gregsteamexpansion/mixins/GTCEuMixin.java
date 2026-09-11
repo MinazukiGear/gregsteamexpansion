@@ -1,5 +1,7 @@
 package com.hoshino.gregsteamexpansion.mixins;
 
+import com.hoshino.gregsteamexpansion.compat.GTCEuClientInstanceLookup;
+
 import com.gregtechceu.gtceu.GTCEu;
 
 import net.minecraftforge.fml.loading.FMLEnvironment;
@@ -8,8 +10,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
-import java.lang.reflect.Method;
 
 /**
  * Data-generation runs launch with the client dist but never create the
@@ -28,34 +28,8 @@ import java.lang.reflect.Method;
 public abstract class GTCEuMixin {
     @Inject(method = "isClientThread", at = @At("HEAD"), cancellable = true)
     private static void gse$treatMissingClientAsServerThread(CallbackInfoReturnable<Boolean> cir) {
-        if (FMLEnvironment.dist.isClient() && gse$missingClientInstance()) {
+        if (FMLEnvironment.dist.isClient() && GTCEuClientInstanceLookup.isMissing()) {
             cir.setReturnValue(false);
-        }
-    }
-
-    private static boolean gse$missingClientInstance() {
-        Method getInstance = ClientInstanceLookup.GET_INSTANCE;
-        if (getInstance == null) {
-            return true;
-        }
-        try {
-            return getInstance.invoke(null) == null;
-        } catch (ReflectiveOperationException e) {
-            // Client classes absent: behave like a dedicated server.
-            return true;
-        }
-    }
-
-    /** Resolves the client-only method once, and only after the dist check. */
-    private static final class ClientInstanceLookup {
-        private static final Method GET_INSTANCE = gse$resolveGetInstance();
-
-        private static Method gse$resolveGetInstance() {
-            try {
-                return Class.forName("net.minecraft.client.Minecraft").getMethod("getInstance");
-            } catch (ReflectiveOperationException e) {
-                return null;
-            }
         }
     }
 }
