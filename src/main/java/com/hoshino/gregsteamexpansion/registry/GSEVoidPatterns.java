@@ -3,7 +3,6 @@ package com.hoshino.gregsteamexpansion.registry;
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
-import com.gregtechceu.gtceu.api.pattern.FactoryBlockPattern;
 import com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo;
 import com.gregtechceu.gtceu.api.pattern.Predicates;
 import com.gregtechceu.gtceu.api.pattern.TraceabilityPredicate;
@@ -13,6 +12,8 @@ import com.gregtechceu.gtceu.common.data.GTMachines;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+
+import java.util.Map;
 
 import static com.hoshino.gregsteamexpansion.registry.GSEMachines.STEAM_EXHAUST_HATCH;
 import static com.hoshino.gregsteamexpansion.registry.GSEMachines.STEAM_FLUID_EXPORT_HATCH;
@@ -100,20 +101,8 @@ public final class GSEVoidPatterns {
      * STRICT air (Predicates.air).
      */
     public static BlockPattern createOrePlant(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle( // layer 1 (bottom industrial face, controller front-centre)
-                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIICIIII")
-                .aisle(ORE_PLANT_WORK_LAYER)     // layer 2 (workstation array)
-                .aisle(ORE_PLANT_HOLLOW_LAYER)   // layer 3
-                .aisle(ORE_PLANT_HOLLOW_LAYER)   // layer 4
-                .aisle(ORE_PLANT_HOLLOW_LAYER)   // layer 5
-                .aisle(ORE_PLANT_WORK_LAYER)     // layer 6 (workstation array)
-                .aisle( // layer 7 (top industrial face)
-                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIIIIIII")
+        return GSEPatternLayouts.pattern(orePlantLayers(),
+                Map.of('W', 'I', 'K', 'C', 'O', 'B', 'S', 'B', 'E', 'B'))
                 .where('I', Predicates.blocks(industrialSteamCasing()))
                 .where('B', orePlantCandidates())
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_GRINDING_BLOCK.get()))
@@ -130,6 +119,20 @@ public final class GSEVoidPatterns {
      * chars west -> east).
      */
     public static MultiblockShapeInfo orePlantShapeInfo(MultiblockMachineDefinition definition) {
+        return GSEPatternLayouts.shape(orePlantLayers())
+                .where('W', industrialSteamCasing())
+                .where('I', industrialSteamCasing())
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_GRINDING_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] orePlantLayers() {
         String[] bottom = {
                 "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
                 "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
@@ -160,17 +163,7 @@ public final class GSEVoidPatterns {
                 workPlain,
                 top,
         };
-        return buildShapeInfo(layers)
-                .where('W', industrialSteamCasing())
-                .where('I', industrialSteamCasing())
-                .where('B', bronzeSteamCasing())
-                .where('M', GSEBlocks.STEAM_GRINDING_BLOCK.get())
-                .where('A', Blocks.AIR)
-                .where('K', definition, Direction.NORTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
-                .where('S', STEAM_SUPPLY_HATCH, Direction.NORTH)
-                .where('E', STEAM_EXHAUST_HATCH, Direction.NORTH)
-                .build();
+        return layers;
     }
 
     // =====================================================================
@@ -248,21 +241,7 @@ public final class GSEVoidPatterns {
      * industrial cap. Interior air is STRICT air.
      */
     public static BlockPattern createFluidDrill(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle( // h1 (bottom industrial face, controller front-centre)
-                        "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII",
-                        "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII",
-                        "IIIKIII")
-                .aisle(fluidDrillRingLayer('P')) // h2 (pipe column root)
-                .aisle(fluidDrillRingLayer('P')) // h3
-                .aisle(fluidDrillRingLayer('P')) // h4
-                .aisle(fluidDrillRingLayer('P')) // h5
-                .aisle(fluidDrillRingLayer('P')) // h6
-                .aisle(fluidDrillRingLayer('P')) // h7 (pipe column top)
-                .aisle(fluidDrillRingLayer('M')) // h8 (mixing separator)
-                .aisle(FLUID_DRILL_CROWN_LAYER)  // h9
-                .aisle(FLUID_DRILL_CROWN_LAYER)  // h10
-                .aisle(FLUID_DRILL_CAP_LAYER)    // h11 (industrial cap)
+        return GSEPatternLayouts.pattern(fluidDrillLayers(), Map.of('S', 'C', 'F', 'C', 'E', 'C', 'G', 'C'))
                 .where('I', Predicates.blocks(industrialSteamCasing()))
                 .where('C', fluidDrillCandidates())
                 .where('P', Predicates.blocks(GTBlocks.CASING_BRONZE_PIPE.get()))
@@ -280,6 +259,21 @@ public final class GSEVoidPatterns {
      * front, chars west -> east).
      */
     public static MultiblockShapeInfo fluidDrillShapeInfo(MultiblockMachineDefinition definition) {
+        return GSEPatternLayouts.shape(fluidDrillLayers())
+                .where('I', industrialSteamCasing())
+                .where('C', bronzeSteamCasing())
+                .where('P', GTBlocks.CASING_BRONZE_PIPE.get())
+                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('S', STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
+                .where('G', STEAM_FLUID_EXPORT_HATCH, Direction.NORTH)
+                .where('E', STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] fluidDrillLayers() {
         String[] bottom = new String[11];
         for (int i = 0; i < 10; i++) {
             bottom[i] = "IIIIIII";
@@ -300,40 +294,7 @@ public final class GSEVoidPatterns {
                 crown.clone(),
                 cap,
         };
-        return buildShapeInfo(layers)
-                .where('I', industrialSteamCasing())
-                .where('C', bronzeSteamCasing())
-                .where('P', GTBlocks.CASING_BRONZE_PIPE.get())
-                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
-                .where('A', Blocks.AIR)
-                .where('K', definition, Direction.NORTH)
-                .where('S', STEAM_SUPPLY_HATCH, Direction.NORTH)
-                .where('F', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
-                .where('G', STEAM_FLUID_EXPORT_HATCH, Direction.NORTH)
-                .where('E', STEAM_EXHAUST_HATCH, Direction.NORTH)
-                .build();
+        return layers;
     }
 
-    /**
-     * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
-     * coordinates, keeping the controller on the north (z = 0) wall.
-     */
-    private static MultiblockShapeInfo.ShapeInfoBuilder buildShapeInfo(String[][] layers) {
-        int height = layers.length;
-        int width = layers[0][0].length();
-        int depth = layers[0].length;
-        var builder = MultiblockShapeInfo.builder();
-        for (int r = depth - 1; r >= 0; r--) {
-            String[] rows = new String[height];
-            for (int l = 0; l < height; l++) {
-                StringBuilder sb = new StringBuilder(width);
-                for (int a = 0; a < width; a++) {
-                    sb.append(layers[l][r].charAt(a));
-                }
-                rows[l] = sb.toString();
-            }
-            builder.aisle(rows);
-        }
-        return builder;
-    }
 }

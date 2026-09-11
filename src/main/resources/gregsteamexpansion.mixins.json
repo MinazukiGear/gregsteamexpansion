@@ -13,7 +13,6 @@
         "GTCEuMixin",
         "PartAbilityMixin",
         "RegistrateDisplayItemsGeneratorMixin",
-        "RecipeManagerAccessor",
         "GTOreByProductMixin",
         "RecipeLogicMixin"
     ],

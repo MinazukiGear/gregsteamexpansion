@@ -18,18 +18,14 @@ import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
-import com.hoshino.gregsteamexpansion.recipe.RecipeManagerTables;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
-import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
-import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -111,16 +107,8 @@ public final class OreCrushingMigration {
         if (targetType == null) {
             return;
         }
-        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes = RecipeManagerTables.mutableTablesOf(manager);
-        if (recipes == null) {
-            throw migrationFailure("cannot access the loaded recipe map", client);
-        }
-        // The RecipeManager maps are Guava ImmutableMaps after apply(): the two
-        // tables this transaction mutates are converted to mutable copies on
-        // demand (RecipeManagerTables), the rest of the index is passed through
-        // untouched, then the whole set is written back through the accessor.
-        Map<ResourceLocation, Recipe<?>> maceratorMap = recipes.get(GTRecipeTypes.MACERATOR_RECIPES);
-        if (maceratorMap == null) {
+        List<GTRecipe> maceratorRecipes = manager.getAllRecipesFor(GTRecipeTypes.MACERATOR_RECIPES);
+        if (maceratorRecipes.isEmpty()) {
             // no macerator recipes at all: nothing to migrate, consumers stay empty
             return;
         }
@@ -136,9 +124,9 @@ public final class OreCrushingMigration {
         }
 
         List<GTRecipe> candidates = new ArrayList<>();
-        for (Recipe<?> recipe : maceratorMap.values()) {
-            if (recipe instanceof GTRecipe gtRecipe && isCandidate(gtRecipe) && hasOreInput(gtRecipe)) {
-                candidates.add(gtRecipe);
+        for (GTRecipe recipe : maceratorRecipes) {
+            if (isCandidate(recipe) && hasOreInput(recipe)) {
+                candidates.add(recipe);
             }
         }
         if (candidates.isEmpty()) {
@@ -147,12 +135,11 @@ public final class OreCrushingMigration {
             // On the integrated-server client this is the NORMAL post-sync state:
             // the server already migrated its set and synced it down, so the
             // synced macerator table legitimately holds no ore recipes.
-            boolean maceratorHasOreCategory = maceratorMap.values().stream().anyMatch(
-                    recipe -> recipe instanceof GTRecipe gtRecipe && isCandidate(gtRecipe));
+            boolean maceratorHasOreCategory = maceratorRecipes.stream().anyMatch(OreCrushingMigration::isCandidate);
             if (maceratorHasOreCategory) {
                 GregSteamExpansion.LOGGER.error(
                         "[Ore Crushing] Recipe migration skipped; {} ORE_CRUSHING macerator recipes exist but none passed target identification",
-                        maceratorMap.size());
+                        maceratorRecipes.size());
             } else {
                 GregSteamExpansion.LOGGER.debug(
                         "[Ore Crushing] No macerator ore recipes in the synced set; migration already applied server-side");
@@ -178,25 +165,36 @@ public final class OreCrushingMigration {
             migrated.add(copy);
         }
 
-        // 不可分割的"复制后移除": remove originals, insert copies, re-stage both
-        // DBs, then write the mutable copies back into the RecipeManager.
-        maceratorMap = RecipeManagerTables.mutableTable(recipes, GTRecipeTypes.MACERATOR_RECIPES);
+        // 不可分割的"复制后移除": prepare both GTCEu staging maps and the
+        // complete vanilla by-name set before publishing through the public
+        // RecipeManager API. replaceRecipes rebuilds both vanilla indexes, so
+        // this path no longer depends on private field names or shapes.
+        Map<ResourceLocation, Recipe<?>> maceratorMap = new HashMap<>();
+        for (GTRecipe recipe : maceratorRecipes) {
+            maceratorMap.put(recipe.getId(), recipe);
+        }
+        Map<ResourceLocation, Recipe<?>> postMigrationByName = new HashMap<>();
+        for (Recipe<?> recipe : manager.getRecipes()) {
+            postMigrationByName.put(recipe.getId(), recipe);
+        }
         for (GTRecipe candidate : candidates) {
             Recipe<?> removed = maceratorMap.remove(candidate.getId());
-            if (removed == null) {
+            Recipe<?> removedByName = postMigrationByName.remove(candidate.getId());
+            if (removed == null || removedByName == null) {
                 throw migrationFailure("target " + candidate.getId() + " vanished mid-migration", client);
             }
         }
-        Map<ResourceLocation, Recipe<?>> targetMap = RecipeManagerTables.mutableTable(recipes, targetType);
+        Map<ResourceLocation, Recipe<?>> targetMap = new HashMap<>();
+        for (GTRecipe recipe : manager.getAllRecipesFor(targetType)) {
+            targetMap.put(recipe.getId(), recipe);
+        }
         for (GTRecipe copy : migrated) {
             targetMap.put(copy.getId(), copy);
+            postMigrationByName.put(copy.getId(), copy);
         }
         restage(GTRecipeTypes.MACERATOR_RECIPES, maceratorMap);
         restage(targetType, targetMap);
-        if (manager instanceof com.hoshino.gregsteamexpansion.mixins.RecipeManagerAccessor accessor) {
-            accessor.gse$setRecipes(recipes);
-            accessor.gse$setByName(rebuildByName(recipes));
-        }
+        manager.replaceRecipes(postMigrationByName.values());
 
         // 完成后校验"新类型新增数 = 研磨机移除数".
         if (migrated.size() != candidates.size()) {
@@ -451,19 +449,6 @@ public final class OreCrushingMigration {
         type.beginStagingRecipes();
         RecipeManagerHandler.addRecipesToLookup(postMigrationMap, type);
         type.getAdditionHandler().completeStaging();
-    }
-
-    @Nullable
-    private static Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes(RecipeManager manager) {
-        return RecipeManagerTables.mutableTablesOf(manager);
-    }
-
-    /** Rebuilds the by-name index over the post-migration recipe set. */
-    private static Map<ResourceLocation, Recipe<?>> rebuildByName(
-            Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes) {
-        Map<ResourceLocation, Recipe<?>> byName = new HashMap<>();
-        recipes.values().forEach(map -> map.forEach(byName::put));
-        return byName;
     }
 
     private static Difficulty currentDifficulty(boolean client) {

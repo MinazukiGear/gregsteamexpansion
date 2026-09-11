@@ -134,19 +134,7 @@ public final class GSEBoilerPatterns {
                 PLAIN_RING_LAYER.clone(),
                 TOP_LAYER,
         };
-        var builder = MultiblockShapeInfo.builder();
-        for (int depthIndex = layers[0].length - 1; depthIndex >= 0; depthIndex--) {
-            String[] rows = new String[layers.length];
-            for (int layer = 0; layer < layers.length; layer++) {
-                StringBuilder sb = new StringBuilder(layers[layer][depthIndex].length());
-                for (int a = 0; a < layers[layer][depthIndex].length(); a++) {
-                    sb.append(layers[layer][depthIndex].charAt(a));
-                }
-                rows[layer] = sb.toString();
-            }
-            builder.aisle(rows);
-        }
-        return builder
+        return GSEPatternLayouts.shape(layers)
                 .where('C', tier.casing().get())
                 .where('X', tier.firebox().get())
                 .where('P', tier.pipe().get())

@@ -15,7 +15,6 @@ import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.data.machines.GTMachineUtils;
 import com.gregtechceu.gtceu.common.data.models.GTMachineModels;
 import com.gregtechceu.gtceu.data.model.builder.MachineModelBuilder;
-import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenStructures;
 import com.hoshino.gregsteamexpansion.migration.OreCrushingMigration;
@@ -55,13 +54,11 @@ import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 
 import com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo;
 import net.minecraftforge.client.model.generators.BlockModelBuilder;
-import net.minecraftforge.fluids.FluidType;
 
 import com.tterrag.registrate.providers.DataGenContext;
 
@@ -104,7 +101,7 @@ public final class GSEMachines {
             .rotationState(RotationState.ALL)
             .model(GSEMachines::steamExhaustHatchModel)
             .langValue("Steam Exhaust Hatch")
-            .tooltipBuilder(GSEMachines::steamExhaustHatchTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_EXHAUST_HATCH)
             .register();
 
     private static void steamExhaustHatchModel(DataGenContext<Block, ? extends Block> context,
@@ -136,7 +133,7 @@ public final class GSEMachines {
             .model(steamHatchModel(
                     GregSteamExpansion.gtceuId("block/overlay/machine/overlay_steam_miner")))
             .langValue("Steam Supply Hatch")
-            .tooltipBuilder(GSEMachines::steamSupplyHatchTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_SUPPLY_HATCH)
             .allowCoverOnFront(true)
             .register();
 
@@ -154,7 +151,7 @@ public final class GSEMachines {
             .model(steamHatchModel(
                     GregSteamExpansion.gtceuId("block/overlay/machine/overlay_fluid_hatch_input")))
             .langValue("Steam Fluid Input Hatch")
-            .tooltipBuilder(GSEMachines::steamFluidImportHatchTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_FLUID_IMPORT_HATCH)
             .allowCoverOnFront(true)
             .register();
 
@@ -167,7 +164,7 @@ public final class GSEMachines {
             .model(steamHatchModel(
                     GregSteamExpansion.gtceuId("block/overlay/machine/overlay_fluid_hatch_output")))
             .langValue("Steam Fluid Output Hatch")
-            .tooltipBuilder(GSEMachines::steamFluidExportHatchTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_FLUID_EXPORT_HATCH)
             .allowCoverOnFront(true)
             .register();
 
@@ -183,7 +180,7 @@ public final class GSEMachines {
             .model(steamHatchModel(
                     GregSteamExpansion.gtceuId("block/overlay/machine/overlay_air_vent")))
             .langValue("Steam Air Intake Hatch")
-            .tooltipBuilder(GSEMachines::steamAirIntakeHatchTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_AIR_INTAKE_HATCH)
             // 进气正面拒绝封面: with allowCoverOnFront(false) and a six-way
             // front facing, CoverBehavior#canAttach already rejects every front
             // cover, so the louver grille can never be visually sealed while
@@ -243,7 +240,7 @@ public final class GSEMachines {
             .pattern(GSECrusherPatterns::createSmall)
             .shapeInfos(definition -> List.of(GSECrusherPatterns.smallShapeInfo(definition)))
             .langValue("Steam Crusher")
-            .tooltipBuilder(GSEMachines::steamCrusherTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_CRUSHER)
             .allowCoverOnFront(false)
             .register();
 
@@ -259,7 +256,7 @@ public final class GSEMachines {
             .pattern(GSECrusherPatterns::createLarge)
             .shapeInfos(definition -> List.of(GSECrusherPatterns.largeShapeInfo(definition)))
             .langValue("Large Steam Crusher")
-            .tooltipBuilder(GSEMachines::largeSteamCrusherTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_CRUSHER)
             .allowCoverOnFront(false)
             .register();
 
@@ -313,7 +310,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createCompressor)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.compressorShapeInfo(definition)))
             .langValue("Steam Compressor")
-            .tooltipBuilder(GSEMachines::steamCompressorTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_COMPRESSOR)
             .allowCoverOnFront(false)
             .register();
 
@@ -330,7 +327,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createExtractor)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.extractorShapeInfo(definition)))
             .langValue("Steam Extractor")
-            .tooltipBuilder(GSEMachines::steamExtractorTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_EXTRACTOR)
             .allowCoverOnFront(false)
             .register();
 
@@ -347,7 +344,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createForge)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.forgeShapeInfo(definition)))
             .langValue("Steam Forge")
-            .tooltipBuilder(GSEMachines::steamForgeTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_FORGE)
             .allowCoverOnFront(false)
             .register();
 
@@ -364,7 +361,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createOreWasher)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.oreWasherShapeInfo(definition)))
             .langValue("Large Steam Ore Washer")
-            .tooltipBuilder(GSEMachines::largeSteamOreWasherTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_ORE_WASHER)
             .allowCoverOnFront(false)
             .register();
 
@@ -381,7 +378,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createThermalCentrifuge)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.thermalCentrifugeShapeInfo(definition)))
             .langValue("Large Steam Thermal Centrifuge")
-            .tooltipBuilder(GSEMachines::largeSteamThermalCentrifugeTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_THERMAL_CENTRIFUGE)
             .allowCoverOnFront(false)
             .register();
 
@@ -398,7 +395,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createMacerator)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.maceratorShapeInfo(definition)))
             .langValue("Large Steam Macerator")
-            .tooltipBuilder(GSEMachines::largeSteamMaceratorTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_MACERATOR)
             .allowCoverOnFront(false)
             .register();
 
@@ -415,7 +412,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createMixer)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.mixerShapeInfo(definition)))
             .langValue("Large Steam Mixer")
-            .tooltipBuilder(GSEMachines::largeSteamMixerTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_MIXER)
             .allowCoverOnFront(false)
             .register();
 
@@ -432,7 +429,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createBlastFurnace)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.blastFurnaceShapeInfo(definition)))
             .langValue("Large Steam Blast Furnace")
-            .tooltipBuilder(GSEMachines::largeSteamBlastFurnaceTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_BLAST_FURNACE)
             .allowCoverOnFront(false)
             .register();
 
@@ -448,7 +445,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createChemicalBath)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.chemicalBathShapeInfo(definition)))
             .langValue("Steam Chemical Bath")
-            .tooltipBuilder(GSEMachines::steamChemicalBathTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_CHEMICAL_BATH)
             .allowCoverOnFront(false)
             .register();
 
@@ -464,7 +461,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createCentrifuge)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.centrifugeShapeInfo(definition)))
             .langValue("Steam Centrifuge")
-            .tooltipBuilder(GSEMachines::steamCentrifugeTooltips)
+            .tooltipBuilder(GSEMachineTooltips.STEAM_CENTRIFUGE)
             .allowCoverOnFront(false)
             .register();
 
@@ -480,7 +477,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createLargeCentrifuge)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.largeCentrifugeShapeInfo(definition)))
             .langValue("Large Steam Centrifuge")
-            .tooltipBuilder(GSEMachines::largeSteamCentrifugeTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_CENTRIFUGE)
             .allowCoverOnFront(false)
             .register();
 
@@ -497,7 +494,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createLargeSteamAssembler)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.assemblerShapeInfo(definition)))
             .langValue("Large Steam Assembler")
-            .tooltipBuilder(GSEMachines::largeSteamAssemblerTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_ASSEMBLER)
             .allowCoverOnFront(false)
             .register();
 
@@ -514,7 +511,7 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createLargeSteamCircuitAssembler)
             .shapeInfos(definition -> List.of(GSEProcessorPatterns.circuitAssemblerShapeInfo(definition)))
             .langValue("Large Steam Circuit Assembler")
-            .tooltipBuilder(GSEMachines::largeSteamCircuitAssemblerTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_CIRCUIT_ASSEMBLER)
             .allowCoverOnFront(false)
             .register();
 
@@ -531,7 +528,7 @@ public final class GSEMachines {
             .pattern(GSEVoidPatterns::createOrePlant)
             .shapeInfos(definition -> List.of(GSEVoidPatterns.orePlantShapeInfo(definition)))
             .langValue("Large Steam Ore Plant")
-            .tooltipBuilder(GSEMachines::largeSteamOrePlantTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_ORE_PLANT)
             .allowCoverOnFront(false)
             .register();
 
@@ -548,7 +545,7 @@ public final class GSEMachines {
             .pattern(GSEVoidPatterns::createFluidDrill)
             .shapeInfos(definition -> List.of(GSEVoidPatterns.fluidDrillShapeInfo(definition)))
             .langValue("Large Steam Fluid Drill")
-            .tooltipBuilder(GSEMachines::largeSteamFluidDrillTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_FLUID_DRILL)
             .allowCoverOnFront(false)
             .register();
 
@@ -639,445 +636,6 @@ public final class GSEMachines {
         OreCrushingMigration.registerConsumer(STEAM_CRUSHER, GregSteamExpansion.id("shaped/steam_crusher"));
     }
 
-
-
-    private static void steamCentrifugeTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_centrifuge.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_centrifuge.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_centrifuge.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_centrifuge.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.steam_centrifuge.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_centrifuge.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.steam_centrifuge.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        // 议题 12: 蒸汽进气室 (可选 0 或 1) 与空气配方降权.
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_centrifuge.tooltip.details.10")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_centrifuge.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.steam_centrifuge.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void largeSteamCentrifugeTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        // 议题 12: 蒸汽进气室 (可选 0 或 1) 与空气配方降权.
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.10")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_centrifuge.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void largeSteamAssemblerTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_assembler.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_assembler.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_assembler.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_assembler.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_assembler.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_assembler.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_assembler.tooltip.details." + i)
-                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_assembler.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_assembler.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void largeSteamCircuitAssemblerTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details." + i)
-                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void largeSteamOrePlantTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details." + i)
-                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void largeSteamFluidDrillTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details." + i)
-                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_fluid_drill.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void steamChemicalBathTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.steam_chemical_bath.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void steamSupplyHatchTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.capacity",
-                String.format("%,d", SteamSupplyHatchPartMachine.INITIAL_TANK_CAPACITY))
-                .withStyle(ChatFormatting.AQUA));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.accepted").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.summary").withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.0").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.1").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.2").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.3").withStyle(ChatFormatting.YELLOW));
-    }
-
-    private static void steamFluidImportHatchTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.capacity",
-                String.format("%,d", SteamFluidHatchPartMachine.INITIAL_TANK_CAPACITY))
-                .withStyle(ChatFormatting.AQUA));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.import.summary")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.not_steam_energy")
-                .withStyle(ChatFormatting.AQUA));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.0").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.1").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.2").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.3").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.4").withStyle(ChatFormatting.YELLOW));
-    }
-
-    private static void steamFluidExportHatchTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.capacity",
-                String.format("%,d", SteamFluidHatchPartMachine.INITIAL_TANK_CAPACITY))
-                .withStyle(ChatFormatting.AQUA));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.export.summary")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.not_steam_energy")
-                .withStyle(ChatFormatting.AQUA));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.0").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.1").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.2").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.3").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_fluid_hatch.tooltip.details.4").withStyle(ChatFormatting.YELLOW));
-    }
-
-    private static void steamAirIntakeHatchTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.capacity",
-                String.valueOf(SteamAirIntakeHatchPartMachine.INITIAL_TANK_CAPACITY / FluidType.BUCKET_VOLUME),
-                String.format("%,d", SteamAirIntakeHatchPartMachine.INITIAL_TANK_CAPACITY))
-                .withStyle(ChatFormatting.AQUA));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.rate",
-                String.valueOf(SteamAirIntakeHatchPartMachine.COLLECT_CYCLE_TICKS),
-                String.format("%,d", SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT))
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.summary").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.no_output")
-                .withStyle(ChatFormatting.AQUA));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.0",
-                String.format("%,d", SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT))
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.1").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.2").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.3").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.4").withStyle(ChatFormatting.YELLOW));
-    }
-
-    private static void steamExhaustHatchTooltips(ItemStack stack, List<Component> tooltip) {
-        // Two-tier item tooltip (large-heat-storage-steam-furnace.md 物品提示):
-        // gray = normal, aqua = key values, yellow/red = restrictions and danger.
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.0").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.1").withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.summary.2").withStyle(ChatFormatting.RED));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.0").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.1").withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.2",
-                aquaText("20")).withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.3",
-                aquaText("200"), aquaText("12"), aquaText("20")).withStyle(ChatFormatting.RED));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.4").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.5").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.6").withStyle(ChatFormatting.YELLOW));
-    }
-
-    private static Component aquaText(String value) {
-        return Component.literal(value).withStyle(ChatFormatting.AQUA);
-    }
-
     /**
      * 大型蓄热蒸汽熔炉 / Large Heat-Storage Steam Furnace controller
      * (large-heat-storage-steam-furnace.md 注册与命名): pure-steam variable-size
@@ -1099,426 +657,8 @@ public final class GSEMachines {
             .model(steamMultiblockModel(
                     GregSteamExpansion.gtceuId("block/machines/electric_furnace")))
             .langValue("Large Heat-Storage Steam Furnace")
-            .tooltipBuilder(GSEMachines::furnaceTooltips)
+            .tooltipBuilder(GSEMachineTooltips.LARGE_HEAT_STORAGE_STEAM_FURNACE)
             .register();
-
-    private static void furnaceTooltips(ItemStack stack, List<Component> tooltip) {
-        var p = "gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.";
-        tooltip.add(Component.translatable(p + "summary.0").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "summary.1").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "summary.2").withStyle(ChatFormatting.YELLOW));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        subtitle(tooltip, p + "subtitle.0");
-        tooltip.add(Component.translatable(p + "details.0", aquaText("7×7"), aquaText("11×11"),
-                aquaText("15×15"), aquaText("6"), aquaText("18")).withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "details.1").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "details.2").withStyle(ChatFormatting.GRAY));
-        subtitle(tooltip, p + "subtitle.1");
-        tooltip.add(Component.translatable(p + "details.3").withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable(p + "details.4", aquaText("1200")).withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "details.5", aquaText("600"), aquaText("900"), aquaText("1200"),
-                aquaText("1000"), aquaText("1500"), aquaText("2000")).withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "details.6").withStyle(ChatFormatting.GRAY));
-        subtitle(tooltip, p + "subtitle.2");
-        tooltip.add(Component.translatable(p + "details.7", aquaText("32")).withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "details.8").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "details.9").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "details.10").withStyle(ChatFormatting.YELLOW));
-        subtitle(tooltip, p + "subtitle.3");
-        tooltip.add(Component.translatable(p + "details.11").withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable(p + "details.12", aquaText("3")).withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable(p + "details.13", aquaText("12")).withStyle(ChatFormatting.RED));
-        subtitle(tooltip, p + "subtitle.4");
-        tooltip.add(Component.translatable(p + "details.14").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "details.15").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(p + "details.16").withStyle(ChatFormatting.GRAY));
-    }
-
-    private static void subtitle(List<Component> tooltip, String key) {
-        tooltip.add(Component.translatable(key).withStyle(ChatFormatting.DARK_AQUA));
-    }
-
-
-    private static void steamCrusherTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.2")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.3")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.4")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.5")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.6")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.7")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.8")
-                .withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_crusher.tooltip.details.9")
-                .withStyle(ChatFormatting.YELLOW));
-    }
-
-    private static void largeSteamCrusherTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.summary.2")
-                .withStyle(ChatFormatting.RED));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.2")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.3")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.4")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.5")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.6")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.7")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.8")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.9")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.10")
-                .withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_crusher.tooltip.details.11")
-                .withStyle(ChatFormatting.YELLOW));
-    }
-
-    private static void largeSteamOreWasherTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details." + i)
-                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_ore_washer.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void largeSteamMixerTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_mixer.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_mixer.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_mixer.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_mixer.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_mixer.tooltip.details." + i)
-                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_mixer.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_mixer.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void largeSteamBlastFurnaceTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details." + i)
-                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void largeSteamMaceratorTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_macerator.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_macerator.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_macerator.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_macerator.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_macerator.tooltip.details." + i)
-                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_macerator.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_macerator.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void largeSteamThermalCentrifugeTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 0; i <= 2; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 3; i <= 6; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details." + i)
-                    .withStyle(i == 6 ? ChatFormatting.YELLOW : ChatFormatting.GRAY));
-        }
-        tooltip.add(Component.translatable(
-                "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        for (int i = 7; i <= 9; i++) {
-            tooltip.add(Component.translatable(
-                    "gregsteamexpansion.machine.large_steam_thermal_centrifuge.tooltip.details." + i)
-                    .withStyle(ChatFormatting.GRAY));
-        }
-    }
-
-    private static void steamForgeTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.2")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.3")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.4")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.5")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.6")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.7")
-                .withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_forge.tooltip.details.8")
-                .withStyle(ChatFormatting.YELLOW));
-    }
-
-    private static void steamExtractorTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.2")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.3")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.4")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.5")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.6")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.7")
-                .withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_extractor.tooltip.details.8")
-                .withStyle(ChatFormatting.YELLOW));
-    }
-
-    private static void steamCompressorTooltips(ItemStack stack, List<Component> tooltip) {
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.summary.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.summary.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.summary.2")
-                .withStyle(ChatFormatting.GRAY));
-        if (!GTUtil.isShiftDown()) {
-            return;
-        }
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.subtitle")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.0")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.2")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.subtitle2")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.3")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.4")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.5")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.subtitle3")
-                .withStyle(ChatFormatting.DARK_AQUA));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.6")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.7")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.8")
-                .withStyle(ChatFormatting.YELLOW));
-        tooltip.add(Component.translatable("gregsteamexpansion.machine.steam_compressor.tooltip.details.9")
-                .withStyle(ChatFormatting.YELLOW));
-    }
 
     private GSEMachines() {}
 

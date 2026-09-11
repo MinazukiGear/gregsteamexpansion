@@ -17,11 +17,13 @@ import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.machine.MachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
+import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.api.registry.GTRegistries;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTRecipes;
+import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
@@ -47,6 +49,8 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.registries.ForgeRegistries;
+
+import java.util.List;
 
 @GameTestHolder(GregSteamExpansion.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -325,6 +329,68 @@ public final class GSEGameTests {
                 "Ore crushing recipe serializer is not registered");
         helper.assertTrue(GSERecipeTypes.ORE_CRUSHING_RECIPES == type,
                 "GSERecipeTypes.ORE_CRUSHING_RECIPES points at a different instance");
+        helper.succeed();
+    }
+
+    /**
+     * P2-6 load guard for both runtime recipe rewrites. The ore migration must
+     * publish the same recipes through RecipeManager's type and by-name public
+     * indexes and through GTCEu staging, while the boiler-room reader must
+     * stage every eligible upstream liquid fuel without private field access.
+     */
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void recipeRewriteHooksPublishConsistentLoadedSets(GameTestHelper helper) {
+        var manager = helper.getLevel().getRecipeManager();
+
+        List<GTRecipe> migrated = manager.getAllRecipesFor(GSERecipeTypes.ORE_CRUSHING_RECIPES);
+        helper.assertTrue(!migrated.isEmpty(), "Ore-crushing migration published no recipes");
+        java.util.Set<ResourceLocation> managerIds = new java.util.HashSet<>();
+        for (GTRecipe recipe : migrated) {
+            ResourceLocation id = recipe.getId();
+            helper.assertTrue(GregSteamExpansion.MOD_ID.equals(id.getNamespace())
+                            && id.getPath().startsWith("ore_crushing/"),
+                    "Migrated recipe has an unexpected ID: " + id);
+            helper.assertTrue(recipe.recipeType == GSERecipeTypes.ORE_CRUSHING_RECIPES,
+                    "Migrated recipe retained the wrong GTCEu type: " + id);
+            helper.assertTrue(manager.byKey(id).orElse(null) == recipe,
+                    "RecipeManager by-name index disagrees with its ore-crushing type index: " + id);
+            managerIds.add(id);
+
+            String encodedSource = id.getPath().substring("ore_crushing/".length());
+            int separator = encodedSource.indexOf('/');
+            helper.assertTrue(separator > 0, "Migrated recipe ID does not encode its source: " + id);
+            ResourceLocation sourceId = ResourceLocation.tryBuild(
+                    encodedSource.substring(0, separator), encodedSource.substring(separator + 1));
+            helper.assertTrue(sourceId != null && manager.byKey(sourceId).isEmpty(),
+                    "Original macerator ore recipe remains after migration: " + sourceId);
+        }
+
+        java.util.Set<ResourceLocation> stagedOreIds = new java.util.HashSet<>();
+        for (GTRecipe recipe : GSERecipeTypes.ORE_CRUSHING_RECIPES.getRecipesInCategory(
+                GSERecipeTypes.ORE_CRUSHING_RECIPES.getCategory())) {
+            stagedOreIds.add(recipe.getId());
+        }
+        helper.assertTrue(stagedOreIds.equals(managerIds),
+                "GTCEu ore-crushing staging disagrees with RecipeManager: manager="
+                        + managerIds.size() + ", staged=" + stagedOreIds.size());
+
+        long eligibleBoilerFuels = manager.getAllRecipesFor(GTRecipeTypes.STEAM_BOILER_RECIPES).stream()
+                .filter(recipe -> recipe.inputs.getOrDefault(FluidRecipeCapability.CAP, List.of()).size() > 0)
+                .filter(recipe -> recipe.inputs.getOrDefault(ItemRecipeCapability.CAP, List.of()).isEmpty())
+                .filter(recipe -> recipe.duration / 4 > 0)
+                .count();
+        List<GTRecipe> boilerRoomFuels = List.copyOf(
+                GSERecipeTypes.BOILER_ROOM_RECIPES.getRecipesInCategory(
+                        GSERecipeTypes.BOILER_ROOM_RECIPES.getCategory()));
+        helper.assertTrue(eligibleBoilerFuels > 0, "Upstream exposes no eligible liquid boiler fuel");
+        helper.assertTrue(boilerRoomFuels.size() == eligibleBoilerFuels,
+                "Boiler-room staging count disagrees with upstream liquid fuels: expected="
+                        + eligibleBoilerFuels + ", actual=" + boilerRoomFuels.size());
+        for (GTRecipe recipe : boilerRoomFuels) {
+            helper.assertTrue(GregSteamExpansion.MOD_ID.equals(recipe.getId().getNamespace())
+                            && recipe.getId().getPath().startsWith("boiler_room/"),
+                    "Boiler-room sync produced an unexpected ID: " + recipe.getId());
+        }
         helper.succeed();
     }
 

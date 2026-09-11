@@ -25,7 +25,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = PartAbility.class, remap = false)
 public abstract class PartAbilityMixin {
 
-    @Inject(method = "register", at = @At("HEAD"), cancellable = true)
+    // Upstream signature drift must reach LegacySteamHatchCompat's strict,
+    // readable startup verification instead of dying in generic Mixin apply.
+    @Inject(method = "register", at = @At("HEAD"), cancellable = true, require = 0)
     private void gse$skipLegacySteamInputHatch(int tier, Block block, CallbackInfo ci) {
         ResourceLocation id = ForgeRegistries.BLOCKS.getKey(block);
         if (id != null && "gtceu".equals(id.getNamespace()) && "steam_input_hatch".equals(id.getPath())) {

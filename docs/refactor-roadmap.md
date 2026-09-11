@@ -22,7 +22,7 @@
 | **P2-8** | reload 路径消除全量 Map 深拷贝 | 数据包重载耗时 | 小 | 低 |
 | **P2-9** | 仓库与工具链卫生 | 降低认知负担 | 小 | 极低 |
 
-**后续排期**：P1-3 / P1-4 → P2-6 / P2-9 剩余项。P0-1 的六个组合式引擎组件已全部完成。
+**后续排期**：P2-9 剩余项。P0-1 的六个组合式引擎组件、P1-3 / P1-4 数据源收敛与 P2-6 Mixin 收敛均已完成。
 
 ### 重构行为约束（2026-09-11 用户定案）
 
@@ -43,8 +43,10 @@
 | P0-2 | 已实现输入内容索引与空输入短路；本轮将单槽共享缓存改为当前 revision 下按类型身份保存的缓存表，revision 变化时清空，避免交替访问不同类型反复重建。扩展回归覆盖交替类型访问、两种类型 reload 失效、旧条目保持不变和空输入候选为空。 |
 | P2-7 | 行为基线已完成：新增 `GSESteamEngineTests` 的 14 个测试，全仓库 64 个 GameTest 全绿，编译与构建通过；覆盖矩阵及已发现差异见 P2-7 正文。 |
 | P0-1 | 已完成：六个组合式组件分别负责部件收集、待输出、蒸汽预算、批次状态、状态文案和控制器 UI；四类控制器保留各自配方、温度、辅助输入与机器专属展示。 |
-| P1-3 / P1-4 | 尚未开始；P0-1 引擎边界已经稳定，下一步推进这两项。 |
-| P2-8 | 已引入 `RecipeManagerTables`，配方迁移与锅炉燃料同步使用共享的按需拷贝工具。 |
+| P1-3 | 已完成：17 个原本双写的处理机、粉碎机和虚空生产机结构统一由一份代表性层数据生成运行 pattern 与预览 shape；锅炉接入相同 shape 转换器，熔炉继续由既有切片函数派生。全仓库 64 个 GameTest 全绿。 |
+| P1-4 | 已完成：23 个 tooltip 方法改为 `GSEMachineTooltips` 中的声明式 profile，由统一渲染器处理常驻摘要、Shift 详情、样式与参数。`GSEMachines` 从 1,620 行降到 760 行，计入 233 行新组件后净减少 627 行。 |
+| P2-6 | 已完成：`GTCEuMixin` 的客户端反射改为 lazy holder；`PartAbilityMixin` 的注入漂移交由既有严格启动自检给出可读错误；删除 `RecipeManagerAccessor`，配方迁移与锅炉燃料同步只使用公开 API。新增加载一致性测试后全仓库 65 个 GameTest 全绿。 |
+| P2-8 | 已完成并在 P2-6 中进一步收口：锅炉房通过公开的按类型查询直接读取；矿石迁移使用公开的 `replaceRecipes` 一次性重建索引，不再读取、深拷贝或回写私有 Map 字段。 |
 | P2-9 | 部分完成：MDK changelog 已改名为 `changelog-forge-mdk.txt`，语言键对齐已接入 CI；工具统一、资产生成校验和设计数字抽样断言仍待处理。 |
 
 语言检查另有待补缺口：中英文键集合对齐无法发现两边同时遗漏的 Jade 配置名称，应增加已注册 Jade UID 到默认语言翻译的完整性检查。本轮保留此前补齐的 `structure_diagnostics` 翻译。
@@ -227,14 +229,14 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 
 `gametest/GSEStructureTestUtils.java:39 assertFirstShapeForms()` 会用机器上注册的 `MultiblockShapeInfo` 反铺方块，再反过来用 pattern 校验（L56），因此**"shape 与 pattern 打架"会被现有的 20 个 `*FormsFromShape` 测试抓到**。这是本项目做得很好的一点，也是本项排 P1 而非 P0 的原因。
 
-### 残余风险
+### 实施结果（2026-09-11）
 
-- 只校验 `shapes.get(0)`（L45），多形状机器的其余形状无保护（如熔炉的 7/11/15 三种宽度）；
-- 每次结构微调仍需人工同步三处，且文档那一处完全没有校验。
+- 新增 `GSEPatternLayouts`，从同一份 `String[][]` 代表性层数据分别生成 `FactoryBlockPattern` 与 `MultiblockShapeInfo`；预览专用字符通过别名表还原为原运行谓词，不会把代表性仓口位置变成强制位置。
+- `GSEProcessorPatterns` 的 13 台机器、`GSECrusherPatterns` 的 2 台机器和 `GSEVoidPatterns` 的 2 台机器已消除几何双写；锅炉复用相同的 shape 坐标转换器，熔炉原有的 pattern 与预览继续共用切片函数。
+- 当前每个机器定义只注册一份代表性 shape，已有 20 个 `*FormsFromShape` 测试覆盖全部注册预览；熔炉的 7/11/15 宽度是运行时可变 pattern，并非三份注册 shape，且三者由同一组切片函数生成。
+- Java 实现净减少约 420 行。JDK 17 下 `compileJava`、全部 64 个 GameTest 与 `build` 通过。
 
-### 建议方案
-
-让 shape 从 pattern 的 aisle 数据派生：同一份 `String[]` 层数据，同时挂"谓词映射表"与"代表方块映射表"，只在确实需要特定代表性摆法时做局部覆写。
+结构微调现在只需修改对应的层数据；设计文档仍作为玩法规格显式维护。
 
 ---
 
@@ -244,13 +246,16 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 
 `registry/GSEMachines.java`（1,620 行）的 L644–L1521 是约 30 个形如 `xxxTooltips(ItemStack, List<Component>)` 的方法，每个约 40 行，全部是同一张信息卡片的骨架 + 不同的 lang key。合计约 **900 行纯样板**，占该文件一半以上。
 
-### 建议方案
+### 实施结果（2026-09-11）
 
-改为一张 `List<TooltipRow>` 数据表 + 一个渲染器，可降到 100 行量级。副作用是新机器加 tooltip 从"复制 40 行"变成"加 5 行数据"——与 P0-1 的方向一致。
+- 新增 `GSEMachineTooltips`，用 `TooltipProfile` / `TooltipRow` 保存翻译键、颜色、是否仅在 Shift 下显示及可选参数，并由一个渲染器统一生成 `Component`。
+- 23 个机器注册点直接引用声明式 profile；通用三分节机器复用 profile 生成器，离心机额外条目、四类蒸汽仓和蓄热熔炉的特殊顺序与参数仍显式列出。
+- 逐项对照旧实现后，摘要与详情的翻译键顺序、`GRAY` / `DARK_AQUA` / `AQUA` / `YELLOW` / `RED` 样式、容量格式及嵌套高亮参数均保持不变。
+- `GSEMachines` 从 1,620 行降到 760 行；新增组件 233 行，合计净减少 627 行。新增机器 tooltip 只需声明或复用一个 profile。
 
 ### 验收方式
 
-- 逐机器对比重构前后的 tooltip 输出（可用 GameTest 断言关键条目的 lang key 序列）。
+- JDK 17 下 `compileJava` 与全部 64 个 GameTest 通过；完整构建结果见本轮最终验证。
 
 ### 风险
 
@@ -291,6 +296,13 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 | `RecipeManagerAccessor.java` + `OreCrushingMigration` / `BoilerRoomFuelSync` | 运行时把 vanilla `RecipeManager` 的 `recipes` / `byName` 整体取出、复制、改写、写回 | 功能上很严谨（先校验 5 个前置条件再动刀，失败只记日志不删配方），但同时依赖 Mixin accessor、vanilla 内部字段结构与 GTCEu staging API，是**最容易随版本升级整体报废**的一处，建议在 CI 中加针对性的加载断言 |
 | `MinecraftMixin.java` / `WorldListEntryMixin.java` | 改写窗口标题与存档列表条目 | 纯客户端装饰，风险可接受 |
 
+### 实施结果（2026-09-11）
+
+- `GTCEuMixin` 用嵌套 lazy holder 一次性解析 `Minecraft.getInstance`，保留每次调用时对客户端实例是否存在的动态判断；数据生成仍可从“客户端发行版但无 Minecraft 实例”的状态安全进入服务端注册表路径。
+- `PartAbilityMixin` 的精确 ID 拦截保持不变，并将该注入设为 `require = 0`。上游签名漂移时不会先产生无上下文的 Mixin apply 崩溃，而会进入 `LegacySteamHatchCompat` 的严格启动核验；旧仓仍可用于结构、替代仓缺失或旧配方恢复时，启动会抛出逐项说明违规内容的 `IllegalStateException`，不会静默降级。
+- 矿石粉碎迁移改用 `RecipeManager.getAllRecipesFor` / `getRecipes` / `replaceRecipes`。所有候选及副本仍在发布前完成校验，`replaceRecipes` 由 vanilla 同时重建按类型和按 ID 索引。锅炉房同步改用公开的按类型查询。由此删除 `RecipeManagerAccessor`、`RecipeManagerTables` 及 mixin 配置项，不再依赖 vanilla 的 `recipes` / `byName` 私有字段名和内部 Map 形状。
+- 新增 GameTest 对真实加载结果作定向断言：矿石迁移后的 RecipeManager 类型索引、按 ID 索引和 GTCEu staging 集合完全一致，原研磨机 ID 已移除；锅炉房 staging 数量等于全部合格上游液体燃料。JDK 17 下 `compileJava`、全部 65 个 GameTest 通过；初载 / 难度 reload 分别成功迁移 1,650 / 1,760 条矿石配方，锅炉房均同步 2 条燃料。
+
 ---
 
 ## P2-7　补齐引擎行为测试
@@ -327,9 +339,9 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 
 ## P2-8　reload 路径消除全量 Map 深拷贝
 
-`machine/multiblock/BoilerRoomFuelSync.java:139` 的 `recipes()` 只为了读 `STEAM_BOILER_RECIPES` 一张表，却把 `RecipeManager` 里**所有类型的全部配方表**深拷贝成新的 HashMap（L145–L147）；同一段代码在 `migration/OreCrushingMigration.java` 里又抄了一份（属 P0-1 扫出的 82 组重复之一）。服务端与客户端各执行一次。
+原实现中，`BoilerRoomFuelSync` 只为读取 `STEAM_BOILER_RECIPES` 一张表，却深拷贝 `RecipeManager` 内全部类型的配方表；`OreCrushingMigration` 也有同一份逻辑，服务端与客户端各执行一次。
 
-**建议**：只复制目标类型（约 5 行改动）；提取为共享工具方法（与 P0-1 同批处理）。
+**实施结果（2026-09-11）：**锅炉房同步现在通过 `RecipeManager.getAllRecipesFor` 只读取上游锅炉配方类型。矿石迁移先通过相同公开 API 复制需要改动的研磨机与目标类型，再以 `RecipeManager.replaceRecipes` 发布完整事务；该公开方法必需重建 vanilla 的类型与按 ID 索引，但代码不再额外深拷贝每个内部类型 Map。P2-6 随后删除了过渡期的 `RecipeManagerTables` 与 accessor Mixin。
 
 ---
 
@@ -351,7 +363,7 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 
 - P0-1 是 `docs/design/steam-crushers.md:28`「共用行为的修复应优先落在基类」这一既有原则在**跨家族层面**的推广；当前四个引擎拷贝使该原则无法执行。
 - P0-2 / P2-8 只改缓存与拷贝策略，不改任何配方语义。
-- P1-3 不再改变已收口的结构规则，只把同一份结构数据的书写位置从 3 处收敛到 1 处。
+- P1-3 未改变已收口的结构规则，已把运行 pattern 与预览 shape 的几何书写位置收敛为一处。
 - P1-4 不改任何 tooltip 文案内容。
 - P2-6 涉及上游行为的 Mixin 若需要调整策略，须先回到 `docs/design/machines-and-hatches.md` 确认"禁用上游蒸汽输入仓"的既定口径不变。
 
@@ -359,10 +371,9 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 
 | 顺序 | 项 | 理由 |
 | --- | --- | --- |
-| 1 | **P1-3 / P1-4 数据驱动化** | P0-1 引擎边界已经稳定，下一步收敛结构与 tooltip 数据源 |
-| 2 | **P2-6 / P2-9 剩余项** | 可穿插处理，优先补 Jade 配置翻译完整性检查 |
+| 1 | **P2-9 剩余项** | 优先补 Jade 配置翻译完整性检查，再处理工具统一与资产/设计校验 |
 
-P0-1、P1-5、P0-2、P2-7 行为基线与 P2-8 已完成本轮实施，后续继续由门禁保护，不再列为从零开工的任务。
+P0-1、P1-3、P1-4、P1-5、P0-2、P2-6、P2-7 行为基线与 P2-8 已完成本轮实施，后续继续由门禁保护，不再列为从零开工的任务。
 
 ## 附录：度量脚本
 

@@ -9,6 +9,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.lang.reflect.Method;
+
 /**
  * Data-generation runs launch with the client dist but never create the
  * Minecraft instance, while GTCEu 7.5.3 dereferences it unconditionally in
@@ -32,12 +34,28 @@ public abstract class GTCEuMixin {
     }
 
     private static boolean gse$missingClientInstance() {
+        Method getInstance = ClientInstanceLookup.GET_INSTANCE;
+        if (getInstance == null) {
+            return true;
+        }
         try {
-            Class<?> clazz = Class.forName("net.minecraft.client.Minecraft");
-            return clazz.getMethod("getInstance").invoke(null) == null;
+            return getInstance.invoke(null) == null;
         } catch (ReflectiveOperationException e) {
             // Client classes absent: behave like a dedicated server.
             return true;
+        }
+    }
+
+    /** Resolves the client-only method once, and only after the dist check. */
+    private static final class ClientInstanceLookup {
+        private static final Method GET_INSTANCE = gse$resolveGetInstance();
+
+        private static Method gse$resolveGetInstance() {
+            try {
+                return Class.forName("net.minecraft.client.Minecraft").getMethod("getInstance");
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
         }
     }
 }

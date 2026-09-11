@@ -5,7 +5,6 @@ import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
-import com.gregtechceu.gtceu.api.pattern.FactoryBlockPattern;
 import com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo;
 import com.gregtechceu.gtceu.api.pattern.Predicates;
 import com.gregtechceu.gtceu.api.pattern.TraceabilityPredicate;
@@ -26,6 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import com.lowdragmc.lowdraglib.utils.BlockInfo;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Fixed patterns for the light steam processor family (steam-compressor.md /
@@ -99,10 +99,7 @@ public final class GSEProcessorPatterns {
      * and the back-centre piston, top layer plain shell.
      */
     public static BlockPattern createCompressor(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle("BBB", "BBB", "BCB")
-                .aisle("BPB", "BFB", "BBB")
-                .aisle("BBB", "BBB", "BBB")
+        return GSEPatternLayouts.pattern(compressorLayers(), Map.of('I', 'B', 'K', 'C', 'O', 'B', 'S', 'B'))
                 .where('B', shellCandidates())
                 .where('F', Predicates.blocks(bronzeFrame()))
                 .where('P', rearPiston())
@@ -118,12 +115,7 @@ public final class GSEProcessorPatterns {
      * (layers bottom -> top, each 3 rows south -> north, chars west -> east).
      */
     public static MultiblockShapeInfo compressorShapeInfo(MultiblockMachineDefinition definition) {
-        String[][] layers = {
-                {"BBB", "BBB", "IKO"},
-                {"BPB", "BFB", "BBB"},
-                {"BBB", "BBB", "BSB"},
-        };
-        return buildShapeInfo(layers)
+        return GSEPatternLayouts.shape(compressorLayers())
                 .where('B', bronzeSteamCasing())
                 .where('F', bronzeFrame())
                 .where('P', Blocks.PISTON.defaultBlockState()
@@ -133,6 +125,14 @@ public final class GSEProcessorPatterns {
                 .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
                 .where('K', definition, Direction.NORTH)
                 .build();
+    }
+
+    private static String[][] compressorLayers() {
+        return new String[][]{
+                {"BBB", "BBB", "IKO"},
+                {"BPB", "BFB", "BBB"},
+                {"BBB", "BBB", "BSB"},
+        };
     }
 
     /** gtceu:bronze_pipe_casing — the bronze pipe casing (extraction core). */
@@ -161,10 +161,8 @@ public final class GSEProcessorPatterns {
      * (centre of the middle layer) is one bronze pipe casing, no air gap.
      */
     public static BlockPattern createExtractor(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle("BBB", "BBB", "BCB")
-                .aisle("BBB", "BPB", "BBB")
-                .aisle("BBB", "BBB", "BBB")
+        return GSEPatternLayouts.pattern(extractorLayers(),
+                Map.of('I', 'B', 'K', 'C', 'O', 'B', 'S', 'B', 'F', 'B'))
                 .where('B', extractorCandidates())
                 .where('P', Predicates.blocks(bronzePipeCasing()))
                 .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
@@ -179,12 +177,7 @@ public final class GSEProcessorPatterns {
      * rows south -> north, chars west -> east).
      */
     public static MultiblockShapeInfo extractorShapeInfo(MultiblockMachineDefinition definition) {
-        String[][] layers = {
-                {"BBB", "BBB", "IKO"},
-                {"BBB", "BPB", "BBB"},
-                {"BBB", "BBB", "FSB"},
-        };
-        return buildShapeInfo(layers)
+        return GSEPatternLayouts.shape(extractorLayers())
                 .where('B', bronzeSteamCasing())
                 .where('P', bronzePipeCasing())
                 .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
@@ -195,6 +188,14 @@ public final class GSEProcessorPatterns {
                 .build();
     }
 
+    private static String[][] extractorLayers() {
+        return new String[][]{
+                {"BBB", "BBB", "IKO"},
+                {"BBB", "BPB", "BBB"},
+                {"BBB", "BBB", "FSB"},
+        };
+    }
+
     /**
      * 蒸汽锻压机: 3×3×5 tower (steam-forge.md 议题 4 逐层图) — bottom two
      * layers are full 3×3 (layer 2 centre holds the Steam Assembly Block as
@@ -202,12 +203,7 @@ public final class GSEProcessorPatterns {
      * hammer row (spaces are don't-care). No air gap inside the forge layers.
      */
     public static BlockPattern createForge(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle("BBB", "BBB", "BCB")
-                .aisle("BBB", "BMB", "BBB")
-                .aisle("   ", "BBB", "   ")
-                .aisle("   ", "BBB", "   ")
-                .aisle("   ", "BBB", "   ")
+        return GSEPatternLayouts.pattern(forgeLayers(), Map.of('I', 'B', 'K', 'C', 'O', 'B', 'S', 'B'))
                 .where('B', shellCandidates())
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_ASSEMBLY_BLOCK.get()))
                 .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
@@ -222,14 +218,7 @@ public final class GSEProcessorPatterns {
      * bottom -> top, each 3 rows south -> north, chars west -> east).
      */
     public static MultiblockShapeInfo forgeShapeInfo(MultiblockMachineDefinition definition) {
-        String[][] layers = {
-                {"BBB", "BBB", "IKO"},
-                {"BBB", "BMB", "BBB"},
-                {"   ", "BBB", "   "},
-                {"   ", "BBB", "   "},
-                {"   ", "BSB", "   "},
-        };
-        return buildShapeInfo(layers)
+        return GSEPatternLayouts.shape(forgeLayers())
                 .where('B', bronzeSteamCasing())
                 .where('M', GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())
                 .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
@@ -237,6 +226,16 @@ public final class GSEProcessorPatterns {
                 .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
                 .where('K', definition, Direction.NORTH)
                 .build();
+    }
+
+    private static String[][] forgeLayers() {
+        return new String[][]{
+                {"BBB", "BBB", "IKO"},
+                {"BBB", "BMB", "BBB"},
+                {"   ", "BBB", "   "},
+                {"   ", "BBB", "   "},
+                {"   ", "BSB", "   "},
+        };
     }
 
     /** gtceu:industrial_steam_casing — the industrial steam machine casing (棱部). */
@@ -295,79 +294,8 @@ public final class GSEProcessorPatterns {
      * glass (any glass). Interior air is STRICT air (Predicates.air).
      */
     public static BlockPattern createOreWasher(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle(
-                        "IIIIIIIIIII",
-                        "IBBBBBBBBBI",
-                        "IBBBBBBBBBI",
-                        "IBBBBBBBBBI",
-                        "IBBBBBBBBBI",
-                        "IBBBBBBBBBI",
-                        "IBBBBBBBBBI",
-                        "IBBBBBBBBBI",
-                        "IBBBBBBBBBI",
-                        "IBBBBBBBBBI",
-                        "IIIIICIIIII")
-                .aisle(
-                        "IBBBBBBBBBI",
-                        "BAAAAMAAAAB",
-                        "BAAAAMAAAAB",
-                        "BAAAAMAAAAB",
-                        "BAAAAMAAAAB",
-                        "BMMMMMMMMMB",
-                        "BAAAAMAAAAB",
-                        "BAAAAMAAAAB",
-                        "BAAAAMAAAAB",
-                        "BAAAAMAAAAB",
-                        "IBBBBBBBBBI")
-                .aisle(
-                        "IBBBBBBBBBI",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "IBBBBBBBBBI")
-                .aisle(
-                        "IBBBBBBBBBI",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "IBBBBBBBBBI")
-                .aisle(
-                        "IBBBBBBBBBI",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "BAAAAAAAAAB",
-                        "IBBBBBBBBBI")
-                .aisle(
-                        "IIIIIIIIIII",
-                        "IGGGGGGGGGI",
-                        "IGGGGGGGGGI",
-                        "IGGGGGGGGGI",
-                        "IGGGGGGGGGI",
-                        "IGGGGGGGGGI",
-                        "IGGGGGGGGGI",
-                        "IGGGGGGGGGI",
-                        "IGGGGGGGGGI",
-                        "IGGGGGGGGGI",
-                        "IIIIIIIIIII")
+        return GSEPatternLayouts.pattern(oreWasherLayers(), Map.of(
+                'W', 'I', 'K', 'C', 'I', 'B', 'O', 'B', 'S', 'B', 'F', 'B', 'E', 'B'))
                 .where('I', Predicates.blocks(industrialSteamCasing()))
                 .where('B', washerCandidates())
                 .where('G', anyGlass())
@@ -386,7 +314,23 @@ public final class GSEProcessorPatterns {
      * layer's rows south -> north, chars west -> east).
      */
     public static MultiblockShapeInfo oreWasherShapeInfo(MultiblockMachineDefinition definition) {
-        String[][] layers = {
+        return GSEPatternLayouts.shape(oreWasherLayers())
+                .where('W', industrialSteamCasing())
+                .where('B', bronzeSteamCasing())
+                .where('G', Blocks.GLASS)
+                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] oreWasherLayers() {
+        return new String[][]{
                 {"WWWWWWWWWWW", "WBBBBBBBBBW", "WBBBBBBBBBW", "WBBBBBBBBBW", "WBBBBBBBBBW",
                         "WBBBBBBBBBW", "WBBBBBBBBBW", "WBBBBBBBBBW", "WBBBBBBBBBW",
                         "WBBBBBBBBBW", "WWWWWKWWWWW"},
@@ -406,19 +350,6 @@ public final class GSEProcessorPatterns {
                         "WGGGGGGGGGW", "WGGGGGGGGGW", "WGGGGGGGGGW", "WGGGGGGGGGW",
                         "WGGGGGGGGGW", "WWWWWWWWWWW"},
         };
-        return buildShapeInfo(layers)
-                .where('W', industrialSteamCasing())
-                .where('B', bronzeSteamCasing())
-                .where('G', Blocks.GLASS)
-                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
-                .where('A', Blocks.AIR)
-                .where('K', definition, Direction.NORTH)
-                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
-                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
-                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
-                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
-                .build();
     }
 
 
@@ -553,17 +484,8 @@ public final class GSEProcessorPatterns {
      * chimney crown. Interior air is STRICT air (Predicates.air).
      */
     public static BlockPattern createBlastFurnace(MultiblockMachineDefinition definition) {
-        var builder = FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle(BLAST_HEARTH_LAYER)  // layer 1 (hearth, controller front-centre)
-                .aisle(BLAST_TUYERE_LAYER); // layer 2 (tuyere deck)
-        for (int i = 0; i < 9; i++) {
-            builder.aisle(BLAST_SHAFT_LAYER); // layers 3-11 (shaft)
-        }
-        builder.aisle(BLAST_CAP_LAYER);   // layer 12 (throat cap)
-        builder.aisle(BLAST_CROWN_LAYER); // layer 13
-        builder.aisle(BLAST_CROWN_LAYER); // layer 14
-        builder.aisle(BLAST_CROWN_LAYER); // layer 15
-        return builder
+        return GSEPatternLayouts.pattern(blastFurnaceLayers(), Map.of(
+                'J', 'H', 'O', 'H', 'S', 'H', 'E', 'H', 'F', 'H'))
                 .where('I', Predicates.blocks(industrialSteamCasing()))
                 .where('H', blastFurnaceCandidates())
                 .where('K', Predicates.blocks(cokeBricksCasing()))
@@ -583,6 +505,21 @@ public final class GSEProcessorPatterns {
      * air.
      */
     public static MultiblockShapeInfo blastFurnaceShapeInfo(MultiblockMachineDefinition definition) {
+        return GSEPatternLayouts.shape(blastFurnaceLayers())
+                .where('I', industrialSteamCasing())
+                .where('H', blastBricks())
+                .where('K', cokeBricksCasing())
+                .where('A', Blocks.AIR)
+                .where('C', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .where('F', GSEMachines.STEAM_AIR_INTAKE_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] blastFurnaceLayers() {
         // layer 2 (tuyere deck): bus/exhaust set on the front wall, tuyeres west
         String[] tuyereDeck = BLAST_TUYERE_LAYER.clone();
         tuyereDeck[12] = "IHJOSSEFHHHHI";
@@ -606,19 +543,7 @@ public final class GSEProcessorPatterns {
         layers[12] = BLAST_CROWN_LAYER;
         layers[13] = BLAST_CROWN_LAYER;
         layers[14] = BLAST_CROWN_LAYER;
-
-        return buildShapeInfo(layers)
-                .where('I', industrialSteamCasing())
-                .where('H', blastBricks())
-                .where('K', cokeBricksCasing())
-                .where('A', Blocks.AIR)
-                .where('C', definition, Direction.NORTH)
-                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
-                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
-                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
-                .where('F', GSEMachines.STEAM_AIR_INTAKE_HATCH, Direction.NORTH)
-                .build();
+        return layers;
     }
 
     /**
@@ -657,77 +582,8 @@ public final class GSEProcessorPatterns {
      * Interior air is STRICT air (Predicates.air).
      */
     public static BlockPattern createThermalCentrifuge(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle(
-                        "IIIIIIIII",
-                        "IFFFFFFFI",
-                        "IFFFFFFFI",
-                        "IFFFFFFFI",
-                        "IFFFFFFFI",
-                        "IFFFFFFFI",
-                        "IFFFFFFFI",
-                        "IFFFFFFFI",
-                        "IIIICIIII")
-                .aisle(
-                        "IBBBBBBBI",
-                        "BAAAAAAAB",
-                        "BAAAMAAAB",
-                        "BAAAAAAAB",
-                        "BAMAMAMAB",
-                        "BAAAAAAAB",
-                        "BAAAMAAAB",
-                        "BAAAAAAAB",
-                        "IBBBBBBBI")
-                .aisle(
-                        "IBBBBBBBI",
-                        "BAAAAAAAB",
-                        "BAAAAAAAB",
-                        "BAAAAAAAB",
-                        "BAAAMAAAB",
-                        "BAAAAAAAB",
-                        "BAAAAAAAB",
-                        "BAAAAAAAB",
-                        "IBBBBBBBI")
-                .aisle(
-                        "IBBBBBBBI",
-                        "BAAAAAAAB",
-                        "BAAAMAAAB",
-                        "BAAAAAAAB",
-                        "BAMAMAMAB",
-                        "BAAAAAAAB",
-                        "BAAAMAAAB",
-                        "BAAAAAAAB",
-                        "IBBBBBBBI")
-                .aisle(
-                        "IIIIIIIII",
-                        "IIIIIIIII",
-                        "IIIIIIIII",
-                        "IIIIIIIII",
-                        "IIIIIIIII",
-                        "IIIIIIIII",
-                        "IIIIIIIII",
-                        "IIIIIIIII",
-                        "IIIIIIIII")
-                .aisle(
-                        "         ",
-                        "         ",
-                        "  IIIII  ",
-                        "  IIIII  ",
-                        "  IIIII  ",
-                        "  IIIII  ",
-                        "  IIIII  ",
-                        "         ",
-                        "         ")
-                .aisle(
-                        "         ",
-                        "         ",
-                        "  IIIII  ",
-                        "  IIIII  ",
-                        "  IIIII  ",
-                        "  IIIII  ",
-                        "  IIIII  ",
-                        "         ",
-                        "         ")
+        return GSEPatternLayouts.pattern(thermalCentrifugeLayers(), Map.of(
+                'W', 'I', 'K', 'C', 'I', 'B', 'O', 'B', 'S', 'B', 'E', 'B'))
                 .where('I', Predicates.blocks(industrialSteamCasing()))
                 .where('B', thermalCentrifugeCandidates())
                 .where('F', Predicates.blocks(bronzeFireboxCasing()))
@@ -747,7 +603,22 @@ public final class GSEProcessorPatterns {
      * spaces baking as air.
      */
     public static MultiblockShapeInfo thermalCentrifugeShapeInfo(MultiblockMachineDefinition definition) {
-        String[][] layers = {
+        return GSEPatternLayouts.shape(thermalCentrifugeLayers())
+                .where('W', industrialSteamCasing())
+                .where('B', bronzeSteamCasing())
+                .where('F', bronzeFireboxCasing())
+                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] thermalCentrifugeLayers() {
+        return new String[][]{
                 {"WWWWWWWWW", "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW",
                         "WFFFFFFFW", "WFFFFFFFW", "WFFFFFFFW", "WWWWKWWWW"},
                 {"WBBBBBBBW", "BAAAAAAAB", "BAAAMAAAB", "BAAAAAAAB", "BAMAMAMAB",
@@ -763,18 +634,6 @@ public final class GSEProcessorPatterns {
                 {"         ", "         ", "  WWWWW  ", "  WWWWW  ", "  WWWWW  ",
                         "  WWWWW  ", "  WWWWW  ", "         ", "         "},
         };
-        return buildShapeInfo(layers)
-                .where('W', industrialSteamCasing())
-                .where('B', bronzeSteamCasing())
-                .where('F', bronzeFireboxCasing())
-                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
-                .where('A', Blocks.AIR)
-                .where('K', definition, Direction.NORTH)
-                .where('I', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
-                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
-                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
-                .build();
     }
 
     /**
@@ -808,63 +667,7 @@ public final class GSEProcessorPatterns {
      * positions outside the sphere are spaces (Predicates.any()).
      */
     public static BlockPattern createMacerator(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle( // layer 7 (bottom crown, dy = -3)
-                        "       ",
-                        "       ",
-                        "  BBB  ",
-                        "  BBB  ",
-                        "  BBB  ",
-                        "       ",
-                        "       ")
-                .aisle( // layer 6 (dy = -2)
-                        "       ",
-                        " BBBBB ",
-                        " BAAAB ",
-                        " BAMAB ",
-                        " BAAAB ",
-                        " BBBBB ",
-                        "       ")
-                .aisle( // layer 5 (dy = -1)
-                        "  BBB  ",
-                        " BAAAB ",
-                        "BAAAAAB",
-                        "BAAMAAB",
-                        "BAAAAAB",
-                        " BAAAB ",
-                        "  BBB  ")
-                .aisle( // layer 4 (equator, dy = 0; controller front-centre)
-                        "  BBB  ",
-                        " BAMAB ",
-                        "BAAMAAB",
-                        "BMMMMMB",
-                        "BAAMAAB",
-                        " BAMAB ",
-                        "  BCB  ")
-                .aisle( // layer 3 (dy = +1)
-                        "  BBB  ",
-                        " BAAAB ",
-                        "BAAAAAB",
-                        "BAAMAAB",
-                        "BAAAAAB",
-                        " BAAAB ",
-                        "  BBB  ")
-                .aisle( // layer 2 (dy = +2)
-                        "       ",
-                        " BBBBB ",
-                        " BAAAB ",
-                        " BAMAB ",
-                        " BAAAB ",
-                        " BBBBB ",
-                        "       ")
-                .aisle( // layer 1 (top crown, dy = +3)
-                        "       ",
-                        "       ",
-                        "  BBB  ",
-                        "  BBB  ",
-                        "  BBB  ",
-                        "       ",
-                        "       ")
+        return GSEPatternLayouts.pattern(maceratorLayers(), Map.of('I', 'B', 'O', 'B', 'S', 'B', 'E', 'B'))
                 .where('B', maceratorCandidates())
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_GRINDING_BLOCK.get()))
                 .where('A', Predicates.air())
@@ -881,16 +684,7 @@ public final class GSEProcessorPatterns {
      * spaces outside the sphere bake as air.
      */
     public static MultiblockShapeInfo maceratorShapeInfo(MultiblockMachineDefinition definition) {
-        String[][] layers = {
-                {"       ", "       ", "  BBB  ", "  BBB  ", "  BBB  ", "       ", "       "},
-                {"       ", " BBBBB ", " BAAAB ", " BAMAB ", " BAAAB ", " BESBB ", "       "},
-                {"  BBB  ", " BAAAB ", "BAAAAAB", "BAAMAAB", "BAAAAAB", " BAAAB ", "  BBB  "},
-                {"  BBB  ", " BAMAB ", "BAAMAAB", "BMMMMMB", "BAAMAAB", " BAMAB ", "  ICO  "},
-                {"  BBB  ", " BAAAB ", "BAAAAAB", "BAAMAAB", "BAAAAAB", " BAAAB ", "  BBB  "},
-                {"       ", " BBBBB ", " BAAAB ", " BAMAB ", " BAAAB ", " BBBBB ", "       "},
-                {"       ", "       ", "  BBB  ", "  BBB  ", "  BBB  ", "       ", "       "},
-        };
-        return buildShapeInfo(layers)
+        return GSEPatternLayouts.shape(maceratorLayers())
                 .where('B', bronzeSteamCasing())
                 .where('M', GSEBlocks.STEAM_GRINDING_BLOCK.get())
                 .where('A', Blocks.AIR)
@@ -900,6 +694,18 @@ public final class GSEProcessorPatterns {
                 .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
                 .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
                 .build();
+    }
+
+    private static String[][] maceratorLayers() {
+        return new String[][]{
+                {"       ", "       ", "  BBB  ", "  BBB  ", "  BBB  ", "       ", "       "},
+                {"       ", " BBBBB ", " BAAAB ", " BAMAB ", " BAAAB ", " BESBB ", "       "},
+                {"  BBB  ", " BAAAB ", "BAAAAAB", "BAAMAAB", "BAAAAAB", " BAAAB ", "  BBB  "},
+                {"  BBB  ", " BAMAB ", "BAAMAAB", "BMMMMMB", "BAAMAAB", " BAMAB ", "  ICO  "},
+                {"  BBB  ", " BAAAB ", "BAAAAAB", "BAAMAAB", "BAAAAAB", " BAAAB ", "  BBB  "},
+                {"       ", " BBBBB ", " BAAAB ", " BAMAB ", " BAAAB ", " BBBBB ", "       "},
+                {"       ", "       ", "  BBB  ", "  BBB  ", "  BBB  ", "       ", "       "},
+        };
     }
 
     /**
@@ -936,37 +742,8 @@ public final class GSEProcessorPatterns {
      * four adjacent to the hub). Interior air is STRICT air (Predicates.air).
      */
     public static BlockPattern createMixer(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle( // layer 1 (bottom band, controller front-centre)
-                        "IIIIIII",
-                        "IIIIIII",
-                        "IIIIIII",
-                        "IIIIIII",
-                        "IIICIII")
-                .aisle( // layer 2 (axis root)
-                        "IBBBBBI",
-                        "BAAAAAB",
-                        "BAAMAAB",
-                        "BAAAAAB",
-                        "IBBBBBI")
-                .aisle( // layer 3 (impeller cross)
-                        "IBBBBBI",
-                        "BAAMAAB",
-                        "BAMMMAB",
-                        "BAAMAAB",
-                        "IBBBBBI")
-                .aisle( // layer 4 (axis top)
-                        "IBBBBBI",
-                        "BAAAAAB",
-                        "BAAMAAB",
-                        "BAAAAAB",
-                        "IBBBBBI")
-                .aisle( // layer 5 (top band)
-                        "IIIIIII",
-                        "IIIIIII",
-                        "IIIIIII",
-                        "IIIIIII",
-                        "IIIIIII")
+        return GSEPatternLayouts.pattern(mixerLayers(), Map.of(
+                'K', 'C', 'J', 'B', 'O', 'B', 'S', 'B', 'E', 'B', 'F', 'B', 'G', 'B'))
                 .where('I', Predicates.blocks(industrialSteamCasing()))
                 .where('B', mixerCandidates())
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_MIXING_BLOCK.get()))
@@ -985,14 +762,7 @@ public final class GSEProcessorPatterns {
      * each layer's rows back -> front, chars west -> east).
      */
     public static MultiblockShapeInfo mixerShapeInfo(MultiblockMachineDefinition definition) {
-        String[][] layers = {
-                {"IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIKIII"},
-                {"IBBBBBI", "BAAAAAB", "BAAMAAB", "BAAAAAB", "IJOSEFI"},
-                {"IBBBBBI", "BAAMAAB", "BAMMMAB", "BAAMAAB", "IBBBBBI"},
-                {"IBBBBBI", "BAAAAAB", "BAAMAAB", "BAAAAAB", "IGBBBBI"},
-                {"IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII"},
-        };
-        return buildShapeInfo(layers)
+        return GSEPatternLayouts.shape(mixerLayers())
                 .where('I', industrialSteamCasing())
                 .where('B', bronzeSteamCasing())
                 .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
@@ -1005,6 +775,16 @@ public final class GSEProcessorPatterns {
                 .where('G', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
                 .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
                 .build();
+    }
+
+    private static String[][] mixerLayers() {
+        return new String[][]{
+                {"IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIKIII"},
+                {"IBBBBBI", "BAAAAAB", "BAAMAAB", "BAAAAAB", "IJOSEFI"},
+                {"IBBBBBI", "BAAMAAB", "BAMMMAB", "BAAMAAB", "IBBBBBI"},
+                {"IBBBBBI", "BAAAAAB", "BAAMAAB", "BAAAAAB", "IGBBBBI"},
+                {"IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII", "IIIIIII"},
+        };
     }
 
     /**
@@ -1038,10 +818,8 @@ public final class GSEProcessorPatterns {
      * 3 aisles tall.
      */
     public static BlockPattern createChemicalBath(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle("III", "III", "III", "ICI")
-                .aisle("III", "IAI", "IAI", "III")
-                .aisle("III", "III", "III", "III")
+        return GSEPatternLayouts.pattern(chemicalBathLayers(),
+                Map.of('W', 'I', 'K', 'C', 'O', 'I', 'S', 'I', 'F', 'I'))
                 .where('I', chemicalBathCandidates())
                 .where('A', Predicates.air())
                 .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
@@ -1058,12 +836,7 @@ public final class GSEProcessorPatterns {
      * -> east).
      */
     public static MultiblockShapeInfo chemicalBathShapeInfo(MultiblockMachineDefinition definition) {
-        String[][] layers = {
-                {"WWW", "WWW", "WWW", "IKO"},
-                {"WWW", "WAW", "WAW", "WSF"},
-                {"WWW", "WWW", "WWW", "WWW"},
-        };
-        return buildShapeInfo(layers)
+        return GSEPatternLayouts.shape(chemicalBathLayers())
                 .where('W', industrialSteamCasing())
                 .where('A', Blocks.AIR)
                 .where('K', definition, Direction.NORTH)
@@ -1072,6 +845,14 @@ public final class GSEProcessorPatterns {
                 .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
                 .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
                 .build();
+    }
+
+    private static String[][] chemicalBathLayers() {
+        return new String[][]{
+                {"WWW", "WWW", "WWW", "IKO"},
+                {"WWW", "WAW", "WAW", "WSF"},
+                {"WWW", "WWW", "WWW", "WWW"},
+        };
     }
 
     /**
@@ -1110,10 +891,8 @@ public final class GSEProcessorPatterns {
      * 空气腔); the controller sits front-bottom-centre.
      */
     public static BlockPattern createCentrifuge(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle("BBB", "BBB", "BBB", "BCB")
-                .aisle("BBB", "BMB", "BMB", "BBB")
-                .aisle("BBB", "BBB", "BBB", "BBB")
+        return GSEPatternLayouts.pattern(centrifugeLayers(), Map.of(
+                'K', 'C', 'J', 'B', 'O', 'B', 'S', 'B', 'F', 'B', 'G', 'B'))
                 .where('B', centrifugeCandidates())
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_MIXING_BLOCK.get()))
                 .where('C', Predicates.controller(Predicates.blocks(definition.getBlock())))
@@ -1130,12 +909,7 @@ public final class GSEProcessorPatterns {
      * layer's 4 rows back -> front, chars west -> east).
      */
     public static MultiblockShapeInfo centrifugeShapeInfo(MultiblockMachineDefinition definition) {
-        String[][] layers = {
-                {"BBB", "BBB", "BBB", "JKO"},
-                {"BBB", "BMB", "BMB", "BSF"},
-                {"BBB", "BBB", "BBB", "BGB"},
-        };
-        return buildShapeInfo(layers)
+        return GSEPatternLayouts.shape(centrifugeLayers())
                 .where('B', bronzeSteamCasing())
                 .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
                 .where('K', definition, Direction.NORTH)
@@ -1145,6 +919,14 @@ public final class GSEProcessorPatterns {
                 .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
                 .where('G', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
                 .build();
+    }
+
+    private static String[][] centrifugeLayers() {
+        return new String[][]{
+                {"BBB", "BBB", "BBB", "JKO"},
+                {"BBB", "BMB", "BMB", "BSF"},
+                {"BBB", "BBB", "BBB", "BGB"},
+        };
     }
 
     /**
@@ -1186,79 +968,8 @@ public final class GSEProcessorPatterns {
      * (x=3/5, z=4); interior air is STRICT air (Predicates.air).
      */
     public static BlockPattern createLargeCentrifuge(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle( // layer 1 (bottom crown, controller front-centre)
-                        "..BBB..",
-                        ".BBBBB.",
-                        "BBBBBBB",
-                        "BBBBBBB",
-                        "BBBBBBB",
-                        ".BBBBB.",
-                        "..BCB..")
-                .aisle( // layers 2-8 (ring + axis + pipe columns), 7 identical aisles
-                        "..BBB..",
-                        ".BAAAB.",
-                        "BAAAAAB",
-                        "BAPMPAB",
-                        "BAAAAAB",
-                        ".BAAAB.",
-                        "..BBB..")
-                .aisle(
-                        "..BBB..",
-                        ".BAAAB.",
-                        "BAAAAAB",
-                        "BAPMPAB",
-                        "BAAAAAB",
-                        ".BAAAB.",
-                        "..BBB..")
-                .aisle(
-                        "..BBB..",
-                        ".BAAAB.",
-                        "BAAAAAB",
-                        "BAPMPAB",
-                        "BAAAAAB",
-                        ".BAAAB.",
-                        "..BBB..")
-                .aisle(
-                        "..BBB..",
-                        ".BAAAB.",
-                        "BAAAAAB",
-                        "BAPMPAB",
-                        "BAAAAAB",
-                        ".BAAAB.",
-                        "..BBB..")
-                .aisle(
-                        "..BBB..",
-                        ".BAAAB.",
-                        "BAAAAAB",
-                        "BAPMPAB",
-                        "BAAAAAB",
-                        ".BAAAB.",
-                        "..BBB..")
-                .aisle(
-                        "..BBB..",
-                        ".BAAAB.",
-                        "BAAAAAB",
-                        "BAPMPAB",
-                        "BAAAAAB",
-                        ".BAAAB.",
-                        "..BBB..")
-                .aisle(
-                        "..BBB..",
-                        ".BAAAB.",
-                        "BAAAAAB",
-                        "BAPMPAB",
-                        "BAAAAAB",
-                        ".BAAAB.",
-                        "..BBB..")
-                .aisle( // layer 9 (top crown)
-                        "..BBB..",
-                        ".BBBBB.",
-                        "BBBBBBB",
-                        "BBBBBBB",
-                        "BBBBBBB",
-                        ".BBBBB.",
-                        "..BBB..")
+        return GSEPatternLayouts.pattern(largeCentrifugeLayers(), Map.of(
+                'K', 'C', 'J', 'B', 'O', 'B', 'E', 'B', 'S', 'B', 'F', 'B', 'G', 'B'))
                 .where('B', largeCentrifugeCandidates())
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_MIXING_BLOCK.get()))
                 .where('P', Predicates.blocks(bronzePipeCasing()))
@@ -1279,6 +990,23 @@ public final class GSEProcessorPatterns {
      * bottom -> top, each layer's 7 rows back -> front, chars west -> east).
      */
     public static MultiblockShapeInfo largeCentrifugeShapeInfo(MultiblockMachineDefinition definition) {
+        return GSEPatternLayouts.shape(largeCentrifugeLayers())
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
+                .where('P', bronzePipeCasing())
+                .where('A', Blocks.AIR)
+                .where('.', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('G', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] largeCentrifugeLayers() {
         String[] middle = {
                 "..BBB..",
                 ".BAAAB.",
@@ -1331,20 +1059,7 @@ public final class GSEProcessorPatterns {
                 middle, middle, middle, middle, middle,
                 crown,
         };
-        return buildShapeInfo(layers)
-                .where('B', bronzeSteamCasing())
-                .where('M', GSEBlocks.STEAM_MIXING_BLOCK.get())
-                .where('P', bronzePipeCasing())
-                .where('A', Blocks.AIR)
-                .where('.', Blocks.AIR)
-                .where('K', definition, Direction.NORTH)
-                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
-                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
-                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
-                .where('G', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
-                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
-                .build();
+        return layers;
     }
 
     /**
@@ -1406,22 +1121,8 @@ public final class GSEProcessorPatterns {
      * arrays; layers 3-7 are hollow. Interior air is STRICT air.
      */
     public static BlockPattern createLargeSteamAssembler(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle( // layer 1 (bottom industrial face, controller front-centre)
-                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIICIIII")
-                .aisle(ASSEMBLER_WORKLAYER)
-                .aisle(ASSEMBLER_HOLLOW_LAYER)
-                .aisle(ASSEMBLER_HOLLOW_LAYER)
-                .aisle(ASSEMBLER_HOLLOW_LAYER)
-                .aisle(ASSEMBLER_HOLLOW_LAYER)
-                .aisle(ASSEMBLER_HOLLOW_LAYER)
-                .aisle(ASSEMBLER_WORKLAYER)
-                .aisle( // layer 9 (top industrial face)
-                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIIIIIII", "IIIIIIIII", "IIIIIIIII", "IIIIIIIII",
-                        "IIIIIIIII")
+        return GSEPatternLayouts.pattern(assemblerLayers(), Map.of(
+                'W', 'I', 'K', 'C', 'J', 'B', 'O', 'B', 'S', 'B', 'F', 'B', 'E', 'B'))
                 .where('I', Predicates.blocks(industrialSteamCasing()))
                 .where('B', assemblerCandidates())
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_ASSEMBLY_BLOCK.get()))
@@ -1439,6 +1140,22 @@ public final class GSEProcessorPatterns {
      * layer's rows back -> front, chars west -> east).
      */
     public static MultiblockShapeInfo assemblerShapeInfo(MultiblockMachineDefinition definition) {
+        return GSEPatternLayouts.shape(assemblerLayers())
+                .where('W', industrialSteamCasing())
+                .where('I', industrialSteamCasing())
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())
+                .where('A', Blocks.AIR)
+                .where('K', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] assemblerLayers() {
         String[] bottom = {
                 "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
                 "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW", "WWWWWWWWW",
@@ -1469,19 +1186,7 @@ public final class GSEProcessorPatterns {
                 workPlain,
                 top,
         };
-        return buildShapeInfo(layers)
-                .where('W', industrialSteamCasing())
-                .where('I', industrialSteamCasing())
-                .where('B', bronzeSteamCasing())
-                .where('M', GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())
-                .where('A', Blocks.AIR)
-                .where('K', definition, Direction.NORTH)
-                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
-                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
-                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
-                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
-                .build();
+        return layers;
     }
 
     /**
@@ -1533,19 +1238,8 @@ public final class GSEProcessorPatterns {
      * centre 1×11 industrial ridge.
      */
     public static BlockPattern createLargeSteamCircuitAssembler(MultiblockMachineDefinition definition) {
-        return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
-                .aisle( // layer 1 (bottom, controller front-centre)
-                        "BBBBB", "BBBBB", "BBBBB", "BBBBB", "BBBBB",
-                        "BBBBB", "BBBBB", "BBBBB", "BBBBB", "BBBBB",
-                        "BBCBB")
-                .aisle(circuitTowerLayer('M')) // layer 2 (circuit assembly stations)
-                .aisle(circuitTowerLayer('G')) // layer 3 (gearbox drive layer)
-                .aisle(circuitTowerLayer('S')) // layer 4 (general assembly layer)
-                .aisle(circuitTowerLayer('P')) // layer 5 (fluid distribution layer)
-                .aisle( // layer 6 (industrial centre ridge)
-                        "AAIAA", "AAIAA", "AAIAA", "AAIAA", "AAIAA",
-                        "AAIAA", "AAIAA", "AAIAA", "AAIAA", "AAIAA",
-                        "AAIAA")
+        return GSEPatternLayouts.pattern(circuitAssemblerLayers(), Map.of(
+                'K', 'C', 'J', 'B', 'O', 'B', 'S', 'B', 'F', 'B', 'E', 'B', 'Q', 'S'))
                 .where('B', circuitAssemblerCandidates())
                 .where('M', Predicates.blocks(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get()))
                 .where('G', Predicates.blocks(GTBlocks.CASING_BRONZE_GEARBOX.get()))
@@ -1567,6 +1261,24 @@ public final class GSEProcessorPatterns {
      * east).
      */
     public static MultiblockShapeInfo circuitAssemblerShapeInfo(MultiblockMachineDefinition definition) {
+        return GSEPatternLayouts.shape(circuitAssemblerLayers())
+                .where('B', bronzeSteamCasing())
+                .where('M', GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get())
+                .where('G', GTBlocks.CASING_BRONZE_GEARBOX.get())
+                .where('Q', GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())
+                .where('P', bronzePipeCasing())
+                .where('A', Blocks.AIR)
+                .where('I', industrialSteamCasing())
+                .where('K', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] circuitAssemblerLayers() {
         String[] bottom = {
                 "BBBBB", "BBBBB", "BBBBB", "BBBBB", "BBBBB",
                 "BBBBB", "BBBBB", "BBBBB", "BBBBB", "BBBBB",
@@ -1593,47 +1305,7 @@ public final class GSEProcessorPatterns {
                 towerP,
                 ridge,
         };
-        return buildShapeInfo(layers)
-                .where('B', bronzeSteamCasing())
-                .where('M', GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get())
-                .where('G', GTBlocks.CASING_BRONZE_GEARBOX.get())
-                .where('Q', GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())
-                .where('P', bronzePipeCasing())
-                .where('A', Blocks.AIR)
-                .where('I', industrialSteamCasing())
-                .where('K', definition, Direction.NORTH)
-                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
-                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
-                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
-                .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
-                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
-                .build();
+        return layers;
     }
 
-    /**
-     * Converts LEFT/FRONT/UP pattern layers into the preview's positive X/Y/Z
-     * coordinates, keeping the controller on the north (z = 0) wall.
-     */
-    private static MultiblockShapeInfo.ShapeInfoBuilder buildShapeInfo(String[][] layers) {
-        int height = layers.length;
-        int width = layers[0][0].length();
-        int depth = layers[0].length;
-        var builder = MultiblockShapeInfo.builder();
-        // MultiblockShapeInfo is always consumed as world [x][y][z]. The
-        // source arrays are pattern aisles for start(LEFT, FRONT, UP): layer
-        // is Y, row is Z (south to north), and character is X. Transpose Y/Z
-        // and reverse FRONT so the north-facing controller remains at z = 0.
-        for (int r = depth - 1; r >= 0; r--) {
-            String[] rows = new String[height];
-            for (int l = 0; l < height; l++) {
-                StringBuilder sb = new StringBuilder(width);
-                for (int a = 0; a < width; a++) {
-                    sb.append(layers[l][r].charAt(a));
-                }
-                rows[l] = sb.toString();
-            }
-            builder.aisle(rows);
-        }
-        return builder;
-    }
 }

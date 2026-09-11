@@ -9,14 +9,12 @@ import com.gregtechceu.gtceu.api.recipe.content.ContentModifier;
 import com.gregtechceu.gtceu.api.recipe.lookup.RecipeManagerHandler;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
-import com.hoshino.gregsteamexpansion.recipe.RecipeManagerTables;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
-import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -72,20 +70,12 @@ public final class BoilerRoomFuelSync {
         if (target == null) {
             throw new IllegalStateException("[Boiler Room] recipe type missing at sync time");
         }
-        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes = RecipeManagerTables.mutableTablesOf(manager);
-        if (recipes == null) {
-            throw new IllegalStateException("[Boiler Room] recipe manager inaccessible at sync time");
-        }
-        // Reader only: the boiler-room table is rebuilt from the source recipes
-        // and re-staged, nothing in the manager is removed or added, so the
-        // per-type tables stay as the originals — no copy.
-        Map<ResourceLocation, Recipe<?>> sourceMap = recipes.get(GTRecipeTypes.STEAM_BOILER_RECIPES);
+        // Reader only: the boiler-room table is rebuilt directly from the
+        // public per-type view, so no RecipeManager internals are exposed.
         List<GTRecipe> candidates = new ArrayList<>();
-        if (sourceMap != null) {
-            for (Recipe<?> recipe : sourceMap.values()) {
-                if (recipe instanceof GTRecipe gtRecipe && isLiquidFuel(gtRecipe)) {
-                    candidates.add(gtRecipe);
-                }
+        for (GTRecipe recipe : manager.getAllRecipesFor(GTRecipeTypes.STEAM_BOILER_RECIPES)) {
+            if (isLiquidFuel(recipe)) {
+                candidates.add(recipe);
             }
         }
         Map<ResourceLocation, Recipe<?>> targetMap = new HashMap<>();
@@ -137,11 +127,6 @@ public final class BoilerRoomFuelSync {
         copy.ocLevel = detached.ocLevel;
         copy.parallels = detached.parallels;
         return copy;
-    }
-
-    @Nullable
-    private static Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes(RecipeManager manager) {
-        return RecipeManagerTables.mutableTablesOf(manager);
     }
 
     private static void restage(GTRecipeType type, Map<ResourceLocation, Recipe<?>> postSyncMap) {
