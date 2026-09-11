@@ -46,7 +46,7 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（约 45 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（64 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -62,6 +62,8 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 | --- | --- |
 | `GSEGameTests` | 结构成型、仓室行为、注册一致性、难度与配方注入 |
 | `GSERecipeOptimizationTests` | 配方缓存失效与空闲机器唤醒 |
+| `GSESteamEngineTests` | 四类引擎状态边界、原子取汽、并行/输出容量、批次结算、排气和鼓风（14 个） |
+| `GSEStructureDiagnosticsTests` | 缺失方块与接口数量不足的结构诊断 |
 | `GSEStructureTestUtils` | 结构辅助：用机器注册的 `MultiblockShapeInfo` 反铺方块，再用图案校验 |
 
 > `src/test` 为空目录，本项目**不使用 JUnit**；`build` 任务中的 `-x test` 是 Forge MDK 模板遗留，

@@ -207,7 +207,9 @@ public final class GSERecipeOptimizationTests {
                                 + " error=" + (machine.getMultiblockState() == null
                                         || machine.getMultiblockState().error == null ? "none"
                                         : machine.getMultiblockState().error.getClass().getSimpleName())))
-                .thenExecute(() -> {
+                // The hatch publishes its status on its own server tick; controller
+                // formation can become visible before that status refresh happens.
+                .thenWaitUntil(() -> {
                     var intake = machine.getParts().stream()
                             .filter(part -> part instanceof SteamAirIntakeHatchPartMachine)
                             .map(part -> (SteamAirIntakeHatchPartMachine) part)
@@ -223,7 +225,8 @@ public final class GSERecipeOptimizationTests {
                     helper.assertTrue(intake.getIntakeStatus()
                             == SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,
                             "Intake is not collecting; status=" + intake.getIntakeStatus().getId());
-
+                })
+                .thenExecute(() -> {
                     // A batch can only leave the idle state once the per-tick
                     // steam draw succeeds, so the supply hatch has to be primed.
                     var supply = machine.getParts().stream()
