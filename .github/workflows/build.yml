@@ -28,6 +28,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+
+      - name: Install asset generator dependencies
+        run: python -m pip install -r tools/requirements.txt
+
       # build.gradle and settings.gradle pull in the ForgeGradle plugin from
       # the MinecraftForge maven; caching ~/.gradle keeps the Forge/GTCEu
       # dependency download off every run.
@@ -67,28 +77,9 @@ jobs:
             exit 1
           fi
 
-      # The mod only ships under a newer Forge than the MDK default, so the
-      # published JAR must be checked for the mixin refmap and lang parity.
-      - name: Check language key parity
-        run: |
-          python3 - <<'PY'
-          import json, pathlib, sys
-          root = pathlib.Path('.')
-          en = json.loads((root / 'src/generated/resources/assets/gregsteamexpansion/lang/en_us.json').read_text('utf-8'))
-          zh = json.loads((root / 'src/main/resources/assets/gregsteamexpansion/lang/zh_cn.json').read_text('utf-8'))
-          missing = sorted(set(en) - set(zh))
-          extra = sorted(set(zh) - set(en))
-          if missing or extra:
-              print(f'::error::lang key mismatch: {len(missing)} missing in zh_cn, {len(extra)} extra in zh_cn')
-              for k in missing[:20]:
-                  print('  missing:', k)
-              for k in extra[:20]:
-                  print('  extra:  ', k)
-              sys.exit(1)
-          print(f'lang keys aligned: {len(en)} keys')
-          PY
-
-      - name: Build
+      # Gradle check verifies generated assets, design constants, language
+      # parity, and every registered Jade provider's configuration label.
+      - name: Build and run repository checks
         run: ./gradlew --no-daemon build
 
       - name: Upload JAR

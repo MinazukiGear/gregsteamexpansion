@@ -77,8 +77,19 @@ bash tools/verify.sh                                # 与 CI 完全一致的完�
 ```
 
 `tools/verify.sh` 是 `.github/workflows/build.yml` 的本地镜像，依次执行编译 →
-GameTest → datagen 新鲜度（`runData` 后不应产生 git diff）→ `en_us`/`zh_cn` 键集合一致性 →
-构建。CI 在 push 与 PR 上执行同一组步骤，因此本地通过即可认为 CI 会通过。
+GameTest → datagen 新鲜度（`runData` 后不应产生 git diff）→ 构建。Gradle `check` 会在构建中
+隔离生成并逐字节核对程序化资产，同时检查 `en_us`/`zh_cn` 键集合及所有已注册 Jade UID 的
+配置翻译，并抽样核对设计文档与代码中的结构尺寸、并行上限。CI 在 push 与 PR 上执行同一组
+步骤，因此本地通过即可认为 CI 会通过。
+
+仓库中的程序化贴图与 GameTest 空结构统一由 Python 3.10+ 生成。在仓库根目录安装固定版本
+依赖并运行统一入口；脚本顺序、输出归属等约定见 [`tools/README.md`](tools/README.md)：
+
+```powershell
+python -m pip install -r tools/requirements.txt
+python tools/generate_assets.py
+python tools/generate_assets.py --check
+```
 
 构建缓存：`compileJava` 因 Mixin 注解处理器把 refmap 写成旁路产物而禁用了构建缓存
 （`build.gradle` 的 `outputs.cacheIf { false }`），CI 上以缓存 `~/.gradle` 与

@@ -21,6 +21,24 @@ for arg in "$@"; do
     esac
 done
 
+if [ -n "${GSE_ASSET_PYTHON:-}" ]; then
+    ASSET_PYTHON="$GSE_ASSET_PYTHON"
+elif command -v python3 >/dev/null 2>&1; then
+    ASSET_PYTHON=python3
+elif command -v python >/dev/null 2>&1; then
+    ASSET_PYTHON=python
+elif command -v py >/dev/null 2>&1; then
+    ASSET_PYTHON=py
+else
+    echo "Python 3.10+ is required; see tools/README.md." >&2
+    exit 1
+fi
+if ! "$ASSET_PYTHON" -c 'import PIL, sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' >/dev/null 2>&1; then
+    echo "Python 3.10+ and the pinned Pillow dependency are required; see tools/README.md." >&2
+    exit 1
+fi
+GRADLE_ARGS+=("-PassetPythonExecutable=$ASSET_PYTHON")
+
 # Windows checkouts use gradlew.bat; everything else uses gradlew.
 if [ -f ./gradlew.bat ]; then
     GRADLE=./gradlew.bat
@@ -46,23 +64,7 @@ if [ "$RUN_DATAGEN" -eq 1 ]; then
     fi
 fi
 
-step "lang key parity"
-python - <<'PY'
-import json, pathlib, sys
-en = json.loads(pathlib.Path('src/generated/resources/assets/gregsteamexpansion/lang/en_us.json').read_text('utf-8'))
-zh = json.loads(pathlib.Path('src/main/resources/assets/gregsteamexpansion/lang/zh_cn.json').read_text('utf-8'))
-missing, extra = sorted(set(en) - set(zh)), sorted(set(zh) - set(en))
-if missing or extra:
-    print(f'FAIL: lang key mismatch: {len(missing)} missing in zh_cn, {len(extra)} extra in zh_cn', file=sys.stderr)
-    for k in missing[:20]:
-        print('  missing:', k, file=sys.stderr)
-    for k in extra[:20]:
-        print('  extra:  ', k, file=sys.stderr)
-    sys.exit(1)
-print(f'ok: lang keys aligned ({len(en)} keys)')
-PY
-
-step "build"
+step "build (includes asset, language, Jade, and design-contract checks)"
 "$GRADLE" "${GRADLE_ARGS[@]}" build
 
 printf '\nAll gates passed.\n'

@@ -414,7 +414,7 @@ assets/gregsteamexpansion/textures/gui/icon/mixed_fuel_boiler/status_steam_outpu
 - 已完成低压与高压机器定义、两种工作模式、燃料和粉料消耗、温度、安全、自动输出、GUI、声音与粒子的首版代码；
 - 已完成双层板与四重流体管道工作台配方、中英文语言资源和助燃粉料物品标签；
 - `runData` 与 `build` 已通过；
-- 已完成四张 16×16 正面覆盖纹理与七张 GUI 模式/故障图标，并通过 `tools/generate_mixed_fuel_boiler_textures.ps1` 保存可复现的像素矩阵来源；
+- 已完成四张 16×16 正面覆盖纹理与七张 GUI 模式/故障图标，并通过 `tools/gen_mixed_fuel_boiler_textures.py` 保存可复现的像素矩阵来源；
 - 已对默认模型生成规则作定向调整：仅 `working` 使用点火纹理，`waiting` 与 `suspend` 均使用熄火纹理；
 - 灰烬机制移除后保留九项 GameTest，覆盖两级机器实例、两份工作台配方、模式切换与输入过滤、仅液体模式无粉料运行、缺粉停机与补粉恢复、六面能力、并排堆叠、满蒸汽槽泄压，以及高温断水后重新进水爆炸；当前修订尚未重新运行这些测试；
 - 尚未完成开发客户端世界内的外观、GUI、自动化、危险行为和数值平衡测试。

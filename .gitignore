@@ -23,6 +23,8 @@ run
 run-data
 .vscode
 *.log
+__pycache__/
+*.py[cod]
 /.tmp/
 /src/generated/resources/.cache/
 /.workbuddy/

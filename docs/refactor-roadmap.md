@@ -22,7 +22,7 @@
 | **P2-8** | reload 路径消除全量 Map 深拷贝 | 数据包重载耗时 | 小 | 低 |
 | **P2-9** | 仓库与工具链卫生 | 降低认知负担 | 小 | 极低 |
 
-**后续排期**：P2-9 剩余项。P0-1 的六个组合式引擎组件、P1-3 / P1-4 数据源收敛与 P2-6 Mixin 收敛均已完成。
+**后续排期**：本清单列出的 P0～P2 工程债已全部完成；后续新增优化应建立新的测量基线和独立条目。
 
 ### 重构行为约束（2026-09-11 用户定案）
 
@@ -39,7 +39,7 @@
 
 | 项 | 当前状态与剩余工作 |
 | --- | --- |
-| P1-5 | CI 与 `tools/verify.sh` 已建立，包含编译、GameTest、datagen 新鲜度、语言键对齐和构建；README 已记录命令。远端运行结果需以 GitHub Actions 为准。 |
+| P1-5 | CI 与 `tools/verify.sh` 已建立，包含编译、GameTest、datagen 与程序化资产新鲜度、语言和 Jade 配置翻译检查及构建；README 已记录命令。远端运行结果需以 GitHub Actions 为准。 |
 | P0-2 | 已实现输入内容索引与空输入短路；本轮将单槽共享缓存改为当前 revision 下按类型身份保存的缓存表，revision 变化时清空，避免交替访问不同类型反复重建。扩展回归覆盖交替类型访问、两种类型 reload 失效、旧条目保持不变和空输入候选为空。 |
 | P2-7 | 行为基线已完成：新增 `GSESteamEngineTests` 的 14 个测试，全仓库 64 个 GameTest 全绿，编译与构建通过；覆盖矩阵及已发现差异见 P2-7 正文。 |
 | P0-1 | 已完成：六个组合式组件分别负责部件收集、待输出、蒸汽预算、批次状态、状态文案和控制器 UI；四类控制器保留各自配方、温度、辅助输入与机器专属展示。 |
@@ -47,9 +47,9 @@
 | P1-4 | 已完成：23 个 tooltip 方法改为 `GSEMachineTooltips` 中的声明式 profile，由统一渲染器处理常驻摘要、Shift 详情、样式与参数。`GSEMachines` 从 1,620 行降到 760 行，计入 233 行新组件后净减少 627 行。 |
 | P2-6 | 已完成：`GTCEuMixin` 的客户端反射改为 lazy holder；`PartAbilityMixin` 的注入漂移交由既有严格启动自检给出可读错误；删除 `RecipeManagerAccessor`，配方迁移与锅炉燃料同步只使用公开 API。新增加载一致性测试后全仓库 65 个 GameTest 全绿。 |
 | P2-8 | 已完成并在 P2-6 中进一步收口：锅炉房通过公开的按类型查询直接读取；矿石迁移使用公开的 `replaceRecipes` 一次性重建索引，不再读取、深拷贝或回写私有 Map 字段。 |
-| P2-9 | 部分完成：MDK changelog 已改名为 `changelog-forge-mdk.txt`，语言键对齐已接入 CI；工具统一、资产生成校验和设计数字抽样断言仍待处理。 |
+| P2-9 | 已完成：MDK changelog、工具语言与入口、资产新鲜度、语言/Jade 翻译和设计数字抽样均已收口，并接入 Gradle `check`、本地完整门禁与 CI。 |
 
-语言检查另有待补缺口：中英文键集合对齐无法发现两边同时遗漏的 Jade 配置名称，应增加已注册 Jade UID 到默认语言翻译的完整性检查。本轮保留此前补齐的 `structure_diagnostics` 翻译。
+语言检查缺口已关闭：中英文键集合对齐之外，门禁会从 Jade 注册调用追踪 provider 及其 UID，要求每个 `config.jade.plugin_gregsteamexpansion.<uid>` 同时存在于默认英文和中文语言文件。此前补齐的 `structure_diagnostics` 也已纳入该自动检查。
 
 P0-2 轮验证：JDK 17 下 `compileJava runGameTestServer build` 成功，全部 50 个 GameTest 通过（扩展既有测试，未新增测试方法）。P2-7 验证见下文。
 
@@ -349,11 +349,19 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 
 | 项 | 现状 | 建议 |
 | --- | --- | --- |
-| `changelog.txt` | 1,061 行 / 74 KB，经 `git log` 确认是 **Forge MDK 自带的 Forge changelog**，非本项目变更记录；`.gitignore` 的 `forge*changelog.txt` 规则未覆盖 | 删除 |
-| `tools/` | 两代工具并存：Python 版 11 个 + PowerShell 版 3 个，其中 `generate_empty_gametest_structure.ps1` 与 `gen_empty_gametest_structure.py` 功能重复 | 统一到一种语言 |
-| 资产生成 | 生成物（贴图、`.nbt` 模板）全部提交进仓库，但**脚本没有接到任何 Gradle 任务**，目前靠人工保证一致 | 增加 `genAssets` 校验任务 |
-| 文案一致性 | 当前 `en_us` 655 / `en_ud` 657 / `zh_cn` 655 键，`en_us ↔ zh_cn` **零差异（做得很好）**；但 `en_us.json` 由 `GSELang.java` 生成、`zh_cn.json` 手工维护，**没有任何东西阻止下一次提交打破这个对齐** | CI 中加入键集合一致性检查 |
-| 文档一致性 | 27 份设计文档共 10,403 行，其中的结构尺寸与并行数与代码完全靠人工同步 | 对可机检的数字（并行上限、结构边长）做抽样断言 |
+| `changelog-forge-mdk.txt` | 已由易误认的 `changelog.txt` 改名，明确标识为 Forge MDK 上游记录 | 已完成 |
+| `tools/` | 13 个资产生成器已统一为 Python 3.10+；`generate_assets.py` 按确定的文件名顺序调用，Pillow 固定为 `12.3.0`，使用说明集中在 `tools/README.md` | 已完成 |
+| 资产生成 | `genAssets` 负责更新生成物；`checkGeneratedAssets` 在临时目录运行全部生成器并逐字节比较 87 个提交文件，已接入 Gradle `check`、`tools/verify.sh` 与 CI | 已完成 |
+| 文案一致性 | `en_us` / `en_ud` / `zh_cn` 当前均为 680 键；`checkLanguageKeys` 检查 `en_us ↔ zh_cn` 键集合，并从注册调用核验全部 Jade UID 的英文、中文配置名称 | 已完成；由 Gradle `check`、`tools/verify.sh` 与 CI 共同执行 |
+| 文档一致性 | `checkDesignContracts` 从实际结构层数组与运行常量推导代码值，并抽样核对 5 组结构尺寸和 4 组并行规则 | 已完成；接入 Gradle `check`、`tools/verify.sh` 与 CI |
+
+**文案门禁实施结果（2026-09-11）：**原本分别内嵌在 Bash 与 GitHub Actions 中的语言键 Python 片段已收敛为 Gradle `checkLanguageKeys` 任务，不再要求本地额外安装 Python。任务扫描 Jade 源码中的实际注册调用，将 provider 映射到字面量 UID，并逐项核对配置翻译；找不到注册、UID 定义或任一语言键时均给出包含 provider 与目标键的失败信息。当前 680 个中英文键对齐，11 个已注册 UID 全部通过。
+
+**资产工具统一结果（2026-09-11）：**删除最后 2 个 PowerShell 资产生成器并等价改写为 Python；旧、新实现生成的 16 张 PNG 已逐像素对比一致。统一入口在隔离目录成功运行全部 13 个生成器，产生的 87 个文件均有已提交对应项，PNG 像素及其余文件字节与仓库内容完全一致。`__pycache__` 与编译缓存文件也已加入忽略规则。
+
+**资产新鲜度门禁结果（2026-09-11）：**`generate_assets.py --check` 将 13 个生成器复制到系统临时目录执行，逐字节核对其 87 个输出，不改写工作区；缺失或过期时列出具体路径，并提示运行统一生成命令。Gradle 提供 `genAssets` 和 `checkGeneratedAssets`，后者已作为 `check` 依赖，因此 `build`、本地完整门禁和 CI 都会执行。CI 固定 Python 3.11 并缓存、安装 `tools/requirements.txt`；本地可通过 `GSE_ASSET_PYTHON` 或 `-PassetPythonExecutable` 指定解释器。正向检查和篡改单张纹理的失败路径均已验证。
+
+**设计数字门禁结果（2026-09-11）：**新增 `check_design_contracts.py` 和 Gradle `checkDesignContracts`，抽样覆盖锅炉房、两类粉碎机、大型焦炉、大型蒸汽高炉、可变蓄热熔炉的结构尺寸，以及粉碎机、大型焦炉、大型蒸汽高炉、组装机家族的并行规则。结构值从 Java 层数组、字符串宽深和重复层常量推导，运行值从实际常量或返回分支提取；每项同时核对设计文档、实现值与门禁固定值，防止单边修改。正向 9 项通过，篡改粉碎机文档并行上限的负向用例正确失败并报告预期值与实际值。
 
 ---
 
@@ -371,9 +379,9 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 
 | 顺序 | 项 | 理由 |
 | --- | --- | --- |
-| 1 | **P2-9 剩余项** | 优先补 Jade 配置翻译完整性检查，再处理工具统一与资产/设计校验 |
+| — | **本轮路线图已完成** | P0～P2 所列项目均已有实现与门禁；后续优化另建条目并重新度量 |
 
-P0-1、P1-3、P1-4、P1-5、P0-2、P2-6、P2-7 行为基线与 P2-8 已完成本轮实施，后续继续由门禁保护，不再列为从零开工的任务。
+P0-1、P1-3、P1-4、P1-5、P0-2、P2-6、P2-7 行为基线、P2-8 与 P2-9 已完成本轮实施，后续继续由门禁保护，不再列为从零开工的任务。
 
 ## 附录：度量脚本
 

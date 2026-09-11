@@ -270,3 +270,136 @@ tasks.withType(JavaCompile).configureEach {
 tasks.named('compileJava').configure {
     outputs.cacheIf { false }
 }
+
+def checkLanguageKeys = tasks.register('checkLanguageKeys') {
+    group = 'verification'
+    description = 'Checks language parity and Jade provider configuration labels.'
+
+    def enUsFile = file('src/generated/resources/assets/gregsteamexpansion/lang/en_us.json')
+    def zhCnFile = file('src/main/resources/assets/gregsteamexpansion/lang/zh_cn.json')
+    def jadeSources = fileTree('src/main/java/com/hoshino/gregsteamexpansion/integration/jade') {
+        include '**/*.java'
+    }
+    inputs.files(enUsFile, zhCnFile, jadeSources)
+
+    doLast {
+        def enUs = new groovy.json.JsonSlurper().parse(enUsFile) as Map
+        def zhCn = new groovy.json.JsonSlurper().parse(zhCnFile) as Map
+        def errors = []
+
+        def missingZh = (enUs.keySet() - zhCn.keySet()).sort()
+        def extraZh = (zhCn.keySet() - enUs.keySet()).sort()
+        if (!missingZh.isEmpty() || !extraZh.isEmpty()) {
+            errors << "lang key mismatch: ${missingZh.size()} missing in zh_cn, ${extraZh.size()} extra in zh_cn"
+            missingZh.take(20).each { errors << "missing in zh_cn: ${it}" }
+            extraZh.take(20).each { errors << "extra in zh_cn: ${it}" }
+        }
+
+        def registrationPattern = java.util.regex.Pattern.compile(
+                'registration\\.register\\w+\\(\\s*(\\w+)\\.INSTANCE')
+        def providerTypePattern = java.util.regex.Pattern.compile(
+                'private\\s+(?:enum|static\\s+(?:final\\s+)?class)\\s+(\\w+)')
+        def uidPattern = java.util.regex.Pattern.compile(
+                'private\\s+static\\s+final\\s+ResourceLocation\\s+UID\\s*=\\s*' +
+                        'GregSteamExpansion\\.id\\("([^"]+)"\\);')
+        def registeredProviders = new TreeSet<String>()
+        def providerUids = [:]
+
+        jadeSources.files.sort().each { sourceFile ->
+            def source = sourceFile.getText('UTF-8')
+            def registrationMatcher = registrationPattern.matcher(source)
+            while (registrationMatcher.find()) {
+                registeredProviders.add(registrationMatcher.group(1))
+            }
+
+            def declarations = []
+            def providerMatcher = providerTypePattern.matcher(source)
+            while (providerMatcher.find()) {
+                declarations << [name: providerMatcher.group(1), start: providerMatcher.start(),
+                                 bodyStart: providerMatcher.end()]
+            }
+            declarations.eachWithIndex { declaration, index ->
+                int end = index + 1 < declarations.size() ? declarations[index + 1].start : source.length()
+                def uidMatcher = uidPattern.matcher(source)
+                uidMatcher.region(declaration.bodyStart as int, end)
+                if (uidMatcher.find()) {
+                    providerUids[declaration.name] = uidMatcher.group(1)
+                }
+            }
+        }
+
+        if (registeredProviders.isEmpty()) {
+            errors << 'no Jade provider registrations were detected'
+        }
+        def missingUidDefinitions = (registeredProviders - providerUids.keySet()).sort()
+        if (!missingUidDefinitions.isEmpty()) {
+            errors << 'registered Jade providers have no literal UID definition: ' +
+                    missingUidDefinitions.join(', ')
+        }
+        registeredProviders.findAll { providerUids.containsKey(it) }.each { provider ->
+            // Groovy interpolation yields a GString, while JsonSlurper map keys
+            // are Strings; normalize before containsKey so equal text matches.
+            def key = "config.jade.plugin_${mod_id}.${providerUids[provider]}".toString()
+            if (!enUs.containsKey(key)) {
+                errors << "registered Jade provider ${provider} is missing en_us key ${key}"
+            }
+            if (!zhCn.containsKey(key)) {
+                errors << "registered Jade provider ${provider} is missing zh_cn key ${key}"
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            throw new GradleException('Language verification failed:\n - ' + errors.join('\n - '))
+        }
+        logger.lifecycle("Language keys aligned (${enUs.size()} keys); Jade config translations cover " +
+                "${registeredProviders.size()} registered UIDs.")
+    }
+}
+
+def assetPythonExecutable = providers.gradleProperty('assetPythonExecutable')
+        .orElse(providers.environmentVariable('GSE_ASSET_PYTHON'))
+        .orElse('python')
+
+tasks.register('genAssets', Exec) {
+    group = 'generation'
+    description = 'Regenerates committed textures and GameTest structure assets.'
+    workingDir rootDir
+    environment 'PYTHONDONTWRITEBYTECODE', '1'
+    inputs.files(fileTree('tools') {
+        include 'gen_*.py', 'generate_assets.py', 'requirements.txt'
+    })
+    outputs.upToDateWhen { false }
+    doFirst {
+        commandLine assetPythonExecutable.get(), 'tools/generate_assets.py'
+    }
+}
+
+def checkGeneratedAssets = tasks.register('checkGeneratedAssets', Exec) {
+    group = 'verification'
+    description = 'Generates assets in isolation and checks committed outputs byte for byte.'
+    workingDir rootDir
+    environment 'PYTHONDONTWRITEBYTECODE', '1'
+    inputs.files(fileTree('tools') {
+        include 'gen_*.py', 'generate_assets.py', 'requirements.txt'
+    })
+    doFirst {
+        commandLine assetPythonExecutable.get(), 'tools/generate_assets.py', '--check'
+    }
+}
+
+def checkDesignContracts = tasks.register('checkDesignContracts', Exec) {
+    group = 'verification'
+    description = 'Checks representative structure dimensions and parallel limits against design docs.'
+    workingDir rootDir
+    environment 'PYTHONDONTWRITEBYTECODE', '1'
+    inputs.file('tools/check_design_contracts.py')
+    inputs.files(fileTree('docs/design') { include '*.md' })
+    inputs.files(fileTree('src/main/java/com/hoshino/gregsteamexpansion') { include '**/*.java' })
+    doFirst {
+        commandLine assetPythonExecutable.get(), 'tools/check_design_contracts.py'
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn checkLanguageKeys, checkGeneratedAssets, checkDesignContracts
+}
