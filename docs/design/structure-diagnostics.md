@@ -50,7 +50,7 @@
 | `AbstractSteamCrusherMachine` | 蒸汽粉碎机 / 大型蒸汽粉碎机 |
 | `AbstractSteamVoidMachine` | 大型蒸汽矿脉处理厂 / 流体钻机 |
 | `LargeHeatStorageSteamFurnaceMachine` | 大型蓄热蒸汽熔炉 |
-| `BoilerRoomMachine` | 锅炉房 ×4 档（未实现） |
+| `BoilerRoomMachine` | 锅炉房 ×4 档（已实现） |
 | `WorkableMultiblockMachine` | 大型焦炉 |
 | `CokeOvenMachine` → `PrimitiveWorkableMachine` → `WorkableMultiblockMachine` | 普通焦炉 |
 
@@ -239,4 +239,3 @@
 | P6 | 文案口径 | ✅ **明写"首个问题"**，并附"修好后可能还有下一个问题" |
 
 B/C/D 档（右键提示 / GUI 常驻 / 世界内高亮）本次不做，可在 A 档之上单独追加，不返工。
-

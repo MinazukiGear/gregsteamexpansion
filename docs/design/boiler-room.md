@@ -1,6 +1,6 @@
 # 锅炉房（多方块蒸汽锅炉）设计文档
 
-> 状态：**决策已定（P0–P3 全部锁定），规格与待办合一**。本文档是「锅炉房」的唯一设计文件，同时存放设计决策、具体参数与待办项（项目约定：每台机器只建一个 md）。
+> 状态：**决策已定（P0–P3 全部锁定），四档代码已实现，待游戏内验收**。本文档是「锅炉房」的唯一设计文件，同时存放设计决策、具体参数与待办项（项目约定：每台机器只建一个 md）。
 >
 > 目标：以 GTCEu 大型锅炉（`LargeBoilerMachine`）为骨架，融入本模组单方块混合燃料锅炉（`MixedFuelBoilerMachine`）的液体燃料 + 协同燃烧语义，形成蒸汽时代的终端多方块锅炉，并在四个 tier 上产能完全上位于 GTCEu 大型锅炉。
 >
@@ -126,11 +126,13 @@ finalOutput = coFiringOutput × difficultyMultiplier       // 显式难度倍率
 
 ---
 
-## 五、P2 — 接口与结构 ✅ 基本锁定（#9 仅余数量待定）
+> **实现对照待核验（2026-09-12）**：`GSEBoilerPatterns` 的 `A` 候选位除顶面中心外，也出现在第二层内部；谓词允许外壳或进气室，未在图案中设置进气室精确数量。这与下文“仅 1 个、顶面中心”的设计存在差异，需要后续核验控制器行为并决定修复方案。本次文档同步保留已定设计，不以当前实现反向改变规则。
 
-### 9. 结构图案 → ✅ 尺寸/选型/位置已定，数量部分待定
+## 五、P2 — 接口与结构 ✅ 已锁定（2026-09-11 更新外壳数量规则）
 
-- 四档变体实现：**四个独立注册机器**（bronze/steel/titanium/tungstensteel 各一个 `BoilerRoomMachine` 子类，maxTemperature 取 800/1800/3200/6400），共用同一图案定义——因继承 `LargeBoilerMachine`（maxTemperature 在构造参数里），这是最干净的路径。
+### 9. 结构图案 → ✅ 尺寸、选型、位置与数量规则已定
+
+- 四档变体实现：**四个独立注册机器**（bronze/steel/titanium/tungstensteel），统一实例化继承 `LargeBoilerMachine` 的 `BoilerRoomMachine`，以构造参数区分档位，maxTemperature 取 800/1800/3200/6400；共用 `GSEBoilerPatterns` 图案定义。
 - 结构尺寸（用户拍板）：**长 7 × 宽 11 × 高 7 去角长方体**（四档共用同一 footprint）。
 - **去角定义**：去掉四条横向棱，具体效果为**底层（底面）与顶层（顶面）由 7×11 变为 5×11**（沿 7 轴每端各收 1 格）；中间 5 层仍为 7×11 周边环。
 - 外壳数量核算：
@@ -163,7 +165,7 @@ finalOutput = coFiringOutput × difficultyMultiplier       // 显式难度倍率
 | 消音器 | GTCEu Muffler | **1**（已定） | 背面（外接 7×7）中心；泄压，禁用蒸汽排气仓 |
 | 蒸汽进气室 | 蒸汽进气室 | **1**（已定） | 顶面（5×11）中心；协同燃烧硬性前置，见 P2#10 |
 
-**✅ 数量上限口径（用户已定）**：仓室数量**不设上限**，但结构必须**保证至少 220 个外壳 casing**。核算：270 表面 − 控制器 1 − 消音器 1 − 进气室 1 − 底层火室 27 = 240 → 仓室（流体输入 + 物品输入 + 输出仓）合计 ≤ **20** 个时满足 casing ≥220。多重流体输入仓与标准单流体仓均可用（不限定）。
+**✅ 数量上限口径（2026-09-11 用户定案）**：取消普通外壳最低数量，以及由旧 `casing ≥220` 派生的仓室合计 `≤20` 限制。合法外壳候选位可以替换为允许的接口；固定功能方块、接口类型与各类功能接口的必需数量规则保持不变。上方约 `240` 格为结构位置核算，不是必须保留的外壳数量。
 
 ### 10. 蒸汽进气室的机械语义 → ✅ 选项 A：协同燃烧硬性前置
 
@@ -231,18 +233,18 @@ finalOutput = coFiringOutput × difficultyMultiplier       // 显式难度倍率
 
 ---
 
-## 七、架构与文件清单（实现指引）
+## 七、架构与文件清单（当前实现入口）
 
-| 文件 | 动作 | 说明 |
+| 文件 | 状态 | 说明 |
 | --- | --- | --- |
-| `machine/multiblock/BoilerRoomMachine.java` | 新建 | 主类，四档共用，`maxTemperature` 走构造参数 |
-| `registry/GSEMachines.java` | 修改 | 注册 `BOILER_ROOM_BRONZE/STEEL/TITANIUM/TUNGSTENSTEEL` 四个 `MultiblockMachineDefinition` |
-| 配方类型注册（本模组 data-gen 处，类比 `GTRecipeTypes`） | 修改 | 新增 `BOILER_ROOM_RECIPES` |
-| `machine/multiblock/BoilerRoomMachine` 的 pattern 定义 | 新建 | 7×11×7 去角长方体，见 P2#9 |
-| GUI（`BoilerRoomUI` 或 `SteamBoilerUI` 子类） | 新建/复用 | 见 P3#13 |
-| 控制器纹理（叠加层 + 协同标识） | 新建 | 见 P3#16 |
-| 语言文件（en + zh_cn） | 修改 | 见 P3#15 |
-| 合成配方 JSON（四档控制器） | 新建 | 见 P3#14，材料已定稿（大型锅炉 + 高压混合燃料锅炉 + 对应板 ×7） |
+| `machine/multiblock/BoilerRoomMachine.java` | 已实现 | 主类，四档共用，`maxTemperature` 走构造参数 |
+| `registry/GSEMachines.java` | 已实现 | 注册 `BOILER_ROOM_BRONZE/STEEL/TITANIUM/TUNGSTENSTEEL` 四个 `MultiblockMachineDefinition`，同时配置模型 |
+| `registry/GSERecipeTypes.java`、`machine/multiblock/BoilerRoomFuelSync.java` | 已实现 | `BOILER_ROOM_RECIPES` 与加载时液体燃料同步 |
+| `registry/GSEBoilerPatterns.java` | 已实现，细则待核对 | 7×11×7 去角长方体；进气室差异见 P2#9 前的核验记录 |
+| 上游锅炉界面与本机显示接口 | 待逐项核验 | 当前没有独立 `BoilerRoomUI` 类；粉料进度、状态提示与 P3#13 的对应关系需核对 |
+| 控制器纹理与叠加层 | 待外观验收 | P3#16 是设计要求，资源已接入不代表协同标识等细则全部满足 |
+| `data/GSELang.java`、`zh_cn.json` | 已接入 | 见 P3#15，长文本与状态显示待验收 |
+| `data/GSERecipes.java` | 已实现 | 四档控制器工作台与组装机配方；材料为对应大型锅炉 + 高压混合燃料锅炉 + 对应板 ×7 |
 
 ---
 
@@ -255,7 +257,7 @@ finalOutput = coFiringOutput × difficultyMultiplier       // 显式难度倍率
 - ❌ **蒸汽流体输入仓** —— 用户明确**不可用于**锅炉房流体输入（P2#9）。
 - ❌ **蒸汽排气仓** —— 用户明确**不用于**锅炉房，蒸汽导出走输出仓、泄压走消音器（P2#11）。
 
-> 结论：早期"锅炉房一次性消化多个孤儿"的判断已不成立。剩余孤儿（工业蒸汽机械方块、蒸汽流体输入仓、蒸汽排气仓）需在下一台机器设计里重新分配归属，见 `next-machine-candidates.md` 的归属选择题。
+> 当前归属：工业蒸汽机械方块、蒸汽流体输入仓和蒸汽排气仓均已被其他已实现机器使用；锅炉房不使用这些部件不构成新的孤儿资产待办，见[候选清单的资产现状](next-machine-candidates.md#孤儿资产现状)。
 
 ---
 
@@ -279,4 +281,4 @@ finalOutput = coFiringOutput × difficultyMultiplier       // 显式难度倍率
 
 ## 十、待用户后续决定
 
-**（无）——设计决策已全部收口。** 下一步为进入实现：按「七、架构与文件清单」开写代码。
+**（无）——设计决策已全部收口，四档代码已实现。** 下一步为核对实现差异、完成第九节游戏内验收；实现存在不一致时保留定案要求，单独跟踪修复。
