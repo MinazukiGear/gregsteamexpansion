@@ -12,12 +12,8 @@ import net.minecraftforge.common.crafting.conditions.IConditionSerializer;
 
 /**
  * Datapack condition selecting the recipe variant for one difficulty tier
- * (difficulty.md 配方与数据重载机制). Recipes are authored against the Normal
- * baseline; while a server has not resolved the save tier — the process's
- * very first datapack load — every condition falls back to Normal. The
- * startup reload re-evaluates them once the save tier is known, and the
- * client never evaluates the condition itself because its recipe set comes
- * from the server sync.
+ * (difficulty.md 配方加载机制). The startup config has already fixed the tier
+ * before the first datapack load, so no world-specific reload is required.
  */
 public record GSEDifficultyCondition(Difficulty difficulty) implements ICondition {
     public static final ResourceLocation ID = GregSteamExpansion.id("difficulty");
@@ -33,9 +29,6 @@ public record GSEDifficultyCondition(Difficulty difficulty) implements IConditio
 
     @Override
     public boolean test(ICondition.IContext context) {
-        if (!GSEDifficultyState.isResolved()) {
-            return difficulty == Difficulty.NORMAL;
-        }
         return difficulty == GSEDifficultyState.resolved();
     }
 

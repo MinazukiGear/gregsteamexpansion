@@ -747,23 +747,15 @@ public final class GSELang {
         add("config.gregsteamexpansion.difficulty.expert", "Expert (YaZha)");
         add("config.gregsteamexpansion.difficulty.invalid", "Invalid");
         add("config.gregsteamexpansion.difficulty.mismatch",
-                "Work intensity mismatch: your client difficulty is %s, but the save requires %s. " +
-                        "Set difficulty in config/gregsteamexpansion-common.toml to the save tier, " +
+                "Work intensity mismatch: your client difficulty is %s, but the server uses %s. " +
+                        "Set difficulty in config/gregsteamexpansion-common.toml to the server tier, " +
                         "then restart your client before reconnecting.");
-
-        add("config.gregsteamexpansion.difficulty.select.title", "Select Work Intensity");
-        add("config.gregsteamexpansion.difficulty.select.hint",
-                "This save has no work intensity yet. Your choice is written to the save, " +
-                        "applies to everyone, and can only be lowered later.");
-        add("config.gregsteamexpansion.difficulty.select.cancelled",
-                "You left without choosing a work intensity; the save stays untouched.");
 
         add("config.gregsteamexpansion.screen.title", "Greg Steam Expansion Config");
         add("config.gregsteamexpansion.screen.difficulty", "Work intensity (difficulty)");
         add("config.gregsteamexpansion.screen.restart",
-                "Saved to the config file; a full restart is required before it takes effect.");
+                "Saved to the config file; restart the client before it takes effect.");
         add("config.gregsteamexpansion.screen.reset", "Reset to Default");
-        add("config.gregsteamexpansion.request.ask", "Ask at first entry (ASK, default)");
 
         addCokeOvenLang();
         addLargeCokeOvenLang();

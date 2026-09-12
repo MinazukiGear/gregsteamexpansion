@@ -10,7 +10,7 @@
 
 | 内容 | 规格 | 主要实现入口 |
 | --- | --- | --- |
-| 工作强度、首次选择与存档档位 | [全局难度](difficulty.md) | `difficulty/` |
+| 启动期工作强度与 GTCEu 配方难度预设 | [全局难度](difficulty.md) | `difficulty/` |
 | 青铜构件、四种结构方块、上游工业蒸汽机械方块补充配方 | [物品与方块](items-and-blocks.md) | `registry/GSEBlocks.java`、`data/GSERecipes.java` |
 | 蒸汽供给、流体输入/输出、空气进气仓 | [机器与部件](machines-and-hatches.md) | `machine/multiblock/part/` |
 | 混合燃料锅炉、四档锅炉房 | [混合燃料锅炉](mixed-fuel-boiler.md)、[锅炉房](boiler-room.md) | `machine/steam/MixedFuelBoilerMachine.java`、`machine/multiblock/BoilerRoomMachine.java` |
@@ -49,4 +49,4 @@
 
 锅炉房按用户更新采用“顶面中央 11 格仅外壳或进气室、进气室 1–11 个”，保留正确的预览朝向和温度/粉料仪表。旧预览第二层火室两侧的部件需要移除，进气条带上的其他仓室需要移至普通外壳位。2026-09-12 的 debug 客户端冒烟验收已确认钨钢锅炉房可识别 GTM Things 创造输入总线中的粉料并启动配方；持续生产和其余行为仍待验收。
 
-全仓库现有 76 个 GameTest（锅炉房共 11 个）。锅炉房完整燃料启动链覆盖：标准流体仓注入水与杂酚油、原生或 GTM Things 创造物品输入总线注入煤粉、进气室供气后，配方必须开始推进并升温；同时锁定背面消音器朝外且出口无阻挡。2026-09-12 的 65 项历史复验记录见[工程路线图](../refactor-roadmap.md#完成态基线2026-09-12)，当前验证命令见[项目 README](../../README.md#测试与-ci)。历史通过记录不代表每次文档更新都重新运行了构建，也不替代用户验收。
+全仓库现有 77 个 GameTest（锅炉房共 11 个，启动难度预设 1 个）。难度测试逐项核对当前启动档位写入 GTCEu 的 19 个配方难度布尔项与 `casingsPerCraft`。锅炉房完整燃料启动链覆盖：标准流体仓注入水与杂酚油、原生或 GTM Things 创造物品输入总线注入煤粉、进气室供气后，配方必须开始推进并升温；同时锁定背面消音器朝外且出口无阻挡。2026-09-12 的 65 项历史复验记录见[工程路线图](../refactor-roadmap.md#完成态基线2026-09-12)，当前验证命令见[项目 README](../../README.md#测试与-ci)。历史通过记录不代表每次文档更新都重新运行了构建，也不替代用户验收。

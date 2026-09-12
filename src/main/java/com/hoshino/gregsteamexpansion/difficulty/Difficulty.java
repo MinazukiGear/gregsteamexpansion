@@ -6,7 +6,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Global work-intensity tiers ("difficulty"). The order EASY &lt; NORMAL &lt; EXPERT
- * and the NORMAL default are save-compatible data (difficulty.md 档位定义) and must
+ * and the NORMAL default are config-compatible data (difficulty.md 档位定义) and must
  * never be reshuffled or renamed.
  */
 public enum Difficulty {
@@ -98,10 +98,6 @@ public enum Difficulty {
      */
     public float getOreCrushingMultiplier() {
         return oreCrushingMultiplier;
-    }
-
-    public boolean isLowerThan(Difficulty other) {
-        return ordinal() < other.ordinal();
     }
 
     @Nullable

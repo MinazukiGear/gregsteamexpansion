@@ -1,5 +1,6 @@
 package com.hoshino.gregsteamexpansion.client;
 
+import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 
 import net.minecraft.client.gui.GuiGraphics;
@@ -32,7 +33,7 @@ public final class GSEConfigScreen extends Screen {
 
     @Nullable
     private final Screen parent;
-    private GSEDifficultyConfig.Request value;
+    private Difficulty value;
 
     @Nullable
     private Button valueButton;
@@ -40,7 +41,7 @@ public final class GSEConfigScreen extends Screen {
     public GSEConfigScreen(@Nullable Screen parent) {
         super(Component.translatable("config.gregsteamexpansion.screen.title"));
         this.parent = parent;
-        this.value = GSEDifficultyConfig.capturedRequest();
+        this.value = GSEDifficultyConfig.capturedDifficulty();
     }
 
     @Override
@@ -53,7 +54,7 @@ public final class GSEConfigScreen extends Screen {
 
         int footerY = this.height - FOOTER_Y;
         this.addRenderableWidget(Button.builder(RESET_LABEL, button -> {
-                    value = GSEDifficultyConfig.Request.ASK;
+                    value = Difficulty.NORMAL;
                     if (this.valueButton != null) {
                         this.valueButton.setMessage(valueLabel());
                     }
@@ -61,23 +62,21 @@ public final class GSEConfigScreen extends Screen {
         this.addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), button -> this.onClose())
                 .bounds(this.width / 2 - 51, footerY, FOOTER_BUTTON_WIDTH, 20).build());
         this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> {
-                    GSEDifficultyConfig.setRequest(value);
+                    GSEDifficultyConfig.setDifficulty(value);
                     this.onClose();
                 }).bounds(this.width / 2 + 53, footerY, FOOTER_BUTTON_WIDTH, 20).build());
     }
 
     private void cycleValue() {
-        GSEDifficultyConfig.Request[] requests = GSEDifficultyConfig.Request.values();
-        value = requests[(value.ordinal() + 1) % requests.length];
+        Difficulty[] difficulties = Difficulty.values();
+        value = difficulties[(value.ordinal() + 1) % difficulties.length];
         if (this.valueButton != null) {
             this.valueButton.setMessage(valueLabel());
         }
     }
 
     private Component valueLabel() {
-        return value.difficulty() != null
-                ? Component.translatable(value.difficulty().getDisplayNameKey())
-                : Component.translatable("config.gregsteamexpansion.request.ask");
+        return Component.translatable(value.getDisplayNameKey());
     }
 
     @Override

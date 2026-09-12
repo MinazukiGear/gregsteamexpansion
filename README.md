@@ -46,7 +46,7 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（76 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（77 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```

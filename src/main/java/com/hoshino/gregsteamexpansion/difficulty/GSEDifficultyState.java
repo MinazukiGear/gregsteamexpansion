@@ -3,93 +3,27 @@ package com.hoshino.gregsteamexpansion.difficulty;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
- * Per-process difficulty state: the save tier resolved at server start, the
- * tier synced to this client, and the session-scoped upstream overrides
- * (difficulty.md 上游覆盖生命周期). All fields are process-lifetime only; the
- * authoritative tier lives in {@link DifficultySavedData}.
+ * Process-wide difficulty state. The startup config is the authority for the
+ * whole process and is applied before recipe/datapack loading; the synced
+ * client value exists only for multiplayer display and machine-side parity.
  */
 public final class GSEDifficultyState {
-    @Nullable
-    private static volatile Difficulty serverDifficulty;
+    private static volatile Difficulty startupDifficulty = Difficulty.NORMAL;
+    private static volatile boolean initialized;
     private static volatile Difficulty clientDifficulty = Difficulty.NORMAL;
-    private static volatile boolean awaitingChoice;
-    private static volatile boolean clientChoicePending;
     private static volatile boolean clientTierSynced;
-    private static boolean recipeReloadPending;
-    private static boolean upstreamOverridden;
-    private static int originalCasingsPerCraft;
 
     private GSEDifficultyState() {}
 
-    /**
-     * The tier resolved from the authoritative save. Falls back to the Normal
-     * baseline before a server has resolved it (used by recipe conditions
-     * during the process's first datapack load and by client machines before
-     * the login sync arrives).
-     */
+    /** The startup tier, with Normal as the safe pre-config fallback. */
     public static Difficulty resolved() {
-        Difficulty difficulty = serverDifficulty;
-        return difficulty != null ? difficulty : Difficulty.NORMAL;
+        return startupDifficulty;
     }
 
-    /** True once this process's server has resolved the save tier. */
+    /** True once Forge has loaded this mod's startup config. */
     public static boolean isResolved() {
-        return serverDifficulty != null;
-    }
-
-    static void setServerDifficulty(Difficulty difficulty) {
-        serverDifficulty = difficulty;
-    }
-
-    static void clearServerDifficulty() {
-        serverDifficulty = null;
-        awaitingChoice = false;
-    }
-
-    /**
-     * True while the save carries no difficulty field yet and the first
-     * entering client must pick one (difficulty.md 服务端与存档权威性).
-     */
-    public static boolean isAwaitingChoice() {
-        return awaitingChoice;
-    }
-
-    static void setAwaitingChoice(boolean awaiting) {
-        awaitingChoice = awaiting;
-    }
-
-    /** Set by the client on the open-choice packet; consumed by the client tick hook. */
-    public static void requestClientChoiceScreen() {
-        clientChoicePending = true;
-    }
-
-    public static boolean isClientChoicePending() {
-        return clientChoicePending;
-    }
-
-    public static void clearClientChoicePending() {
-        clientChoicePending = false;
-    }
-
-    static void setRecipeReloadPending(boolean pending) {
-        recipeReloadPending = pending;
-    }
-
-    static boolean isRecipeReloadPending() {
-        return recipeReloadPending;
-    }
-
-    /**
-     * Whether the recipe set currently in the manager (Normal baseline plus
-     * pre-override upstream values, as loaded before any player could enter)
-     * still needs a datapack reload to match the given tier.
-     */
-    static boolean needsRecipeReloadFor(Difficulty difficulty) {
-        return difficulty != Difficulty.NORMAL
-                || originalCasingsPerCraft != difficulty.getCasingsPerCraft();
+        return initialized;
     }
 
     /** Stores the tier pushed to this client after a passed login check. */
@@ -118,28 +52,46 @@ public final class GSEDifficultyState {
     }
 
     /**
-     * Forces the whitelisted upstream settings (difficulty.md 已确认的上游覆盖
-     * 白名单) to the values for the given tier. Idempotent within a session;
-     * the pre-override GTCEu value is captured once for {@link #revertUpstreamOverrides()}.
+     * Captures the process tier and applies the GTCEu 7.5.3 recipe-difficulty
+     * profile before recipes are loaded. Easy disables the profile, Normal
+     * reproduces GTCEu defaults, and Expert enables every listed hard option.
      */
-    static void applyUpstreamOverrides(Difficulty difficulty) {
-        if (!upstreamOverridden) {
-            originalCasingsPerCraft = ConfigHolder.INSTANCE.recipes.casingsPerCraft;
+    static synchronized void initializeAtStartup(Difficulty difficulty) {
+        if (initialized) {
+            return;
         }
-        ConfigHolder.INSTANCE.recipes.casingsPerCraft = difficulty.getCasingsPerCraft();
-        upstreamOverridden = true;
-    }
+        ConfigHolder.init();
+        ConfigHolder.RecipeConfigs recipes = ConfigHolder.INSTANCE.recipes;
+        boolean normalOrExpert = difficulty != Difficulty.EASY;
+        boolean expert = difficulty == Difficulty.EXPERT;
 
-    /**
-     * Restores the upstream settings so a following save started in the same
-     * process never inherits this save's tier.
-     */
-    static void revertUpstreamOverrides() {
-        if (upstreamOverridden) {
-            ConfigHolder.INSTANCE.recipes.casingsPerCraft = originalCasingsPerCraft;
-            upstreamOverridden = false;
-            GregSteamExpansion.LOGGER.info("[Difficulty] Restored GTCEu casingsPerCraft to {}.",
-                    originalCasingsPerCraft);
-        }
+        recipes.disableManualCompression = normalOrExpert;
+        recipes.harderRods = normalOrExpert;
+        recipes.harderBrickRecipes = expert;
+        recipes.nerfWoodCrafting = expert;
+        recipes.hardWoodRecipes = expert;
+        recipes.hardIronRecipes = normalOrExpert;
+        recipes.hardRedstoneRecipes = expert;
+        recipes.hardToolArmorRecipes = expert;
+        recipes.hardMiscRecipes = expert;
+        recipes.hardGlassRecipes = normalOrExpert;
+        recipes.nerfPaperCrafting = normalOrExpert;
+        recipes.hardAdvancedIronRecipes = normalOrExpert;
+        recipes.hardDyeRecipes = expert;
+        recipes.harderCharcoalRecipe = normalOrExpert;
+        recipes.flintAndSteelRequireSteel = normalOrExpert;
+        recipes.removeVanillaBlockRecipes = expert;
+        recipes.removeVanillaTNTRecipe = normalOrExpert;
+        recipes.harderCircuitRecipes = expert;
+        recipes.hardMultiRecipes = expert;
+        recipes.casingsPerCraft = difficulty.getCasingsPerCraft();
+
+        startupDifficulty = difficulty;
+        clientDifficulty = difficulty;
+        initialized = true;
+        GregSteamExpansion.LOGGER.info(
+                "[Difficulty] Applied GTCEu startup recipe profile {} (hard options {}, casingsPerCraft {}).",
+                difficulty, expert ? "all" : difficulty == Difficulty.EASY ? "off" : "GTCEu defaults",
+                recipes.casingsPerCraft);
     }
 }
