@@ -874,13 +874,14 @@ public final class GSELang {
         add("gregsteamexpansion.machine.boiler_room.tooltip.co_firing",
                 "Co-firing only: liquid fuel + a co-firing dust powder; output \u00d71.5, drawing %s mB/t of combustion air.");
         add("gregsteamexpansion.machine.boiler_room.tooltip.air_intake",
-                "Requires exactly one Steam Air Intake Hatch on the top face; no steam hatch of any kind is allowed.");
+                "Top centre strip (11 blocks): tier casing or 1-11 Steam Air Intake Hatches only; no other hatches on this strip.");
         add("gregsteamexpansion.machine.boiler_room.status.no_air_intake",
-                "Needs combustion air: attach a Steam Air Intake Hatch on the top face.");
+                "Structure requirement: 1-11 Steam Air Intake Hatches anywhere along the 11-block top centre strip; remaining strip blocks must be tier casing.");
         add("gregsteamexpansion.machine.boiler_room.status.air_starved",
                 "Air intake cannot keep up \u2014 combustion paused.");
         add("gregsteamexpansion.machine.boiler_room.status.missing_powder",
                 "Missing co-firing powder \u2014 paused and cooling fast.");
+        add("gregsteamexpansion.machine.boiler_room.powder_remaining", "Co-firing dust buffer: %s%% remaining");
         add("gregsteamexpansion.machine.boiler_room.status.co_firing",
                 "Co-firing: powder burn buffer %s%%");
     }

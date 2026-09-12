@@ -3,20 +3,20 @@ package com.hoshino.gregsteamexpansion.machine.multiblock;
 import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.IRecipeHandler;
+import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.chemical.material.Material;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.gui.GuiTextures;
+import com.gregtechceu.gtceu.api.gui.UITemplate;
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
 import com.gregtechceu.gtceu.api.machine.feature.IMachineLife;
-import com.gregtechceu.gtceu.api.machine.feature.multiblock.IDisplayUIMachine;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
 import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.ingredient.FluidIngredient;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
-import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.gregtechceu.gtceu.utils.GTUtil;
@@ -25,8 +25,13 @@ import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSETags;
 
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
+import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
 import com.lowdragmc.lowdraglib.gui.widget.ComponentPanelWidget;
+import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
+import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
+import com.lowdragmc.lowdraglib.gui.widget.ProgressWidget;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 
@@ -37,7 +42,9 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 
@@ -133,9 +140,8 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     private TickableSubscription roomTemperatureSubs;
     private int heatCounter;
     private int coolCounter;
-    /** Collected on formation: the single air intake hatch and the powder buses. */
+    /** Collected on formation: the roof-strip air intakes. */
     private final List<SteamAirIntakeHatchPartMachine> airIntakes = new ArrayList<>();
-    private final List<ItemBusPartMachine> powderBuses = new ArrayList<>();
 
     /**
      * @param tierIndex 0..3 = bronze / steel / titanium / tungstensteel
@@ -215,18 +221,13 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     public void onStructureInvalid() {
         super.onStructureInvalid();
         airIntakes.clear();
-        powderBuses.clear();
     }
 
     private void collectBoilerParts() {
         airIntakes.clear();
-        powderBuses.clear();
         for (IMultiPart part : getParts()) {
             if (part instanceof SteamAirIntakeHatchPartMachine intake) {
                 airIntakes.add(intake);
-            } else if (part instanceof ItemBusPartMachine bus
-                    && bus.getInventory().getHandlerIO() != IO.OUT) {
-                powderBuses.add(bus);
             }
         }
     }
@@ -239,17 +240,42 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         return !stack.isEmpty() && stack.is(GSETags.CO_FIRING_DUST_FUELS);
     }
 
-    /** Extracts one powder item across the input buses; empty when none available. */
-    private ItemStack extractOnePowder() {
-        for (ItemBusPartMachine bus : powderBuses) {
-            var inventory = bus.getInventory();
-            for (int slot = 0; slot < inventory.getSlots(); slot++) {
-                ItemStack candidate = inventory.getStackInSlot(slot);
-                if (isValidPowder(candidate)) {
-                    ItemStack extracted = inventory.extractItemInternal(slot, 1, false);
-                    if (!extracted.isEmpty()) {
-                        return extracted;
-                    }
+    /**
+     * All item-input recipe handlers attached to the formed structure. Reading
+     * the controller capability map also supports addon buses which advertise
+     * {@code IMPORT_ITEMS} without extending GTCEu's concrete
+     * {@code ItemBusPartMachine} (for example GTM Things' creative input bus).
+     */
+    private List<IRecipeHandler<?>> getPowderInputs() {
+        List<IRecipeHandler<?>> inputs = new ArrayList<>();
+        inputs.addAll(getCapabilitiesFlat(IO.IN, ItemRecipeCapability.CAP));
+        inputs.addAll(getCapabilitiesFlat(IO.BOTH, ItemRecipeCapability.CAP));
+        return inputs;
+    }
+
+    private static ItemStack firstValidPowder(IRecipeHandler<?> handler) {
+        for (Object content : handler.getContents()) {
+            if (content instanceof ItemStack stack && isValidPowder(stack)) {
+                return stack;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    /** Extracts one powder item across every compatible item-input handler. */
+    private ItemStack extractOnePowder(@Nullable GTRecipe recipe) {
+        if (recipe == null) return ItemStack.EMPTY;
+        for (IRecipeHandler<?> handler : getPowderInputs()) {
+            // Consume through GTCEu's recipe handler. Input buses intentionally
+            // reject extraction through their external item capability, while
+            // this path performs the controller-authorized internal draw for
+            // native, addon, creative and network-backed inputs alike.
+            ItemStack candidate = firstValidPowder(handler);
+            if (!candidate.isEmpty()) {
+                Ingredient one = Ingredient.of(candidate.copyWithCount(1));
+                List<?> left = handler.handleRecipe(IO.IN, recipe, List.of(one), false);
+                if (left == null || left.isEmpty()) {
+                    return candidate.copyWithCount(1);
                 }
             }
         }
@@ -269,9 +295,9 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     /** Refills the powder heat buffer from the buses; false when nothing to burn. */
-    private boolean preparePowder() {
+    private boolean preparePowder(@Nullable GTRecipe recipe) {
         if (powderBurnRemaining > 0) return true;
-        ItemStack powder = extractOnePowder();
+        ItemStack powder = extractOnePowder(recipe);
         if (powder.isEmpty()) return false;
         int burnTime = getPowderBurnTime(powder);
         if (burnTime <= 0) return false;
@@ -296,12 +322,9 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     private boolean hasUsablePowder() {
         if (powderBurnRemaining > 0) return true;
-        for (ItemBusPartMachine bus : powderBuses) {
-            var inventory = bus.getInventory();
-            for (int slot = 0; slot < inventory.getSlots(); slot++) {
-                if (isValidPowder(inventory.getStackInSlot(slot))) {
-                    return true;
-                }
+        for (IRecipeHandler<?> handler : getPowderInputs()) {
+            if (!firstValidPowder(handler).isEmpty()) {
+                return true;
             }
         }
         return false;
@@ -326,17 +349,27 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         return !airIntakes.isEmpty();
     }
 
-    /** True when the intake cannot supply this tier's per-tick air amount. */
+    /** True when the combined intakes cannot supply this tier's per-tick air amount. */
     public boolean isAirStarved() {
-        if (!hasAirIntake()) return true;
-        return airIntakes.get(0).tank.getFluidInTank(0).getAmount() < airConsumptionPerTick;
+        int remaining = airConsumptionPerTick;
+        for (var intake : airIntakes) {
+            remaining -= intake.tank.drainInternal(GTMaterials.Air.getFluid(remaining), FluidAction.SIMULATE)
+                    .getAmount();
+            if (remaining == 0) return false;
+        }
+        return true;
     }
 
-    /** Drains this tick's air; false when the intake is missing or dry. */
+    /** Simulate the whole demand first so shortage never partially drains the intakes. */
     private boolean consumeAir() {
-        if (airIntakes.isEmpty()) return false;
-        return !airIntakes.get(0).tank.drainInternal(
-                GTMaterials.Air.getFluid(airConsumptionPerTick), FluidAction.EXECUTE).isEmpty();
+        if (isAirStarved()) return false;
+        int remaining = airConsumptionPerTick;
+        for (var intake : airIntakes) {
+            remaining -= intake.tank.drainInternal(GTMaterials.Air.getFluid(remaining), FluidAction.EXECUTE)
+                    .getAmount();
+            if (remaining == 0) return true;
+        }
+        return false;
     }
 
     //////////////////////////////////////
@@ -351,7 +384,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     @Override
     public boolean beforeWorking(@Nullable GTRecipe recipe) {
         // 开工预检 (P1#8/P2#10): powder buffer refill + intake presence, else waiting.
-        return preparePowder() && hasAirIntake() && super.beforeWorking(recipe);
+        return preparePowder(recipe) && hasAirIntake() && super.beforeWorking(recipe);
     }
 
     @Override
@@ -483,11 +516,50 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     //////////////////////////////////////
 
     @Override
+    public ModularUI createUI(Player player) {
+        // Keep the upstream scrolling display and throttle click handler.
+        // The fixed side gauges use ProgressWidget's server-to-client updates;
+        // client machines do not need the server-only powder buses/part list.
+        var screen = new DraggableScrollableWidgetGroup(7, 4, 162, 121)
+                .setBackground(getScreenTexture());
+        screen.addWidget(new LabelWidget(4, 5, getBlockState().getBlock().getDescriptionId()));
+        screen.addWidget(new ComponentPanelWidget(4, 17, this::addDisplayText)
+                .textSupplier(isRemote() ? null : this::addDisplayText)
+                .setMaxWidthLimit(150)
+                .clickHandler(this::handleDisplayClick));
+        boolean steel = getMaxTemperature() > MAX_TEMPERATURES[BRONZE_TIER];
+        return new ModularUI(196, 216, this, player)
+                .background(GuiTextures.BACKGROUND)
+                .widget(screen)
+                .widget(new ProgressWidget(() -> roomTemperature / (double) getMaxTemperature(), 176, 26, 10, 54)
+                        .setProgressTexture(GuiTextures.PROGRESS_BAR_BOILER_EMPTY.get(steel),
+                                GuiTextures.PROGRESS_BAR_BOILER_HEAT)
+                        .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
+                        .setDynamicHoverTips(percent -> Component.translatable(
+                                "gtceu.multiblock.large_boiler.temperature",
+                                (int) Math.round(percent * getMaxTemperature()) + 274,
+                                getMaxTemperature() + 274).getString()))
+                .widget(new ProgressWidget(this::getPowderProgress, 172, 94, 18, 18)
+                        .setProgressTexture(
+                                GuiTextures.PROGRESS_BAR_BOILER_FUEL.get(steel).getSubTexture(0, 0, 1, 0.5),
+                                GuiTextures.PROGRESS_BAR_BOILER_FUEL.get(steel).getSubTexture(0, 0.5, 1, 0.5))
+                        .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
+                        .setDynamicHoverTips(percent -> Component.translatable(
+                                "gregsteamexpansion.machine.boiler_room.powder_remaining",
+                                (int) Math.round(percent * 100)).getString()))
+                .widget(UITemplate.bindPlayerInventory(player.getInventory(), GuiTextures.SLOT, 17, 134, true));
+    }
+
+    @Override
     public void addDisplayText(@NotNull List<Component> textList) {
         if (!isFormed()) {
             // 复刻 IDisplayUIMachine 默认首行 (基类实现被父类覆盖为带 0 产出的
             // 温度面板, 这里改为仅提示结构未成型).
             textList.add(Component.translatable("gtceu.multiblock.invalid_structure"));
+            // A missing mandatory intake prevents formation, so the placement
+            // requirement must also be visible on the unformed screen.
+            textList.add(Component.translatable("gregsteamexpansion.machine.boiler_room.status.no_air_intake")
+                    .withStyle(ChatFormatting.GRAY));
             return;
         }
         {
@@ -572,6 +644,5 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         powderConsumptionTenths = 0;
         cycleSteamGenerated = 0;
         airIntakes.clear();
-        powderBuses.clear();
     }
 }

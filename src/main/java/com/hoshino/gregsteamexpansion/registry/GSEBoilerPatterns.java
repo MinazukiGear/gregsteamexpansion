@@ -1,7 +1,6 @@
 package com.hoshino.gregsteamexpansion.registry;
 
 import com.gregtechceu.gtceu.api.GTValues;
-import com.gregtechceu.gtceu.api.machine.MachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
@@ -14,6 +13,7 @@ import com.gregtechceu.gtceu.common.data.GTMachines;
 
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 
 import java.util.function.Supplier;
 
@@ -25,8 +25,8 @@ import java.util.function.Supplier;
  * centre (height 4), muffler at the back-face centre (height 4), the 9-block
  * pipe axis between them, the tier firebox slabs (3×9 on the bottom layer,
  * replacing casing, plus the mirrored 3×9 filling interior air on layer 2)
- * and the air-intake hatch at the top-face centre. Standard hatches (fluid
- * input, item input, fluid output) replace casing anywhere on the shell.
+ * and 1–11 air intakes along the top-face centre strip. That strip admits
+ * only casing or air intakes; standard hatches replace casing elsewhere.
  */
 public final class GSEBoilerPatterns {
 
@@ -38,13 +38,13 @@ public final class GSEBoilerPatterns {
                              Supplier<? extends Block> firebox) {}
 
     /**
-     * The hatch rule for the 240 casing positions: GTCEu standard fluid
+     * The hatch rule for the 230 general casing positions: GTCEu standard fluid
      * input hatch(es) (water + liquid fuel; a single multi-tank hatch or
      * ≥2 single hatches), a standard item input bus for the co-firing
      * powder, and a standard fluid output hatch for the steam. 蒸汽流体仓、
      * 蒸汽物品总线与蒸汽排气仓 are never admissible (P2#9 hard constraint) —
      * the mod's hatches register under GSEPartAbilities, never under these
-     * GTCEu abilities. Any of the 240 shell positions may use one of these
+     * GTCEu abilities. Any of the 230 general shell positions may use one of these
      * admitted interfaces; there is no ordinary-casing minimum.
      */
     private static TraceabilityPredicate casingCandidates(TierBlocks tier) {
@@ -63,8 +63,8 @@ public final class GSEBoilerPatterns {
     };
     private static final String[] FIREBOX_RING_LAYER = {
             "CCCCCCC",
-            "CAXXXAC", "CAXXXAC", "CAXXXAC", "CAXXXAC", "CAXXXAC",
-            "CAXXXAC", "CAXXXAC", "CAXXXAC", "CAXXXAC",
+            "CIXXXIC", "CIXXXIC", "CIXXXIC", "CIXXXIC", "CIXXXIC",
+            "CIXXXIC", "CIXXXIC", "CIXXXIC", "CIXXXIC",
             "CCCCCCC",
     };
     private static final String[] PLAIN_RING_LAYER = {
@@ -80,11 +80,11 @@ public final class GSEBoilerPatterns {
             "CCCSCCC",
     };
     private static final String[] TOP_LAYER = {
-            " CCCCC ",
-            " CCCCC ", " CCCCC ", " CCCCC ", " CCCCC ",
-            " CCACC ", " CCCCC ", " CCCCC ", " CCCCC ",
-            " CCCCC ",
-            " CCCCC ",
+            " CCACC ",
+            " CCACC ", " CCACC ", " CCACC ", " CCACC ",
+            " CCACC ", " CCACC ", " CCACC ", " CCACC ",
+            " CCACC ",
+            " CCACC ",
     };
 
     /**
@@ -92,8 +92,8 @@ public final class GSEBoilerPatterns {
      * chars left -> right (width 7), aisles bottom -> top (height 7).
      * Symbols: {@code C} tier casing (hatch-replaceable), {@code X} tier
      * firebox, {@code P} tier pipe casing, {@code M} muffler (exact 1),
-     * {@code A} air intake (or casing — the runtime co-firing gate decides),
-     * {@code S} controller.
+     * {@code A} roof centre-strip casing or air intake (1–11 intakes),
+     * {@code I} air beside the second-layer fireboxes, {@code S} controller.
      */
     public static BlockPattern createPattern(MultiblockMachineDefinition definition, TierBlocks tier) {
         return FactoryBlockPattern.start(RelativeDirection.LEFT, RelativeDirection.FRONT, RelativeDirection.UP)
@@ -109,7 +109,8 @@ public final class GSEBoilerPatterns {
                 .where('P', Predicates.blocks(tier.pipe().get()))
                 .where('M', Predicates.abilities(PartAbility.MUFFLER).setExactLimit(1))
                 .where('A', Predicates.blocks(tier.casing().get())
-                        .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE)))
+                        .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMinGlobalLimited(1)))
+                .where('I', Predicates.air())
                 .where('S', Predicates.controller(Predicates.blocks(definition.getBlock())))
                 .build();
     }
@@ -125,6 +126,10 @@ public final class GSEBoilerPatterns {
     public static MultiblockShapeInfo shapeInfo(MultiblockMachineDefinition definition, TierBlocks tier) {
         String[] fireboxRingWithHatches = FIREBOX_RING_LAYER.clone();
         fireboxRingWithHatches[10] = "CFFJLCC";
+        // Minimal representative: one intake in the centre, casing in the
+        // other ten optional strip slots. Pattern candidates still expose both.
+        String[] roofWithIntake = TOP_LAYER.clone();
+        roofWithIntake[5] = " CCNCC ";
         String[][] layers = {
                 BOTTOM_LAYER,
                 fireboxRingWithHatches,
@@ -132,17 +137,23 @@ public final class GSEBoilerPatterns {
                 AXIS_LAYER,
                 PLAIN_RING_LAYER.clone(),
                 PLAIN_RING_LAYER.clone(),
-                TOP_LAYER,
+                roofWithIntake,
         };
         return GSEPatternLayouts.shape(layers)
                 .where('C', tier.casing().get())
                 .where('X', tier.firebox().get())
                 .where('P', tier.pipe().get())
+                .where('I', Blocks.AIR)
                 // MUFFLER_HATCH 用 ELECTRIC_TIERS 注册, ULV 槽 (index 0) 为 null,
                 // 取 LV (index 1) 才非空; 否则 .where 传入 null Supplier 会在
                 // MultiblockShapeInfo#where 里 NPE, 连结构预览都会崩。
-                .where('M', GTMachines.MUFFLER_HATCH[GTValues.LV], Direction.UP)
-                .where('A', GSEMachines.STEAM_AIR_INTAKE_HATCH, Direction.DOWN)
+                // The muffler sits on the back wall. With the representative
+                // controller facing north, south points out of that wall;
+                // facing it up leaves its front blocked by the layer above and
+                // makes GTCEu silently reject every fuel recipe.
+                .where('M', GTMachines.MUFFLER_HATCH[GTValues.LV], Direction.SOUTH)
+                .where('A', tier.casing().get())
+                .where('N', GSEMachines.STEAM_AIR_INTAKE_HATCH, Direction.UP)
                 .where('S', definition, Direction.NORTH)
                 .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
                 .where('J', GTMachines.ITEM_IMPORT_BUS[1], Direction.NORTH)
