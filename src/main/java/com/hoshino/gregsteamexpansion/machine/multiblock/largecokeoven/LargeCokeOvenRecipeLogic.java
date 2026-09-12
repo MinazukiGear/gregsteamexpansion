@@ -9,6 +9,7 @@ import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
 import com.gregtechceu.gtceu.api.recipe.content.Content;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenRecipeIndex;
+import com.hoshino.gregsteamexpansion.machine.multiblock.PendingOutputBuffer;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
@@ -309,11 +310,12 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
             // 概率输出在开工时预抽一次并写入精确快照 (p 份合并判定)。
             rollOutputSnapshot(multiplied);
             if (!fitsOutputs(snapshotItems, snapshotFluids)) continue;
+            List<ItemStack> consumed = recordConsumedInputs(multiplied);
             // 模拟通过 → 同一服务端操作内原子扣取全部输入并创建批次。
             var drawn = RecipeHelper.handleRecipe(machine, multiplied, IO.IN, multiplied.inputs,
                     chanceCaches, false, false);
             if (!drawn.isSuccess()) continue; // 与模拟不一致: 整次失败, 不保留部分扣取
-            createBatch(chosen, multiplied, p);
+            createBatch(chosen, multiplied, p, consumed);
             return;
         }
         // 所有并行均失败: 不创建批次、不扣取输入、清除试探快照、不更新偏好。
@@ -346,10 +348,10 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
             // 偏好被数据包移除: 视为无法组成完整输入, 回退固定槽序。
         }
 
-        var inputStacks = getMachine().getImportStacks();
+        var inputStacks = getMachine().getRecipeInputStacks();
         int firstNonEmpty = -1;
-        for (int i = 0; i < inputStacks.length; i++) {
-            if (!inputStacks[i].isEmpty()) {
+        for (int i = 0; i < inputStacks.size(); i++) {
+            if (!inputStacks.get(i).isEmpty()) {
                 firstNonEmpty = i;
                 break;
             }
@@ -360,8 +362,8 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
         }
         // 由编号最小且能参与一条完整合法配方的输入槽决定候选; 同槽多配方按
         // 资源 ID 字典序取最前。
-        for (int i = firstNonEmpty; i < inputStacks.length; i++) {
-            ItemStack stack = inputStacks[i];
+        for (int i = firstNonEmpty; i < inputStacks.size(); i++) {
+            ItemStack stack = inputStacks.get(i);
             if (stack.isEmpty()) continue;
             GTRecipe match = null;
             boolean anyIngredientMatch = false;
@@ -407,7 +409,7 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
         if (contents.isEmpty()) return 0;
         var ingredient = ItemRecipeCapability.CAP.of(contents.get(0).getContent());
         long available = 0;
-        for (ItemStack stack : getMachine().getImportStacks()) {
+        for (ItemStack stack : getMachine().getRecipeInputStacks()) {
             if (!stack.isEmpty() && ingredient.test(stack)) {
                 available += stack.getCount();
             }
@@ -485,7 +487,8 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
         this.snapshotFluids = fluids;
     }
 
-    private void createBatch(GTRecipe original, GTRecipe multiplied, int parallel) {
+    private void createBatch(GTRecipe original, GTRecipe multiplied, int parallel,
+                             List<ItemStack> consumed) {
         batchRecipe = multiplied;
         batchRecipeId = original.getId();
         batchParallel = parallel;
@@ -496,24 +499,22 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
         feedbackDone = false;
         batchSeq++;
         preferredRecipeId = original.getId(); // 最近成功配方
-        consumedInputs = recordConsumedInputs(original);
+        consumedInputs = consumed;
         GregSteamExpansion.LOGGER.debug("[Large Coke Oven] batch #{} started: {} x{} ({} ticks)",
                 batchSeq, original.getId(), parallel, batchTotalDuration);
     }
 
     /** 记录本批次实际扣取的原物品 (拆除结算时按原始身份掉落)。 */
-    private List<ItemStack> recordConsumedInputs(GTRecipe original) {
-        // 扣取刚在本 tick 完成: 对比扣取前后差值不可行 (已扣), 直接按槽位与
-        // 配方输入推算: 逐槽消耗与 handleRecipe 的槽序一致。
+    private List<ItemStack> recordConsumedInputs(GTRecipe multiplied) {
+        // 在原子扣取前按处理器顺序记录实际物品身份；这也覆盖 ME 样板槽与
+        // 非 ItemBusPartMachine 的创造输入实现。
         List<ItemStack> consumed = new ArrayList<>();
-        var contents = original.getInputContents(ItemRecipeCapability.CAP);
+        var contents = multiplied.getInputContents(ItemRecipeCapability.CAP);
         if (contents.isEmpty()) return consumed;
         var ingredient = ItemRecipeCapability.CAP.of(contents.get(0).getContent());
         int remaining = 0;
         for (ItemStack rep : ingredient.getItems()) remaining = Math.max(remaining, rep.getCount());
-        int parallel = batchParallel;
-        remaining *= Math.max(1, parallel);
-        for (ItemStack stack : getMachine().getImportStacks()) {
+        for (ItemStack stack : getMachine().getRecipeInputStacks()) {
             if (remaining <= 0) break;
             if (stack.isEmpty() || !ingredient.test(stack)) continue;
             int take = Math.min(remaining, stack.getCount());
@@ -531,10 +532,7 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
 
     private boolean fitsOutputs(List<ItemStack> items, List<FluidStack> fluids) {
         var oven = getMachine();
-        for (ItemStack stack : items) {
-            if (stack.isEmpty()) continue;
-            if (!fitsItem(oven, stack)) return false;
-        }
+        if (!PendingOutputBuffer.itemsFit(items, oven.getStandardOutputBuses(), oven.exportItems)) return false;
         for (FluidStack stack : fluids) {
             if (stack.isEmpty()) continue;
             if (oven.exportFluids.fillInternal(stack,
@@ -544,35 +542,16 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
         return true;
     }
 
-    /** 单个物品堆能否放入输出槽 (允许与现有堆叠合并; 区分总量与堆叠上限)。 */
-    private boolean fitsItem(LargeCokeOvenMachine oven, ItemStack stack) {
-        int remaining = stack.getCount();
-        for (int slot = 0; slot < oven.exportItems.getSlots(); slot++) {
-            ItemStack current = oven.exportItems.storage.getStackInSlot(slot);
-            if (current.isEmpty()) {
-                remaining -= Math.min(remaining, stack.getMaxStackSize());
-            } else if (ItemStack.isSameItemSameTags(current, stack)) {
-                int space = Math.min(current.getMaxStackSize(), oven.exportItems.storage.getSlotLimit(slot))
-                        - current.getCount();
-                if (space > 0) remaining -= Math.min(remaining, space);
-            }
-            if (remaining <= 0) return true;
-        }
-        return remaining <= 0;
-    }
-
     /** 原子提交: 先整体模拟再整体执行, 任一类失败则两类都不写入。 */
     private boolean commitOutputs() {
         var oven = getMachine();
         if (!fitsOutputs(snapshotItems, snapshotFluids)) return false;
-        for (ItemStack stack : snapshotItems) {
-            if (stack.isEmpty()) continue;
-            var rest = insertItemStacked(oven, stack);
-            if (!rest.isEmpty()) {
-                GregSteamExpansion.LOGGER.error(
-                        "[Large Coke Oven] Output commit overflow despite simulation at {}",
-                        machine.self().getPos());
-            }
+        if (!new PendingOutputBuffer(snapshotItems)
+                .deliverItems(oven.getStandardOutputBuses(), oven.exportItems)) {
+            GregSteamExpansion.LOGGER.error(
+                    "[Large Coke Oven] Output commit overflow despite simulation at {}",
+                    machine.self().getPos());
+            return false;
         }
         for (FluidStack stack : snapshotFluids) {
             if (stack.isEmpty()) continue;
@@ -580,14 +559,6 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
                     net.minecraftforge.fluids.capability.IFluidHandler.FluidAction.EXECUTE);
         }
         return true;
-    }
-
-    private ItemStack insertItemStacked(LargeCokeOvenMachine oven, ItemStack stack) {
-        ItemStack rest = stack.copy();
-        for (int slot = 0; slot < oven.exportItems.getSlots() && !rest.isEmpty(); slot++) {
-            rest = oven.exportItems.insertItemInternal(slot, rest, false);
-        }
-        return rest;
     }
 
     //////////////////////////////////////

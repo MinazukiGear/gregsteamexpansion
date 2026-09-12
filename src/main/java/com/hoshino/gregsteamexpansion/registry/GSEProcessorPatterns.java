@@ -58,7 +58,9 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate shellCandidates() {
         return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1));
     }
 
@@ -802,7 +804,9 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate chemicalBathCandidates() {
         return Predicates.blocks(industrialSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS));
@@ -873,7 +877,9 @@ public final class GSEProcessorPatterns {
     private static TraceabilityPredicate centrifugeCandidates() {
         return Predicates.blocks(bronzeSteamCasing())
                 .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))

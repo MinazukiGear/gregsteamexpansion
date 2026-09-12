@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.machine.multiblock;
 
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
+import com.gregtechceu.gtceu.api.machine.trait.NotifiableItemStackHandler;
 
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
@@ -85,13 +86,19 @@ public final class PendingOutputBuffer {
     }
 
     public boolean deliverItems(List<ItemBusPartMachine> outputBuses) {
+        return deliverItems(outputBuses, null);
+    }
+
+    /** Delivers to ordered buses first, then an optional controller-owned fallback inventory. */
+    public boolean deliverItems(List<ItemBusPartMachine> outputBuses,
+                                @Nullable NotifiableItemStackHandler fallback) {
         if (items.isEmpty()) {
             return true;
         }
-        if (!itemsFit(items, outputBuses)) {
+        if (!itemsFit(items, outputBuses, fallback)) {
             return false;
         }
-        insertItems(items, outputBuses, false);
+        insertItems(items, outputBuses, fallback, false);
         items.removeIf(ItemStack::isEmpty);
         return items.isEmpty();
     }
@@ -110,14 +117,20 @@ public final class PendingOutputBuffer {
     }
 
     public static boolean itemsFit(List<ItemStack> outputs, List<ItemBusPartMachine> outputBuses) {
+        return itemsFit(outputs, outputBuses, null);
+    }
+
+    public static boolean itemsFit(List<ItemStack> outputs,
+                                   List<ItemBusPartMachine> outputBuses,
+                                   @Nullable NotifiableItemStackHandler fallback) {
         if (outputs.isEmpty()) {
             return true;
         }
-        if (outputBuses.isEmpty()) {
+        if (outputBuses.isEmpty() && fallback == null) {
             return false;
         }
         List<ItemStack> simulation = copyItems(outputs);
-        insertItems(simulation, outputBuses, true);
+        insertItems(simulation, outputBuses, fallback, true);
         return simulation.stream().allMatch(ItemStack::isEmpty);
     }
 
@@ -153,20 +166,32 @@ public final class PendingOutputBuffer {
 
     private static void insertItems(List<ItemStack> stacks,
                                     List<ItemBusPartMachine> outputBuses,
+                                    @Nullable NotifiableItemStackHandler fallback,
                                     boolean simulate) {
         for (ItemBusPartMachine bus : outputBuses) {
             for (int i = 0; i < stacks.size(); i++) {
                 stacks.set(i, insertIntoBus(bus, stacks.get(i), simulate));
             }
         }
+        if (fallback != null) {
+            for (int i = 0; i < stacks.size(); i++) {
+                stacks.set(i, insertIntoHandler(fallback, stacks.get(i), simulate));
+            }
+        }
     }
 
     /** Uses the bus's internal path because its exposed capability is output-only. */
     public static ItemStack insertIntoBus(ItemBusPartMachine bus, ItemStack stack, boolean simulate) {
+        return insertIntoHandler(bus.getInventory(), stack, simulate);
+    }
+
+    /** Uses the internal path because output handlers reject external insertion. */
+    public static ItemStack insertIntoHandler(NotifiableItemStackHandler inventory,
+                                              ItemStack stack,
+                                              boolean simulate) {
         if (stack.isEmpty()) {
             return stack;
         }
-        var inventory = bus.getInventory();
         ItemStack remaining = stack;
         for (int slot = 0; slot < inventory.getSlots() && !remaining.isEmpty(); slot++) {
             ItemStack current = inventory.getStackInSlot(slot);

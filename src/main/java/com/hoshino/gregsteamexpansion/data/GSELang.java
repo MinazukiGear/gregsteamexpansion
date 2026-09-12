@@ -984,9 +984,9 @@ public final class GSELang {
         add("gregsteamexpansion.large_coke_oven.detail.first_error",
                 "First structure error at %s.");
         add("gregsteamexpansion.large_coke_oven.detail.missing_hatch",
-                "Missing required large coke oven hatches: 3–5 hatches with all three modes are needed.");
+                "Missing required interfaces: 3–5 interfaces covering item input, item output and fluid output are needed.");
         add("gregsteamexpansion.large_coke_oven.detail.missing_mode",
-                "Missing required hatch mode: item input, item output and fluid output are each required at least once.");
+                "Missing required interface direction: item input, item output and fluid output are each required at least once.");
         add("gregsteamexpansion.large_coke_oven.detail.waiting_output",
                 "The completed batch snapshot cannot be committed yet; it retries automatically.");
         add("gregsteamexpansion.large_coke_oven.detail.pending",
@@ -1027,9 +1027,9 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.0",
                 "The full structure footprint is fixed at 7×7×5 with three synced furnace chambers and a brick charging funnel on top.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.1",
-                "A valid structure uses 151–153 Coke Oven Bricks plus 3–5 Large Coke Oven Hatches, with all three hatch modes present at least once.");
+                "A valid structure uses 151–153 Coke Oven Bricks plus 3–5 interfaces, covering item input, item output and fluid output.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.2",
-                "The top funnel is structure and appearance only; all automation must go through Large Coke Oven Hatches.");
+                "The top funnel is decorative structure; use the five candidate positions for native hatches or standard/creative/ME item interfaces.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.3",
                 "Consumes no energy and has no fuel, temperature, warm-up, maintenance or pause.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.4",
@@ -1043,13 +1043,13 @@ public final class GSELang {
 
         // ---- 大型焦炉仓 ----
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.summary.0",
-                "The only legal automation interface of the Large Coke Oven; new hatches default to item input, sneak + screwdriver cycles modes.");
+                "The mode-selectable native interface of the Large Coke Oven; new hatches default to item input, sneak + screwdriver cycles modes.");
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.summary.1",
                 "Hold Shift for connection, facing and mode limits.");
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.0",
                 "Green inward arrow: item input; orange outward box arrow: item output; blue outward droplet: fluid output.");
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.1",
-                "Every Large Coke Oven needs 3–5 hatches with all three modes present at least once.");
+                "Every Large Coke Oven needs 3–5 interfaces covering item input, item output and fluid output; standard item interfaces may fill item roles.");
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.2",
                 "A hatch only exposes its current mode on the outward-facing front; the other five faces are inert.");
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.details.3",
@@ -1175,7 +1175,7 @@ public final class GSELang {
         add("gregsteamexpansion.machine.coke_oven.tooltip.details.1",
                 "The bottom geometric center right below the hearth must be Coke Oven Bricks and can never be a hatch.");
         add("gregsteamexpansion.machine.coke_oven.tooltip.details.2",
-                "The other 24 shell slots together allow 0–5 configurable coke oven hatches; with zero hatches the oven is manual-only.");
+                "The other 24 shell slots together allow 0–5 native hatches or standard/creative/ME item interfaces; with zero interfaces the oven is manual-only.");
         add("gregsteamexpansion.machine.coke_oven.tooltip.details.3",
                 "Consumes no energy or fuel, and has no temperature, warm-up, cooldown or pause.");
         add("gregsteamexpansion.machine.coke_oven.tooltip.details.4",

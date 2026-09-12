@@ -35,7 +35,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 
 /**
  * 大型焦炉仓 (coke-ovens.md 已确认大型焦炉仓身份与接口体系)。独立注册为
- * `gregsteamexpansion:large_coke_oven_hatch`, 是大型焦炉唯一合法的自动化接口;
+ * `gregsteamexpansion:large_coke_oven_hatch`, 是大型焦炉可切换模式的自有接口;
  * 自身不持有独立库存, 只按当前模式代理控制器的对应共享库存。
  *
  * <ul>

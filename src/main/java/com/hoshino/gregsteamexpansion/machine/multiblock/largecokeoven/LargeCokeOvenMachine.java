@@ -1,12 +1,15 @@
 package com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven;
 
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
+import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
+import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
 import com.gregtechceu.gtceu.api.machine.feature.IEnvironmentalHazardEmitter;
 import com.gregtechceu.gtceu.api.machine.feature.IMachineLife;
 import com.gregtechceu.gtceu.api.machine.feature.IUIMachine;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
+import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
 import com.gregtechceu.gtceu.api.machine.multiblock.WorkableMultiblockMachine;
 import com.gregtechceu.gtceu.api.machine.trait.NotifiableFluidTank;
 import com.gregtechceu.gtceu.api.machine.trait.NotifiableItemStackHandler;
@@ -22,6 +25,7 @@ import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenWorldData;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenStructures;
 import com.hoshino.gregsteamexpansion.cokeoven.OwnedCokeOven;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
 import com.gregtechceu.gtceu.utils.GTTransferUtils;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
@@ -63,8 +67,8 @@ import java.util.List;
  * `gregsteamexpansion:large_coke_oven`, 不替换 GTCEu 普通焦炉。
  *
  * <ul>
- * <li>结构: 7×7×5 包围范围逐层图案 + 成型后校验 (仓 3–5 个、三种模式各至少
- *     一个、仓朝向为所在候选位唯一合法外向); 任一相关区块不可用时暂停推进
+ * <li>结构: 7×7×5 包围范围逐层图案 + 成型后校验 (接口 3–5 个、三个方向各至少
+ *     一个、自有仓朝向为所在候选位唯一合法外向); 任一相关区块不可用时暂停推进
  *     (状态"结构范围未完全加载"), 不判为结构失效;</li>
  * <li>所有权: 独占主体 175 坐标 + 料斗 10 坐标, 间距排斥 = 包围盒扩展一格,
  *     与普通焦炉互相判定;</li>
@@ -160,6 +164,8 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     private boolean invalidFeedbackArmed;
     /** 控制器拆除结算进行中 (避免拆除路径重复播放失效反馈)。 */
     private boolean removalSettled;
+    /** Standard, creative and ME item interfaces accepted beside the bespoke coke-oven hatches. */
+    private final SteamPartCollector standardInterfaces = new SteamPartCollector();
 
     public LargeCokeOvenMachine(IMachineBlockEntity holder, Object... args) {
         super(holder, args);
@@ -242,7 +248,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     @Override
     @Nullable
     public IItemHandlerModifiable getItemHandlerCap(@Nullable Direction side, boolean useCoverCapability) {
-        return null; // 自动化只能通过大型焦炉仓
+        return null; // 自动化只能通过结构的五个接口候选位置
     }
 
     @Override
@@ -359,30 +365,53 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
         var hatchBlock = com.hoshino.gregsteamexpansion.registry.GSEMachines.LARGE_COKE_OVEN_HATCH.getBlock();
         return switch (symbol) {
             case 'B', 'W' -> state.is(GTBlocks.CASING_COKE_BRICKS.get());
-            case 'I' -> state.is(GTBlocks.CASING_COKE_BRICKS.get()) || state.is(hatchBlock);
+            case 'I' -> state.is(GTBlocks.CASING_COKE_BRICKS.get()) || state.is(hatchBlock)
+                    || com.gregtechceu.gtceu.api.machine.multiblock.PartAbility.IMPORT_ITEMS
+                            .getAllBlocks().contains(state.getBlock())
+                    || com.gregtechceu.gtceu.api.machine.multiblock.PartAbility.EXPORT_ITEMS
+                            .getAllBlocks().contains(state.getBlock());
             case 'A' -> state.isAir();
             case 'C' -> state.is(getBlockState().getBlock());
             default -> true; // '.' / ' '
         };
     }
 
-    /** 大型焦炉仓数量 (3–5) 与三种模式配额 (各至少 1) 校验。 */
+    /** Three to five interfaces, with item input/output and fluid output each represented. */
     @Nullable
     private String validateHatches() {
         int total = 0;
         int inputs = 0;
         int outputs = 0;
         int fluids = 0;
-        for (var part : getMultiblockState().getMatchContext().getOrCreate("parts", java.util.Collections::emptySet)) {
-            if (!(part instanceof LargeCokeOvenHatchPartMachine hatch)) continue;
-            total++;
-            switch (hatch.getMode()) {
-                case ITEM_INPUT -> inputs++;
-                case ITEM_OUTPUT -> outputs++;
-                case FLUID_OUTPUT -> fluids++;
+        for (Object candidate : getMultiblockState().getMatchContext()
+                .getOrCreate("parts", java.util.Collections::emptySet)) {
+            if (!(candidate instanceof IMultiPart part)) continue;
+            boolean counted = false;
+            if (part instanceof LargeCokeOvenHatchPartMachine hatch) {
+                counted = true;
+                switch (hatch.getMode()) {
+                    case ITEM_INPUT -> inputs++;
+                    case ITEM_OUTPUT -> outputs++;
+                    case FLUID_OUTPUT -> fluids++;
+                }
+            } else {
+                for (var handlers : part.getRecipeHandlers()) {
+                    if (!handlers.getHandlerMap().getOrDefault(ItemRecipeCapability.CAP, List.of()).isEmpty()) {
+                        if (handlers.isValid(IO.IN)) {
+                            inputs++;
+                            counted = true;
+                        }
+                        if (handlers.isValid(IO.OUT)) {
+                            outputs++;
+                            counted = true;
+                        }
+                    }
+                }
             }
+            if (counted) total++;
         }
         if (total < 3) return "missing_hatch";
+        if (total > 5) return "too_many_hatches";
         if (inputs == 0 || outputs == 0 || fluids == 0) return "missing_mode";
         return null;
     }
@@ -391,6 +420,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     public void onStructureFormed() {
         super.onStructureFormed();
         if (isRemote()) return;
+        standardInterfaces.collect(this);
         invalidFeedbackArmed = true; // 失效反馈资格在成功恢复成型后重置
         setConflict(null, null);
         currentStructureDetail = null;
@@ -434,6 +464,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
         boolean wasFormed = isFormed();
         super.onStructureInvalid();
         if (isRemote()) return;
+        standardInterfaces.clear();
         ovenLogic.rewindBatchForStructureInvalid();
         releaseClaim();
         if (!syncedClaimBox.isEmpty()) {
@@ -802,6 +833,33 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
             stacks[i] = importItems.storage.getStackInSlot(i);
         }
         return stacks;
+    }
+
+    /** Recipe-visible inputs from the shared inventory plus standard, creative and ME parts. */
+    public List<ItemStack> getRecipeInputStacks() {
+        List<ItemStack> stacks = new ArrayList<>();
+        for (ItemStack stack : getImportStacks()) {
+            if (!stack.isEmpty()) stacks.add(stack);
+        }
+        for (var part : standardInterfaces.inputParts()) {
+            for (var handlers : part.getRecipeHandlers()) {
+                if (!handlers.isValid(IO.IN)) continue;
+                for (var handler : handlers.getHandlerMap()
+                        .getOrDefault(ItemRecipeCapability.CAP, List.of())) {
+                    if (!handler.shouldSearchContent()) continue;
+                    for (Object content : handler.getContents()) {
+                        if (content instanceof ItemStack stack && !stack.isEmpty()) {
+                            stacks.add(stack);
+                        }
+                    }
+                }
+            }
+        }
+        return stacks;
+    }
+
+    public List<ItemBusPartMachine> getStandardOutputBuses() {
+        return standardInterfaces.outputBuses();
     }
 
     public FluidStack getExportFluid() {

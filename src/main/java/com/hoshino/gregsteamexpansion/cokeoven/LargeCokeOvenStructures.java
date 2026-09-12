@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.cokeoven;
 
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
+import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
 import com.gregtechceu.gtceu.api.pattern.FactoryBlockPattern;
 import com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo;
@@ -9,6 +10,7 @@ import com.gregtechceu.gtceu.api.pattern.TraceabilityPredicate;
 import com.gregtechceu.gtceu.api.pattern.util.RelativeDirection;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
+import com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat;
 import com.lowdragmc.lowdraglib.utils.BlockInfo;
 
 import net.minecraft.core.Direction;
@@ -146,10 +148,13 @@ public final class LargeCokeOvenStructures {
         for (String[] rows : buildPatternGrid()) {
             factory.aisle(rows);
         }
-        // 候选接口位置: 焦炉砖, 或大型焦炉仓 (全局最多 5 个; 3–5 总数与三模式
-        // 配额由成型后校验补齐)。
+        // 候选接口位置: 焦炉砖、自有三模式焦炉仓，或标准/ME 物品接口。
+        // 创造输入与 ME 样板总成随 IMPORT_ITEMS 能力一并接入；3–5 个接口及
+        // 输入/固体输出/流体输出配额由控制器按实际能力统一校验。
         TraceabilityPredicate candidates = Predicates.blocks(GTBlocks.CASING_COKE_BRICKS.get())
-                .or(Predicates.blocks(GSEMachines.LARGE_COKE_OVEN_HATCH.getBlock()).setMaxGlobalLimited(5));
+                .or(Predicates.blocks(GSEMachines.LARGE_COKE_OVEN_HATCH.getBlock()))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS));
         return factory
                 .where('B', Predicates.blocks(GTBlocks.CASING_COKE_BRICKS.get()))
                 .where('W', Predicates.blocks(GTBlocks.CASING_COKE_BRICKS.get()))

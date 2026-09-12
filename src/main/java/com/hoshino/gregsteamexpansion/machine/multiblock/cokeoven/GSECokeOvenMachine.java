@@ -17,10 +17,13 @@ import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
 import com.gregtechceu.gtceu.api.recipe.content.Content;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.machine.multiblock.primitive.CokeOvenMachine;
+import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenRecipeIndex;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenWorldData;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.GSECokeOvenHatch;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
 import com.lowdragmc.lowdraglib.gui.texture.ProgressTexture;
@@ -118,6 +121,8 @@ public class GSECokeOvenMachine extends CokeOvenMachine
     private String syncedClaimBox = "";
 
     private GSECokeOvenRecipeLogic ovenLogic;
+    /** Standard, creative and ME item interfaces accepted beside configurable coke-oven hatches. */
+    private final SteamPartCollector standardInterfaces = new SteamPartCollector();
     @Nullable
     private ISubscription importListenerSubs;
     private ItemStack previousImportStack = ItemStack.EMPTY;
@@ -281,6 +286,7 @@ public class GSECokeOvenMachine extends CokeOvenMachine
     public void onStructureFormed() {
         super.onStructureFormed();
         if (isRemote()) return;
+        standardInterfaces.collect(this);
         specialClearExecuted = false;
         setConflict(null, null);
         refreshInputFilter();
@@ -306,6 +312,7 @@ public class GSECokeOvenMachine extends CokeOvenMachine
         ovenLogic.snapshotForStructureInvalid();
         super.onStructureInvalid();
         if (!isRemote()) {
+            standardInterfaces.clear();
             releaseClaim();
             if (!syncedClaimBox.isEmpty()) {
                 syncedClaimBox = "";
@@ -409,6 +416,32 @@ public class GSECokeOvenMachine extends CokeOvenMachine
         return importItems.storage.getStackInSlot(0);
     }
 
+    /** Recipe-visible inputs from the controller, standard/creative/ME buses and pattern buffers. */
+    public List<ItemStack> getRecipeInputStacks() {
+        List<ItemStack> stacks = new ArrayList<>();
+        ItemStack controllerStack = getImportStack();
+        if (!controllerStack.isEmpty()) stacks.add(controllerStack);
+        for (var part : standardInterfaces.inputParts()) {
+            // Native coke-oven hatches proxy the controller inventory and would duplicate it here.
+            if (part instanceof GSECokeOvenHatch) continue;
+            for (var handlers : part.getRecipeHandlers()) {
+                if (!handlers.isValid(IO.IN)) continue;
+                for (var handler : handlers.getHandlerMap()
+                        .getOrDefault(ItemRecipeCapability.CAP, List.of())) {
+                    if (!handler.shouldSearchContent()) continue;
+                    for (Object content : handler.getContents()) {
+                        if (content instanceof ItemStack stack && !stack.isEmpty()) stacks.add(stack);
+                    }
+                }
+            }
+        }
+        return stacks;
+    }
+
+    public List<ItemBusPartMachine> getStandardOutputBuses() {
+        return standardInterfaces.outputBuses();
+    }
+
     /** 输入槽只接受能够匹配服务端当前已加载合法焦炉配方的物品 (外部配方兼容)。 */
     private void refreshInputFilter() {
         if (!(getLevel() instanceof ServerLevel serverLevel)) return;
@@ -446,7 +479,7 @@ public class GSECokeOvenMachine extends CokeOvenMachine
     @Nullable
     public IItemHandlerModifiable getItemHandlerCap(@Nullable Direction side, boolean useCoverCapability) {
         // 控制器任意面不向管道、漏斗、机械臂、封面或其他自动化设备暴露物品能力;
-        // 所有外部自动化必须经过处于对应模式的焦炉仓。
+        // 所有外部自动化必须经过结构中的自有仓或合法标准接口。
         return null;
     }
 
@@ -495,17 +528,16 @@ public class GSECokeOvenMachine extends CokeOvenMachine
      * 候选配方时判断; 物品与流体输出分开模拟以识别"两者均堵塞"。
      */
     private OvenStatus computeIdleStatus() {
-        ItemStack input = getImportStack();
-        if (input.isEmpty()) return OvenStatus.NO_INPUT;
+        List<ItemStack> inputs = getRecipeInputStacks();
+        if (inputs.isEmpty()) return OvenStatus.NO_INPUT;
         if (!(getLevel() instanceof ServerLevel serverLevel)) return OvenStatus.NO_INPUT;
         var manager = serverLevel.getServer().getRecipeManager();
-        if (!CokeOvenRecipeIndex.hasRecipeFor(manager, input)) return OvenStatus.INPUT_INVALID;
 
         boolean anyCandidate = false;
         boolean itemBlocked = false;
         boolean fluidBlocked = false;
         for (GTRecipe recipe : CokeOvenRecipeIndex.recipes(manager)) {
-            if (!matchesInput(recipe, input)) continue;
+            if (inputs.stream().noneMatch(input -> matchesInput(recipe, input))) continue;
             anyCandidate = true;
             boolean itemsFit = simulateOutputs(recipe, ItemRecipeCapability.CAP);
             boolean fluidsFit = simulateOutputs(recipe, FluidRecipeCapability.CAP);

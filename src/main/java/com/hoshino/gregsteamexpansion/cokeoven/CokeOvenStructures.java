@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.cokeoven;
 
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
+import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
 import com.gregtechceu.gtceu.api.pattern.FactoryBlockPattern;
 import com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo;
@@ -9,6 +10,7 @@ import com.gregtechceu.gtceu.api.pattern.TraceabilityPredicate;
 import com.gregtechceu.gtceu.api.pattern.util.RelativeDirection;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMachines;
+import com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat;
 
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
@@ -17,7 +19,8 @@ import java.util.List;
 
 /**
  * 普通焦炉结构 (coke-ovens.md 普通焦炉结构 / 结构预览与终端自动搭建):
- * 保持 GTCEu 7.5.3 原有固定 3×3×3 与 `0–5` 个焦炉仓规则, 唯一变化是内部中心
+ * 保持 GTCEu 7.5.3 原有固定 3×3×3 与 `0–5` 个接口规则, 同时允许标准、创造
+ * 与 ME 物品接口。内部中心
  * 空气格正下方的底层几何中心 (`B`) 固定使用 `gtceu:coke_oven_bricks`,
  * 不可用焦炉仓替换。
  *
@@ -41,10 +44,13 @@ public final class CokeOvenStructures {
                 .build();
     }
 
-    /** 24 个可替换外壳位置: 焦炉砖, 或总计最多 5 个可配置焦炉仓。 */
+    /** 24 个可替换外壳位置: 焦炉砖，或总计最多 5 个自有/标准物品接口。 */
     private static TraceabilityPredicate shellCandidates() {
-        return Predicates.blocks(GTBlocks.CASING_COKE_BRICKS.get())
-                .or(Predicates.blocks(GTMachines.COKE_OVEN_HATCH.getBlock()).setMaxGlobalLimited(5));
+        TraceabilityPredicate interfaces = Predicates.blocks(GTMachines.COKE_OVEN_HATCH.getBlock())
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
+                .setMaxGlobalLimited(5);
+        return Predicates.blocks(GTBlocks.CASING_COKE_BRICKS.get()).or(interfaces);
     }
 
     /**

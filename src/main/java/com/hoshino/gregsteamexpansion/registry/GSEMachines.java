@@ -716,7 +716,7 @@ public final class GSEMachines {
         };
     }
 
-    /** 大型焦炉仓: 大型焦炉唯一合法的自动化接口, 3–5 个且三种模式各至少一个。 */
+    /** 大型焦炉仓: 可切换物品输入、物品输出或流体输出模式的自有接口。 */
     public static final MachineDefinition LARGE_COKE_OVEN_HATCH = GSERegistration.REGISTRATE
             .machine("large_coke_oven_hatch", LargeCokeOvenHatchPartMachine::new)
             .rotationState(RotationState.ALL)

@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.machine.multiblock.cokeoven;
 
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
+import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.RecipeHelper;
 import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
@@ -172,18 +173,29 @@ public class GSECokeOvenRecipeLogic extends RecipeLogic {
             RecipeLogic.putFailureReason(this, recipe, outputPrecheck.reason());
             return;
         }
-        ItemStack before = getOven().getImportStack().copy();
+        ItemStack plannedConsumption = recordConsumedInput(recipe);
         super.setupRecipe(recipe);
         if (isWorking() && lastRecipe == recipe && getMaxProgress() == recipe.duration) {
-            // 已原子扣取: 记录实际扣取的原物品, 供关键部位清空时掉落。
-            ItemStack after = getOven().getImportStack();
-            if (!before.isEmpty() && ItemStack.isSameItemSameTags(before, after)) {
-                before.setCount(before.getCount() - after.getCount());
-                consumedInput = before;
-            } else {
-                consumedInput = before;
-            }
+            // 已原子扣取: 保留扣取前记录的实际物品身份，覆盖 ME/创造输入来源。
+            consumedInput = plannedConsumption;
         }
+    }
+
+    private ItemStack recordConsumedInput(GTRecipe recipe) {
+        var contents = recipe.getInputContents(ItemRecipeCapability.CAP);
+        if (contents.isEmpty()) return ItemStack.EMPTY;
+        var ingredient = ItemRecipeCapability.CAP.of(contents.get(0).getContent());
+        int required = 0;
+        for (ItemStack representative : ingredient.getItems()) {
+            required = Math.max(required, representative.getCount());
+        }
+        for (ItemStack available : getOven().getRecipeInputStacks()) {
+            if (available.isEmpty() || !ingredient.test(available)) continue;
+            ItemStack consumed = available.copy();
+            consumed.setCount(Math.min(required, available.getCount()));
+            return consumed;
+        }
+        return ItemStack.EMPTY;
     }
 
     //////////////////////////////////////

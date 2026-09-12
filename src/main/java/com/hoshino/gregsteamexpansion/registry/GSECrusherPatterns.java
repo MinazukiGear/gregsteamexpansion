@@ -53,8 +53,10 @@ public final class GSECrusherPatterns {
     /** The small crusher's unified candidate rule for the 21 X positions. */
     private static TraceabilityPredicate smallCandidates() {
         return Predicates.blocks(bronzeSteamCasing())
-                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS).setExactLimit(1))
-                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS).setExactLimit(1))
+                .or(Predicates.abilities(PartAbility.STEAM_IMPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_ITEMS))
+                .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
+                .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1));
     }
 
