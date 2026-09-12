@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.machine.multiblock;
 
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
+import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.machine.trait.RecipeHandlerList;
@@ -83,9 +84,26 @@ public final class SteamPartCollector {
                     meFluidInputHatches.add(fluidHatch);
                 }
                 addDirectionalFluidHatch(fluidHatch);
+            } else if (hasItemInputHandler(part, io)) {
+                // Some capability-compatible inputs (for example GTM Things'
+                // creative item input bus) are not ItemBusPartMachine subclasses.
+                // The pattern accepts them through PartAbility.IMPORT_ITEMS, so
+                // formation must count the same recipe-handler capability.
+                inputParts.add(part);
             }
         }
         sortParts();
+    }
+
+    private static boolean hasItemInputHandler(IMultiPart part, IO patternIO) {
+        for (RecipeHandlerList handlerList : part.getRecipeHandlers()) {
+            if (handlerList.isValid(patternIO)
+                    && handlerList.isValid(IO.IN)
+                    && !handlerList.getHandlerMap().getOrDefault(ItemRecipeCapability.CAP, List.of()).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void clear() {

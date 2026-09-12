@@ -15,6 +15,7 @@ import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
+import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
@@ -22,6 +23,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Item;
@@ -31,6 +33,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.registries.ForgeRegistries;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -348,6 +351,37 @@ public final class GSESteamEngineTests {
             eq(h, before - steam(m), 200, "Blast tick ignored locked steam demand");
             eq(h, intakes.get(0).tank.getFluidInTank(0).getAmount(), 0, "Blast tick did not consume 4 mB per parallel");
         });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceAcceptsCapabilityInputPart(GameTestHelper h) {
+        var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
+        var m = GSEStructureTestUtils.placeShape(h, definition, definition.getMatchingShapes().get(0));
+        h.assertTrue(m != null, "Missing blast-furnace fixture controller");
+
+        var creativeInput = ForgeRegistries.BLOCKS.getValue(
+                new ResourceLocation("gtmthings", "creative_item_input_bus"));
+        h.assertTrue(creativeInput != null && creativeInput != Blocks.AIR,
+                "Development GTM Things creative item input bus is unavailable");
+
+        int replaced = 0;
+        for (BlockPos pos : BlockPos.betweenClosed(
+                m.getPos().offset(-15, 0, -15), m.getPos().offset(15, 15, 15))) {
+            if (h.getLevel().getBlockState(pos).is(GTMachines.STEAM_IMPORT_BUS.getBlock())) {
+                h.getLevel().setBlockAndUpdate(pos, creativeInput.defaultBlockState());
+                replaced++;
+            }
+        }
+        eq(h, replaced, 1, "Expected exactly one representative steam input bus");
+
+        h.startSequence()
+                .thenWaitUntil(() -> h.assertTrue(m.isFormed(),
+                        "Capability-compatible creative item input bus did not form the blast furnace"))
+                .thenExecute(() -> h.assertTrue(m.getParts().stream()
+                                .anyMatch(part -> part.self().getDefinition().getId().toString()
+                                        .equals("gtmthings:creative_item_input_bus")),
+                        "Formed structure did not retain the creative item input bus"))
+                .thenSucceed();
     }
 
     private static void formed(GameTestHelper h, MultiblockMachineDefinition definition,
