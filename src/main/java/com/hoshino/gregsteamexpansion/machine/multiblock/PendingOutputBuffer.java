@@ -137,8 +137,23 @@ public final class PendingOutputBuffer {
         if (outputBuses.isEmpty() && fallback == null) {
             return false;
         }
-        List<ItemStack> simulation = copyItems(outputs);
-        insertItems(simulation, outputBuses, fallback, true);
+        List<SimulatedItemInventory> inventories = new ArrayList<>(outputBuses.size() + (fallback == null ? 0 : 1));
+        for (ItemBusPartMachine bus : outputBuses) {
+            inventories.add(new SimulatedItemInventory(bus.getInventory()));
+        }
+        if (fallback != null) {
+            inventories.add(new SimulatedItemInventory(fallback));
+        }
+        List<ItemStack> simulation = new ArrayList<>(outputs.size());
+        for (ItemStack output : outputs) {
+            simulation.add(output.copy());
+        }
+        // Match insertItems exactly: every product visits one bus before the next bus is considered.
+        for (SimulatedItemInventory inventory : inventories) {
+            for (int i = 0; i < simulation.size(); i++) {
+                simulation.set(i, inventory.insert(simulation.get(i)));
+            }
+        }
         return simulation.stream().allMatch(ItemStack::isEmpty);
     }
 
@@ -156,12 +171,17 @@ public final class PendingOutputBuffer {
         return simulation.stream().allMatch(FluidStack::isEmpty);
     }
 
-    private static List<ItemStack> copyItems(List<ItemStack> stacks) {
-        List<ItemStack> copies = new ArrayList<>(stacks.size());
-        for (ItemStack stack : stacks) {
-            copies.add(stack.copy());
+    public static List<ItemStack> scaleItemsForParallel(List<ItemStack> perOperation, int parallel) {
+        List<ItemStack> scaled = new ArrayList<>();
+        for (ItemStack stack : perOperation) {
+            long remaining = (long) stack.getCount() * parallel;
+            while (remaining > 0) {
+                int count = (int) Math.min(stack.getMaxStackSize(), remaining);
+                scaled.add(stack.copyWithCount(count));
+                remaining -= count;
+            }
         }
-        return copies;
+        return scaled;
     }
 
     private static List<FluidStack> copyFluids(List<FluidStack> stacks) {
@@ -213,6 +233,63 @@ public final class PendingOutputBuffer {
             }
         }
         return remaining;
+    }
+
+    /** Retains earlier simulated inserts so distinct products compete for the same slots. */
+    private static final class SimulatedItemInventory {
+
+        private final NotifiableItemStackHandler handler;
+        private final List<ItemStack> slots;
+
+        private SimulatedItemInventory(NotifiableItemStackHandler handler) {
+            this.handler = handler;
+            this.slots = new ArrayList<>(handler.getSlots());
+            for (int slot = 0; slot < handler.getSlots(); slot++) {
+                slots.add(handler.getStackInSlot(slot).copy());
+            }
+        }
+
+        private ItemStack insert(ItemStack stack) {
+            if (stack.isEmpty()) {
+                return stack;
+            }
+            ItemStack remaining = stack.copy();
+            for (int slot = 0; slot < slots.size() && !remaining.isEmpty(); slot++) {
+                ItemStack current = slots.get(slot);
+                if (!current.isEmpty() && ItemHandlerHelper.canItemStacksStack(current, remaining)) {
+                    remaining = insertIntoSlot(slot, remaining);
+                }
+            }
+            for (int slot = 0; slot < slots.size() && !remaining.isEmpty(); slot++) {
+                if (slots.get(slot).isEmpty()) {
+                    remaining = insertIntoSlot(slot, remaining);
+                }
+            }
+            return remaining;
+        }
+
+        private ItemStack insertIntoSlot(int slot, ItemStack stack) {
+            if (!handler.isItemValid(slot, stack)) {
+                return stack;
+            }
+            ItemStack current = slots.get(slot);
+            if (!current.isEmpty() && !ItemHandlerHelper.canItemStacksStack(current, stack)) {
+                return stack;
+            }
+            int limit = Math.min(handler.getSlotLimit(slot), stack.getMaxStackSize());
+            int accepted = Math.min(stack.getCount(), limit - current.getCount());
+            if (accepted <= 0) {
+                return stack;
+            }
+            if (current.isEmpty()) {
+                slots.set(slot, stack.copyWithCount(accepted));
+            } else {
+                current.grow(accepted);
+            }
+            ItemStack remaining = stack.copy();
+            remaining.shrink(accepted);
+            return remaining;
+        }
     }
 
     private static void insertFluids(List<FluidStack> stacks,

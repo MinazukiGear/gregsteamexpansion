@@ -424,6 +424,35 @@ public final class GSESteamEngineTests {
         formed(h, GSEMachines.STEAM_CRUSHER, m -> parallelCapacity(h, m));
     }
 
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void processorMultiProductCapacityCompetition(GameTestHelper h) {
+        formed(h, GSEMachines.STEAM_COMPRESSOR, m -> multiProductCapacityCompetition(h, m));
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void crusherMultiProductCapacityCompetition(GameTestHelper h) {
+        formed(h, GSEMachines.STEAM_CRUSHER, m -> multiProductCapacityCompetition(h, m));
+    }
+
+    private static void multiProductCapacityCompetition(GameTestHelper h, MultiblockControllerMachine m) {
+        fillOutputs(m, true);
+        ItemBusPartMachine bus = outputs(m).get(0);
+        h.assertTrue(bus.getInventory().getSlots() >= 2, "Fixture output bus has fewer than two slots");
+        bus.getInventory().setStackInSlot(0, ItemStack.EMPTY);
+        bus.getInventory().setStackInSlot(1, ItemStack.EMPTY);
+        GTRecipe recipe = GTRecipeTypes.MACERATOR_RECIPES.recipeBuilder(
+                        GregSteamExpansion.id("engine_multi_product_capacity"))
+                .outputItems(new ItemStack(Items.IRON_INGOT, 40))
+                .outputItems(new ItemStack(Items.GOLD_INGOT))
+                .duration(20).EUt(8).buildRawRecipe();
+
+        eq(h, (int) call(m, "largestParallelThatFits", recipe, 2), 1,
+                "Oversized first product hid the slot required by the second product");
+        h.assertTrue(bus.getInventory().getStackInSlot(0).isEmpty()
+                        && bus.getInventory().getStackInSlot(1).isEmpty(),
+                "Multi-product capacity simulation mutated output inventory");
+    }
+
     private static void parallelCapacity(GameTestHelper h, MultiblockControllerMachine m) {
         fillOutputs(m, true);
         var bus = outputs(m).get(0);

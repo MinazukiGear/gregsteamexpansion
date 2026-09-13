@@ -526,13 +526,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
 
     /** Worst-case output for `parallel` operations, simulated on the buses. */
     private boolean worstCaseFits(List<ItemStack> perOperation, int parallel) {
-        List<ItemStack> simulation = new ArrayList<>();
-        for (ItemStack stack : perOperation) {
-            ItemStack scaled = stack.copy();
-            scaled.setCount(Math.min(scaled.getMaxStackSize(),
-                    (int) Math.min(Integer.MAX_VALUE, (long) scaled.getCount() * parallel)));
-            simulation.add(scaled);
-        }
+        List<ItemStack> simulation = PendingOutputBuffer.scaleItemsForParallel(perOperation, parallel);
         // merge equal stacks first so the simulation respects stacking capacity
         PendingOutputBuffer.mergeItems(simulation);
         return PendingOutputBuffer.itemsFit(simulation, outputBuses);
