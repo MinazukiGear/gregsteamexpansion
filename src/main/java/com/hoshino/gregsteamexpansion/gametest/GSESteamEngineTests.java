@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
@@ -84,7 +85,10 @@ public final class GSESteamEngineTests {
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void voidProducerStateBoundaries(GameTestHelper h) {
-        formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> stateBoundaries(h, m));
+        formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> {
+            if (assertDisabledOrePlantStaysIdle(h, m)) return;
+            stateBoundaries(h, m);
+        });
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
@@ -464,6 +468,7 @@ public final class GSESteamEngineTests {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void voidPendingRecovery(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> {
+            if (assertDisabledOrePlantStaysIdle(h, m)) return;
             fillOutputs(m, true);
             set(m, "cycleProgress", 199);
             fillSteam(m, 32_000);
@@ -482,6 +487,21 @@ public final class GSESteamEngineTests {
             h.assertTrue(pending(m).isEmpty(), "Paused void producer did not deliver retained output");
             eq(h, outputTotal(m), produced, "Void output recovery lost or duplicated products");
         });
+    }
+
+    private static boolean assertDisabledOrePlantStaysIdle(GameTestHelper h,
+                                                           MultiblockControllerMachine m) {
+        if (GSEDifficultyConfig.orePlantEnabled()) return false;
+        set(m, "cycleProgress", 7);
+        fillSteam(m, 32_000);
+        long before = steam(m);
+        tick(m);
+        eq(h, progress(m), 7, "Config-disabled ore plant advanced its production cycle");
+        eq(h, steam(m), before, "Config-disabled ore plant consumed steam");
+        eq(h, demand(m), 0, "Config-disabled ore plant displayed a steam demand");
+        h.assertTrue(!(boolean) call(m, "isConsumingSteam"),
+                "Config-disabled ore plant reported active consumption");
+        return true;
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)

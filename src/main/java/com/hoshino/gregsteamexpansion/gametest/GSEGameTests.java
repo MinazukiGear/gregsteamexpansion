@@ -230,14 +230,15 @@ public final class GSEGameTests {
     public static void mixedFuelBoilerVentsWhenSteamOutputIsFull(GameTestHelper helper) {
         MixedFuelBoilerMachine boiler = placeHighPressureBoiler(helper);
         prepareHotBoiler(boiler);
-        int filled = boiler.steamTank.fillInternal(GTMaterials.Steam.getFluid(16_000), FluidAction.EXECUTE);
-        helper.assertTrue(filled == 16_000, "Could not fill the steam tank before the venting test");
+        int capacity = boiler.steamTank.getTankCapacity(0);
+        int filled = boiler.steamTank.fillInternal(GTMaterials.Steam.getFluid(capacity), FluidAction.EXECUTE);
+        helper.assertTrue(filled == capacity, "Could not fill the steam tank before the venting test");
 
         helper.succeedWhen(() -> {
             helper.assertTrue(boiler.getCurrentTemperature() >= 100,
                     "High-pressure boiler had not reached steam-production temperature");
             int storedSteam = boiler.steamTank.getFluidInTank(0).getAmount();
-            helper.assertTrue(storedSteam < 16_000,
+            helper.assertTrue(storedSteam < capacity,
                     "A full steam tank did not vent when the boiler tried to produce steam");
             helper.assertTrue(MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(HP_POS)) == boiler,
                     "Steam venting unexpectedly removed the boiler");

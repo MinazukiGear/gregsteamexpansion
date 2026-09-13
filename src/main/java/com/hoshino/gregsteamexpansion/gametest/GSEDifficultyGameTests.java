@@ -49,7 +49,48 @@ public final class GSEDifficultyGameTests {
         assertValue(helper, "hardMultiRecipes", recipes.hardMultiRecipes, expert);
         helper.assertTrue(recipes.casingsPerCraft == difficulty.getCasingsPerCraft(),
                 "casingsPerCraft does not match startup difficulty");
+        assertExpectedRestartConfig(helper, difficulty);
         helper.succeed();
+    }
+
+    private static void assertExpectedRestartConfig(GameTestHelper helper, Difficulty difficulty) {
+        String expectedDifficulty = System.getenv("GSE_EXPECTED_DIFFICULTY");
+        if (expectedDifficulty == null || expectedDifficulty.isBlank()) {
+            return;
+        }
+
+        Difficulty expected = Difficulty.byName(expectedDifficulty);
+        helper.assertTrue(expected != null, "Invalid GSE_EXPECTED_DIFFICULTY: " + expectedDifficulty);
+        helper.assertTrue(difficulty == expected,
+                "Restart loaded " + difficulty + " instead of expected difficulty " + expected);
+        assertExpectedBoolean(helper, "ore plant", GSEDifficultyConfig.orePlantEnabled(),
+                System.getenv("GSE_EXPECTED_ORE_PLANT_ENABLED"));
+        assertExpectedBoolean(helper, "fluid drill", GSEDifficultyConfig.fluidDrillEnabled(),
+                System.getenv("GSE_EXPECTED_FLUID_DRILL_ENABLED"));
+        assertExpectedWeights(helper, "ore plant", GSEDifficultyConfig.orePlantWeightEntries(),
+                System.getenv("GSE_EXPECTED_ORE_PLANT_WEIGHTS"));
+        assertExpectedWeights(helper, "fluid drill", GSEDifficultyConfig.fluidDrillWeightEntries(),
+                System.getenv("GSE_EXPECTED_FLUID_DRILL_WEIGHTS"));
+    }
+
+    private static void assertExpectedBoolean(GameTestHelper helper, String name,
+                                              boolean actual, String configured) {
+        helper.assertTrue(configured != null && (configured.equals("true") || configured.equals("false")),
+                "Missing or invalid restart expectation for " + name + ": " + configured);
+        boolean expected = Boolean.parseBoolean(configured);
+        helper.assertTrue(actual == expected,
+                name + " enabled state was " + actual + " after restart, expected " + expected);
+    }
+
+    private static void assertExpectedWeights(GameTestHelper helper, String name,
+                                              java.util.List<? extends String> actual,
+                                              String configured) {
+        helper.assertTrue(configured != null, "Missing restart weight expectation for " + name);
+        java.util.List<String> expected = configured.isEmpty()
+                ? java.util.List.of()
+                : java.util.List.of(configured.split(";", -1));
+        helper.assertTrue(actual.equals(expected),
+                name + " weights were " + actual + " after restart, expected " + expected);
     }
 
     private static void assertValue(GameTestHelper helper, String field,

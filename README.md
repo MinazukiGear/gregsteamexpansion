@@ -60,8 +60,9 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 
 | 文件 | 覆盖内容 |
 | --- | --- |
-| `GSEGameTests` | 结构成型、仓室行为、注册一致性、难度与配方注入 |
+| `GSEGameTests` | 结构成型、仓室行为、注册一致性与配方注入 |
 | `GSEBoilerRoomTests` | 四档进气条带位置/数量、非法仓室拒绝、多进气室汇总供气与不足不扣、仪表同步、状态提示、原生/GTM Things 物品输入及完整燃料启动链 |
+| `GSEDifficultyGameTests` | 启动档位、GTCEu 配方难度映射、旗舰机器开关和权重表 |
 | `GSERecipeOptimizationTests` | 配方缓存失效与空闲机器唤醒 |
 | `GSESteamEngineTests` | 四类引擎状态边界、原子取汽、并行/输出容量、多产物槽位竞争、物品与流体批次结算、排气和鼓风、控制器 NBT 往返及真实区块落盘重载，以及创造/ME/样板总成接口兼容（29 个） |
 | `GSEStructureDiagnosticsTests` | 缺失方块与接口数量不足的结构诊断 |
@@ -83,6 +84,14 @@ bash tools/verify.sh                                # 与 CI 完全一致的完�
 ```powershell
 python tools/verify_server_restart.py
 python tools/verify_server_restart.py --offline     # 依赖已缓存时可离线运行
+```
+
+启动配置的跨进程重启验证会依次运行 Easy 与 Expert 两套临时配置，核对 GTCEu
+难度预设、旗舰机器开关和权重表，并在结束或失败后恢复原配置：
+
+```powershell
+python tools/verify_config_restart.py
+python tools/verify_config_restart.py --offline
 ```
 
 `tools/verify.sh` 是 `.github/workflows/build.yml` 的本地镜像，依次执行编译 →

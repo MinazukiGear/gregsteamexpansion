@@ -62,3 +62,17 @@ The first process writes controller progress and pending item/fluid outputs to a
 isolated End chunk. The second process loads the same world, verifies the saved
 state, and removes the fixture. All regular GameTests run in both processes. Use
 `--offline` when the Gradle dependencies are already cached.
+
+## Configuration restart
+
+Verify startup-only configuration with two independent GameTest server JVMs:
+
+```bash
+python tools/verify_config_restart.py
+```
+
+The script runs an Easy profile followed by an Expert profile and checks the
+captured difficulty, all mapped GTCEu recipe switches, casing output, both
+flagship-machine toggles, and both custom weight tables. It backs up the local
+`run/config/gregsteamexpansion-common.toml` file and restores its exact bytes on
+success or failure. Use `--offline` when the Gradle dependencies are cached.

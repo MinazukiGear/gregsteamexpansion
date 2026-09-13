@@ -73,6 +73,8 @@ public final class GSEDifficultyConfig {
     // 旗舰机器捕获值: 仅在 Loading 时应用 (重启生效口径, 同 capturedDifficulty)。
     private static volatile boolean capturedOrePlantEnabled = true;
     private static volatile boolean capturedFluidDrillEnabled = true;
+    private static volatile java.util.List<String> capturedOrePlantWeights = java.util.List.of();
+    private static volatile java.util.List<String> capturedFluidDrillWeights = java.util.List.of();
 
     private GSEDifficultyConfig() {}
 
@@ -86,14 +88,14 @@ public final class GSEDifficultyConfig {
         return capturedFluidDrillEnabled;
     }
 
-    /** Raw configured weight-table entries (parsed by the machines at use time). */
+    /** Weight-table entries captured at process startup and parsed by the machine on first use. */
     public static java.util.List<? extends String> orePlantWeightEntries() {
-        return ORE_PLANT_WEIGHTS.get();
+        return capturedOrePlantWeights;
     }
 
-    /** Raw configured weight-table entries (parsed by the machines at use time). */
+    /** Weight-table entries captured at process startup and parsed by the machine on first use. */
     public static java.util.List<? extends String> fluidDrillWeightEntries() {
-        return FLUID_DRILL_WEIGHTS.get();
+        return capturedFluidDrillWeights;
     }
 
     /** The process-wide tier captured during the initial config load. */
@@ -106,6 +108,8 @@ public final class GSEDifficultyConfig {
             capturedDifficulty = DIFFICULTY.get();
             capturedOrePlantEnabled = ORE_PLANT_ENABLED.get();
             capturedFluidDrillEnabled = FLUID_DRILL_ENABLED.get();
+            capturedOrePlantWeights = java.util.List.copyOf(ORE_PLANT_WEIGHTS.get());
+            capturedFluidDrillWeights = java.util.List.copyOf(FLUID_DRILL_WEIGHTS.get());
             GSEDifficultyState.initializeAtStartup(capturedDifficulty);
             GregSteamExpansion.LOGGER.info(
                     "[Difficulty] Startup difficulty is {}; flagship machines: ore plant {}, fluid drill {}.",
