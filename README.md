@@ -46,7 +46,7 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（91 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（92 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -63,7 +63,7 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 | `GSEGameTests` | 结构成型、仓室行为、注册一致性、难度与配方注入 |
 | `GSEBoilerRoomTests` | 四档进气条带位置/数量、非法仓室拒绝、多进气室汇总供气与不足不扣、仪表同步、状态提示、原生/GTM Things 物品输入及完整燃料启动链 |
 | `GSERecipeOptimizationTests` | 配方缓存失效与空闲机器唤醒 |
-| `GSESteamEngineTests` | 四类引擎状态边界、原子取汽、并行/输出容量、多产物槽位竞争、物品与流体批次结算、排气和鼓风、控制器 NBT 往返，以及创造/ME/样板总成接口兼容（28 个） |
+| `GSESteamEngineTests` | 四类引擎状态边界、原子取汽、并行/输出容量、多产物槽位竞争、物品与流体批次结算、排气和鼓风、控制器 NBT 往返及真实区块落盘重载，以及创造/ME/样板总成接口兼容（29 个） |
 | `GSEStructureDiagnosticsTests` | 缺失方块与接口数量不足的结构诊断 |
 | `GSEStructureTestUtils` | 结构辅助：用机器注册的 `MultiblockShapeInfo` 反铺方块，再用图案校验 |
 
