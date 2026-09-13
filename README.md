@@ -77,6 +77,14 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 bash tools/verify.sh                                # 与 CI 完全一致的完整门禁
 ```
 
+处理机控制器的跨服务器进程持久化使用专用双阶段验证。脚本先启动一个 GameTest
+服务器写入并落盘状态，再启动全新的服务器进程读取、核对并清理测试区块：
+
+```powershell
+python tools/verify_server_restart.py
+python tools/verify_server_restart.py --offline     # 依赖已缓存时可离线运行
+```
+
 `tools/verify.sh` 是 `.github/workflows/build.yml` 的本地镜像，依次执行编译 →
 GameTest → datagen 新鲜度（`runData` 后不应产生 git diff）→ 构建。Gradle `check` 会在构建中
 隔离生成并逐像素核对程序化 PNG、逐字节核对其他生成资产，同时检查 `en_us`/`zh_cn` 键集合及所有已注册 Jade UID 的

@@ -48,3 +48,17 @@ python tools/check_design_contracts.py
 The Gradle task `checkDesignContracts` runs the same check and is part of
 `check`. It covers selected structure dimensions and parallel caps; intentional
 changes must update the design document, implementation, and pinned assertion.
+
+## Server restart persistence
+
+Run the processor persistence check across two independent GameTest server JVMs
+with:
+
+```bash
+python tools/verify_server_restart.py
+```
+
+The first process writes controller progress and pending item/fluid outputs to an
+isolated End chunk. The second process loads the same world, verifies the saved
+state, and removes the fixture. All regular GameTests run in both processes. Use
+`--offline` when the Gradle dependencies are already cached.

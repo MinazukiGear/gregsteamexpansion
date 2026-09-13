@@ -147,31 +147,38 @@ public final class GSESteamEngineTests {
         ChunkPos chunkPos = PROCESSOR_RELOAD_CHUNK;
         BlockPos controllerPos = new BlockPos(chunkPos.getMiddleBlockX(), 80, chunkPos.getMiddleBlockZ());
 
+        String restartPhase = System.getenv("GSE_RESTART_TEST_PHASE");
+        if (restartPhase != null && !restartPhase.isBlank()) {
+            if (restartPhase.equals("seed")) {
+                seedProcessorReloadFixture(h, reloadLevel, chunkPos, controllerPos);
+                reloadLevel.getChunkSource().save(true);
+                reloadLevel.setChunkForced(chunkPos.x, chunkPos.z, false);
+                h.succeed();
+                return;
+            }
+            if (restartPhase.equals("verify")) {
+                reloadLevel.setChunkForced(chunkPos.x, chunkPos.z, true);
+                try {
+                    reloadLevel.getChunk(chunkPos.x, chunkPos.z);
+                    MetaMachine loaded = MetaMachine.getMachine(reloadLevel, controllerPos);
+                    h.assertTrue(loaded instanceof MultiblockControllerMachine,
+                            "Restart fixture controller was not restored from disk");
+                    assertProcessorReloadState(h, (MultiblockControllerMachine) loaded,
+                            "Server restart");
+                } finally {
+                    cleanupProcessorReloadFixture(reloadLevel, chunkPos, controllerPos);
+                }
+                h.succeed();
+                return;
+            }
+            h.assertTrue(false, "Unknown GSE_RESTART_TEST_PHASE: " + restartPhase);
+            return;
+        }
+
         // GameTest structure chunks stay forced. Use an isolated End chunk whose only persistent ticket is ours.
-        reloadLevel.setChunkForced(chunkPos.x, chunkPos.z, false);
-        reloadLevel.setChunkForced(chunkPos.x, chunkPos.z, true);
-        reloadLevel.getChunk(chunkPos.x, chunkPos.z);
-        reloadLevel.setBlockAndUpdate(controllerPos, GSEMachines.STEAM_CENTRIFUGE.getBlock().defaultBlockState());
-        MetaMachine placed = MetaMachine.getMachine(reloadLevel, controllerPos);
-        h.assertTrue(placed instanceof MultiblockControllerMachine,
-                "Reload fixture controller did not instantiate");
-        MultiblockControllerMachine controller = (MultiblockControllerMachine) placed;
-
-        set(controller, "workingEnabled", false);
-        set(controller, "hasBatch", true);
-        set(controller, "batchRecipeId", "gregsteamexpansion:chunk_reload_processor");
-        set(controller, "batchParallel", 3);
-        set(controller, "batchProgress", 47);
-        set(controller, "batchDurationTicks", 211);
-        set(controller, "batchSteamPerTickMb", 600L);
-        set(controller, "batchTotalSteamMb", 126_600L);
-        pending(controller).add(new ItemStack(Items.DIAMOND, 5));
-        list(controller, "pendingFluids").add(GTMaterials.Water.getFluid(750));
-
+        MultiblockControllerMachine placed = seedProcessorReloadFixture(h, reloadLevel, chunkPos, controllerPos);
         BlockEntity blockEntity = reloadLevel.getBlockEntity(controllerPos);
-        h.assertTrue(blockEntity != null, "Reload fixture has no controller block entity");
-        blockEntity.setChanged();
-        reloadLevel.getChunkAt(controllerPos).setUnsaved(true);
+        h.assertTrue(blockEntity != null, "Reload fixture has no controller block entity after seeding");
         reloadLevel.getChunkSource().save(true);
         reloadLevel.setChunkForced(chunkPos.x, chunkPos.z, false);
 
@@ -188,29 +195,10 @@ public final class GSESteamEngineTests {
                                 "Controller block entity was not recreated after chunk reload");
                         h.assertTrue(loaded != placed,
                                 "Chunk reload reused the original controller instance");
-                        MultiblockControllerMachine restored = (MultiblockControllerMachine) loaded;
-                        h.assertTrue(!(boolean) call(restored, "isWorkingEnabled"),
-                                "Chunk reload lost processor work-enabled state");
-                        h.assertTrue((boolean) get(restored, "hasBatch"),
-                                "Chunk reload lost processor batch flag");
-                        h.assertTrue(get(restored, "batchRecipeId")
-                                        .equals("gregsteamexpansion:chunk_reload_processor"),
-                                "Chunk reload lost processor recipe id");
-                        eq(h, number(restored, "batchParallel"), 3,
-                                "Chunk reload lost processor parallel");
-                        eq(h, number(restored, "batchProgress"), 47,
-                                "Chunk reload lost processor progress");
-                        eq(h, count(pending(restored), Items.DIAMOND), 5,
-                                "Chunk reload lost processor pending item");
-                        eq(h, fluidAmount(list(restored, "pendingFluids"), GTMaterials.Water.getFluid(1)), 750,
-                                "Chunk reload lost processor pending fluid");
-                        h.assertTrue((boolean) call(get(restored, "pendingBuffer"), "hasAny"),
-                                "Chunk reload detached processor pending buffer");
+                        assertProcessorReloadState(h, (MultiblockControllerMachine) loaded,
+                                "Chunk reload");
                     } finally {
-                        reloadLevel.setBlockAndUpdate(controllerPos, Blocks.AIR.defaultBlockState());
-                        reloadLevel.getChunkAt(controllerPos).setUnsaved(true);
-                        reloadLevel.getChunkSource().save(true);
-                        reloadLevel.setChunkForced(chunkPos.x, chunkPos.z, false);
+                        cleanupProcessorReloadFixture(reloadLevel, chunkPos, controllerPos);
                     }
                 })
                 .thenSucceed();
@@ -910,6 +898,65 @@ public final class GSESteamEngineTests {
         CompoundTag tag = blockEntity.saveWithoutMetadata();
         h.assertTrue(!tag.isEmpty(), "Controller block entity persisted no state");
         return tag;
+    }
+
+    private static MultiblockControllerMachine seedProcessorReloadFixture(GameTestHelper h,
+                                                                           ServerLevel level,
+                                                                           ChunkPos chunkPos,
+                                                                           BlockPos controllerPos) {
+        level.setChunkForced(chunkPos.x, chunkPos.z, false);
+        level.setChunkForced(chunkPos.x, chunkPos.z, true);
+        level.getChunk(chunkPos.x, chunkPos.z);
+        level.setBlockAndUpdate(controllerPos, Blocks.AIR.defaultBlockState());
+        level.setBlockAndUpdate(controllerPos, GSEMachines.STEAM_CENTRIFUGE.getBlock().defaultBlockState());
+        MetaMachine placed = MetaMachine.getMachine(level, controllerPos);
+        h.assertTrue(placed instanceof MultiblockControllerMachine,
+                "Reload fixture controller did not instantiate");
+        MultiblockControllerMachine controller = (MultiblockControllerMachine) placed;
+
+        set(controller, "workingEnabled", false);
+        set(controller, "hasBatch", true);
+        set(controller, "batchRecipeId", "gregsteamexpansion:chunk_reload_processor");
+        set(controller, "batchParallel", 3);
+        set(controller, "batchProgress", 47);
+        set(controller, "batchDurationTicks", 211);
+        set(controller, "batchSteamPerTickMb", 600L);
+        set(controller, "batchTotalSteamMb", 126_600L);
+        pending(controller).add(new ItemStack(Items.DIAMOND, 5));
+        list(controller, "pendingFluids").add(GTMaterials.Water.getFluid(750));
+
+        BlockEntity blockEntity = level.getBlockEntity(controllerPos);
+        h.assertTrue(blockEntity != null, "Reload fixture has no controller block entity");
+        blockEntity.setChanged();
+        level.getChunkAt(controllerPos).setUnsaved(true);
+        return controller;
+    }
+
+    private static void assertProcessorReloadState(GameTestHelper h,
+                                                   MultiblockControllerMachine restored,
+                                                   String context) {
+        h.assertTrue(!(boolean) call(restored, "isWorkingEnabled"),
+                context + " lost processor work-enabled state");
+        h.assertTrue((boolean) get(restored, "hasBatch"),
+                context + " lost processor batch flag");
+        h.assertTrue(get(restored, "batchRecipeId").equals("gregsteamexpansion:chunk_reload_processor"),
+                context + " lost processor recipe id");
+        eq(h, number(restored, "batchParallel"), 3, context + " lost processor parallel");
+        eq(h, number(restored, "batchProgress"), 47, context + " lost processor progress");
+        eq(h, count(pending(restored), Items.DIAMOND), 5, context + " lost processor pending item");
+        eq(h, fluidAmount(list(restored, "pendingFluids"), GTMaterials.Water.getFluid(1)), 750,
+                context + " lost processor pending fluid");
+        h.assertTrue((boolean) call(get(restored, "pendingBuffer"), "hasAny"),
+                context + " detached processor pending buffer");
+    }
+
+    private static void cleanupProcessorReloadFixture(ServerLevel level,
+                                                      ChunkPos chunkPos,
+                                                      BlockPos controllerPos) {
+        level.setBlockAndUpdate(controllerPos, Blocks.AIR.defaultBlockState());
+        level.getChunkAt(controllerPos).setUnsaved(true);
+        level.getChunkSource().save(true);
+        level.setChunkForced(chunkPos.x, chunkPos.z, false);
     }
 
     private static void loadState(GameTestHelper h, MultiblockControllerMachine m, CompoundTag tag) {
