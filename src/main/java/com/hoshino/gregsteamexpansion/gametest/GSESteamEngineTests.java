@@ -20,6 +20,9 @@ import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
+import com.gregtechceu.gtceu.api.capability.recipe.IRecipeCapabilityHolder;
+import com.gregtechceu.gtceu.api.recipe.modifier.ParallelLogic;
+import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.machines.GTMultiMachines;
@@ -275,6 +278,9 @@ public final class GSESteamEngineTests {
             set(m, "batchOriginWidth", width);
             set(m, "batchOriginHeight", height);
             set(m, "distinctBuses", true);
+            set(m, "inputBusCursor", 3);
+            long inputSource = m.getPos().offset(2, 1, 0).asLong();
+            set(m, "batchInputSourcePos", inputSource);
             pending(m).add(new ItemStack(Items.GLASS, 7));
 
             CompoundTag saved = saveState(h, m);
@@ -296,6 +302,9 @@ public final class GSESteamEngineTests {
             eq(h, number(m, "batchOriginWidth"), width, "Furnace batch width was not restored");
             eq(h, number(m, "batchOriginHeight"), height, "Furnace batch height was not restored");
             h.assertTrue((boolean) get(m, "distinctBuses"), "Furnace distinct-bus setting was not restored");
+            eq(h, number(m, "inputBusCursor"), 3, "Furnace input-bus cursor was not restored");
+            eq(h, number(m, "batchInputSourcePos"), inputSource,
+                    "Furnace locked input source was not restored");
             eq(h, count(pending(m), Items.GLASS), 7, "Furnace pending output was not restored");
             h.assertTrue((boolean) call(get(m, "pendingBuffer"), "hasAny"),
                     "Furnace pending buffer detached from restored list");
@@ -694,6 +703,70 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void furnaceDistinctBusesAreIsolatedAndFair(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_HEAT_STORAGE_STEAM_FURNACE, m -> {
+            List<ItemBusPartMachine> inputs = installAdditionalFurnaceInputBus(h, m);
+            h.assertTrue(inputs.size() == 2, "Distinct-bus fixture must contain exactly two input buses");
+            for (ItemBusPartMachine input : inputs) {
+                for (int slot = 0; slot < input.getInventory().getSlots(); slot++) {
+                    input.getInventory().setStackInSlot(slot, ItemStack.EMPTY);
+                }
+            }
+
+            // One two-item ingredient can be satisfied by the controller's merged view,
+            // but neither independently built input scope may combine across the buses.
+            inputs.get(0).getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            inputs.get(1).getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            GTRecipe splitRecipe = GTRecipeTypes.FURNACE_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("distinct_bus_split_probe"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE, 2))
+                    .outputItems(new ItemStack(Items.STONE))
+                    .duration(20).EUt(8).buildRawRecipe();
+            eq(h, ParallelLogic.getMaxByInput((IRecipeCapabilityHolder) m, splitRecipe, 1, List.of()), 1,
+                    "Merged furnace inputs could not satisfy the split probe");
+            List<IRecipeCapabilityHolder> scopes = list(m, "inputScopes");
+            h.assertTrue(scopes.size() == 2, "Furnace did not build one isolated scope per input bus");
+            for (IRecipeCapabilityHolder scope : scopes) {
+                eq(h, ParallelLogic.getMaxByInput(scope, splitRecipe, 1, List.of()), 0,
+                        "An isolated input scope consumed ingredients from another bus");
+            }
+
+            // Both buses can run the same real recipe. The persisted cursor must select
+            // the first one, advance, then select the second even after the first is restocked.
+            inputs.get(0).getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            inputs.get(1).getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            fillOutputs(m, false);
+            fillSteam(m, 32_000);
+            set(m, "currentTemperature", call(m, "startupTemperature"));
+            set(m, "distinctBuses", true);
+            set(m, "inputBusCursor", 0);
+            Object difficulty = call(m, "currentDifficulty");
+
+            h.assertTrue((boolean) call(m, "tryStartBatch", difficulty),
+                    "Distinct furnace did not start from its first input bus");
+            eq(h, inputs.get(0).getInventory().getStackInSlot(0).getCount(), 0,
+                    "First distinct batch did not consume the cursor-selected bus");
+            eq(h, inputs.get(1).getInventory().getStackInSlot(0).getCount(), 1,
+                    "First distinct batch consumed the second bus");
+            eq(h, number(m, "inputBusCursor"), 1, "Distinct cursor did not advance after the first batch");
+            eq(h, number(m, "batchInputSourcePos"), inputs.get(0).getPos().asLong(),
+                    "First batch did not lock its input source");
+
+            clearActiveFurnaceBatch(m);
+            inputs.get(0).getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            h.assertTrue((boolean) call(m, "tryStartBatch", difficulty),
+                    "Distinct furnace did not start from its second input bus");
+            eq(h, inputs.get(0).getInventory().getStackInSlot(0).getCount(), 1,
+                    "Second distinct batch ignored the advanced cursor");
+            eq(h, inputs.get(1).getInventory().getStackInSlot(0).getCount(), 0,
+                    "Second distinct batch did not consume the cursor-selected bus");
+            eq(h, number(m, "inputBusCursor"), 0, "Distinct cursor did not wrap after the second batch");
+            eq(h, number(m, "batchInputSourcePos"), inputs.get(1).getPos().asLong(),
+                    "Second batch did not lock its input source");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastAirAndSteamAreAtomic(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, m -> {
             List<SteamAirIntakeHatchPartMachine> intakes = list(m, "airIntakeHatches");
@@ -876,6 +949,37 @@ public final class GSESteamEngineTests {
         return block;
     }
 
+    private static List<ItemBusPartMachine> installAdditionalFurnaceInputBus(
+            GameTestHelper h, MultiblockControllerMachine m) {
+        if (m.isFormed()) {
+            m.onStructureInvalid();
+        }
+        List<BlockPos> candidates = new java.util.ArrayList<>();
+        for (BlockPos pos : BlockPos.betweenClosed(
+                m.getPos().offset(-8, 0, -8), m.getPos().offset(8, 8, 8))) {
+            if (h.getLevel().getBlockState(pos).is(GTBlocks.CASING_BRONZE_BRICKS.get())) {
+                candidates.add(pos.immutable());
+            }
+        }
+        for (BlockPos candidate : candidates) {
+            var original = h.getLevel().getBlockState(candidate);
+            h.getLevel().setBlockAndUpdate(candidate,
+                    GTMachines.STEAM_IMPORT_BUS.getBlock().defaultBlockState());
+            if (m.checkPattern()) {
+                m.onStructureFormed();
+                return m.getParts().stream()
+                        .filter(ItemBusPartMachine.class::isInstance)
+                        .map(ItemBusPartMachine.class::cast)
+                        .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
+                        .sorted(java.util.Comparator.comparing(bus -> bus.self().getPos()))
+                        .toList();
+            }
+            h.getLevel().setBlockAndUpdate(candidate, original);
+        }
+        h.fail("Could not install a second legal furnace input bus");
+        return List.of();
+    }
+
     @Nullable
     private static BlockPos findBlock(GameTestHelper h, MultiblockControllerMachine m,
                                       net.minecraft.world.level.block.Block block) {
@@ -1035,7 +1139,21 @@ public final class GSESteamEngineTests {
         set(m, "batchOriginWidth", 0);
         set(m, "batchOriginHeight", 0);
         set(m, "distinctBuses", false);
+        set(m, "inputBusCursor", 0);
+        set(m, "batchInputSourcePos", Long.MIN_VALUE);
         pending(m).clear();
+    }
+
+    private static void clearActiveFurnaceBatch(MultiblockControllerMachine m) {
+        set(m, "hasBatch", false);
+        set(m, "batchRecipe", null);
+        set(m, "batchRecipeId", "");
+        set(m, "batchParallel", 0);
+        set(m, "batchProgress", 0);
+        set(m, "batchDuration", 0);
+        set(m, "batchTotalSteamMb", 0L);
+        set(m, "batchSteamPerTickMb", 0L);
+        set(m, "batchInputSourcePos", Long.MIN_VALUE);
     }
 
     private static void seedBatch(MultiblockControllerMachine m, GTRecipe recipe, int parallel) {

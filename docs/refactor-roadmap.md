@@ -345,6 +345,7 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 | `voidPendingRecovery` | 四工位周期结算、工作强度产量倍率、输出满时不再次生产或耗汽、暂停时仍可投递已完成产物。 |
 | `processor/crusherParallelCapacity`（2 个） | 输出槽剩余 6 个位置时每次产 3 个的配方降为 2 并行；不足一份则不开工；机会副产物也必须预留空间；模拟不写入库存。 |
 | `furnaceParallelCapacity` | 使用真实圆石烧石头配方验证满输出拒绝且不扣输入、释放 6 个位置后以 6 并行启动并只扣取 6 份输入。 |
+| `furnaceDistinctBusesAreIsolatedAndFair` | 在真实成型熔炉中安装两个输入仓，验证隔离模式禁止跨仓拼合输入；两个仓都可执行配方时按持久化游标轮流启动，只扣取选中仓并锁定批次来源。 |
 | `processorConsumesInputsOnlyAtBatchStart` | 输出预检失败不扣输入；9 个输入、每份耗 2 个时启动 4 并行并剩 1 个；缺汽恢复不重新扣取或重算并行。 |
 | `processorFluidCapacityAndRecovery` | 流体剩余容量限制并行，预检不改储量；容量不足时完整保留待输出，释放空间后精确投递。 |
 | `blastAirAndSteamAreAtomic` | 鼓风不足不耗汽且回退；蒸汽不足不耗风；同时满足后按锁定耗汽量和每并行 4 mB 空气恢复。 |

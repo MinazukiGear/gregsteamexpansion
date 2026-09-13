@@ -9,6 +9,7 @@ import com.gregtechceu.gtceu.api.capability.recipe.RecipeCapability;
 import com.gregtechceu.gtceu.api.gui.GuiTextures;
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
+import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
 import com.gregtechceu.gtceu.api.machine.feature.IUIMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.machine.property.GTMachineModelProperties;
@@ -60,6 +61,7 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -76,10 +78,10 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * parallel batch recipe engine (single-recipe batches, LV cap, worst-case
  * output precheck, one-shot chance roll, atomic input/output, per-tick steam
  * demand with progress regression; P0.4/P0.5/P0.8 core), furnace/alloy recipe
- * modes with screwdriver switching, exhaust hatch wiring and the difficulty
- * downgrade migration (P0.6 machine side). Not wired yet: ME hatch scheduling
- * (P1.10), the controller GUI info page (P1.13) and kept-batch origin-size
- * tracking refinement.</p>
+ * modes with screwdriver switching, exhaust hatch wiring, distinct input-bus
+ * scheduling with a persisted round-robin cursor and the difficulty downgrade
+ * migration (P0.6 machine side). Not wired yet: the controller GUI info page
+ * (P1.13) and kept-batch origin-size tracking refinement.</p>
  */
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -165,12 +167,19 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     private int batchOriginWidth = 0;
     @Persisted
     private int batchOriginHeight = 0;
-    /** 总线隔离 state (UI control arrives with the controller GUI). */
+    /** 总线隔离 state controlled by the existing controller toggle. */
     @Persisted
     private boolean distinctBuses = false;
+    /** Next stable input range to probe while distinct-bus mode is enabled. */
+    @Persisted
+    private int inputBusCursor = 0;
+    /** Absolute position of the input range consumed by the live batch, or the sentinel below. */
+    @Persisted
+    private long batchInputSourcePos = NO_INPUT_SOURCE;
 
     public static final int MODE_FURNACE = 0;
     public static final int MODE_ALLOY = 1;
+    private static final long NO_INPUT_SOURCE = Long.MIN_VALUE;
     /** Alloy smelter batches can only start at ≥ 1200°C. */
     public static final int ALLOY_START_TEMPERATURE = 1200;
 
@@ -208,6 +217,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     /** Part recipe handlers aggregated on formation (WorkableMultiblockMachine wiring). */
     private final Map<IO, List<RecipeHandlerList>> capabilitiesProxy = new EnumMap<>(IO.class);
     private final Map<IO, Map<RecipeCapability<?>, List<IRecipeHandler<?>>>> capabilitiesFlat = new EnumMap<>(IO.class);
+    /** One stable, independently searchable capability view per ordinary or ME item input part. */
+    private final List<InputScope> inputScopes = new ArrayList<>();
 
     public LargeHeatStorageSteamFurnaceMachine(IMachineBlockEntity holder) {
         super(holder);
@@ -295,6 +306,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         // at the idle rate (large-heat-storage-steam-furnace.md 结构失效).
         super.onStructureInvalid();
         batchProgress = batchState.invalidate(batchProgress, hasBatch);
+        inputScopes.clear();
         exhaustBlocked = false;
         fireboxActive = false;
         updateFireboxBlocks(false);
@@ -310,11 +322,27 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         for (SteamPartCollector.HandlerBinding binding : partCollector.recipeHandlers()) {
             addHandlerList(binding.handlers());
         }
+        rebuildInputScopes();
         exhaustHatch = partCollector.exhaustHatches().isEmpty() ? null : partCollector.exhaustHatches().get(0);
         steamUnlimited = steamBudget.isUnlimited();
         GregSteamExpansion.LOGGER.debug("Furnace at {} formed {}x{}x{}: {} steam hatches, {} ME hatches, unlimited={}",
                 getPos(), formedWidth, formedWidth, formedHeight, steamHatches.size(), meSteamHatches.size(),
                 steamUnlimited);
+    }
+
+    private void rebuildInputScopes() {
+        inputScopes.clear();
+        for (IMultiPart inputPart : partCollector.inputParts()) {
+            InputScope scope = new InputScope(inputPart.self().getPos());
+            for (SteamPartCollector.HandlerBinding binding : partCollector.recipeHandlers()) {
+                if (binding.part() == inputPart && binding.handlers().isValid(IO.IN)) {
+                    scope.addHandlerList(binding.handlers());
+                }
+            }
+            if (scope.hasCapabilityProxies()) {
+                inputScopes.add(scope);
+            }
+        }
     }
 
     @NotNull
@@ -425,13 +453,44 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
      * lock every batch parameter.
      */
     private boolean tryStartBatch(Difficulty difficulty) {
-        GTRecipe recipe = findRecipe();
-        if (recipe == null) {
+        if (!distinctBuses) {
+            Iterator<GTRecipe> recipes = findRecipes(this);
+            if (!recipes.hasNext()) {
+                batchState.freeze(BatchStateMachine.HoldReason.INPUTS);
+                return false;
+            }
+            return tryStartBatchFrom(this, recipes.next(), difficulty, NO_INPUT_SOURCE);
+        }
+        if (inputScopes.isEmpty()) {
             batchState.freeze(BatchStateMachine.HoldReason.INPUTS);
             return false;
         }
+
+        int scopeCount = inputScopes.size();
+        int start = Math.floorMod(inputBusCursor, scopeCount);
+        boolean foundCandidate = false;
+        for (int offset = 0; offset < scopeCount; offset++) {
+            int index = (start + offset) % scopeCount;
+            InputScope scope = inputScopes.get(index);
+            Iterator<GTRecipe> recipes = findRecipes(scope);
+            while (recipes.hasNext()) {
+                foundCandidate = true;
+                if (tryStartBatchFrom(scope, recipes.next(), difficulty, scope.position().asLong())) {
+                    inputBusCursor = (index + 1) % scopeCount;
+                    return true;
+                }
+            }
+        }
+        if (!foundCandidate) {
+            batchState.freeze(BatchStateMachine.HoldReason.INPUTS);
+        }
+        return false;
+    }
+
+    private boolean tryStartBatchFrom(IRecipeCapabilityHolder inputHolder, GTRecipe recipe,
+                                      Difficulty difficulty, long inputSourcePos) {
         int structureCap = maximumParallel();
-        int byInputs = ParallelLogic.getMaxByInput(this, recipe, structureCap, List.of());
+        int byInputs = ParallelLogic.getMaxByInput(inputHolder, recipe, structureCap, List.of());
         if (byInputs <= 0) {
             batchState.freeze(BatchStateMachine.HoldReason.INPUTS);
             return false;
@@ -463,7 +522,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         GTRecipe multiplied = recipe.copy(ContentModifier.multiplier(parallel));
         multiplied.parallels = parallel;
         // 原子吞取输入: 仅当全部输入可满足时执行提取
-        var result = RecipeHelper.handleRecipe(this, multiplied, IO.IN,
+        var result = RecipeHelper.handleRecipe(inputHolder, multiplied, IO.IN,
                 multiplied.inputs, new HashMap<>(), false, false);
         if (!result.isSuccess()) {
             batchState.freeze(BatchStateMachine.HoldReason.INPUTS);
@@ -482,6 +541,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         batchSpeed = (float) speed;
         batchOriginWidth = formedWidth;
         batchOriginHeight = formedHeight;
+        batchInputSourcePos = inputSourcePos;
         GregSteamExpansion.LOGGER.debug("Furnace at {} started batch {} with parallel {} ({} mB total, {} mB/t over {} ticks)",
                 getPos(), batchRecipeId, parallel, totalSteam, perTick, duration);
         return true;
@@ -491,6 +551,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     private void completeBatch() {
         if (batchRecipe == null) {
             hasBatch = false;
+            batchInputSourcePos = NO_INPUT_SOURCE;
             return;
         }
         GTRecipe multiplied = batchRecipe.copy(ContentModifier.multiplier(batchParallel));
@@ -517,6 +578,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         hasBatch = false;
         batchRecipe = null;
         batchProgress = 0;
+        batchInputSourcePos = NO_INPUT_SOURCE;
         deliverPendingOutputs();
     }
 
@@ -547,16 +609,43 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         return 0;
     }
 
-    private GTRecipe findRecipe() {
+    private Iterator<GTRecipe> findRecipes(IRecipeCapabilityHolder inputHolder) {
         GTRecipeType type = recipeMode == MODE_ALLOY ? GTRecipeTypes.ALLOY_SMELTER_RECIPES
                 : GTRecipeTypes.FURNACE_RECIPES;
-        if (!hasCapabilityProxies()) {
-            return null;
+        if (!inputHolder.hasCapabilityProxies()) {
+            return java.util.Collections.emptyIterator();
         }
-        var iterator = type.searchRecipe(this, recipe ->
+        return type.searchRecipe(inputHolder, recipe ->
                 // 机器只接受基础输入功率不超过 32 EU/t (LV) 的配方
                 RecipeHelper.getRecipeEUtTier(recipe) <= 1);
-        return iterator.hasNext() ? iterator.next() : null;
+    }
+
+    private static final class InputScope implements IRecipeCapabilityHolder {
+
+        private final BlockPos position;
+        private final Map<IO, List<RecipeHandlerList>> capabilitiesProxy = new EnumMap<>(IO.class);
+        private final Map<IO, Map<RecipeCapability<?>, List<IRecipeHandler<?>>>> capabilitiesFlat =
+                new EnumMap<>(IO.class);
+
+        private InputScope(BlockPos position) {
+            this.position = position.immutable();
+        }
+
+        private BlockPos position() {
+            return position;
+        }
+
+        @NotNull
+        @Override
+        public Map<IO, List<RecipeHandlerList>> getCapabilitiesProxy() {
+            return capabilitiesProxy;
+        }
+
+        @NotNull
+        @Override
+        public Map<IO, Map<RecipeCapability<?>, List<IRecipeHandler<?>>>> getCapabilitiesFlat() {
+            return capabilitiesFlat;
+        }
     }
 
     @Nullable
