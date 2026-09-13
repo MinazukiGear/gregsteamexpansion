@@ -149,7 +149,7 @@ public final class GSEMachines {
             .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
                     com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
             .model(steamHatchModel(
-                    GregSteamExpansion.gtceuId("block/overlay/machine/overlay_fluid_hatch_input")))
+                    GregSteamExpansion.id("block/machine/part/steam_fluid_input_hatch")))
             .langValue("Steam Fluid Input Hatch")
             .tooltipBuilder(GSEMachineTooltips.STEAM_FLUID_IMPORT_HATCH)
             .allowCoverOnFront(true)
@@ -162,7 +162,7 @@ public final class GSEMachines {
             .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
                     com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
             .model(steamHatchModel(
-                    GregSteamExpansion.gtceuId("block/overlay/machine/overlay_fluid_hatch_output")))
+                    GregSteamExpansion.id("block/machine/part/steam_fluid_output_hatch")))
             .langValue("Steam Fluid Output Hatch")
             .tooltipBuilder(GSEMachineTooltips.STEAM_FLUID_EXPORT_HATCH)
             .allowCoverOnFront(true)
