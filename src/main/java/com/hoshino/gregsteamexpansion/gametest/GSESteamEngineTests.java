@@ -29,6 +29,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -36,6 +37,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -77,6 +79,185 @@ public final class GSESteamEngineTests {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void voidProducerStateBoundaries(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> stateBoundaries(h, m));
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void processorPersistedStateRoundTrip(GameTestHelper h) {
+        formed(h, GSEMachines.STEAM_CENTRIFUGE, m -> {
+            set(m, "workingEnabled", false);
+            set(m, "hasBatch", true);
+            set(m, "batchRecipeId", "gregsteamexpansion:persisted_processor");
+            set(m, "batchParallel", 3);
+            set(m, "batchProgress", 47);
+            set(m, "batchDurationTicks", 211);
+            set(m, "batchSteamPerTickMb", 600L);
+            set(m, "batchTotalSteamMb", 126_600L);
+            set(m, "batchOutputMultiplier", 2.0F);
+            set(m, "batchInputDisplay", new ItemStack(Items.IRON_INGOT, 2));
+            set(m, "preferredRecipeId", "gregsteamexpansion:preferred_processor");
+            pending(m).add(new ItemStack(Items.DIAMOND, 5));
+            List<FluidStack> fluids = list(m, "pendingFluids");
+            fluids.add(GTMaterials.Water.getFluid(750));
+
+            CompoundTag saved = saveState(h, m);
+            clearProcessorState(m);
+            loadState(h, m, saved);
+
+            h.assertTrue(!(boolean) call(m, "isWorkingEnabled"), "Processor work-enabled state was not restored");
+            h.assertTrue((boolean) get(m, "hasBatch"), "Processor batch flag was not restored");
+            h.assertTrue(get(m, "batchRecipeId").equals("gregsteamexpansion:persisted_processor"),
+                    "Processor recipe id was not restored");
+            eq(h, number(m, "batchParallel"), 3, "Processor parallel was not restored");
+            eq(h, number(m, "batchProgress"), 47, "Processor progress was not restored");
+            eq(h, number(m, "batchDurationTicks"), 211, "Processor duration was not restored");
+            eq(h, number(m, "batchSteamPerTickMb"), 600, "Processor steam demand was not restored");
+            eq(h, number(m, "batchTotalSteamMb"), 126_600, "Processor steam total was not restored");
+            h.assertTrue(((Number) get(m, "batchOutputMultiplier")).floatValue() == 2.0F,
+                    "Processor output multiplier was not restored");
+            ItemStack display = (ItemStack) get(m, "batchInputDisplay");
+            h.assertTrue(display.is(Items.IRON_INGOT) && display.getCount() == 2,
+                    "Processor input display was not restored");
+            h.assertTrue(get(m, "preferredRecipeId").equals("gregsteamexpansion:preferred_processor"),
+                    "Processor recipe preference was not restored");
+            eq(h, count(pending(m), Items.DIAMOND), 5, "Processor pending item was not restored");
+            eq(h, fluidAmount(fluids, GTMaterials.Water.getFluid(1)), 750,
+                    "Processor pending fluid was not restored");
+            h.assertTrue((boolean) call(get(m, "pendingBuffer"), "hasAny"),
+                    "Processor pending buffer detached from restored lists");
+
+            fillOutputs(m, false);
+            h.assertTrue((boolean) call(m, "deliverPendingOutputs"),
+                    "Processor could not deliver restored pending outputs");
+            eq(h, outputCount(m, Items.DIAMOND), 5, "Processor duplicated or lost restored item output");
+            eq(h, fluidOutputAmount(m, GTMaterials.Water.getFluid(1)), 750,
+                    "Processor duplicated or lost restored fluid output");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void crusherPersistedStateRoundTrip(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_CRUSHER, m -> {
+            set(m, "workingEnabled", false);
+            set(m, "hasBatch", true);
+            set(m, "batchRecipeId", "gregsteamexpansion:persisted_crusher");
+            set(m, "batchParallel", 6);
+            set(m, "batchProgress", 173);
+            set(m, "batchSteamPerTickMb", 1_200L);
+            set(m, "batchTotalSteamMb", 720_000L);
+            set(m, "batchInputDisplay", new ItemStack(Items.RAW_IRON, 1));
+            set(m, "pendingDataVersion", (byte) 1);
+            set(m, "exhaustDamageTimer", 197L);
+            pending(m).add(new ItemStack(Items.IRON_INGOT, 9));
+
+            CompoundTag saved = saveState(h, m);
+            clearCrusherState(m);
+            loadState(h, m, saved);
+
+            h.assertTrue(!(boolean) call(m, "isWorkingEnabled"), "Crusher work-enabled state was not restored");
+            h.assertTrue((boolean) get(m, "hasBatch"), "Crusher batch flag was not restored");
+            h.assertTrue(get(m, "batchRecipeId").equals("gregsteamexpansion:persisted_crusher"),
+                    "Crusher recipe id was not restored");
+            eq(h, number(m, "batchParallel"), 6, "Crusher parallel was not restored");
+            eq(h, number(m, "batchProgress"), 173, "Crusher progress was not restored");
+            eq(h, number(m, "batchSteamPerTickMb"), 1_200, "Crusher steam demand was not restored");
+            eq(h, number(m, "batchTotalSteamMb"), 720_000, "Crusher steam total was not restored");
+            eq(h, number(m, "exhaustDamageTimer"), 197, "Crusher exhaust timer was not restored");
+            ItemStack display = (ItemStack) get(m, "batchInputDisplay");
+            h.assertTrue(display.is(Items.RAW_IRON) && display.getCount() == 1,
+                    "Crusher input display was not restored");
+            eq(h, count(pending(m), Items.IRON_INGOT), 9, "Crusher pending output was not restored");
+            h.assertTrue((boolean) call(get(m, "pendingBuffer"), "hasAny"),
+                    "Crusher pending buffer detached from restored list");
+
+            fillOutputs(m, false);
+            h.assertTrue((boolean) call(m, "deliverPendingOutputs"),
+                    "Crusher could not deliver restored pending output");
+            eq(h, outputCount(m, Items.IRON_INGOT), 9, "Crusher duplicated or lost restored output");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void furnacePersistedStateRoundTrip(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_HEAT_STORAGE_STEAM_FURNACE, m -> {
+            int width = (int) number(m, "formedWidth");
+            int height = (int) number(m, "formedHeight");
+            set(m, "currentTemperature", 777);
+            set(m, "preheatProgressUnits", 12_345L);
+            set(m, "heatTimer", 2);
+            set(m, "coolTimer", 3);
+            set(m, "exhaustDamageTimer", 199L);
+            set(m, "workingEnabled", false);
+            set(m, "lastAppliedDifficulty", 1);
+            set(m, "recipeMode", LargeHeatStorageSteamFurnaceMachine.MODE_FURNACE);
+            set(m, "hasBatch", true);
+            set(m, "batchTotalSteamMb", 80_000L);
+            set(m, "batchSteamPerTickMb", 400L);
+            set(m, "batchDuration", 200);
+            set(m, "batchProgress", 73);
+            set(m, "batchParallel", 4);
+            set(m, "batchSpeed", 1.25F);
+            set(m, "batchRecipeId", "gregsteamexpansion:persisted_furnace");
+            set(m, "batchRecipeMode", LargeHeatStorageSteamFurnaceMachine.MODE_FURNACE);
+            set(m, "batchOriginWidth", width);
+            set(m, "batchOriginHeight", height);
+            set(m, "distinctBuses", true);
+            pending(m).add(new ItemStack(Items.GLASS, 7));
+
+            CompoundTag saved = saveState(h, m);
+            clearFurnaceState(m);
+            loadState(h, m, saved);
+
+            eq(h, number(m, "formedWidth"), width, "Furnace width was not restored");
+            eq(h, number(m, "formedHeight"), height, "Furnace height was not restored");
+            eq(h, number(m, "currentTemperature"), 777, "Furnace temperature was not restored");
+            eq(h, number(m, "preheatProgressUnits"), 12_345, "Furnace preheat remainder was not restored");
+            eq(h, number(m, "heatTimer"), 2, "Furnace heat timer was not restored");
+            eq(h, number(m, "coolTimer"), 3, "Furnace cool timer was not restored");
+            eq(h, number(m, "exhaustDamageTimer"), 199, "Furnace exhaust timer was not restored");
+            h.assertTrue(!(boolean) call(m, "isWorkingEnabled"), "Furnace work-enabled state was not restored");
+            h.assertTrue((boolean) get(m, "hasBatch"), "Furnace batch flag was not restored");
+            eq(h, number(m, "batchProgress"), 73, "Furnace progress was not restored");
+            eq(h, number(m, "batchDuration"), 200, "Furnace duration was not restored");
+            eq(h, number(m, "batchParallel"), 4, "Furnace parallel was not restored");
+            eq(h, number(m, "batchOriginWidth"), width, "Furnace batch width was not restored");
+            eq(h, number(m, "batchOriginHeight"), height, "Furnace batch height was not restored");
+            h.assertTrue((boolean) get(m, "distinctBuses"), "Furnace distinct-bus setting was not restored");
+            eq(h, count(pending(m), Items.GLASS), 7, "Furnace pending output was not restored");
+            h.assertTrue((boolean) call(get(m, "pendingBuffer"), "hasAny"),
+                    "Furnace pending buffer detached from restored list");
+
+            fillOutputs(m, false);
+            h.assertTrue((boolean) call(m, "deliverPendingOutputs"),
+                    "Furnace could not deliver restored pending output");
+            eq(h, outputCount(m, Items.GLASS), 7, "Furnace duplicated or lost restored output");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void voidProducerPersistedStateRoundTrip(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> {
+            set(m, "workingEnabled", false);
+            set(m, "cycleProgress", 137);
+            pending(m).add(new ItemStack(Items.RAW_GOLD, 11));
+            List<FluidStack> fluids = list(m, "pendingFluids");
+            fluids.add(GTMaterials.Water.getFluid(333));
+
+            CompoundTag saved = saveState(h, m);
+            set(m, "workingEnabled", true);
+            set(m, "cycleProgress", 0);
+            pending(m).clear();
+            fluids.clear();
+            loadState(h, m, saved);
+
+            h.assertTrue(!(boolean) call(m, "isWorkingEnabled"),
+                    "Void producer work-enabled state was not restored");
+            eq(h, number(m, "cycleProgress"), 137, "Void producer progress was not restored");
+            eq(h, count(pending(m), Items.RAW_GOLD), 11, "Void producer pending item was not restored");
+            eq(h, fluidAmount(fluids, GTMaterials.Water.getFluid(1)), 333,
+                    "Void producer pending fluid was not restored");
+            h.assertTrue((boolean) call(get(m, "pendingBuffer"), "hasAny"),
+                    "Void producer pending buffer detached from restored lists");
+        });
     }
 
     private static void stateBoundaries(GameTestHelper h, MultiblockControllerMachine m) {
@@ -553,6 +734,73 @@ public final class GSESteamEngineTests {
                 .chancedOutput(new ItemStack(Items.GOLD_INGOT), 5000, 0).duration(200).EUt(8).buildRawRecipe();
     }
 
+    private static CompoundTag saveState(GameTestHelper h, MultiblockControllerMachine m) {
+        BlockEntity blockEntity = h.getLevel().getBlockEntity(m.getPos());
+        h.assertTrue(blockEntity != null, "Missing controller block entity");
+        CompoundTag tag = blockEntity.saveWithoutMetadata();
+        h.assertTrue(!tag.isEmpty(), "Controller block entity persisted no state");
+        return tag;
+    }
+
+    private static void loadState(GameTestHelper h, MultiblockControllerMachine m, CompoundTag tag) {
+        BlockEntity blockEntity = h.getLevel().getBlockEntity(m.getPos());
+        h.assertTrue(blockEntity != null, "Missing controller block entity");
+        blockEntity.load(tag);
+    }
+
+    private static void clearProcessorState(MultiblockControllerMachine m) {
+        set(m, "workingEnabled", true);
+        set(m, "hasBatch", false);
+        set(m, "batchRecipeId", "");
+        set(m, "batchParallel", 0);
+        set(m, "batchProgress", 0);
+        set(m, "batchDurationTicks", 0);
+        set(m, "batchSteamPerTickMb", 0L);
+        set(m, "batchTotalSteamMb", 0L);
+        set(m, "batchOutputMultiplier", 1.0F);
+        set(m, "batchInputDisplay", ItemStack.EMPTY);
+        set(m, "preferredRecipeId", "");
+        pending(m).clear();
+        list(m, "pendingFluids").clear();
+    }
+
+    private static void clearCrusherState(MultiblockControllerMachine m) {
+        set(m, "workingEnabled", true);
+        set(m, "hasBatch", false);
+        set(m, "batchRecipeId", "");
+        set(m, "batchParallel", 0);
+        set(m, "batchProgress", 0);
+        set(m, "batchSteamPerTickMb", 0L);
+        set(m, "batchTotalSteamMb", 0L);
+        set(m, "batchInputDisplay", ItemStack.EMPTY);
+        set(m, "exhaustDamageTimer", 0L);
+        pending(m).clear();
+    }
+
+    private static void clearFurnaceState(MultiblockControllerMachine m) {
+        set(m, "formedWidth", 0);
+        set(m, "formedHeight", 0);
+        set(m, "currentTemperature", LargeHeatStorageSteamFurnaceMachine.COLD_TEMPERATURE);
+        set(m, "preheatProgressUnits", 0L);
+        set(m, "heatTimer", 0);
+        set(m, "coolTimer", 0);
+        set(m, "exhaustDamageTimer", 0L);
+        set(m, "workingEnabled", true);
+        set(m, "lastAppliedDifficulty", 0);
+        set(m, "hasBatch", false);
+        set(m, "batchTotalSteamMb", 0L);
+        set(m, "batchSteamPerTickMb", 0L);
+        set(m, "batchDuration", 0);
+        set(m, "batchProgress", 0);
+        set(m, "batchParallel", 0);
+        set(m, "batchSpeed", 1.0F);
+        set(m, "batchRecipeId", "");
+        set(m, "batchOriginWidth", 0);
+        set(m, "batchOriginHeight", 0);
+        set(m, "distinctBuses", false);
+        pending(m).clear();
+    }
+
     private static void seedBatch(MultiblockControllerMachine m, GTRecipe recipe, int parallel) {
         if (m instanceof AbstractSteamVoidMachine) return;
         set(m, "hasBatch", true);
@@ -618,6 +866,22 @@ public final class GSESteamEngineTests {
         }
         return total;
     }
+
+    private static long fluidAmount(List<FluidStack> stacks, FluidStack expected) {
+        return stacks.stream().filter(stack -> stack.isFluidEqual(expected)).mapToLong(FluidStack::getAmount).sum();
+    }
+
+    private static long fluidOutputAmount(Object m, FluidStack expected) {
+        long total = 0;
+        for (FluidHatchPartMachine hatch : GSESteamEngineTests.<FluidHatchPartMachine>list(m, "fluidOutputHatches")) {
+            for (int tank = 0; tank < hatch.tank.getTanks(); tank++) {
+                FluidStack stack = hatch.tank.getFluidInTank(tank);
+                if (stack.isFluidEqual(expected)) total += stack.getAmount();
+            }
+        }
+        return total;
+    }
+
     private static int outputTotal(Object m) {
         int total = 0;
         for (var bus : outputs(m)) for (int slot = 0; slot < bus.getInventory().getSlots(); slot++) {
