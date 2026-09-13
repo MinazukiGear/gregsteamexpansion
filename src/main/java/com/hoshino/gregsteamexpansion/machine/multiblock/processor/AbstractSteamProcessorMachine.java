@@ -427,10 +427,10 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchState.beginTick();
 
         // 待输出优先送出 (also while paused: delivering is not recipe work).
-        if (isFormed() && !pendingOutputs.isEmpty() && !deliverPendingOutputs()) {
+        if (isFormed() && pendingBuffer.hasAny() && !deliverPendingOutputs()) {
             batchState.freeze(BatchStateMachine.HoldReason.OUTPUTS);
         }
-        if (!pendingOutputs.isEmpty() && batchState.isWaitingFor(BatchStateMachine.HoldReason.OUTPUTS)) {
+        if (pendingBuffer.hasAny() && batchState.isWaitingFor(BatchStateMachine.HoldReason.OUTPUTS)) {
             updateWorkingAppearance();
             return;
         }
@@ -1049,8 +1049,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         int chanceTier = recipeTier + multiplied.ocLevel;
         var chanceFunction = multiplied.getType().getChanceFunction();
         List<ItemStack> produced = new ArrayList<>();
+        List<FluidStack> producedFluids = new ArrayList<>();
         multiplied.outputs.forEach((capability, contents) -> {
-            if (capability != ItemRecipeCapability.CAP) {
+            if (capability != ItemRecipeCapability.CAP && capability != FluidRecipeCapability.CAP) {
                 return;
             }
             ChanceLogic logic = multiplied.getChanceLogicForCapability(capability, IO.OUT, false);
@@ -1059,10 +1060,15 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             // times=1: the parallel quantity is ALREADY in the copied outputs
             // (SizedIngredient amount × P). ChanceLogic.OR's `times` would
             // multiply the guaranteed part AGAIN.
-            produced.addAll(materializeItemContents(rolled));
+            if (capability == ItemRecipeCapability.CAP) {
+                produced.addAll(materializeItemContents(rolled));
+            } else {
+                producedFluids.addAll(materializeFluidContents(rolled));
+            }
         });
         List<ItemStack> scaledProduced = scaleByMultiplier(produced, batchOutputMultiplier);
         pendingBuffer.addMergedItems(scaledProduced);
+        pendingBuffer.addMergedFluids(producedFluids);
 
         hasBatch = false;
         batchRecipe = null;

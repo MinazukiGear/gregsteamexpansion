@@ -494,6 +494,65 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void processorCompletesFluidRecipe(GameTestHelper h) {
+        formed(h, GSEMachines.STEAM_CENTRIFUGE, m -> {
+            ItemBusPartMachine itemInput = m.getParts().stream().filter(ItemBusPartMachine.class::isInstance)
+                    .map(ItemBusPartMachine.class::cast)
+                    .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN).findFirst().orElseThrow();
+            List<FluidHatchPartMachine> fluidInputs = list(m, "fluidInputHatches");
+            h.assertTrue(!fluidInputs.isEmpty(), "Fixture lacks fluid input");
+            var fluidInput = fluidInputs.get(0).tank.getStorages()[0];
+
+            itemInput.getInventory().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 2));
+            fluidInput.setFluid(GTMaterials.Water.getFluid(500));
+            fillOutputs(m, false);
+            fillSteam(m, 32_000);
+            long steamBefore = steam(m);
+            GTRecipe recipe = GTRecipeTypes.CENTRIFUGE_RECIPES.recipeBuilder(
+                            GregSteamExpansion.id("engine_fluid_completion"))
+                    .inputItems(new ItemStack(Items.IRON_INGOT))
+                    .inputFluids(GTMaterials.Water.getFluid(250))
+                    .outputItems(new ItemStack(Items.GOLD_INGOT))
+                    .outputFluids(GTMaterials.Oxygen.getFluid(100))
+                    .duration(4).EUt(8).buildRawRecipe();
+
+            h.assertTrue((boolean) call(m, "tryStartRecipe", recipe), "Fluid recipe did not start");
+            eq(h, number(m, "batchParallel"), 2, "Fluid recipe chose the wrong parallel");
+            eq(h, itemInput.getInventory().getStackInSlot(0).getCount(), 0,
+                    "Fluid recipe did not consume its item input");
+            eq(h, fluidInput.getFluidAmount(), 0, "Fluid recipe did not consume its fluid input");
+            int duration = (int) number(m, "batchDurationTicks");
+            long totalSteam = number(m, "batchTotalSteamMb");
+            int expectedItems = Math.round(2 * ((Number) get(m, "batchOutputMultiplier")).floatValue());
+            List<FluidHatchPartMachine> fluidOutputs = list(m, "fluidOutputHatches");
+            for (FluidHatchPartMachine hatch : fluidOutputs) {
+                for (var tank : hatch.tank.getStorages()) {
+                    tank.setFluid(GTMaterials.Water.getFluid(tank.getCapacity()));
+                }
+            }
+            for (int i = 0; i < duration; i++) tick(m);
+
+            h.assertTrue(!(boolean) get(m, "hasBatch"), "Completed fluid recipe remained active");
+            eq(h, steamBefore - steam(m), totalSteam, "Fluid recipe charged the wrong steam total");
+            eq(h, outputCount(m, Items.GOLD_INGOT), expectedItems,
+                    "Fluid recipe lost or duplicated its item output");
+            List<FluidStack> pendingFluids = list(m, "pendingFluids");
+            eq(h, fluidAmount(pendingFluids, GTMaterials.Oxygen.getFluid(1)), 200,
+                    "Blocked fluid output was not retained exactly once");
+            long steamBeforeRecovery = steam(m);
+            for (FluidHatchPartMachine hatch : fluidOutputs) {
+                for (var tank : hatch.tank.getStorages()) tank.setFluid(FluidStack.EMPTY);
+            }
+            tick(m);
+            eq(h, steam(m), steamBeforeRecovery, "Pending fluid recovery consumed steam");
+            eq(h, fluidOutputAmount(m, GTMaterials.Oxygen.getFluid(1)), 200,
+                    "Fluid recipe did not recover its blocked fluid output");
+            h.assertTrue(pending(m).isEmpty() && GSESteamEngineTests.<FluidStack>list(m, "pendingFluids").isEmpty(),
+                    "Completed fluid recipe left deliverable output pending");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void furnaceParallelCapacity(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_HEAT_STORAGE_STEAM_FURNACE, m -> {
             var input = m.getParts().stream().filter(ItemBusPartMachine.class::isInstance)

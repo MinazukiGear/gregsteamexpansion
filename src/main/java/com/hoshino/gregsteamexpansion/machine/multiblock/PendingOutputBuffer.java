@@ -65,6 +65,14 @@ public final class PendingOutputBuffer {
         items.addAll(produced);
     }
 
+    public void addMergedFluids(List<FluidStack> produced) {
+        if (fluids == null) {
+            throw new IllegalStateException("This pending-output buffer does not accept fluids");
+        }
+        mergeFluids(produced);
+        fluids.addAll(produced);
+    }
+
     public void mergePendingItems() {
         mergeItems(items);
     }
