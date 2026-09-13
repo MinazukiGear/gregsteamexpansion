@@ -79,7 +79,7 @@ bash tools/verify.sh                                # 与 CI 完全一致的完�
 
 `tools/verify.sh` 是 `.github/workflows/build.yml` 的本地镜像，依次执行编译 →
 GameTest → datagen 新鲜度（`runData` 后不应产生 git diff）→ 构建。Gradle `check` 会在构建中
-隔离生成并逐字节核对程序化资产，同时检查 `en_us`/`zh_cn` 键集合及所有已注册 Jade UID 的
+隔离生成并逐像素核对程序化 PNG、逐字节核对其他生成资产，同时检查 `en_us`/`zh_cn` 键集合及所有已注册 Jade UID 的
 配置翻译，并抽样核对设计文档与代码中的结构尺寸、并行上限。CI 在 push 与 PR 上执行同一组
 步骤，因此本地通过即可认为 CI 会通过。
 

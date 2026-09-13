@@ -33,7 +33,9 @@ run directly while editing one texture.
 
 Generated PNG and GameTest structure files are committed. Gradle `check`,
 `tools/verify.sh`, and CI run the isolated freshness check and reject missing or
-stale outputs.
+stale outputs. PNG files are compared by decoded mode, dimensions and pixels so
+equivalent zlib streams produced on Windows and Linux do not fail the gate;
+non-image outputs such as GameTest NBT remain byte-exact.
 
 ## Design contract verification
 

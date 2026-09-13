@@ -54,6 +54,28 @@ def run_generators(tools: Path, root: Path) -> int:
     return len(generators)
 
 
+def generated_asset_matches(generated: Path, committed: Path) -> bool:
+    """Compare generated content without depending on PNG compression bytes.
+
+    Pillow delegates PNG compression to the platform zlib build.  Equal images
+    can therefore have different IDAT streams on Windows and Linux.  Minecraft
+    consumes the decoded pixels, so PNG freshness is defined by mode, size and
+    pixel bytes.  Non-image outputs such as GameTest NBT remain byte-exact.
+    """
+    if generated.suffix.lower() == ".png":
+        from PIL import Image
+
+        with Image.open(generated) as generated_image, Image.open(committed) as committed_image:
+            generated_image.load()
+            committed_image.load()
+            return (
+                generated_image.mode == committed_image.mode
+                and generated_image.size == committed_image.size
+                and generated_image.tobytes() == committed_image.tobytes()
+            )
+    return generated.read_bytes() == committed.read_bytes()
+
+
 def check_generated_assets() -> int:
     with tempfile.TemporaryDirectory(prefix="gse-assets-") as temporary_directory:
         sandbox = Path(temporary_directory)
@@ -76,7 +98,7 @@ def check_generated_assets() -> int:
             committed = committed_root / relative
             if not committed.is_file():
                 missing.append(relative)
-            elif generated.read_bytes() != committed.read_bytes():
+            elif not generated_asset_matches(generated, committed):
                 stale.append(relative)
 
         if missing or stale:
@@ -90,7 +112,7 @@ def check_generated_assets() -> int:
 
         print(
             f"\nGenerated assets are current: {len(generated_files)} files "
-            f"from {generator_count} scripts."
+            f"from {generator_count} scripts (PNG pixels; other files byte-exact)."
         )
         return 0
 

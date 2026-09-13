@@ -375,7 +375,7 @@ tasks.register('genAssets', Exec) {
 
 def checkGeneratedAssets = tasks.register('checkGeneratedAssets', Exec) {
     group = 'verification'
-    description = 'Generates assets in isolation and checks committed outputs byte for byte.'
+    description = 'Generates assets in isolation and checks PNG pixels plus byte-exact non-image outputs.'
     workingDir rootDir
     environment 'PYTHONDONTWRITEBYTECODE', '1'
     inputs.files(fileTree('tools') {

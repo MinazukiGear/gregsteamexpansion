@@ -380,7 +380,7 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 | --- | --- | --- |
 | `changelog-forge-mdk.txt` | 已由易误认的 `changelog.txt` 改名，明确标识为 Forge MDK 上游记录 | 已完成 |
 | `tools/` | 13 个资产生成器已统一为 Python 3.10+；`generate_assets.py` 按确定的文件名顺序调用，Pillow 固定为 `12.3.0`，使用说明集中在 `tools/README.md` | 已完成 |
-| 资产生成 | `genAssets` 负责更新生成物；`checkGeneratedAssets` 在临时目录运行全部生成器并逐字节比较 87 个提交文件，已接入 Gradle `check`、`tools/verify.sh` 与 CI | 已完成 |
+| 资产生成 | `genAssets` 负责更新生成物；`checkGeneratedAssets` 在临时目录运行全部生成器，对 PNG 比较解码后的模式、尺寸与像素，对其他输出逐字节比较，已接入 Gradle `check`、`tools/verify.sh` 与 CI | 已完成 |
 | 文案一致性 | `en_us` / `en_ud` / `zh_cn` 当前均为 683 键；`checkLanguageKeys` 检查 `en_us ↔ zh_cn` 键集合，并从注册调用核验全部 Jade UID 的英文、中文配置名称 | 已完成；由 Gradle `check`、`tools/verify.sh` 与 CI 共同执行 |
 | 文档一致性 | `checkDesignContracts` 从实际结构层数组与运行常量推导代码值，并抽样核对 5 组结构尺寸和 4 组并行规则 | 已完成；接入 Gradle `check`、`tools/verify.sh` 与 CI |
 
@@ -388,7 +388,7 @@ for (GTRecipe recipe : cachedRecipes) {        // L754
 
 **资产工具统一结果（2026-09-11）：**删除最后 2 个 PowerShell 资产生成器并等价改写为 Python；旧、新实现生成的 16 张 PNG 已逐像素对比一致。统一入口在隔离目录成功运行全部 13 个生成器，产生的 87 个文件均有已提交对应项，PNG 像素及其余文件字节与仓库内容完全一致。`__pycache__` 与编译缓存文件也已加入忽略规则。
 
-**资产新鲜度门禁结果（2026-09-11）：**`generate_assets.py --check` 将 13 个生成器复制到系统临时目录执行，逐字节核对其 87 个输出，不改写工作区；缺失或过期时列出具体路径，并提示运行统一生成命令。Gradle 提供 `genAssets` 和 `checkGeneratedAssets`，后者已作为 `check` 依赖，因此 `build`、本地完整门禁和 CI 都会执行。CI 固定 Python 3.11 并缓存、安装 `tools/requirements.txt`；本地可通过 `GSE_ASSET_PYTHON` 或 `-PassetPythonExecutable` 指定解释器。正向检查和篡改单张纹理的失败路径均已验证。
+**资产新鲜度门禁结果（2026-09-11，2026-09-13 修订）：**`generate_assets.py --check` 将 13 个生成器复制到系统临时目录执行并核对其 87 个输出，不改写工作区；缺失或过期时列出具体路径，并提示运行统一生成命令。最初所有文件均逐字节比较，随后连续 CI 运行证明 Pillow 生成的等像素 PNG 会因 Windows 与 Linux 的 zlib 实现产生不同 IDAT 字节。当前 PNG 按解码后的模式、尺寸和像素比较，GameTest NBT 等非图像输出仍逐字节比较。Gradle 提供 `genAssets` 和 `checkGeneratedAssets`，后者已作为 `check` 依赖，因此 `build`、本地完整门禁和 CI 都会执行。CI 固定 Python 3.11 并缓存、安装 `tools/requirements.txt`；本地可通过 `GSE_ASSET_PYTHON` 或 `-PassetPythonExecutable` 指定解释器。正向检查和篡改单张纹理的失败路径均已验证。
 
 **设计数字门禁结果（2026-09-11）：**新增 `check_design_contracts.py` 和 Gradle `checkDesignContracts`，抽样覆盖锅炉房、两类粉碎机、大型焦炉、大型蒸汽高炉、可变蓄热熔炉的结构尺寸，以及粉碎机、大型焦炉、大型蒸汽高炉、组装机家族的并行规则。结构值从 Java 层数组、字符串宽深和重复层常量推导，运行值从实际常量或返回分支提取；每项同时核对设计文档、实现值与门禁固定值，防止单边修改。正向 9 项通过，篡改粉碎机文档并行上限的负向用例正确失败并报告预期值与实际值。
 
