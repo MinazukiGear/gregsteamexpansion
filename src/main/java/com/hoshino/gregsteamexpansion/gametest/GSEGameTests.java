@@ -24,6 +24,7 @@ import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTRecipes;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
+import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
@@ -563,6 +564,77 @@ public final class GSEGameTests {
         helper.assertTrue(converted.is(GSEMachines.STEAM_SUPPLY_HATCH.getBlock()),
                 "Legacy steam hatch placement was not converted to a steam supply hatch");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void legacySteamHatchWorldMigrationPreservesOverflow(GameTestHelper helper) {
+        // machines-and-hatches.md 旧存档迁移: exercise the same block-entity
+        // migration called after a legacy chunk loads, including over-cap steam.
+        var legacyBlock = GTMachines.STEAM_HATCH.getBlock();
+        helper.assertTrue(legacyBlock != null, "Legacy steam hatch block missing");
+        if (legacyBlock == null) {
+            helper.succeed();
+            return;
+        }
+        helper.setBlock(HATCH_POS, legacyBlock.defaultBlockState());
+        MetaMachine machine = MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(HATCH_POS));
+        helper.assertTrue(machine instanceof FluidHatchPartMachine,
+                "Legacy steam hatch did not create its fluid-hatch block entity");
+        if (!(machine instanceof FluidHatchPartMachine legacy)) {
+            helper.succeed();
+            return;
+        }
+
+        legacy.setFrontFacing(Direction.EAST);
+        legacy.setUpwardsFacing(Direction.UP);
+        legacy.setPaintingColor(0x5A7C91);
+        legacy.setWorkingEnabled(false);
+        legacy.tank.setFluidInTank(0, GTMaterials.Steam.getFluid(50_000));
+        Direction expectedFront = legacy.getFrontFacing();
+        Direction expectedUpwards = legacy.getUpwardsFacing();
+
+        invokeLegacySteamHatchMigration(helper, helper.absolutePos(HATCH_POS));
+        MetaMachine migrated = MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(HATCH_POS));
+        helper.assertTrue(migrated instanceof SteamSupplyHatchPartMachine,
+                "Legacy block entity was not replaced by a steam supply hatch");
+        if (migrated instanceof SteamSupplyHatchPartMachine supply) {
+            helper.assertTrue(supply.getFrontFacing() == expectedFront,
+                    "Legacy migration lost the front facing");
+            helper.assertTrue(supply.getUpwardsFacing() == expectedUpwards,
+                    "Legacy migration lost the upwards facing");
+            helper.assertTrue(supply.getPaintingColor() == 0x5A7C91,
+                    "Legacy migration lost the painting color");
+            helper.assertTrue(!supply.isWorkingEnabled(),
+                    "Legacy migration lost the working-enabled state");
+            helper.assertTrue(supply.tank.getFluidInTank(0).getAmount() == 50_000,
+                    "Legacy migration truncated or duplicated over-cap steam");
+            helper.assertTrue(supply.tank.fill(GTMaterials.Steam.getFluid(1), FluidAction.EXECUTE) == 0,
+                    "Over-cap migrated hatch accepted more steam");
+
+            int drained = supply.tank.getStorages()[0]
+                    .drain(GTMaterials.Steam.getFluid(18_001), FluidAction.EXECUTE).getAmount();
+            helper.assertTrue(drained == 18_001 && supply.tank.getFluidInTank(0).getAmount() == 31_999,
+                    "Migrated over-cap steam could not be consumed normally");
+            helper.assertTrue(supply.tank.fill(GTMaterials.Steam.getFluid(1), FluidAction.EXECUTE) == 1,
+                    "Migrated hatch did not resume normal capacity behavior below the limit");
+
+            invokeLegacySteamHatchMigration(helper, helper.absolutePos(HATCH_POS));
+            MetaMachine repeated = MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(HATCH_POS));
+            helper.assertTrue(repeated == supply && supply.tank.getFluidInTank(0).getAmount() == 32_000,
+                    "Repeated migration changed an already converted hatch");
+        }
+        helper.succeed();
+    }
+
+    private static void invokeLegacySteamHatchMigration(GameTestHelper helper, BlockPos pos) {
+        try {
+            var method = LegacySteamHatchCompat.class.getDeclaredMethod(
+                    "migrateLegacyHatch", ServerLevel.class, BlockPos.class);
+            method.setAccessible(true);
+            method.invoke(null, helper.getLevel(), pos);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Could not invoke legacy steam hatch migration", e);
+        }
     }
 
     private static final BlockPos HATCH_POS = new BlockPos(0, 0, 0);

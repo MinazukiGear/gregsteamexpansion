@@ -7,6 +7,7 @@ import com.gregtechceu.gtceu.api.gui.widget.TankWidget;
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.gregtechceu.gtceu.api.machine.trait.NotifiableFluidTank;
+import com.gregtechceu.gtceu.api.transfer.fluid.CustomFluidTank;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 
@@ -16,7 +17,13 @@ import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidType;
+import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
+
+import org.jetbrains.annotations.NotNull;
+
+import java.util.List;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -49,8 +56,29 @@ public class SteamSupplyHatchPartMachine extends FluidHatchPartMachine {
 
     @Override
     protected NotifiableFluidTank createTank(int initialCapacity, int slots, Object... args) {
-        return super.createTank(initialCapacity, slots)
+        CustomFluidTank storage = new OverflowSafeFluidTank(getTankCapacity(initialCapacity, getTier()));
+        return new NotifiableFluidTank(this, List.of(storage), IO.IN)
                 .setFilter(fluidStack -> fluidStack.getFluid().is(GTMaterials.Steam.getFluidTag()));
+    }
+
+    /**
+     * Forge's base tank assumes stored content never exceeds its capacity. A
+     * migrated legacy hatch may legitimately contain more, so reject fills
+     * before the base implementation can calculate a negative free space.
+     */
+    private static final class OverflowSafeFluidTank extends CustomFluidTank {
+
+        private OverflowSafeFluidTank(int capacity) {
+            super(capacity);
+        }
+
+        @Override
+        public int fill(@NotNull FluidStack resource, FluidAction action) {
+            if (getFluidAmount() >= getCapacity()) {
+                return 0;
+            }
+            return super.fill(resource, action);
+        }
     }
 
     @Override

@@ -308,13 +308,18 @@ public final class LegacySteamHatchCompat {
         }
 
         // Failure: put the legacy block back exactly as it was.
-        GregSteamExpansion.LOGGER.error("Failed to create a steam supply hatch at {}; legacy hatch restored", pos);
+        GregSteamExpansion.LOGGER.error("Failed to create a steam supply hatch at {}; restoring legacy hatch", pos);
         level.setBlock(pos, oldState, Block.UPDATE_ALL);
         BlockEntity restored = level.getBlockEntity(pos);
         if (restored != null) {
             restored.load(savedOld);
             restored.setChanged();
+            return;
         }
+        // Only drop the detached covers if even the legacy block entity could
+        // not be recreated. A successful savedOld load already restored them.
+        GregSteamExpansion.LOGGER.error(
+                "Legacy steam hatch at {} has no block entity after rollback; dropping captured covers", pos);
         SteamHatchIOTransfer.dropCapturedCovers(level, pos, covers);
     }
 
