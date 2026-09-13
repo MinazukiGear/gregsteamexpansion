@@ -148,7 +148,7 @@ public final class GSEMachines {
             .abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS)
             .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
                     com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
-            .model(steamHatchModel(
+            .model(steamFluidHatchModel(
                     GregSteamExpansion.id("block/machine/part/steam_fluid_input_hatch")))
             .langValue("Steam Fluid Input Hatch")
             .tooltipBuilder(GSEMachineTooltips.STEAM_FLUID_IMPORT_HATCH)
@@ -161,7 +161,7 @@ public final class GSEMachines {
             .abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS)
             .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
                     com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
-            .model(steamHatchModel(
+            .model(steamFluidHatchModel(
                     GregSteamExpansion.id("block/machine/part/steam_fluid_output_hatch")))
             .langValue("Steam Fluid Output Hatch")
             .tooltipBuilder(GSEMachineTooltips.STEAM_FLUID_EXPORT_HATCH)
@@ -207,6 +207,25 @@ public final class GSEMachines {
             // Match the standard steam-hatch hull: inside a formed multiblock
             // the non-front faces render as the structure casing, keeping only
             // the front overlay visible.
+            builder.addReplaceableTextures("bottom", "top", "side");
+        };
+    }
+
+    /**
+     * Steam fluid hatch model using GTCEu's standard hatch front stack: the
+     * shared central pipe opening is rendered below our directional decal.
+     */
+    private static MachineBuilder.ModelInitializer steamFluidHatchModel(ResourceLocation directionOverlay) {
+        return (context, provider, builder) -> {
+            builder.forAllStatesModels(state -> {
+                boolean steel = state.getOptionalValue(GTMachineModelProperties.IS_STEEL_MACHINE).orElse(false);
+                BlockModelBuilder model = provider.models().nested()
+                        .parent(provider.models().getExistingFile(
+                                GregSteamExpansion.gtceuId("block/machine/template/part/hatch_machine")));
+                GTMachineModels.steamCasingTextures(model, steel);
+                model.texture("overlay", directionOverlay);
+                return model;
+            });
             builder.addReplaceableTextures("bottom", "top", "side");
         };
     }

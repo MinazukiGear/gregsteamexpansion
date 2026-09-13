@@ -1,22 +1,23 @@
-"""Generates the four bronze steam-hatch front overlays in GTCEu decal style.
+"""Generates the bronze steam-hatch front overlays in GTCEu decal style.
 
 GTCEu part fronts are PARTIAL TRANSPARENT DECALS composited over the hull side
-texture (the `sided/sided` machine template renders `overlay_front` on a cube
-slightly larger than the hull): the upstream steam input hatch front is the
-pump cover decal (39% opaque), the muffler hatch a circular fan decal, the
-electric fluid hatches tiny 9% arrow decals. Full-face opaque fronts would hide
-the bronze/steel hull and break the machine's look, so every texture here keeps
-the background fully transparent and paints only the identifying motif:
+texture. The fluid hatches use GTCEu's `hatch_machine` model so its standard
+central pipe opening is rendered below the direction decal; the other parts
+use the simpler front-overlay template. Full-face opaque fronts would hide the
+bronze/steel hull and break the machine's look, so every texture here keeps the
+background fully transparent and paints only the identifying motif:
 
 - 蒸汽供给仓: vertical steam pipe with flanges, central valve handwheel,
   inward chevrons (向内汇聚).
-- 蒸汽流体输入仓: pipe with two flange plates, inward chevrons.
-- 蒸汽流体输出仓: pipe with one central flange pair, outward chevrons.
+- 蒸汽流体输入仓: four small blue arrows converging inward, layered by the
+  model over GTCEu's standard central pipe opening.
+- 蒸汽流体输出仓: the same four arrows pointing outward around that opening.
 - 蒸汽进气室: large louver grille panel with central impeller, inward chevrons.
 
-Dark near-black outlines guarantee contrast on both the bronze and the steel
-hull; all textures are mirror-symmetric about the vertical axis by
-construction (`Grid.put` mirrors every pixel) and the script asserts it.
+Most bronze motifs use dark near-black outlines for contrast on both hulls;
+fluid-direction decals use GTCEu's blue ramp. All textures are mirror-symmetric
+about the vertical axis by construction (`Grid.put` mirrors every pixel), and
+the script asserts it.
 """
 import math
 import os
@@ -37,6 +38,11 @@ FIRE_DEEP = (255, 106, 0, 255)
 FIRE_MID = (255, 136, 0, 255)
 FIRE_BRIGHT = (255, 170, 0, 255)
 
+# Fluid-direction blue ramp, matching GTCEu's native fluid hatch language.
+FLOW_DARK = (0, 89, 168, 255)
+FLOW_MID = (0, 113, 214, 255)
+FLOW_BRIGHT = (0, 135, 255, 255)
+
 SYMBOLS = {
     '#': DARK_BRONZE,
     'b': MID_BRONZE,
@@ -47,6 +53,9 @@ SYMBOLS = {
     'o': FIRE_DEEP,
     'f': FIRE_MID,
     'y': FIRE_BRIGHT,
+    'u': FLOW_DARK,
+    'v': FLOW_MID,
+    'w': FLOW_BRIGHT,
     '.': TRANSPARENT,
 }
 
@@ -154,22 +163,47 @@ def supply_hatch():
 
 # ---------------------------------------------------------------- texture 2
 def fluid_input_hatch():
-    """蒸汽流体输入仓: pipe + double flange plates, chevrons converging in."""
+    """蒸汽流体输入仓: GTCEu-style arrows converging from all four edges."""
     g = Grid()
-    pipe(g, 3, 12, flow=True)
-    flange(g, 4, 5, bolts=True)
-    flange(g, 10, 11, bolts=True)
-    inward_chevrons(g)
+
+    # Top and bottom arrows point toward the center.
+    g.put(6, 1, 'w')
+    g.put(7, 1, 'v')
+    g.put(7, 2, 'w')
+    g.put(7, 13, 'u')
+    g.put(6, 14, 'v')
+    g.put(7, 14, 'u')
+
+    # Left and right arrows point toward the center.
+    g.put(1, 6, 'w')
+    g.put(1, 7, 'v')
+    g.put(2, 7, 'w')
+    g.put(1, 8, 'v')
+    g.put(2, 8, 'v')
+    g.put(1, 9, 'u')
     return g
 
 
 # ---------------------------------------------------------------- texture 3
 def fluid_output_hatch():
-    """蒸汽流体输出仓: pipe + single central flange, chevrons fanning out."""
+    """蒸汽流体输出仓: GTCEu-style arrows pointing toward all four edges."""
     g = Grid()
-    pipe(g, 3, 12, flow=True)
-    flange(g, 7, 8, bolts=True)
-    outward_chevrons(g)
+
+    # Top and bottom arrows point away from the center.
+    g.put(7, 1, 'v')
+    g.put(6, 2, 'w')
+    g.put(7, 2, 'v')
+    g.put(6, 13, 'v')
+    g.put(7, 13, 'u')
+    g.put(7, 14, 'u')
+
+    # Left and right arrows point away from the center.
+    g.put(2, 6, 'w')
+    g.put(1, 7, 'v')
+    g.put(2, 7, 'w')
+    g.put(1, 8, 'v')
+    g.put(2, 8, 'v')
+    g.put(2, 9, 'u')
     return g
 
 
