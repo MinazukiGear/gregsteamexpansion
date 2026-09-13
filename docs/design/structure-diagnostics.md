@@ -191,7 +191,7 @@
 | `GregSteamExpansion.java` | 修改 | 注册 `GSECommands::onRegisterCommands` |
 | `data/GSELang.java` | 修改 | en_us 键（datagen） |
 | `resources/.../lang/zh_cn.json` | 修改 | 对应中文键，与 en_us 键集严格一致 |
-| `gametest/GSEStructureDiagnosticsTests.java` | 新建 | 缺方块 → `MISSING_OR_WRONG`；仓室换成外壳 → `COUNT_LIMIT`（type 1） |
+| `gametest/GSEStructureDiagnosticsTests.java` | 新建 | 7 项：真实缺块/数量错误、候选去重截断、哨兵安全、字符串错误分类、NBT 往返及成型后清除 |
 
 设计文档里原本的临时类名 `GSEStructureProblem` 落地为 `StructureProblem`（放在了 `structure` 包内，前缀冗余）。
 
@@ -200,21 +200,22 @@
 
 ## 九、验收清单（含验证状态）
 
-**已在 `runGameTestServer` 中自动验证**（`GSEStructureDiagnosticsTests`，共 2 条）：
+**已在 `runGameTestServer` 中自动验证**（`GSEStructureDiagnosticsTests`，共 7 条）：
 
 - [x] 缺方块 → `MISSING_OR_WRONG`，带坐标且候选非空。
 - [x] 把蒸汽供给仓换成外壳（位置仍匹配）→ `COUNT_LIMIT`，`limitType == 1`（最少数量未满足），候选非空。
-- [x] **破坏性验证**：把抽取器的候选展平改成返回空、并把数量类错误降级成位置类错误后，上述两条断言精确失败（其余 48 条不受影响）⇒ 测试确实在守行为。
-- [x] `en_us` / `zh_cn` 键集一致（679 = 679）。
-- [x] `./gradlew build` 通过；GameTest 总数 41 + 7 + 2 = 50，与 "All 50 required tests passed" 吻合。
+- [x] 两组候选含重复物品且共有 6 种时，按物品 + NBT 语义去重并保留首次出现顺序；默认结果截断为 4 种且保留总数，调试指令所用全量模式返回 6 种。
+- [x] `UNINIT_ERROR` 与 `UNLOAD_ERROR` 即使没有绑定 `worldState` 也不会抛出 NPE，并分别归类为 `UNINITIALIZED` / `CHUNK_UNLOADED`。
+- [x] 已知线圈不一致键归类为 `INCONSISTENT`；未知的未来字符串错误归类为 `UNKNOWN`，两者均保留原始翻译键。
+- [x] DTO 经 NBT 往返后保留类别、负坐标、候选物品/数量、候选总数和限制字段；缺少类别的畸形载荷会被拒绝。
+- [x] 真实预览结构异步成型后 `describe()` 返回空，不再保留原因。
+- [x] 完整 97 项 GameTest 通过。
 
 **逻辑成立但未纳入自动化**（需要在真机或额外场景中确认）：
 
 - [ ] Jade 面板的实际渲染效果 —— GameTest 验证的是抽取器输出与 DTO 序列化，不是 Jade 的 tooltip 实体。
-- [ ] 候选超过 4 个时的截断与"等 N 种"文案 —— 蒸汽粉碎机的失败场景候选均 ≤ 4，未触达截断分支。
+- [ ] 候选截断状态已自动验证；Jade 中“等 N 种”文案的实际排版仍需目视确认。
 - [ ] 客户端按本地语言显示方块名 —— 依赖客户端解析 `ItemStack#getHoverName`，未目视验证。
-- [ ] 结构成型后原因行消失 —— `describe()` 早退 + provider 前置判断，逻辑成立但无测试。
-- [ ] 区块未加载 / 尚未初始化不崩溃 —— `UNINIT_ERROR` 的 NPE 分流已有代码，构造区块卸载场景成本高，未覆盖。
 - [ ] 其余 19 台多方块 —— Jade 按方块类型注册、抽取器只依赖 `IMultiController`，逻辑上全覆盖；实测只做了蒸汽粉碎机。
 - [ ] `/gse structure` 指令的实际输出 —— 未在 GameTest 中执行指令。
 - [ ] 无新增逐 tick 开销 —— 诊断只在 Jade 的服务端数据请求时计算（玩家看向方块），没有 tick 钩子。

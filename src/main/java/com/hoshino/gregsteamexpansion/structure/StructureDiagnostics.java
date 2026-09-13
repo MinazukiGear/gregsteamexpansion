@@ -11,7 +11,6 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -130,20 +129,32 @@ public final class StructureDiagnostics {
 
     /**
      * 展平 {@code List<List<ItemStack>>} (每个谓词一组候选) 并按物品+组件去重。
-     * {@code copyWithCount(1)} 让 {@link ItemStack#equals} 退化成语义等价判断
-     * (不把堆叠数量算作差异)。
+     * {@code ItemStack} 本身不提供值相等语义，必须使用
+     * {@link ItemStack#isSameItemSameTags(ItemStack, ItemStack)}；副本数量统一为 1，
+     * 不把候选堆叠数量算作差异。
      */
     private static List<ItemStack> flatten(List<List<ItemStack>> groups) {
-        LinkedHashMap<ItemStack, ItemStack> unique = new LinkedHashMap<>();
+        List<ItemStack> unique = new ArrayList<>();
         for (List<ItemStack> group : groups) {
             for (ItemStack stack : group) {
                 if (stack.isEmpty()) {
                     continue;
                 }
                 ItemStack key = stack.copyWithCount(1);
-                unique.putIfAbsent(key, key);
+                if (!containsSameItemAndTags(unique, key)) {
+                    unique.add(key);
+                }
             }
         }
-        return new ArrayList<>(unique.values());
+        return unique;
+    }
+
+    private static boolean containsSameItemAndTags(List<ItemStack> stacks, ItemStack candidate) {
+        for (ItemStack stack : stacks) {
+            if (ItemStack.isSameItemSameTags(stack, candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
