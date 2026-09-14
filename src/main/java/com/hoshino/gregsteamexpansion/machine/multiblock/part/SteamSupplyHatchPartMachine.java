@@ -51,7 +51,11 @@ public class SteamSupplyHatchPartMachine extends FluidHatchPartMachine {
     public static final int INITIAL_TANK_CAPACITY = 32 * FluidType.BUCKET_VOLUME;
 
     public SteamSupplyHatchPartMachine(IMachineBlockEntity holder, Object... args) {
-        super(holder, 0, IO.IN, INITIAL_TANK_CAPACITY, 1, args);
+        this(holder, INITIAL_TANK_CAPACITY, args);
+    }
+
+    protected SteamSupplyHatchPartMachine(IMachineBlockEntity holder, int tankCapacity, Object... args) {
+        super(holder, 0, IO.IN, tankCapacity, 1, args);
     }
 
     @Override
@@ -99,9 +103,9 @@ public class SteamSupplyHatchPartMachine extends FluidHatchPartMachine {
 
     private String formatTankAmount() {
         // Tooltip, GUI, Jade and the fluid capability must all report the same
-        // real 32,000 mB cap; migrated over-limit legacy content may display
-        // above it, which is exactly what the tank holds.
-        return String.format("%,d / %,d mB", tank.getFluidInTank(0).getAmount(), INITIAL_TANK_CAPACITY);
+        // real capacity. Migrated over-limit legacy content may display above
+        // it, which is exactly what the tank holds.
+        return String.format("%,d / %,d mB", tank.getFluidInTank(0).getAmount(), tank.getTankCapacity(0));
     }
 
     // A steam supply hatch only feeds steam in; a screwdriver must never turn

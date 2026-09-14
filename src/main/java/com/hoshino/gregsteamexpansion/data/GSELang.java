@@ -56,6 +56,22 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.3",
                 "Structure-side supply limits still apply: the cache size never means the hatch can dump all 32,000 mB in one tick.");
 
+        // 大型蒸汽供给仓 / Large Steam Supply Hatch: behavior matches the
+        // ordinary supply hatch; only its fixed single-tank capacity differs.
+        add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.capacity", "Fluid capacity: %s mB");
+        add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.accepted", "Accepted fluid: Steam");
+        add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.summary",
+                "Supplies steam to steam multiblock machines.");
+        add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.subtitle", "Interface and Supply");
+        add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.0",
+                "One steam input slot with a fixed 256,000 mB cache on every work intensity; upgraded from a Steam Supply Hatch.");
+        add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.1",
+                "Only GTCEu standard steam (its own steam tag) is accepted; same-named third-party steams, superheated steam and other fluids are always rejected.");
+        add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.2",
+                "Covers may be installed on the machine-facing front; a screwdriver can rotate the hatch but never swap it into an output hatch.");
+        add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.3",
+                "Structure-side supply limits still apply: the cache size never means the hatch can dump all 256,000 mB in one tick.");
+
         // 蒸汽流体输入/输出仓 / Steam Fluid Input & Output Hatches two-tier item
         // tooltip (machines-and-hatches.md 模型、界面与提示). Both directions
         // share the details block; only the summary line differs.

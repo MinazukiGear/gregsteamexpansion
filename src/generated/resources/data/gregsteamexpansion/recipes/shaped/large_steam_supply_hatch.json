@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "D": {
+      "item": "gtceu:bronze_drum"
+    },
+    "H": {
+      "item": "gregsteamexpansion:steam_supply_hatch"
+    },
+    "P": {
+      "item": "gtceu:double_bronze_plate"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "DPD",
+    "PHP",
+    "DPD"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:large_steam_supply_hatch"
+  }
+}

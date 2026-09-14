@@ -1013,6 +1013,19 @@ public final class GSERecipes {
                 'P', bronzePipe,
                 'T', bronzeDrum);
 
+        // 大型蒸汽供给仓: retain the ordinary supply hatch as the functional
+        // core and expand its reservoir with four bronze drums in a reinforced
+        // double-plate frame.
+        VanillaRecipeHelper.addShapedRecipe(provider,
+                GregSteamExpansion.id("large_steam_supply_hatch"),
+                GSEMachines.LARGE_STEAM_SUPPLY_HATCH.asStack(),
+                "DPD",
+                "PHP",
+                "DPD",
+                'D', bronzeDrum,
+                'P', ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Bronze),
+                'H', GSEMachines.STEAM_SUPPLY_HATCH.asStack());
+
         // 蒸汽流体输入仓: single vertical pipe on top (no vertical mirroring;
         // plain horizontal mirroring keeps the pattern unchanged).
         VanillaRecipeHelper.addShapedRecipe(provider,

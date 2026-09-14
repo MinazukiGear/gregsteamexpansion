@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.registry;
 
 import com.gregtechceu.gtceu.utils.GTUtil;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
@@ -53,16 +54,10 @@ final class GSEMachineTooltips {
     static final BiConsumer<ItemStack, List<Component>> STEAM_COMPRESSOR =
             tooltip(threeSection("steam_compressor", ChatFormatting.GRAY, 2, 5, 9, 8));
 
-    static final BiConsumer<ItemStack, List<Component>> STEAM_SUPPLY_HATCH = tooltip(profile(
-            row("steam_supply_hatch", "capacity", ChatFormatting.AQUA,
-                    String.format("%,d", SteamSupplyHatchPartMachine.INITIAL_TANK_CAPACITY)),
-            row("steam_supply_hatch", "accepted", ChatFormatting.GRAY),
-            row("steam_supply_hatch", "summary", ChatFormatting.GRAY),
-            detail("steam_supply_hatch", "details.subtitle", ChatFormatting.DARK_AQUA),
-            detail("steam_supply_hatch", "details.0", ChatFormatting.GRAY),
-            detail("steam_supply_hatch", "details.1", ChatFormatting.GRAY),
-            detail("steam_supply_hatch", "details.2", ChatFormatting.GRAY),
-            detail("steam_supply_hatch", "details.3", ChatFormatting.YELLOW)));
+    static final BiConsumer<ItemStack, List<Component>> STEAM_SUPPLY_HATCH =
+            tooltip(supplyHatch("steam_supply_hatch", SteamSupplyHatchPartMachine.INITIAL_TANK_CAPACITY));
+    static final BiConsumer<ItemStack, List<Component>> LARGE_STEAM_SUPPLY_HATCH =
+            tooltip(supplyHatch("large_steam_supply_hatch", LargeSteamSupplyHatchPartMachine.TANK_CAPACITY));
 
     static final BiConsumer<ItemStack, List<Component>> STEAM_FLUID_IMPORT_HATCH =
             tooltip(fluidHatch("import.summary"));
@@ -184,6 +179,18 @@ final class GSEMachineTooltips {
                 detail("steam_fluid_hatch", "details.2", ChatFormatting.GRAY),
                 detail("steam_fluid_hatch", "details.3", ChatFormatting.GRAY),
                 detail("steam_fluid_hatch", "details.4", ChatFormatting.YELLOW));
+    }
+
+    private static TooltipProfile supplyHatch(String machine, int capacity) {
+        return profile(
+                row(machine, "capacity", ChatFormatting.AQUA, String.format("%,d", capacity)),
+                row(machine, "accepted", ChatFormatting.GRAY),
+                row(machine, "summary", ChatFormatting.GRAY),
+                detail(machine, "details.subtitle", ChatFormatting.DARK_AQUA),
+                detail(machine, "details.0", ChatFormatting.GRAY),
+                detail(machine, "details.1", ChatFormatting.GRAY),
+                detail(machine, "details.2", ChatFormatting.GRAY),
+                detail(machine, "details.3", ChatFormatting.YELLOW));
     }
 
     private static List<TooltipRow> summaries(String machine, ChatFormatting lastStyle) {

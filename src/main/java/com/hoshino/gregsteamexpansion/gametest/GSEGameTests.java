@@ -6,6 +6,7 @@ import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenWorldData;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamCapability;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamSourceSpec;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
@@ -419,6 +420,8 @@ public final class GSEGameTests {
         // for old saves.
         helper.assertTrue(PartAbility.STEAM.isApplicable(GSEMachines.STEAM_SUPPLY_HATCH.getBlock()),
                 "Steam supply hatch is not registered in PartAbility.STEAM");
+        helper.assertTrue(PartAbility.STEAM.isApplicable(GSEMachines.LARGE_STEAM_SUPPLY_HATCH.getBlock()),
+                "Large steam supply hatch is not registered in PartAbility.STEAM");
         helper.assertTrue(GSEPartAbilities.STEAM_IMPORT_FLUIDS.isApplicable(
                         GSEMachines.STEAM_FLUID_IMPORT_HATCH.getBlock()),
                 "Steam fluid input hatch is not registered in STEAM_IMPORT_FLUIDS");
@@ -480,6 +483,9 @@ public final class GSEGameTests {
                         GSEMachines.STEAM_SUPPLY_HATCH.getBlock()),
                 "Standard steam supply hatch was incorrectly registered as a dedicated source");
         helper.assertTrue(!GSEPartAbilities.FURNACE_STEAM_SOURCE.isApplicable(
+                        GSEMachines.LARGE_STEAM_SUPPLY_HATCH.getBlock()),
+                "Large standard steam supply hatch was incorrectly registered as a dedicated source");
+        helper.assertTrue(!GSEPartAbilities.FURNACE_STEAM_SOURCE.isApplicable(
                         GSEMachines.STEAM_FLUID_IMPORT_HATCH.getBlock()),
                 "Recipe fluid input hatch was incorrectly registered as a dedicated source");
         helper.assertTrue(!GSEPartAbilities.FURNACE_STEAM_SOURCE.isApplicable(
@@ -518,6 +524,51 @@ public final class GSEGameTests {
                             "Full steam supply hatch accepted steam on " + side.getName() + " side");
                 }
             }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void largeSteamSupplyHatchOnlyIncreasesCapacity(GameTestHelper helper) {
+        LargeSteamSupplyHatchPartMachine hatch = placeHatch(
+                helper, GSEMachines.LARGE_STEAM_SUPPLY_HATCH, HATCH_POS);
+
+        int capacity = LargeSteamSupplyHatchPartMachine.TANK_CAPACITY;
+        helper.assertTrue(hatch.tank.getTankCapacity(0) == capacity,
+                "Large steam supply hatch does not expose its 256,000 mB capacity");
+        helper.assertTrue(hatch.tank.fill(GTMaterials.Steam.getFluid(capacity), FluidAction.EXECUTE) == capacity,
+                "Large steam supply hatch refused 256,000 mB of standard steam");
+        helper.assertTrue(hatch.tank.fill(GTMaterials.Steam.getFluid(1), FluidAction.EXECUTE) == 0,
+                "Large steam supply hatch accepted more than 256,000 mB");
+        helper.assertTrue(hatch.tank.fill(GTMaterials.Water.getFluid(1_000), FluidAction.SIMULATE) == 0,
+                "Large steam supply hatch accepted water");
+        helper.assertTrue(hatch.tank.drain(1_000, FluidAction.SIMULATE).isEmpty(),
+                "Large steam supply hatch exposed steam for external extraction");
+        helper.assertTrue(!hatch.swapIO(), "Large steam supply hatch swapped into an output hatch");
+
+        BlockEntity blockEntity = helper.getLevel().getBlockEntity(helper.absolutePos(HATCH_POS));
+        helper.assertTrue(blockEntity != null, "Large steam supply hatch block entity was missing");
+        if (blockEntity != null) {
+            for (Direction side : Direction.values()) {
+                IFluidHandler fluids = blockEntity.getCapability(ForgeCapabilities.FLUID_HANDLER, side)
+                        .orElse(null);
+                helper.assertTrue(fluids != null,
+                        "Large steam supply hatch has no fluid capability on " + side.getName());
+                if (fluids != null) {
+                    helper.assertTrue(fluids.getTankCapacity(0) == capacity,
+                            "Large hatch capability reported a wrong capacity on " + side.getName());
+                }
+            }
+        }
+
+        var recipe = helper.getLevel().getRecipeManager()
+                .byKey(GregSteamExpansion.id("shaped/large_steam_supply_hatch"))
+                .orElse(null);
+        helper.assertTrue(recipe != null, "Large steam supply hatch upgrade recipe is missing");
+        if (recipe != null) {
+            helper.assertTrue(recipe.getIngredients().stream()
+                            .anyMatch(ingredient -> ingredient.test(GSEMachines.STEAM_SUPPLY_HATCH.asStack())),
+                    "Large steam supply hatch recipe does not upgrade the ordinary supply hatch");
         }
         helper.succeed();
     }

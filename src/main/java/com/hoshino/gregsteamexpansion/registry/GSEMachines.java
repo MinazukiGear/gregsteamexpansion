@@ -43,8 +43,9 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamThe
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCompressorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamExtractorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamForgeMachine;
-import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
@@ -134,6 +135,21 @@ public final class GSEMachines {
                     GregSteamExpansion.gtceuId("block/overlay/machine/overlay_steam_miner")))
             .langValue("Steam Supply Hatch")
             .tooltipBuilder(GSEMachineTooltips.STEAM_SUPPLY_HATCH)
+            .allowCoverOnFront(true)
+            .register();
+
+    public static final MachineDefinition LARGE_STEAM_SUPPLY_HATCH = GSERegistration.REGISTRATE
+            .machine("large_steam_supply_hatch", LargeSteamSupplyHatchPartMachine::new)
+            .rotationState(RotationState.ALL)
+            .abilities(PartAbility.STEAM)
+            .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
+                    com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
+            // Keep the same GTCEu-style supply port and configurable steam hull
+            // as the ordinary hatch; capacity is the only behavior difference.
+            .model(steamHatchModel(
+                    GregSteamExpansion.gtceuId("block/overlay/machine/overlay_steam_miner")))
+            .langValue("Large Steam Supply Hatch")
+            .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_SUPPLY_HATCH)
             .allowCoverOnFront(true)
             .register();
 
