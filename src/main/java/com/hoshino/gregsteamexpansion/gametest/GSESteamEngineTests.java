@@ -1408,13 +1408,16 @@ public final class GSESteamEngineTests {
             long steamBefore = steam(machine);
 
             BlockPos controllerPos = machine.getPos();
+            AABB dropArea = new AABB(controllerPos).inflate(2.0);
+            List<ItemEntity> existingDrops = h.getLevel().getEntitiesOfClass(ItemEntity.class, dropArea);
             h.assertTrue(h.getLevel().destroyBlock(controllerPos, true),
                     "Physical controller removal was rejected");
             h.assertTrue(h.getLevel().getBlockState(controllerPos).isAir(),
                     "Destroyed blast-furnace controller block remained in the world");
 
-            List<ItemEntity> drops = h.getLevel().getEntitiesOfClass(ItemEntity.class,
-                    new AABB(controllerPos).inflate(2.0));
+            List<ItemEntity> drops = h.getLevel().getEntitiesOfClass(ItemEntity.class, dropArea).stream()
+                    .filter(entity -> !existingDrops.contains(entity))
+                    .toList();
             Item controllerItem = GSEMachines.LARGE_STEAM_BLAST_FURNACE.asStack().getItem();
             int pendingDrops = drops.stream().filter(entity -> entity.getItem().is(wroughtIron))
                     .mapToInt(entity -> entity.getItem().getCount()).sum();

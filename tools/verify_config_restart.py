@@ -22,6 +22,14 @@ PHASES = (
         "fluid_weights": ("minecraft:water|9",),
     },
     {
+        "name": "normal",
+        "difficulty": "NORMAL",
+        "ore_enabled": True,
+        "fluid_enabled": True,
+        "ore_weights": (),
+        "fluid_weights": (),
+    },
+    {
         "name": "expert",
         "difficulty": "EXPERT",
         "ore_enabled": True,
@@ -85,7 +93,7 @@ def run_phase(phase: dict[str, object], command: list[str]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run GameTest servers with two startup-only configuration profiles."
+        description="Run GameTest servers with all three startup-only difficulty profiles."
     )
     parser.add_argument(
         "--offline",

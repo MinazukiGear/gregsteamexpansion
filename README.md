@@ -86,7 +86,7 @@ python tools/verify_server_restart.py
 python tools/verify_server_restart.py --offline     # 依赖已缓存时可离线运行
 ```
 
-启动配置的跨进程重启验证会依次运行 Easy 与 Expert 两套临时配置，核对 GTCEu
+启动配置的跨进程重启验证会依次运行 Easy、Normal 与 Expert 三套临时配置，核对 GTCEu
 难度预设、旗舰机器开关和权重表，并在结束或失败后恢复原配置：
 
 ```powershell
