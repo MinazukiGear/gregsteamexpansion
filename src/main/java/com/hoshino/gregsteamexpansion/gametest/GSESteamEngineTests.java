@@ -54,6 +54,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -1288,6 +1289,69 @@ public final class GSESteamEngineTests {
             eq(h, machine.getPendingTotalCount(), 0, "Successful delivery left pending controller output");
             h.assertTrue(!(boolean) call(get(machine, "pendingBuffer"), "hasAny"),
                     "Successful delivery did not clear the pending buffer");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceControllerRemovalDropsOnlyPendingItems(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            ItemBusPartMachine input = inputBus(machine);
+            ItemBusPartMachine output = outputs(machine).get(0);
+            List<FluidHatchPartMachine> supplyHatches = List.copyOf(supplies(machine));
+            SteamAirIntakeHatchPartMachine intake = GSESteamEngineTests
+                    .<SteamAirIntakeHatchPartMachine>list(machine, "airIntakeHatches").get(0);
+            Item wroughtIron = ChemicalHelper.get(TagPrefix.ingot, GTMaterials.WroughtIron).getItem();
+
+            pending(machine).add(new ItemStack(wroughtIron, 64));
+            pending(machine).add(new ItemStack(wroughtIron, 6));
+            GSESteamEngineTests.<FluidStack>list(machine, "pendingFluids")
+                    .add(GTMaterials.Water.getFluid(750));
+            set(machine, "hasBatch", true);
+            set(machine, "batchInputDisplay", new ItemStack(Items.EMERALD, 3));
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.DIAMOND, 5));
+            output.getInventory().setStackInSlot(0, new ItemStack(Items.GOLD_INGOT, 7));
+            fillSteam(machine, 12_345);
+            intake.tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(23_456));
+            long steamBefore = steam(machine);
+
+            BlockPos controllerPos = machine.getPos();
+            h.assertTrue(h.getLevel().destroyBlock(controllerPos, true),
+                    "Physical controller removal was rejected");
+            h.assertTrue(h.getLevel().getBlockState(controllerPos).isAir(),
+                    "Destroyed blast-furnace controller block remained in the world");
+
+            List<ItemEntity> drops = h.getLevel().getEntitiesOfClass(ItemEntity.class,
+                    new AABB(controllerPos).inflate(2.0));
+            Item controllerItem = GSEMachines.LARGE_STEAM_BLAST_FURNACE.asStack().getItem();
+            int pendingDrops = drops.stream().filter(entity -> entity.getItem().is(wroughtIron))
+                    .mapToInt(entity -> entity.getItem().getCount()).sum();
+            int controllerDrops = drops.stream().filter(entity -> entity.getItem().is(controllerItem))
+                    .mapToInt(entity -> entity.getItem().getCount()).sum();
+            eq(h, pendingDrops, 70, "Controller removal lost or duplicated pending item outputs");
+            eq(h, controllerDrops, 1, "Controller removal produced the wrong controller-item count");
+            h.assertTrue(drops.stream().allMatch(entity ->
+                            entity.getItem().is(wroughtIron) || entity.getItem().is(controllerItem)),
+                    "Controller removal dropped an item other than the controller and pending outputs");
+            eq(h, drops.stream().filter(entity -> entity.getItem().is(Items.EMERALD))
+                    .mapToInt(entity -> entity.getItem().getCount()).sum(), 0,
+                    "Controller removal dropped the live batch input display");
+            eq(h, drops.stream().filter(entity -> entity.getItem().is(Items.DIAMOND))
+                    .mapToInt(entity -> entity.getItem().getCount()).sum(), 0,
+                    "Controller removal copied the input-bus inventory");
+            eq(h, drops.stream().filter(entity -> entity.getItem().is(Items.GOLD_INGOT))
+                    .mapToInt(entity -> entity.getItem().getCount()).sum(), 0,
+                    "Controller removal copied the output-bus inventory");
+
+            eq(h, inputItemCount(input, Items.DIAMOND), 5,
+                    "Controller removal changed the surviving input-bus inventory");
+            eq(h, output.getInventory().getStackInSlot(0).getCount(), 7,
+                    "Controller removal changed the surviving output-bus inventory");
+            eq(h, supplyHatches.stream().mapToLong(hatch ->
+                            hatch.tank.getFluidInTank(0).getAmount()).sum(), steamBefore,
+                    "Controller removal changed steam stored in surviving supply hatches");
+            eq(h, intake.tank.getFluidInTank(0).getAmount(), 23_456,
+                    "Controller removal changed air stored in the surviving intake hatch");
         });
     }
 

@@ -56,6 +56,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fluids.FluidStack;
@@ -1495,9 +1496,17 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return airIntakeHatches.isEmpty() ? 0 : SteamAirIntakeHatchPartMachine.INITIAL_TANK_CAPACITY;
     }
 
-    /** 拆除清理: batch, pending outputs and preference never survive. */
+    /** 拆除清理: drop pending items, void pending fluids, then clear batch and preference. */
     @Override
     public void onMachineRemoved() {
+        Level level = getLevel();
+        if (level != null && !level.isClientSide) {
+            for (ItemStack stack : pendingOutputs) {
+                if (!stack.isEmpty()) {
+                    Block.popResource(level, getPos(), stack.copy());
+                }
+            }
+        }
         hasBatch = false;
         batchRecipe = null;
         batchRecipeId = "";
