@@ -12,6 +12,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 
 import org.jetbrains.annotations.Nullable;
@@ -156,6 +157,23 @@ public final class GSEStructureTestUtils {
     public static MultiblockControllerMachine placeShape(GameTestHelper helper,
                                                          MultiblockMachineDefinition definition,
                                                          MultiblockShapeInfo shape) {
+        return placeShape(helper, definition, shape, new BlockPos(16, 16, 16), Direction.NORTH);
+    }
+
+    /**
+     * 按指定控制器位置和水平朝向铺出 shape。shape 以北向预览为基准，
+     * 所有坐标及带方向的方块状态围绕控制器同步旋转。
+     */
+    @Nullable
+    public static MultiblockControllerMachine placeShape(GameTestHelper helper,
+                                                         MultiblockMachineDefinition definition,
+                                                         MultiblockShapeInfo shape,
+                                                         BlockPos anchor,
+                                                         Direction facing) {
+        if (!facing.getAxis().isHorizontal()) {
+            helper.fail("Shape facing must be horizontal for " + definition.getId() + ": " + facing);
+            return null;
+        }
         BlockInfo[][][] blocks = shape.getBlocks();
         int sizeChar = blocks.length;
         int sizeRow = sizeChar > 0 ? blocks[0].length : 0;
@@ -197,13 +215,13 @@ public final class GSEStructureTestUtils {
         }
 
         var level = helper.getLevel();
-        BlockPos anchor = new BlockPos(16, 16, 16);
+        Rotation rotation = rotationFromNorth(facing);
 
-        // 先单独放下控制器并强制 NORTH，与 PatternPreviewWidget 的 dummy world 一致。
-        BlockState controllerState = blocks[cc][cr][ca].getBlockState();
+        // 先单独放下控制器，并把北向预览旋转到目标朝向。
+        BlockState controllerState = blocks[cc][cr][ca].getBlockState().rotate(rotation);
         RotationState rs = definition.getRotationState();
         if (rs != RotationState.NONE && controllerState.hasProperty(rs.property)) {
-            controllerState = controllerState.setValue(rs.property, Direction.NORTH);
+            controllerState = controllerState.setValue(rs.property, facing);
         }
         helper.setBlock(anchor, controllerState);
         MetaMachine ctrlMachine = MetaMachine.getMachine(level, helper.absolutePos(anchor));
@@ -219,19 +237,31 @@ public final class GSEStructureTestUtils {
                     if (info == null || info == BlockInfo.EMPTY) continue;
                     BlockState state = info.getBlockState();
                     if (state == null || state.isAir()) continue;
+                    state = state.rotate(rotation);
                     if (state.getBlock() == definition.getBlock()) {
                         RotationState rs2 = definition.getRotationState();
                         if (rs2 != RotationState.NONE && state.hasProperty(rs2.property)) {
-                            state = state.setValue(rs2.property, Direction.NORTH);
+                            state = state.setValue(rs2.property, facing);
                         }
                     }
                     int dx = x - cc, dy = y - cr, dz = z - ca;
-                    BlockPos pos = anchor.offset(dx, dy, dz);
+                    BlockPos rotated = new BlockPos(dx, dy, dz).rotate(rotation);
+                    BlockPos pos = anchor.offset(rotated);
                     helper.setBlock(pos, state);
                 }
             }
         }
         return controller;
+    }
+
+    private static Rotation rotationFromNorth(Direction facing) {
+        return switch (facing) {
+            case NORTH -> Rotation.NONE;
+            case EAST -> Rotation.CLOCKWISE_90;
+            case SOUTH -> Rotation.CLOCKWISE_180;
+            case WEST -> Rotation.COUNTERCLOCKWISE_90;
+            default -> throw new IllegalArgumentException("Facing must be horizontal: " + facing);
+        };
     }
 
     /**

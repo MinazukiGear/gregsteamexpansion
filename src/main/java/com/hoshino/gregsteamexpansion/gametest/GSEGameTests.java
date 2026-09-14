@@ -1337,6 +1337,45 @@ public final class GSEGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamBlastFurnaceFormsInAllHorizontalDirections(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
+        var shape = definition.getMatchingShapes().get(0);
+        Direction[] facings = { Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST };
+        BlockPos[] anchors = {
+                new BlockPos(7, 16, 1),
+                new BlockPos(30, 16, 7),
+                new BlockPos(24, 16, 30),
+                new BlockPos(1, 16, 24)
+        };
+        List<MultiblockControllerMachine> machines = new java.util.ArrayList<>();
+
+        for (int i = 0; i < facings.length; i++) {
+            Direction facing = facings[i];
+            MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                    helper, definition, shape, anchors[i], facing);
+            helper.assertTrue(machine != null,
+                    "Missing " + facing + " blast-furnace fixture controller");
+            if (machine == null) {
+                return;
+            }
+            helper.assertTrue(machine.getFrontFacing() == facing,
+                    "Blast-furnace controller did not retain " + facing + " facing");
+            helper.assertTrue(machine.checkPattern(),
+                    facing + " blast-furnace structure did not match its pattern");
+            machines.add(machine);
+        }
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    for (int i = 0; i < machines.size(); i++) {
+                        helper.assertTrue(machines.get(i).isFormed(),
+                                facings[i] + " blast furnace did not form");
+                    }
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
     public static void largeSteamAssemblerFormsFromShape(GameTestHelper helper) {
         GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_ASSEMBLER);
