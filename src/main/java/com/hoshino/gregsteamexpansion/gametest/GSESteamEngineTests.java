@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
+import com.hoshino.gregsteamexpansion.integration.jade.GSEJadePlugin;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
@@ -21,6 +22,7 @@ import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
+import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 import com.gregtechceu.gtceu.api.data.RotationState;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
@@ -48,6 +50,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -77,12 +81,20 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+import snownee.jade.api.BlockAccessor;
+import snownee.jade.api.IBlockComponentProvider;
+import snownee.jade.api.IServerDataProvider;
+import snownee.jade.api.ITooltip;
 
 /**
  * P2-7 characterization tests against real formed controllers and hatch inventories.
@@ -1109,6 +1121,86 @@ public final class GSESteamEngineTests {
             eq(h, intakes.get(0).tank.getFluidInTank(0).getAmount(), 0, "Blast tick did not consume 4 mB per parallel");
             h.assertTrue(machine.getStatusId().equals("working"),
                     "Recovered blast inputs did not restore the working status");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceGuiAndJadeExposeAirShortfall(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            ItemBusPartMachine input = inputBus(machine);
+            List<SteamAirIntakeHatchPartMachine> intakes = list(machine, "airIntakeHatches");
+            h.assertTrue(!intakes.isEmpty(), "Fixture lacks blast air intake");
+            for (var intake : intakes) intake.tank.getStorages()[0].setFluid(FluidStack.EMPTY);
+            fillOutputs(machine, false);
+            fillSteam(machine, 32_000);
+
+            GTRecipe recipe = recipeEndingWith(
+                    GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES,
+                    "wrought_iron_from_dust_coke_dust");
+            input.getInventory().setStackInSlot(0,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 4));
+            input.getInventory().setStackInSlot(1,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 4));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                    "Blast furnace did not start its real GUI/Jade recipe");
+            set(machine, "batchProgress", 7);
+            call(machine, "runBatchTick");
+            h.assertTrue(machine.getStatusId().equals("auxiliary_shortfall"),
+                    "Air-starved GUI/Jade fixture exposed the wrong controller state");
+
+            var ui = machine.createUI(FakePlayerFactory.getMinecraft(h.getLevel()));
+            h.assertTrue(labelText(ui.getFlatWidgetCollection(), 104, 2)
+                            .equals(machine.getStatusText().getString()),
+                    "Controller GUI status row diverged from the dedicated blast-air text");
+            h.assertTrue(labelText(ui.getFlatWidgetCollection(), 104, 32).equals("4 / 96"),
+                    "Controller GUI did not expose locked parallel as 4 / 96");
+            String intakeText = labelText(ui.getFlatWidgetCollection(), 104, 62);
+            h.assertTrue(intakeText.equals(call(machine, "intakeText")),
+                    "Controller GUI intake row diverged from the intake snapshot");
+            h.assertTrue(!intakeText.equals("—"), "Controller GUI omitted its required intake row");
+
+            CompoundTag serverData = new CompoundTag();
+            Object provider = jadeProcessorProvider();
+            BlockAccessor accessor = jadeAccessor(machine, serverData);
+            @SuppressWarnings("unchecked")
+            IServerDataProvider<BlockAccessor> serverProvider =
+                    (IServerDataProvider<BlockAccessor>) provider;
+            serverProvider.appendServerData(serverData, accessor);
+            h.assertTrue(serverData.contains("GregSteamExpansionProcessor", Tag.TAG_COMPOUND),
+                    "Jade server provider omitted the processor snapshot");
+            CompoundTag data = serverData.getCompound("GregSteamExpansionProcessor");
+            h.assertTrue(data.getString("statusId").equals("auxiliary_shortfall"),
+                    "Jade snapshot changed the controller status id");
+            h.assertTrue(data.getString("statusKey").equals(
+                            "gregsteamexpansion.machine.large_steam_blast_furnace.low_blast"),
+                    "Jade snapshot lost the dedicated blast-air translation key");
+            eq(h, data.getInt("parallel"), 4, "Jade snapshot changed locked parallel");
+            eq(h, data.getInt("parallelCap"), 96, "Jade snapshot changed the parallel cap");
+            h.assertTrue(data.getBoolean("hasIntake"), "Jade snapshot omitted the intake state");
+            h.assertTrue(data.getString("intakeStatusId").equals(machine.getAirIntakeStatusId()),
+                    "Jade snapshot changed the intake status id");
+            eq(h, data.getLong("intakeStored"), machine.getAirIntakeStored(),
+                    "Jade snapshot changed stored blast air");
+            eq(h, data.getLong("intakeCapacity"), machine.getAirIntakeCapacity(),
+                    "Jade snapshot changed intake capacity");
+
+            List<Component> tooltipLines = new ArrayList<>();
+            ITooltip tooltip = jadeTooltip(tooltipLines);
+            ((IBlockComponentProvider) provider).appendTooltip(tooltip, accessor, null);
+            h.assertTrue(tooltipContains(tooltipLines, Component.translatable(
+                            "gregsteamexpansion.jade.steam_processor.status",
+                            Component.translatable(
+                                    "gregsteamexpansion.machine.large_steam_blast_furnace.low_blast"))),
+                    "Jade client tooltip did not render the dedicated blast-air status");
+            h.assertTrue(tooltipContains(tooltipLines, Component.translatable(
+                            "gregsteamexpansion.jade.steam_processor.parallel", "4", "96")),
+                    "Jade client tooltip did not render parallel as 4 / 96");
+            h.assertTrue(tooltipLines.stream().anyMatch(line ->
+                            line.getContents() instanceof TranslatableContents text
+                                    && text.getKey().equals(
+                                    "gregsteamexpansion.jade.steam_processor.intake")),
+                    "Jade client tooltip omitted the intake status line");
         });
     }
 
@@ -2268,6 +2360,78 @@ public final class GSESteamEngineTests {
             }
         }
         return total;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String labelText(List<?> widgets, int x, int y) {
+        LabelWidget label = widgets.stream()
+                .filter(LabelWidget.class::isInstance)
+                .map(LabelWidget.class::cast)
+                .filter(widget -> widget.getSelfPositionX() == x && widget.getSelfPositionY() == y)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing GUI label at " + x + "," + y));
+        return ((Supplier<String>) get(label, "textSupplier")).get();
+    }
+
+    private static Object jadeProcessorProvider() {
+        try {
+            Class<?> providerType = Class.forName(
+                    GSEJadePlugin.class.getName() + "$ProcessorProvider");
+            Object[] constants = providerType.getEnumConstants();
+            if (constants == null || constants.length != 1) {
+                throw new AssertionError("Jade processor provider enum is missing");
+            }
+            return constants[0];
+        } catch (ClassNotFoundException e) {
+            throw new AssertionError("Jade processor provider class is missing", e);
+        }
+    }
+
+    private static BlockAccessor jadeAccessor(AbstractSteamProcessorMachine machine, CompoundTag serverData) {
+        return (BlockAccessor) Proxy.newProxyInstance(
+                GSESteamEngineTests.class.getClassLoader(),
+                new Class<?>[] { BlockAccessor.class },
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "getBlockEntity" -> machine.getHolder();
+                    case "getServerData" -> serverData;
+                    case "getLevel" -> machine.getLevel();
+                    case "getPosition" -> machine.getPos();
+                    case "getAccessorType" -> BlockAccessor.class;
+                    case "isServerConnected" -> true;
+                    default -> primitiveDefault(method.getReturnType());
+                });
+    }
+
+    private static ITooltip jadeTooltip(List<Component> lines) {
+        return (ITooltip) Proxy.newProxyInstance(
+                GSESteamEngineTests.class.getClassLoader(),
+                new Class<?>[] { ITooltip.class },
+                (proxy, method, args) -> {
+                    if (method.getName().equals("add") && args != null) {
+                        for (Object argument : args) {
+                            if (argument instanceof Component component) lines.add(component);
+                        }
+                    }
+                    if (method.getName().equals("size")) return lines.size();
+                    if (method.getName().equals("clear")) lines.clear();
+                    return primitiveDefault(method.getReturnType());
+                });
+    }
+
+    private static Object primitiveDefault(Class<?> type) {
+        if (!type.isPrimitive() || type == void.class) return null;
+        if (type == boolean.class) return false;
+        if (type == char.class) return '\0';
+        if (type == byte.class) return (byte) 0;
+        if (type == short.class) return (short) 0;
+        if (type == int.class) return 0;
+        if (type == long.class) return 0L;
+        if (type == float.class) return 0.0F;
+        return 0.0D;
+    }
+
+    private static boolean tooltipContains(List<Component> lines, Component expected) {
+        return lines.stream().anyMatch(line -> line.getString().equals(expected.getString()));
     }
 
     @SuppressWarnings("unchecked")

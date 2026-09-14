@@ -26,6 +26,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
 
 import snownee.jade.api.BlockAccessor;
@@ -190,6 +191,13 @@ public final class GSEJadePlugin implements IWailaPlugin {
             }
             CompoundTag data = new CompoundTag();
             data.putString("statusId", processor.getStatusId());
+            // Preserve the controller's concrete status wording. Some processors
+            // intentionally specialize a shared state id (the blast furnace uses
+            // auxiliary_shortfall for its dedicated "blast air shortage" text).
+            Component statusText = processor.getStatusText();
+            if (statusText.getContents() instanceof TranslatableContents translatable) {
+                data.putString("statusKey", translatable.getKey());
+            }
             data.putString("recipeId", processor.getBatchRecipeId());
             data.putString("inputItem", processor.getBatchInputDisplay().isEmpty() ? ""
                     : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(
@@ -222,7 +230,10 @@ public final class GSEJadePlugin implements IWailaPlugin {
             if (!serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)) return;
             CompoundTag data = serverData.getCompound(DATA_KEY);
 
-            tooltip.add(line("status", Component.translatable(statusKey(data.getString("statusId")))));
+            String statusKey = data.contains("statusKey", Tag.TAG_STRING)
+                    ? data.getString("statusKey")
+                    : statusKey(data.getString("statusId"));
+            tooltip.add(line("status", Component.translatable(statusKey)));
             if (!data.getString("recipeId").isEmpty()) {
                 tooltip.add(line("recipe", data.getString("recipeId")));
                 tooltip.add(line("progress", FormattingUtil.formatNumbers(data.getInt("progress")),
