@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenMode;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenWorldData;
+import com.hoshino.gregsteamexpansion.machine.multiblock.LargeSteamOverclock;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamCapability;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamSourceSpec;
@@ -601,6 +602,27 @@ public final class GSEGameTests {
                         "Large steam supply hatch recipe does not require four arbitrary HV circuits");
             }
         }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void largeSteamOverclockLocksNextExecutionEconomics(GameTestHelper helper) {
+        LargeSteamOverclock.LockedEconomics normal = LargeSteamOverclock.lock(601, 400, false, true);
+        helper.assertTrue(!normal.active() && normal.durationTicks() == 601 && normal.steamPerTickMb() == 400,
+                "Disabled large steam overclock changed execution economics");
+
+        LargeSteamOverclock.LockedEconomics unavailable = LargeSteamOverclock.lock(601, 400, true, false);
+        helper.assertTrue(!unavailable.active()
+                        && unavailable.durationTicks() == 601
+                        && unavailable.steamPerTickMb() == 400,
+                "Large steam overclock activated without a Large Steam Supply Hatch");
+
+        LargeSteamOverclock.LockedEconomics overclocked = LargeSteamOverclock.lock(601, 400, true, true);
+        helper.assertTrue(overclocked.active(), "Available large steam overclock did not lock as active");
+        helper.assertTrue(overclocked.durationTicks() == 301,
+                "Large steam overclock did not round half duration up to a whole tick");
+        helper.assertTrue(overclocked.steamPerTickMb() == 1_200,
+                "Large steam overclock did not triple per-tick steam demand");
         helper.succeed();
     }
 

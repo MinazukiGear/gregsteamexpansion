@@ -28,6 +28,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import com.gregtechceu.gtceu.common.data.GTSoundEntries;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BatchStateMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.LargeSteamOverclock;
 import com.hoshino.gregsteamexpansion.machine.multiblock.PendingOutputBuffer;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
@@ -110,6 +111,9 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     /** Work-enabled flag shared by the power button, soft hammer and covers. */
     @Persisted
     private boolean workingEnabled = true;
+    /** UI preference; sampled only when a new batch starts. */
+    @Persisted
+    private boolean largeSteamOverclockEnabled = false;
     /** Whether the locked-batch fields below describe a live batch. */
     @Persisted
     private boolean hasBatch = false;
@@ -119,10 +123,16 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     private int batchParallel = 0;
     @Persisted
     private int batchProgress = 0;
-    /** Locked per-tick demand: 4 × P mB/t. */
+    /** Duration locked when the batch starts (normally 600 ticks). */
+    @Persisted
+    private int batchDurationTicks = DURATION_TICKS;
+    /** Locked per-tick demand: 4 × P mB/t, optionally multiplied by 3. */
     @Persisted
     private long batchSteamPerTickMb = 0;
-    /** Locked batch total: 120,000 × P mB. */
+    /** Whether the current batch locked the Large Steam Supply Hatch overclock. */
+    @Persisted
+    private boolean batchLargeSteamOverclock = false;
+    /** Locked batch total after the optional large-hatch overclock. */
     @Persisted
     private long batchTotalSteamMb = 0;
     /** One copy of the locked input item, for the GUI recipe display. */
@@ -340,7 +350,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             }
         }
         BatchStateMachine.TickResult tick = batchState.runTick(
-                batchProgress, DURATION_TICKS, () -> drawSteam(batchSteamPerTickMb));
+                batchProgress, batchDurationTicks, () -> drawSteam(batchSteamPerTickMb));
         batchProgress = tick.progress();
         if (!tick.consumed()) {
             updateWorkingAppearance();
@@ -427,8 +437,15 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             batchRecipeId = recipe.getId().toString();
             batchParallel = parallel;
             batchProgress = 0;
-            batchTotalSteamMb = (long) STEAM_PER_OPERATION_MB * parallel;
-            batchSteamPerTickMb = (long) STEAM_PER_TICK_PER_PARALLEL * parallel;
+            LargeSteamOverclock.LockedEconomics economics = LargeSteamOverclock.lock(
+                    DURATION_TICKS,
+                    (long) STEAM_PER_TICK_PER_PARALLEL * parallel,
+                    largeSteamOverclockEnabled,
+                    hasLargeSteamSupplyHatch());
+            batchLargeSteamOverclock = economics.active();
+            batchDurationTicks = economics.durationTicks();
+            batchSteamPerTickMb = economics.steamPerTickMb();
+            batchTotalSteamMb = batchSteamPerTickMb * batchDurationTicks;
             batchInputDisplay = stack.copyWithCount(1);
             GregSteamExpansion.LOGGER.debug("Steam crusher at {} started batch {} with parallel {} ({} mB total, {} mB/t)",
                     getPos(), batchRecipeId, parallel, batchTotalSteamMb, batchSteamPerTickMb);
@@ -557,6 +574,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     private void completeBatch() {
         if (batchRecipe == null) {
             hasBatch = false;
+            batchLargeSteamOverclock = false;
             return;
         }
         GTRecipe multiplied = batchRecipe.copy(ContentModifier.multiplier(batchParallel));
@@ -583,6 +601,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         batchRecipe = null;
         batchProgress = 0;
         batchRecipeId = "";
+        batchLargeSteamOverclock = false;
         batchInputDisplay = ItemStack.EMPTY;
         deliverPendingOutputs();
     }
@@ -654,6 +673,24 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
 
     public boolean isWorkingEnabled() {
         return workingEnabled;
+    }
+
+    public boolean hasLargeSteamSupplyHatch() {
+        return partCollector.hasLargeSteamSupplyHatch();
+    }
+
+    public boolean isLargeSteamOverclockEnabled() {
+        return largeSteamOverclockEnabled;
+    }
+
+    public void setLargeSteamOverclockEnabled(boolean enabled) {
+        if (hasLargeSteamSupplyHatch()) {
+            largeSteamOverclockEnabled = enabled;
+        }
+    }
+
+    public boolean isCurrentBatchLargeSteamOverclocked() {
+        return hasBatch && batchLargeSteamOverclock;
     }
 
     public void setWorkingEnabled(boolean workingEnabled) {
@@ -781,15 +818,19 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         ui.widget(scroll);
         // GTCEu standard power button fixed outside the scroll area.
         SteamProcessorUI.addPowerButton(ui, uiHeight, this::isWorkingEnabled, this::setWorkingEnabled);
+        if (hasLargeSteamSupplyHatch()) {
+            SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight,
+                    this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
+        }
         return ui;
     }
 
     /** `45.0%（270 / 600 tick）`; completed-but-undelivered stays at 100%. */
     private String progressText() {
-        return SteamProcessorUI.progress(hasBatch, batchProgress, DURATION_TICKS);
+        return SteamProcessorUI.progress(hasBatch, batchProgress, batchDurationTicks);
     }
 
-    /** 当前每刻需求为 4×P；仅运行中且成功扣取蒸汽时才算实际消耗。 */
+    /** 当前基础需求为 4×P，超频时为其 3 倍；仅成功扣取蒸汽时才算实际消耗。 */
     private String demandText() {
         return SteamProcessorUI.demand(currentSteamDemandPerTick(), batchSteamPerTickMb,
                 batchState.consumedThisTick(), UI_PREFIX + "not_consuming");
@@ -823,7 +864,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     }
 
     public int getBatchDuration() {
-        return DURATION_TICKS;
+        return batchDurationTicks;
     }
 
     public int getBatchParallel() {
@@ -864,8 +905,10 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         batchRecipeId = "";
         batchProgress = 0;
         batchParallel = 0;
+        batchDurationTicks = DURATION_TICKS;
         batchTotalSteamMb = 0;
         batchSteamPerTickMb = 0;
+        batchLargeSteamOverclock = false;
         batchInputDisplay = ItemStack.EMPTY;
         pendingBuffer.clear();
         exhaustDamageTimer = 0;

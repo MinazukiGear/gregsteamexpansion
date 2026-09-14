@@ -8,6 +8,7 @@ import com.gregtechceu.gtceu.api.machine.trait.RecipeHandlerList;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.SteamHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
@@ -171,6 +172,11 @@ public final class SteamPartCollector {
 
     public List<SteamSupplyHatchPartMachine> supplyHatches() {
         return supplyHatches;
+    }
+
+    /** Whether the formed structure contains the hatch that unlocks controller overclocking. */
+    public boolean hasLargeSteamSupplyHatch() {
+        return supplyHatches.stream().anyMatch(LargeSteamSupplyHatchPartMachine.class::isInstance);
     }
 
     public List<FluidHatchPartMachine> physicalSteamHatches() {

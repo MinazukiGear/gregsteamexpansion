@@ -71,6 +71,16 @@ public final class GSELang {
                 "Covers may be installed on the machine-facing front; a screwdriver can rotate the hatch but never swap it into an output hatch.");
         add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.3",
                 "Large machines can draw up to 4,800 mB/t from this hatch, four times the ordinary Steam Supply Hatch rate.");
+        add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.4",
+                "Unlocks a controller overclock toggle: each newly started recipe can run in half the time at 3× steam demand per tick.");
+
+        // Shared controller button shown only while a Large Steam Supply Hatch
+        // is part of the formed structure. A running batch keeps its locked mode.
+        add("gregsteamexpansion.machine.large_steam_overclock", "Large Steam Overclock");
+        add("gregsteamexpansion.machine.large_steam_overclock.info",
+                "Enabled: 3× steam demand per tick and 50% recipe duration.");
+        add("gregsteamexpansion.machine.large_steam_overclock.next_recipe",
+                "Changes apply when the next recipe or production cycle starts.");
 
         // 蒸汽流体输入/输出仓 / Steam Fluid Input & Output Hatches two-tier item
         // tooltip (machines-and-hatches.md 模型、界面与提示). Both directions

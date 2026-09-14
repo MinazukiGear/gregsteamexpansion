@@ -66,6 +66,20 @@ public final class SteamProcessorUI {
                 enabled, value -> setEnabled.accept(value)));
     }
 
+    /** Adds the Large Steam Supply Hatch overclock toggle at the right edge. */
+    public static void addLargeSteamOverclockButton(ModularUI ui, int height,
+                                                    BooleanSupplier enabled,
+                                                    Consumer<Boolean> setEnabled) {
+        ui.widget(new ToggleButtonWidget(WIDTH - 24, height - 24, 18, 18, GuiTextures.BUTTON_BATCH,
+                enabled, value -> setEnabled.accept(value)).setHoverTooltips(
+                Component.translatable("gregsteamexpansion.machine.large_steam_overclock")
+                        .withStyle(ChatFormatting.YELLOW),
+                Component.translatable("gregsteamexpansion.machine.large_steam_overclock.info")
+                        .withStyle(ChatFormatting.GRAY),
+                Component.translatable("gregsteamexpansion.machine.large_steam_overclock.next_recipe")
+                        .withStyle(ChatFormatting.GRAY)));
+    }
+
     public static String progress(boolean visible, int progress, int duration) {
         if (!visible) {
             return "—";

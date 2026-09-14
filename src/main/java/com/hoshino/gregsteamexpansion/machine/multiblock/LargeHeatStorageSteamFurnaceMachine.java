@@ -129,6 +129,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     /** Work-enabled flag shared by the power button, soft hammer and covers. */
     @Persisted
     private boolean workingEnabled = true;
+    /** UI preference; sampled only when a new recipe batch starts. */
+    @Persisted
+    private boolean largeSteamOverclockEnabled = false;
     /** Last applied save difficulty ordinal, for one-shot downgrade migration. */
     @Persisted
     private int lastAppliedDifficulty = Difficulty.NORMAL.ordinal();
@@ -143,6 +146,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     private long batchTotalSteamMb = 0;
     @Persisted
     private long batchSteamPerTickMb = 0;
+    /** Whether the current batch locked the Large Steam Supply Hatch overclock. */
+    @Persisted
+    private boolean batchLargeSteamOverclock = false;
     @Persisted
     private int batchDuration = 0;
     @Persisted
@@ -495,7 +501,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
             batchState.freeze(BatchStateMachine.HoldReason.INPUTS);
             return false;
         }
-        int bySteam = steamLimitedParallel(recipe, difficulty);
+        boolean overclock = largeSteamOverclockEnabled && hasLargeSteamSupplyHatch();
+        int bySteam = steamLimitedParallel(recipe, difficulty, overclock);
         if (bySteam <= 0) {
             batchState.freeze(BatchStateMachine.HoldReason.STEAM);
             return false;
@@ -516,8 +523,12 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         double processingMultiplier = difficulty.getProcessingSteamPercent() / 100.0;
         long totalSteam = (long) Math.ceil(baseEnergy * 2.0 * parallel * discount * processingMultiplier);
         double speed = speedMultiplier();
-        int duration = Math.max(1, (int) Math.ceil(recipe.duration / speed));
-        long perTick = (long) Math.ceil((double) totalSteam / duration);
+        int normalDuration = Math.max(1, (int) Math.ceil(recipe.duration / speed));
+        long normalPerTick = (long) Math.ceil((double) totalSteam / normalDuration);
+        LargeSteamOverclock.LockedEconomics economics = LargeSteamOverclock.lock(
+                normalDuration, normalPerTick, overclock, true);
+        int duration = economics.durationTicks();
+        long perTick = economics.steamPerTickMb();
 
         GTRecipe multiplied = recipe.copy(ContentModifier.multiplier(parallel));
         multiplied.parallels = parallel;
@@ -534,16 +545,17 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         batchRecipeId = recipe.getId().toString();
         batchRecipeMode = recipeMode;
         batchParallel = parallel;
-        batchTotalSteamMb = totalSteam;
+        batchLargeSteamOverclock = economics.active();
+        batchTotalSteamMb = perTick * duration;
         batchSteamPerTickMb = perTick;
         batchDuration = duration;
         batchProgress = 0;
-        batchSpeed = (float) speed;
+        batchSpeed = (float) (speed * (economics.active() ? LargeSteamOverclock.DURATION_DIVISOR : 1));
         batchOriginWidth = formedWidth;
         batchOriginHeight = formedHeight;
         batchInputSourcePos = inputSourcePos;
         GregSteamExpansion.LOGGER.debug("Furnace at {} started batch {} with parallel {} ({} mB total, {} mB/t over {} ticks)",
-                getPos(), batchRecipeId, parallel, totalSteam, perTick, duration);
+                getPos(), batchRecipeId, parallel, batchTotalSteamMb, perTick, duration);
         return true;
     }
 
@@ -551,6 +563,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     private void completeBatch() {
         if (batchRecipe == null) {
             hasBatch = false;
+            batchLargeSteamOverclock = false;
             batchInputSourcePos = NO_INPUT_SOURCE;
             return;
         }
@@ -578,6 +591,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         hasBatch = false;
         batchRecipe = null;
         batchProgress = 0;
+        batchLargeSteamOverclock = false;
         batchInputSourcePos = NO_INPUT_SOURCE;
         deliverPendingOutputs();
     }
@@ -587,8 +601,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         return pendingBuffer.deliverItems(outputBuses);
     }
 
-    /** 每刻蒸汽上限允许的最大并行: ceil(E·2·P·D·C / duration) ≤ N × 1200. */
-    private int steamLimitedParallel(GTRecipe recipe, Difficulty difficulty) {
+    /** 每刻蒸汽上限允许的最大并行；超频时先把普通需求乘 3 再与仓室上限比较。 */
+    private int steamLimitedParallel(GTRecipe recipe, Difficulty difficulty, boolean overclock) {
         long limit = steamBudget.physicalInputLimitMb();
         if (limit <= 0) {
             return 0;
@@ -598,11 +612,13 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         double discount = steamDiscount();
         double processingMultiplier = difficulty.getProcessingSteamPercent() / 100.0;
         double speed = speedMultiplier();
-        int duration = Math.max(1, (int) Math.ceil(recipe.duration / speed));
+        int normalDuration = Math.max(1, (int) Math.ceil(recipe.duration / speed));
         for (int parallel = maximumParallel(); parallel >= 1; parallel--) {
             long total = (long) Math.ceil(baseEnergy * 2.0 * parallel * discount * processingMultiplier);
-            long perTick = (long) Math.ceil((double) total / duration);
-            if (perTick <= limit) {
+            long normalPerTick = (long) Math.ceil((double) total / normalDuration);
+            LargeSteamOverclock.LockedEconomics economics = LargeSteamOverclock.lock(
+                    normalDuration, normalPerTick, overclock, true);
+            if (economics.steamPerTickMb() <= limit) {
                 return parallel;
             }
         }
@@ -871,6 +887,24 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         return workingEnabled;
     }
 
+    public boolean hasLargeSteamSupplyHatch() {
+        return partCollector.hasLargeSteamSupplyHatch();
+    }
+
+    public boolean isLargeSteamOverclockEnabled() {
+        return largeSteamOverclockEnabled;
+    }
+
+    public void setLargeSteamOverclockEnabled(boolean enabled) {
+        if (hasLargeSteamSupplyHatch()) {
+            largeSteamOverclockEnabled = enabled;
+        }
+    }
+
+    public boolean isCurrentBatchLargeSteamOverclocked() {
+        return hasBatch && batchLargeSteamOverclock;
+    }
+
     public void setWorkingEnabled(boolean workingEnabled) {
         this.workingEnabled = workingEnabled;
         updateWorkingAppearance();
@@ -1021,7 +1055,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
                 () -> (hasBatch ? currentDemandPerTick() + " mB/t / "
                         + (steamUnlimited ? unlimitedText() : FormattingUtil.formatNumbers(steamInputLimitPerTickUnits() / 100))
                         : "— / " + (steamUnlimited ? unlimitedText()
-                                : FormattingUtil.formatNumbers((long) steamHatches.size() * STEAM_PER_HATCH_LIMIT_MB))),
+                                : FormattingUtil.formatNumbers(steamBudget.physicalInputLimitMb()))),
                 ChatFormatting.WHITE);
         y = SteamProcessorUI.infoRow(scroll, y, uiKey("ui.parallel"),
                 () -> (hasBatch ? batchParallel + " / " + maximumParallel() : "— / " + maximumParallel()),
@@ -1053,6 +1087,10 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
                         .withStyle(ChatFormatting.YELLOW),
                 Component.translatable("gtceu.multiblock.universal.distinct.info")
                         .withStyle(ChatFormatting.GRAY)));
+        if (hasLargeSteamSupplyHatch()) {
+            SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight,
+                    this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
+        }
         return ui;
     }
 

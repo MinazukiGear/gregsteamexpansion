@@ -15,6 +15,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachin
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BatchStateMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.LargeSteamOverclock;
 import com.hoshino.gregsteamexpansion.machine.multiblock.PendingOutputBuffer;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
@@ -77,9 +78,15 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     /** Work-enabled flag shared by the power button, soft hammer and covers. */
     @Persisted
     private boolean workingEnabled = true;
+    /** UI preference; sampled only when a new production cycle starts. */
+    @Persisted
+    private boolean largeSteamOverclockEnabled = false;
     /** Progress inside the current production cycle (0..cycleTicks). */
     @Persisted
     private int cycleProgress = 0;
+    /** Whether the current production cycle locked the large-hatch overclock. */
+    @Persisted
+    private boolean cycleLargeSteamOverclock = false;
     /** Finished items waiting for output space. */
     @Persisted
     private final List<ItemStack> pendingOutputs = new ArrayList<>();
@@ -280,9 +287,12 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
 
     /** 逐 tick 原子取汽 + 节拍推进; 断汽回退至 1 tick. */
     private void runCycleTick() {
-        long demand = steamPerStationTick() * stationCount();
+        if (cycleProgress == 0) {
+            cycleLargeSteamOverclock = largeSteamOverclockEnabled && hasLargeSteamSupplyHatch();
+        }
+        LargeSteamOverclock.LockedEconomics economics = currentCycleEconomics();
         BatchStateMachine.TickResult tick = batchState.runTick(
-                cycleProgress, cycleTicks(), () -> drawSteam(demand));
+                cycleProgress, economics.durationTicks(), () -> drawSteam(economics.steamPerTickMb()));
         cycleProgress = tick.progress();
         if (!tick.consumed()) {
             updateWorkingAppearance();
@@ -384,6 +394,24 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
 
     public boolean isWorkingEnabled() {
         return workingEnabled;
+    }
+
+    public boolean hasLargeSteamSupplyHatch() {
+        return partCollector.hasLargeSteamSupplyHatch();
+    }
+
+    public boolean isLargeSteamOverclockEnabled() {
+        return largeSteamOverclockEnabled;
+    }
+
+    public void setLargeSteamOverclockEnabled(boolean enabled) {
+        if (hasLargeSteamSupplyHatch()) {
+            largeSteamOverclockEnabled = enabled;
+        }
+    }
+
+    public boolean isCurrentCycleLargeSteamOverclocked() {
+        return cycleProgress > 0 && cycleLargeSteamOverclock;
     }
 
     public void setWorkingEnabled(boolean workingEnabled) {
@@ -508,6 +536,10 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
         ui.widget(scroll);
         // GTCEu standard power button fixed outside the scroll area.
         SteamProcessorUI.addPowerButton(ui, uiHeight, this::isWorkingEnabled, this::setWorkingEnabled);
+        if (hasLargeSteamSupplyHatch()) {
+            SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight,
+                    this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
+        }
         return ui;
     }
 
@@ -530,10 +562,10 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
 
     /** `45.0%（135 / 200 tick）`. */
     private String progressText() {
-        return SteamProcessorUI.progress(true, cycleProgress, cycleTicks());
+        return SteamProcessorUI.progress(true, cycleProgress, currentCycleEconomics().durationTicks());
     }
 
-    /** 总需求 = 工位 × 单工位; only "运行中" with a successful draw consumes. */
+    /** 基础需求 = 工位 × 单工位，超频时乘 3；只有成功取汽才产生实际消耗。 */
     private String demandText() {
         long demand = currentSteamDemandPerTick();
         return SteamProcessorUI.demand(demand, demand,
@@ -544,7 +576,12 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     private long currentSteamDemandPerTick() {
         String status = getStatusId();
         return status.equals("working") || status.equals("low_steam")
-                ? steamPerStationTick() * stationCount() : 0;
+                ? currentCycleEconomics().steamPerTickMb() : 0;
+    }
+
+    private LargeSteamOverclock.LockedEconomics currentCycleEconomics() {
+        return LargeSteamOverclock.lock(cycleTicks(), steamPerStationTick() * stationCount(),
+                cycleLargeSteamOverclock, true);
     }
 
     /** `128（3 种）` style pending summary; `—` when nothing is pending. */
@@ -567,11 +604,11 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     }
 
     public int getCycleTicks() {
-        return cycleTicks();
+        return currentCycleEconomics().durationTicks();
     }
 
     public long getSteamPerTickDemand() {
-        return steamPerStationTick() * stationCount();
+        return currentCycleEconomics().steamPerTickMb();
     }
 
     public boolean isConsumingSteam() {
@@ -607,6 +644,7 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     @Override
     public void onMachineRemoved() {
         cycleProgress = 0;
+        cycleLargeSteamOverclock = false;
         pendingBuffer.clear();
         exhaustFeedbackTimer = 0;
         exhaustDamageTimer = 0;
