@@ -10,6 +10,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCoke
 import com.hoshino.gregsteamexpansion.machine.multiblock.cokeoven.GSECokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenMode;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamBlastFurnaceMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.voidproducer.AbstractSteamVoidMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
@@ -20,9 +21,12 @@ import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
+import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.IRecipeCapabilityHolder;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
+import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
+import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.recipe.modifier.ParallelLogic;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
@@ -1069,6 +1073,59 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceClosesWroughtIronAndSteelChain(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            eq(h, replaceSteamSupplyHatches(h, machine, 1), 1,
+                    "Blast-furnace fixture did not install exactly one large steam supply hatch");
+            ItemBusPartMachine input = machine.getParts().stream()
+                    .filter(ItemBusPartMachine.class::isInstance)
+                    .map(ItemBusPartMachine.class::cast)
+                    .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
+                    .findFirst().orElseThrow();
+            List<SteamAirIntakeHatchPartMachine> intakes = list(machine, "airIntakeHatches");
+            h.assertTrue(!intakes.isEmpty(), "Blast-furnace fixture lacks an air intake hatch");
+            intakes.get(0).tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(64_000));
+            fillOutputs(machine, false);
+
+            List<GTRecipe> upstreamSteel = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                    .getRecipesInCategory(GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES.getCategory()).stream()
+                    .filter(recipe -> recipe.getId().getNamespace().equals("gtceu"))
+                    .filter(recipe -> recipe.getId().getPath().contains("steel_from_"))
+                    .toList();
+            eq(h, upstreamSteel.size(), 18,
+                    "Primitive blast furnace upstream steel recipe inventory changed");
+            for (GTRecipe recipe : upstreamSteel) {
+                h.assertTrue((boolean) call(machine, "acceptsRecipe", recipe),
+                        "Large steam blast furnace rejected upstream recipe " + recipe.getId());
+                h.assertTrue((boolean) call(machine, "passesVoltageGate", recipe),
+                        "Large steam blast furnace voltage-gated EU-less recipe " + recipe.getId());
+            }
+
+            GTRecipe wroughtRecipe = recipeEndingWith(
+                    GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES,
+                    "wrought_iron_from_dust_coke_dust");
+            input.getInventory().setStackInSlot(0,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 4));
+            input.getInventory().setStackInSlot(1,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 4));
+            runBlastRecipe(h, machine, wroughtRecipe, input,
+                    ChemicalHelper.get(TagPrefix.ingot, GTMaterials.WroughtIron).getItem());
+
+            fillOutputs(machine, false);
+            GTRecipe steelRecipe = recipeEndingWith(
+                    GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES,
+                    "steel_from_coke_dust_wrought");
+            input.getInventory().setStackInSlot(0,
+                    ChemicalHelper.get(TagPrefix.ingot, GTMaterials.WroughtIron, 4));
+            input.getInventory().setStackInSlot(1,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 4));
+            runBlastRecipe(h, machine, steelRecipe,
+                    input, ChemicalHelper.get(TagPrefix.ingot, GTMaterials.Steel).getItem());
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceAcceptsCapabilityInputPart(GameTestHelper h) {
         var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
         var m = GSEStructureTestUtils.placeShape(h, definition, definition.getMatchingShapes().get(0));
@@ -1315,6 +1372,49 @@ public final class GSESteamEngineTests {
                 .chancedOutput(new ItemStack(Items.GOLD_INGOT), 5000, 0).duration(200).EUt(8).buildRawRecipe();
     }
 
+    private static GTRecipe recipeEndingWith(GTRecipeType type, String suffix) {
+        List<GTRecipe> matches = type.getRecipesInCategory(type.getCategory()).stream()
+                .filter(recipe -> recipe.getId().getPath().endsWith(suffix))
+                .toList();
+        if (matches.size() != 1) {
+            throw new AssertionError("Expected one recipe ending with " + suffix + ", found " + matches.size());
+        }
+        return matches.get(0);
+    }
+
+    private static void runBlastRecipe(GameTestHelper h, LargeSteamBlastFurnaceMachine machine,
+                                       GTRecipe recipe, ItemBusPartMachine input, Item expectedOutput) {
+        fillSteam(machine, 256_000);
+        long steamBefore = steam(machine);
+        long airBefore = air(machine);
+        h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                "Large steam blast furnace did not start " + recipe.getId());
+        eq(h, machine.getBatchParallel(), 4, "Blast recipe did not lock four parallels");
+        eq(h, machine.getBatchDuration(), 240, "Blast recipe did not apply its 0.4x duration");
+        eq(h, machine.getBatchSteamPerTick(), 800, "Blast recipe locked the wrong steam demand");
+        h.assertTrue(input.getInventory().getStackInSlot(0).isEmpty()
+                        && input.getInventory().getStackInSlot(1).isEmpty(),
+                "Blast recipe did not consume both inputs atomically at batch start");
+
+        for (int tick = 1; tick <= 240; tick++) {
+            call(machine, "runBatchTick");
+            if (tick < 240) {
+                eq(h, machine.getBatchProgress(), tick,
+                        "Blast recipe did not advance exactly once on supplied tick " + tick);
+                h.assertTrue(!machine.getBatchRecipeId().isEmpty(),
+                        "Blast recipe completed before its locked duration at tick " + tick);
+            }
+        }
+        h.assertTrue(machine.getBatchRecipeId().isEmpty(),
+                "Blast recipe did not complete after its locked duration");
+        eq(h, outputCount(machine, expectedOutput), 4,
+                "Blast recipe did not deliver its guaranteed parallel output");
+        eq(h, steamBefore - steam(machine), 192_000,
+                "Blast recipe consumed the wrong total steam");
+        eq(h, airBefore - air(machine), 3_840,
+                "Blast recipe consumed the wrong total blast air");
+    }
+
     private static ItemStack migratedCrusherInput() {
         for (GTRecipe recipe : GSERecipeTypes.ORE_CRUSHING_RECIPES.getRecipesInCategory(
                 GSERecipeTypes.ORE_CRUSHING_RECIPES.getCategory())) {
@@ -1526,6 +1626,10 @@ public final class GSESteamEngineTests {
     private static List<ItemStack> pending(Object m) { return list(m, "pendingOutputs"); }
     private static long steam(Object m) {
         return supplies(m).stream().mapToLong(hatch -> hatch.tank.getFluidInTank(0).getAmount()).sum();
+    }
+    private static long air(Object m) {
+        return GSESteamEngineTests.<SteamAirIntakeHatchPartMachine>list(m, "airIntakeHatches").stream()
+                .mapToLong(hatch -> hatch.tank.getFluidInTank(0).getAmount()).sum();
     }
     private static void fillSteam(Object m, int amount) {
         for (var hatch : supplies(m)) hatch.tank.getStorages()[0].setFluid(GTMaterials.Steam.getFluid(amount));

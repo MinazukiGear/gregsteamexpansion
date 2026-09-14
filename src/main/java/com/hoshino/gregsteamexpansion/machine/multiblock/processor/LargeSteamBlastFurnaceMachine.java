@@ -50,7 +50,7 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     public static final double DURATION_MULTIPLIER = 0.4;
     /** Fixed per-parallel steam draw (粉碎机家族口径 200 mB/t). */
     public static final long STEAM_PER_TICK_PER_PARALLEL_MB = 200;
-    /** Blast air per consuming tick per parallel (鼓风随并行缩放, 满载 256 mB/t). */
+    /** Blast air per consuming tick per parallel (鼓风随并行缩放, 满载 384 mB/t). */
     public static final long BLAST_AIR_PER_PARALLEL_MB = 4;
 
     public LargeSteamBlastFurnaceMachine(IMachineBlockEntity holder) {
