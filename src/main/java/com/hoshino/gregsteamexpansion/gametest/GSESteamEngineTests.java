@@ -19,6 +19,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCr
 
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.data.RotationState;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
@@ -37,6 +38,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachin
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -52,7 +54,9 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -1138,37 +1142,7 @@ public final class GSESteamEngineTests {
             eq(h, largeSupplies, 4, "Full-load fixture did not collect four large steam supply hatches");
             List<SteamAirIntakeHatchPartMachine> intakes = list(machine, "airIntakeHatches");
             eq(h, intakes.size(), 8, "Full-load fixture did not collect eight air intake hatches");
-
-            ItemBusPartMachine input = machine.getParts().stream()
-                    .filter(ItemBusPartMachine.class::isInstance)
-                    .map(ItemBusPartMachine.class::cast)
-                    .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
-                    .findFirst().orElseThrow();
-            h.assertTrue(input.getInventory().getSlots() >= 4,
-                    "Full-load fixture input bus lacks four slots for split stacks");
-            fillOutputs(machine, false);
-            input.getInventory().setStackInSlot(0,
-                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 64));
-            input.getInventory().setStackInSlot(1,
-                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 32));
-            input.getInventory().setStackInSlot(2,
-                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 64));
-            input.getInventory().setStackInSlot(3,
-                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 32));
-
-            GTRecipe recipe = recipeEndingWith(
-                    GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES,
-                    "wrought_iron_from_dust_coke_dust");
-            h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
-                    "Large steam blast furnace did not start its 96-parallel real recipe");
-            eq(h, machine.getBatchParallel(), 96, "Blast furnace did not lock its maximum parallel");
-            eq(h, machine.getBatchDuration(), 240, "Full-load recipe did not apply 0.4x duration");
-            eq(h, machine.getBatchSteamPerTick(), 19_200,
-                    "Full-load recipe locked the wrong steam demand");
-            for (int slot = 0; slot < 4; slot++) {
-                h.assertTrue(input.getInventory().getStackInSlot(slot).isEmpty(),
-                        "Full-load recipe left input in split stack slot " + slot);
-            }
+            startFullLoadBlastRecipe(h, machine);
 
             for (FluidHatchPartMachine hatch : supplies) {
                 boolean large = hatch.self().getDefinition() == GSEMachines.LARGE_STEAM_SUPPLY_HATCH;
@@ -1185,6 +1159,47 @@ public final class GSESteamEngineTests {
             eq(h, machine.getBatchProgress(), 1, "Full-load batch did not advance exactly one tick");
             eq(h, steam(machine), 0, "Four large supply hatches did not atomically provide 19,200 mB");
             eq(h, air(machine), 0, "Eight air intakes did not atomically provide 384 mB");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceEightIntakesSustainFullLoad(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            configureBlastFurnaceFullLoadHatches(h, machine);
+            startFullLoadBlastRecipe(h, machine);
+
+            List<FluidHatchPartMachine> supplies = supplies(machine);
+            List<SteamAirIntakeHatchPartMachine> intakes = list(machine, "airIntakeHatches");
+            eq(h, intakes.size(), 8, "Sustained-load fixture did not collect eight air intakes");
+            for (SteamAirIntakeHatchPartMachine intake : intakes) {
+                h.assertTrue(h.getLevel().getBlockState(intake.getPos().relative(intake.getFrontFacing())).isAir(),
+                        "Sustained-load intake does not face a clear air block at " + intake.getPos());
+                intake.tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(4_000));
+                set(intake, "cycleTimer", 0);
+                set(intake, "syncedCycleTimer", 0);
+            }
+
+            for (int tick = 1; tick <= 160; tick++) {
+                if ((tick - 1) % 40 == 0) refillFullLoadSteam(h, supplies);
+                for (SteamAirIntakeHatchPartMachine intake : intakes) {
+                    call(intake, "updateIntake");
+                }
+                long steamBefore = steam(machine);
+                call(machine, "runBatchTick");
+                eq(h, machine.getBatchProgress(), tick,
+                        "Full-load batch stalled during passive air collection at tick " + tick);
+                eq(h, steamBefore - steam(machine), 19_200,
+                        "Full-load tick consumed the wrong steam budget at tick " + tick);
+            }
+
+            eq(h, air(machine), 34_560,
+                    "Two passive collection cycles did not leave the expected growing air reserve");
+            for (SteamAirIntakeHatchPartMachine intake : intakes) {
+                h.assertTrue(intake.getIntakeStatus()
+                                == SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,
+                        "Full-load intake stopped collecting: " + intake.getIntakeStatus().getId());
+            }
         });
     }
 
@@ -1442,10 +1457,80 @@ public final class GSESteamEngineTests {
         }
         eq(h, installedIntakes, requiredIntakes,
                 "Could not install all full-load air intake hatches in legal wall positions");
+        orientBlastFurnaceIntakesTowardAir(h, machine);
         h.assertTrue(machine.checkPattern(),
                 "Four large supplies and eight air intakes did not reform the blast furnace");
         machine.onStructureFormed();
         h.assertTrue(machine.isFormed(), "Full-load blast-furnace fixture remained invalid");
+    }
+
+    private static void orientBlastFurnaceIntakesTowardAir(GameTestHelper h,
+                                                            LargeSteamBlastFurnaceMachine machine) {
+        RotationState rotation = GSEMachines.STEAM_AIR_INTAKE_HATCH.getRotationState();
+        h.assertTrue(rotation != RotationState.NONE,
+                "Steam air intake hatch has no configurable facing");
+        for (BlockPos pos : BlockPos.betweenClosed(
+                machine.getPos().offset(-15, -15, -15), machine.getPos().offset(15, 15, 15))) {
+            BlockState state = h.getLevel().getBlockState(pos);
+            if (!state.is(GSEMachines.STEAM_AIR_INTAKE_HATCH.getBlock())) continue;
+            Direction clearFacing = null;
+            for (Direction direction : Direction.Plane.HORIZONTAL) {
+                if (h.getLevel().getBlockState(pos.relative(direction)).isAir()) {
+                    clearFacing = direction;
+                    break;
+                }
+            }
+            h.assertTrue(clearFacing != null,
+                    "Steam air intake has no clear horizontal face at " + pos);
+            if (clearFacing != null && state.hasProperty(rotation.property)) {
+                h.getLevel().setBlockAndUpdate(pos, state.setValue(rotation.property, clearFacing));
+            }
+        }
+    }
+
+    private static void startFullLoadBlastRecipe(GameTestHelper h,
+                                                  LargeSteamBlastFurnaceMachine machine) {
+        ItemBusPartMachine input = machine.getParts().stream()
+                .filter(ItemBusPartMachine.class::isInstance)
+                .map(ItemBusPartMachine.class::cast)
+                .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
+                .findFirst().orElseThrow();
+        h.assertTrue(input.getInventory().getSlots() >= 4,
+                "Full-load fixture input bus lacks four slots for split stacks");
+        fillOutputs(machine, false);
+        input.getInventory().setStackInSlot(0,
+                ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 64));
+        input.getInventory().setStackInSlot(1,
+                ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 32));
+        input.getInventory().setStackInSlot(2,
+                ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 64));
+        input.getInventory().setStackInSlot(3,
+                ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 32));
+
+        GTRecipe recipe = recipeEndingWith(
+                GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES,
+                "wrought_iron_from_dust_coke_dust");
+        h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                "Large steam blast furnace did not start its 96-parallel real recipe");
+        eq(h, machine.getBatchParallel(), 96, "Blast furnace did not lock its maximum parallel");
+        eq(h, machine.getBatchDuration(), 240, "Full-load recipe did not apply 0.4x duration");
+        eq(h, machine.getBatchSteamPerTick(), 19_200,
+                "Full-load recipe locked the wrong steam demand");
+        for (int slot = 0; slot < 4; slot++) {
+            h.assertTrue(input.getInventory().getStackInSlot(slot).isEmpty(),
+                    "Full-load recipe left input in split stack slot " + slot);
+        }
+    }
+
+    private static void refillFullLoadSteam(GameTestHelper h, List<FluidHatchPartMachine> supplies) {
+        for (FluidHatchPartMachine hatch : supplies) {
+            boolean large = hatch.self().getDefinition() == GSEMachines.LARGE_STEAM_SUPPLY_HATCH;
+            if (!large) continue;
+            int missing = hatch.tank.getTankCapacity(0) - hatch.tank.getFluidInTank(0).getAmount();
+            int filled = hatch.tank.fillInternal(
+                    GTMaterials.Steam.getFluid(missing), IFluidHandler.FluidAction.EXECUTE);
+            eq(h, filled, missing, "Large supply hatch refused its periodic full-load refill");
+        }
     }
 
     private static void formed(GameTestHelper h, MultiblockMachineDefinition definition,
