@@ -1338,6 +1338,44 @@ public final class GSEGameTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamBlastFurnaceHasNoCombinedInterfaceCap(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(0));
+        helper.assertTrue(machine != null, "Missing blast-furnace fixture controller");
+        if (machine == null) {
+            return;
+        }
+
+        List<BlockPos> bricks = new java.util.ArrayList<>();
+        for (BlockPos pos : BlockPos.betweenClosed(
+                machine.getPos().offset(-15, -15, -15),
+                machine.getPos().offset(15, 15, 15))) {
+            if (helper.getLevel().getBlockState(pos).is(GSEProcessorPatterns.blastBricks())) {
+                bricks.add(pos.immutable());
+            }
+        }
+        // The preview contains 14 interfaces. Fifteen additional supply
+        // hatches produce 29 total, deliberately crossing the obsolete tooltip
+        // limit while preserving all per-interface minimum and exact limits.
+        helper.assertTrue(bricks.size() >= 15,
+                "Blast-furnace preview lacks interface expansion positions");
+        machine.onStructureInvalid();
+        for (int i = 0; i < 15; i++) {
+            helper.getLevel().setBlockAndUpdate(bricks.get(i),
+                    GSEMachines.STEAM_SUPPLY_HATCH.getBlock().defaultBlockState());
+        }
+        helper.assertTrue(machine.checkPattern(),
+                "Blast furnace rejected 29 interfaces despite having no combined cap");
+        machine.onStructureFormed();
+        helper.assertTrue(machine.isFormed(),
+                "Blast furnace did not form with 29 interfaces");
+        helper.assertTrue(machine.getParts().size() == 29,
+                "Blast furnace collected " + machine.getParts().size() + " interfaces instead of 29");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void largeSteamBlastFurnaceFormsInAllHorizontalDirections(GameTestHelper helper) {
         var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
         var shape = definition.getMatchingShapes().get(0);

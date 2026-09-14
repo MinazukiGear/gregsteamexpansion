@@ -510,7 +510,7 @@
   "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle": "结构",
   "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.0": "固定三段收分巨构（13×13 底、15 高，733 实体方块）：炉缸为 48 格工业蒸汽机械方块环（含正面正中控制器）包围 121 格焦炭砖炉床；13×13 鼓风层与九层 11×11 炉身以高炉砖为墙（共 368 个，gtceu:firebricks，与原始高炉同款材质）；9×9 实心炉喉盖与 5×5×3 烟囱冠收出收分轮廓。",
   "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.1": "焦炭砖炉床仅承担结构资格，不提供任何加成。仅墙体就需约 370 个高炉砖（≈1,500 个耐火砖物品）——名副其实的砌砖工程；锻铁则留给控制器与它解锁的钢级机械。",
-  "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.2": "仓室仅可替换墙体高炉砖位：至少 1 个物品输入总线、1 个物品输出总线、1 个蒸汽供给仓，必须且只能 1 个蒸汽排气仓，至少 1 个蒸汽进气室（鼓风口，至多 8 个），合计最多 28 个。任何家族的流体仓一律不可装入。使用普通供给仓的满载参考配置：16 供给仓 + 2 总线 + 1 排气仓 + 8 鼓风口 = 27。",
+  "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.2": "仓室仅可替换墙体高炉砖位：至少 1 个物品输入总线、1 个物品输出总线、1 个蒸汽供给仓，必须且只能 1 个蒸汽排气仓，并安装 1–8 个蒸汽进气室（鼓风口）。仓室合计不设上限，也不保留最低高炉砖数量。任何家族的流体仓一律不可装入。使用普通供给仓的满载参考配置：16 供给仓 + 2 总线 + 1 排气仓 + 8 鼓风口 = 27。",
   "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle2": "加工与蒸汽",
   "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.3": "执行全部原始高炉配方（铁锭/锻铁 + 煤/木炭/焦炭炼钢；锻铁可由铁粉 + 燃料在此获得——此外上游自带铁粒烧锻铁粒的零散路线）；每批只处理同一种配方，最高 96 并行，耗时为基准的 0.4 倍（向上取整）——满载吞吐为原始高炉的 240 倍。",
   "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.4": "配方类型不带 EU/t：蒸汽按每并行每刻 200 mB 固定马力费计收——满载 96 并行需要 19,200 mB/t，即 16 个普通供给仓（1,200 mB/t/仓）或 4 个大型供给仓（4,800 mB/t/仓）。每个推进刻同时跨鼓风口抽取 4 mB/t/并行的空气（满载 384 mB/t）；每个进气室被动采集 50 mB/t，长期满载需要全部 8 个鼓风口。空气或蒸汽短缺都会把批次回退至 1 tick，空气断供时状态显示鼓风不足。",

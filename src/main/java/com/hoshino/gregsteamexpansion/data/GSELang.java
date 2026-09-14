@@ -381,7 +381,7 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.1",
                 "The coke-brick hearth bed is structure-only and grants no bonuses. The walls alone take ~370 blast bricks (\u2248 1,500 fireclay bricks) \u2014 a true megaproject in bricks; wrought iron stays reserved for the controller and the steel machinery it unlocks.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.2",
-                "Hatches replace ONLY wall blast brick positions: at least 1 item input bus, 1 item output bus and 1 steam supply hatch, EXACTLY 1 steam exhaust hatch, at least 1 steam air intake hatch (tuyere, up to 8), at most 28 hatches in total. No fluid hatch of any family is admissible. Full-load ordinary-hatch reference: 16 supply hatches + 2 buses + 1 exhaust + 8 tuyeres = 27.");
+                "Hatches replace ONLY wall blast brick positions: at least 1 item input bus, 1 item output bus and 1 steam supply hatch, EXACTLY 1 steam exhaust hatch, and 1-8 steam air intake hatches (tuyeres). There is no combined hatch limit or retained blast-brick minimum. No fluid hatch of any family is admissible. Full-load ordinary-hatch reference: 16 supply hatches + 2 buses + 1 exhaust + 8 tuyeres = 27.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle2",
                 "Processing & Steam");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.3",

@@ -37,14 +37,17 @@ import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -55,6 +58,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -65,6 +69,7 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -441,12 +446,16 @@ public final class GSESteamEngineTests {
             eq(h, number(m, "batchSteamPerTickMb"), 200, "Shortage changed locked demand");
         }
 
-        var target = h.spawn(EntityType.COW, new BlockPos(1, 1, 1));
+        var target = Objects.requireNonNull(EntityType.COW.create(h.getLevel()));
         target.moveTo(front.getX() + 0.5, front.getY(), front.getZ() + 0.5);
+        h.getLevel().addFreshEntity(target);
         target.getAttribute(Attributes.MAX_HEALTH).setBaseValue(20);
         target.setHealth(20);
         target.setNoAi(true);
         target.setNoGravity(true);
+        h.assertTrue(h.getLevel().getEntitiesOfClass(LivingEntity.class, new AABB(front)).contains(target),
+                "Exhaust target was not registered in the vent block: front=" + front
+                        + ", target=" + target.blockPosition() + ", box=" + target.getBoundingBox());
         float health = target.getHealth();
         fillSteam(m, 32_000);
         tick(m);
@@ -459,7 +468,9 @@ public final class GSESteamEngineTests {
         tick(m);
         eq(h, number(m, "exhaustDamageTimer"), 0, "200th active tick did not reset damage cycle");
         h.assertTrue(target.getHealth() == health - SteamExhaustHatchMachine.EXHAUST_DAMAGE,
-                "200th active tick did not deal exactly 12 heat damage");
+                "200th active tick did not deal exactly 12 heat damage: before=" + health
+                        + ", after=" + target.getHealth() + ", front=" + front
+                        + ", target=" + target.blockPosition());
         target.discard();
 
         pending(m).add(new ItemStack(Items.DIAMOND, 3));
@@ -1053,6 +1064,7 @@ public final class GSESteamEngineTests {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastAirAndSteamAreAtomic(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, m -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) m;
             List<SteamAirIntakeHatchPartMachine> intakes = list(m, "airIntakeHatches");
             h.assertTrue(!intakes.isEmpty(), "Fixture lacks blast air intake");
             for (var intake : intakes) intake.tank.getStorages()[0].setFluid(FluidStack.EMPTY);
@@ -1063,6 +1075,14 @@ public final class GSESteamEngineTests {
             call(m, "runBatchTick");
             eq(h, progress(m), 1, "Air shortage did not roll back");
             eq(h, steam(m), before, "Air shortage wasted steam");
+            h.assertTrue(machine.getStatusId().equals("auxiliary_shortfall"),
+                    "Air shortage exposed the wrong controller status: " + machine.getStatusId());
+            h.assertTrue(machine.getStatusText().getContents() instanceof TranslatableContents text
+                            && text.getKey().equals(
+                            "gregsteamexpansion.machine.large_steam_blast_furnace.low_blast"),
+                    "Air shortage did not expose the dedicated blast-air text");
+            h.assertTrue(machine.getStatusColor() == ChatFormatting.YELLOW,
+                    "Air shortage did not use the warning status color");
             intakes.get(0).tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(8));
             fillSteam(m, 0);
             call(m, "runBatchTick");
@@ -1073,6 +1093,8 @@ public final class GSESteamEngineTests {
             eq(h, progress(m), 2, "Recovered blast inputs did not resume batch");
             eq(h, before - steam(m), 200, "Blast tick ignored locked steam demand");
             eq(h, intakes.get(0).tank.getFluidInTank(0).getAmount(), 0, "Blast tick did not consume 4 mB per parallel");
+            h.assertTrue(machine.getStatusId().equals("working"),
+                    "Recovered blast inputs did not restore the working status");
         });
     }
 
