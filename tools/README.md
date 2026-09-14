@@ -46,8 +46,10 @@ python tools/check_design_contracts.py
 ```
 
 The Gradle task `checkDesignContracts` runs the same check and is part of
-`check`. It covers selected structure dimensions and parallel caps; intentional
-changes must update the design document, implementation, and pinned assertion.
+`check`. It covers selected structure dimensions and parallel caps, and keeps
+the current GameTest totals in the root README and design status pages aligned
+with the annotated Java methods. Intentional changes must update the related
+documentation, implementation, and pinned assertions.
 
 ## Server restart persistence
 

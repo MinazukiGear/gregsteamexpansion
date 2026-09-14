@@ -388,10 +388,11 @@ def checkGeneratedAssets = tasks.register('checkGeneratedAssets', Exec) {
 
 def checkDesignContracts = tasks.register('checkDesignContracts', Exec) {
     group = 'verification'
-    description = 'Checks representative structure dimensions and parallel limits against design docs.'
+    description = 'Checks representative design contracts and documented GameTest counts.'
     workingDir rootDir
     environment 'PYTHONDONTWRITEBYTECODE', '1'
     inputs.file('tools/check_design_contracts.py')
+    inputs.file('README.md')
     inputs.files(fileTree('docs/design') { include '*.md' })
     inputs.files(fileTree('src/main/java/com/hoshino/gregsteamexpansion') { include '**/*.java' })
     doFirst {

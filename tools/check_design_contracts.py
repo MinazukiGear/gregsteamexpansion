@@ -157,6 +157,61 @@ def assembler_parallel_mapping() -> tuple[int, ...]:
     return (int(default.group(1)), *(cases[index] for index in range(1, 5)))
 
 
+def game_test_counts() -> dict[str, int]:
+    test_root = ROOT / "src/main/java/com/hoshino/gregsteamexpansion/gametest"
+    counts = {}
+    for path in sorted(test_root.glob("*.java")):
+        count = len(re.findall(r"^\s*@GameTest\s*\(", path.read_text("utf-8"), re.MULTILINE))
+        if count:
+            counts[path.stem] = count
+    if not counts:
+        raise ContractError(f"{test_root}: no @GameTest methods were found")
+    return counts
+
+
+def check_game_test_inventory() -> None:
+    counts = game_test_counts()
+    total = sum(counts.values())
+    documented_totals = {
+        "README development command": captured_integers(
+            "README.md",
+            r"运行全部 GameTest（(\d+) 个，见下）",
+            "README GameTest command count",
+        )[0],
+        "design index": captured_integers(
+            "docs/design/README.md",
+            r"全仓库现有 (\d+) 个 GameTest",
+            "design index GameTest count",
+        )[0],
+        "automation interface status": captured_integers(
+            "docs/design/automation-interfaces.md",
+            r"已实现并通过 (\d+) 项 GameTest",
+            "automation interface GameTest count",
+        )[0],
+    }
+    for label, documented in documented_totals.items():
+        if documented != total:
+            raise ContractError(
+                f"{label}: documents {documented} GameTests, source has {total}"
+            )
+
+    engine_count = counts.get("GSESteamEngineTests", 0)
+    documented_engine = captured_integers(
+        "README.md",
+        r"`GSESteamEngineTests`.*?（(\d+) 个）",
+        "README steam-engine GameTest count",
+    )[0]
+    if documented_engine != engine_count:
+        raise ContractError(
+            "README steam-engine inventory: documents "
+            f"{documented_engine} tests, source has {engine_count}"
+        )
+    print(
+        f"ok: GameTest inventory = {total} total / "
+        f"{engine_count} steam-engine tests"
+    )
+
+
 def check_contract(
     name: str,
     documented: tuple[int, ...],
@@ -293,6 +348,10 @@ def main() -> int:
     ]
 
     errors = []
+    try:
+        check_game_test_inventory()
+    except ContractError as error:
+        errors.append(str(error))
     for name, documented, implemented, expected in checks:
         try:
             check_contract(name, documented, implemented, expected)
