@@ -52,6 +52,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -66,7 +67,10 @@ import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @GameTestHolder(GregSteamExpansion.MOD_ID)
@@ -177,6 +181,46 @@ public final class GSEGameTests {
                 GregSteamExpansion.id("steam_circuit_assembly_block"));
         assertOneDifficultyRecipeOutput(helper, "shaped/steam_mixing_block",
                 GregSteamExpansion.id("steam_mixing_block"));
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void acquisitionIngredientsResolveWithoutInternalDeadlocks(GameTestHelper helper) {
+        var recipeManager = helper.getLevel().getRecipeManager();
+        var registryAccess = helper.getLevel().registryAccess();
+        Map<Item, CraftingRecipe> acquisitionRoutes = new HashMap<>();
+
+        for (var recipe : recipeManager.getRecipes()) {
+            if (!(recipe instanceof CraftingRecipe craftingRecipe)
+                    || !GregSteamExpansion.MOD_ID.equals(recipe.getId().getNamespace())) {
+                continue;
+            }
+            ItemStack result = craftingRecipe.getResultItem(registryAccess);
+            ResourceLocation resultId = ForgeRegistries.ITEMS.getKey(result.getItem());
+            boolean isModItem = resultId != null && GregSteamExpansion.MOD_ID.equals(resultId.getNamespace());
+            boolean isIndustrialSteamCasing = GregSteamExpansion.gtceuId("industrial_steam_casing").equals(resultId);
+            if (!isModItem && !isIndustrialSteamCasing) {
+                continue;
+            }
+
+            CraftingRecipe previous = acquisitionRoutes.put(result.getItem(), craftingRecipe);
+            helper.assertTrue(previous == null,
+                    "Multiple loaded crafting routes prevent deterministic dependency validation for " + resultId);
+            for (var ingredient : craftingRecipe.getIngredients()) {
+                if (!ingredient.isEmpty()) {
+                    helper.assertTrue(ingredient.getItems().length > 0,
+                            "Acquisition recipe has an empty item or tag ingredient: " + recipe.getId());
+                }
+            }
+        }
+
+        helper.assertTrue(!acquisitionRoutes.isEmpty(), "No acquisition recipes were available for dependency validation");
+        Set<Item> resolved = new HashSet<>();
+        for (Item output : acquisitionRoutes.keySet()) {
+            ResourceLocation outputId = ForgeRegistries.ITEMS.getKey(output);
+            helper.assertTrue(isAcquisitionDependencyResolvable(output, acquisitionRoutes, resolved, new HashSet<>()),
+                    "Acquisition dependency is cyclic or has no crafting route: " + outputId);
+        }
         helper.succeed();
     }
 
@@ -1265,6 +1309,44 @@ public final class GSEGameTests {
         }
         helper.assertTrue(loaded == 1,
                 "Expected exactly one loaded difficulty recipe for " + recipeBasePath + ", found " + loaded);
+    }
+
+    private static boolean isAcquisitionDependencyResolvable(Item item,
+                                                              Map<Item, CraftingRecipe> acquisitionRoutes,
+                                                              Set<Item> resolved,
+                                                              Set<Item> visiting) {
+        if (resolved.contains(item)) {
+            return true;
+        }
+        CraftingRecipe recipe = acquisitionRoutes.get(item);
+        if (recipe == null) {
+            ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(item);
+            return itemId != null && !GregSteamExpansion.MOD_ID.equals(itemId.getNamespace());
+        }
+        if (!visiting.add(item)) {
+            return false;
+        }
+
+        for (var ingredient : recipe.getIngredients()) {
+            if (ingredient.isEmpty()) {
+                continue;
+            }
+            boolean candidateResolved = false;
+            for (ItemStack candidate : ingredient.getItems()) {
+                if (isAcquisitionDependencyResolvable(candidate.getItem(), acquisitionRoutes, resolved, visiting)) {
+                    candidateResolved = true;
+                    break;
+                }
+            }
+            if (!candidateResolved) {
+                visiting.remove(item);
+                return false;
+            }
+        }
+
+        visiting.remove(item);
+        resolved.add(item);
+        return true;
     }
 
 }
