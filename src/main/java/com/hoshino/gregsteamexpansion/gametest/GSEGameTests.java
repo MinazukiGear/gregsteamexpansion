@@ -29,10 +29,12 @@ import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.api.registry.GTRegistries;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
+import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTRecipes;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.data.GTCovers;
 import com.gregtechceu.gtceu.common.data.GTItems;
+import com.gregtechceu.gtceu.common.data.machines.GTMultiMachines;
 import com.gregtechceu.gtceu.data.recipe.CustomTags;
 import com.gregtechceu.gtceu.common.cover.ShutterCover;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
@@ -50,11 +52,17 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingRecipe;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -223,6 +231,87 @@ public final class GSEGameTests {
             helper.assertTrue(isAcquisitionDependencyResolvable(output, acquisitionRoutes, resolved, new HashSet<>()),
                     "Acquisition dependency is cyclic or has no crafting route: " + outputId);
         }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void largeSteamBlastFurnaceUsesExactUpgradeRecipe(GameTestHelper helper) {
+        var loaded = helper.getLevel().getRecipeManager()
+                .byKey(GregSteamExpansion.id("shaped/large_steam_blast_furnace"))
+                .orElse(null);
+        helper.assertTrue(loaded instanceof ShapedRecipe,
+                "Large steam blast furnace recipe is missing or is not shaped");
+        ShapedRecipe recipe = (ShapedRecipe) loaded;
+        helper.assertTrue(recipe.getWidth() == 3 && recipe.getHeight() == 3,
+                "Large steam blast furnace recipe is not an exact 3x3 pattern");
+
+        ItemStack hull = GTBlocks.STEEL_BRICKS_HULL.asStack();
+        ItemStack steelPlate = ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Steel);
+        ItemStack primitiveBlastFurnace = GTMultiMachines.PRIMITIVE_BLAST_FURNACE.asStack();
+        List<Ingredient> ingredients = recipe.getIngredients();
+        helper.assertTrue(ingredients.size() == 9,
+                "Large steam blast furnace recipe does not occupy all nine slots");
+        for (int slot = 0; slot < ingredients.size(); slot++) {
+            ItemStack expected = switch (slot) {
+                case 0, 2, 6, 8 -> hull;
+                case 1, 3, 5, 7 -> steelPlate;
+                case 4 -> primitiveBlastFurnace;
+                default -> throw new AssertionError("Unexpected crafting slot " + slot);
+            };
+            assertExactIngredient(helper, ingredients.get(slot), expected, slot);
+        }
+
+        for (ItemStack hatch : List.of(
+                GSEMachines.STEAM_SUPPLY_HATCH.asStack(),
+                GSEMachines.LARGE_STEAM_SUPPLY_HATCH.asStack(),
+                GSEMachines.STEAM_EXHAUST_HATCH.asStack(),
+                GSEMachines.STEAM_AIR_INTAKE_HATCH.asStack(),
+                GSEMachines.STEAM_FLUID_IMPORT_HATCH.asStack(),
+                GSEMachines.STEAM_FLUID_EXPORT_HATCH.asStack())) {
+            helper.assertTrue(ingredients.stream().noneMatch(ingredient -> ingredient.test(hatch)),
+                    "Large steam blast furnace recipe unexpectedly accepts hatch "
+                            + ForgeRegistries.ITEMS.getKey(hatch.getItem()));
+        }
+
+        AbstractContainerMenu menu = new AbstractContainerMenu(null, -1) {
+            @Override
+            public ItemStack quickMoveStack(Player player, int index) {
+                return ItemStack.EMPTY;
+            }
+
+            @Override
+            public boolean stillValid(Player player) {
+                return true;
+            }
+        };
+        TransientCraftingContainer grid = new TransientCraftingContainer(menu, 3, 3);
+        for (int slot = 0; slot < ingredients.size(); slot++) {
+            grid.setItem(slot, switch (slot) {
+                case 0, 2, 6, 8 -> hull.copy();
+                case 1, 3, 5, 7 -> steelPlate.copy();
+                case 4 -> primitiveBlastFurnace.copy();
+                default -> ItemStack.EMPTY;
+            });
+        }
+        helper.assertTrue(recipe.matches(grid, helper.getLevel()),
+                "Exact HSH/SPS/HSH upgrade grid did not match the loaded recipe");
+        ItemStack result = recipe.assemble(grid, helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(GSEMachines.LARGE_STEAM_BLAST_FURNACE.asStack().getItem())
+                        && result.getCount() == 1,
+                "Exact upgrade grid did not assemble one large steam blast furnace controller");
+
+        grid.setItem(4, GSEMachines.STEAM_SUPPLY_HATCH.asStack());
+        helper.assertTrue(!recipe.matches(grid, helper.getLevel()),
+                "A steam supply hatch replaced the required primitive blast furnace core");
+        grid.setItem(4, primitiveBlastFurnace.copy());
+        grid.setItem(1, GSEMachines.STEAM_EXHAUST_HATCH.asStack());
+        helper.assertTrue(!recipe.matches(grid, helper.getLevel()),
+                "A steam exhaust hatch replaced a required double steel plate");
+
+        ItemStack controller = GSEMachines.LARGE_STEAM_BLAST_FURNACE.asStack();
+        helper.assertTrue(controller.getHoverName().getContents() instanceof TranslatableContents text
+                        && text.getKey().equals("block.gregsteamexpansion.large_steam_blast_furnace"),
+                "Large steam blast furnace controller does not use its bilingual display key");
         helper.succeed();
     }
 
@@ -1518,6 +1607,15 @@ public final class GSEGameTests {
                     "Acquisition recipe " + recipeId + " produces " + result.getItem()
                             + " instead of " + expectedItemId);
         }
+    }
+
+    private static void assertExactIngredient(GameTestHelper helper, Ingredient ingredient,
+                                              ItemStack expected, int slot) {
+        ItemStack[] candidates = ingredient.getItems();
+        helper.assertTrue(candidates.length == 1 && candidates[0].is(expected.getItem())
+                        && ingredient.test(expected),
+                "Large steam blast furnace slot " + slot + " does not require exactly "
+                        + ForgeRegistries.ITEMS.getKey(expected.getItem()));
     }
 
     private static void assertOneDifficultyRecipeOutput(GameTestHelper helper, String recipeBasePath,
