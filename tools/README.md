@@ -48,11 +48,14 @@ python tools/check_design_contracts.py
 The Gradle task `checkDesignContracts` runs the same check and is part of
 `check`. It covers selected structure dimensions and parallel caps, keeps the
 current GameTest totals in the root README and design status pages aligned with
-the annotated Java methods, and audits acquisition recipe tier boundaries. The
-recipe audit rejects electrical or post-steel ingredients in early hand-crafting
-routes, pins the large steam supply hatch to its HV upgrade recipe, and checks
-the MV-UV electric ore crusher material progression. Intentional changes must
-update the related documentation, implementation, and pinned assertions.
+the annotated Java methods, and audits acquisition recipes. The recipe audit
+rejects electrical or post-steel ingredients in early hand-crafting routes,
+pins the large steam supply hatch to its HV upgrade recipe, and checks the
+MV-UV electric ore crusher material progression. It also pairs every generated
+assembler acquisition recipe with its hand-crafting route and checks the output,
+difficulty condition, material relationship, fluid conversion, programming
+circuit, duration, and EU/t. Intentional changes must update the related
+documentation, implementation, and pinned assertions.
 
 ## Server restart persistence
 

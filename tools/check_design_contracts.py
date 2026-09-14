@@ -4,6 +4,7 @@
 import json
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 
@@ -236,6 +237,248 @@ def crafting_ingredient_counts(relative: str) -> dict[str, int]:
                 raise ContractError(f"{relative}: unsupported ingredient for symbol {symbol!r}")
             counts[spec] = counts.get(spec, 0) + 1
     return counts
+
+
+def recipe_difficulty(data: dict, relative: str) -> str | None:
+    difficulties = [
+        condition.get("difficulty")
+        for condition in data.get("conditions", [])
+        if condition.get("type") == "gregsteamexpansion:difficulty"
+    ]
+    if len(difficulties) > 1 or any(not isinstance(value, str) for value in difficulties):
+        raise ContractError(f"{relative}: malformed difficulty condition")
+    return difficulties[0] if difficulties else None
+
+
+def canonical_ingredient(spec: str) -> str:
+    if spec.startswith("tag:forge:"):
+        path = spec.removeprefix("tag:forge:")
+        forge_forms = {
+            "double_plates": "double_plate",
+            "plates": "plate",
+            "small_gears": "small_gear",
+            "gears": "gear",
+            "rotors": "rotor",
+            "springs": "spring",
+            "frames": "frame",
+            "normal_fluid_pipes": "normal_fluid_pipe",
+        }
+        for tag, form in forge_forms.items():
+            prefix = f"{tag}/"
+            if path.startswith(prefix):
+                return f"material:{form}/{path.removeprefix(prefix)}"
+
+    if spec.startswith("item:gtceu:"):
+        path = spec.removeprefix("item:gtceu:")
+        item_forms = (
+            (r"double_(.+)_plate", "double_plate"),
+            (r"small_(.+)_gear", "small_gear"),
+            (r"(.+)_normal_fluid_pipe", "normal_fluid_pipe"),
+            (r"(.+)_plate", "plate"),
+            (r"(.+)_gear", "gear"),
+            (r"(.+)_rotor", "rotor"),
+            (r"(.+)_spring", "spring"),
+            (r"(.+)_frame", "frame"),
+        )
+        for pattern, form in item_forms:
+            match = re.fullmatch(pattern, path)
+            if match:
+                return f"material:{form}/{match.group(1)}"
+    return spec
+
+
+def crafting_route(relative: str) -> tuple[str, int, str | None, Counter[str]]:
+    data = json.loads(source(relative))
+    result = data.get("result", {})
+    item = result.get("item")
+    count = result.get("count", 1)
+    if not isinstance(item, str) or not isinstance(count, int) or count < 1:
+        raise ContractError(f"{relative}: malformed crafting output")
+    materials = Counter()
+    for spec, amount in crafting_ingredient_counts(relative).items():
+        if spec.startswith("tag:gtceu:tools/crafting_"):
+            continue
+        materials[canonical_ingredient(spec)] += amount
+    return item, count, recipe_difficulty(data, relative), materials
+
+
+def assembler_route(
+    relative: str,
+) -> tuple[str, int, str | None, Counter[str], int, int, int, dict[str, int]]:
+    data = json.loads(source(relative))
+    outputs = data.get("outputs", {}).get("item", [])
+    if len(outputs) != 1:
+        raise ContractError(f"{relative}: expected exactly one item output")
+    output = outputs[0].get("content", {})
+    ingredient = output.get("ingredient", {})
+    item = ingredient.get("item")
+    count = output.get("count", 1)
+    if output.get("type") != "gtceu:sized" or not isinstance(item, str) or not isinstance(count, int):
+        raise ContractError(f"{relative}: malformed assembler output")
+
+    materials = Counter()
+    circuit_configs = []
+    for entry in data.get("inputs", {}).get("item", []):
+        content = entry.get("content", {})
+        if content.get("type") == "gtceu:circuit":
+            circuit_configs.append(content.get("configuration"))
+            if entry.get("chance") != 0:
+                raise ContractError(f"{relative}: programming circuit must be non-consumable")
+            continue
+        if content.get("type") != "gtceu:sized":
+            raise ContractError(f"{relative}: unsupported assembler item input {content}")
+        sized_ingredient = content.get("ingredient", {})
+        if "item" in sized_ingredient:
+            spec = f'item:{sized_ingredient["item"]}'
+        elif "tag" in sized_ingredient:
+            spec = f'tag:{sized_ingredient["tag"]}'
+        else:
+            raise ContractError(f"{relative}: malformed assembler item ingredient")
+        materials[canonical_ingredient(spec)] += content.get("count", 1)
+    if len(circuit_configs) != 1 or not isinstance(circuit_configs[0], int):
+        raise ContractError(f"{relative}: expected exactly one programming circuit")
+
+    fluids: dict[str, int] = {}
+    for entry in data.get("inputs", {}).get("fluid", []):
+        content = entry.get("content", {})
+        amount = content.get("amount")
+        values = content.get("value", [])
+        if not isinstance(amount, int) or len(values) != 1 or set(values[0]) != {"tag"}:
+            raise ContractError(f"{relative}: unsupported assembler fluid input {content}")
+        tag = values[0]["tag"]
+        fluids[tag] = fluids.get(tag, 0) + amount
+
+    eu_inputs = data.get("tickInputs", {}).get("eu", [])
+    if len(eu_inputs) != 1 or not isinstance(eu_inputs[0].get("content"), int):
+        raise ContractError(f"{relative}: expected exactly one EU/t input")
+    duration = data.get("duration")
+    if not isinstance(duration, int):
+        raise ContractError(f"{relative}: malformed duration")
+    return (
+        item,
+        count,
+        recipe_difficulty(data, relative),
+        materials,
+        circuit_configs[0],
+        duration,
+        eu_inputs[0]["content"],
+        fluids,
+    )
+
+
+def check_acquisition_route_parity() -> None:
+    recipe_root = "src/generated/resources/data/gregsteamexpansion/recipes"
+    pairs: dict[str, tuple[int, int, int, Counter[str], dict[str, int]]] = {}
+
+    def add(
+        name: str,
+        circuit: int,
+        duration: int,
+        eut: int,
+        hand_excess: dict[str, int] | None = None,
+        fluids: dict[str, int] | None = None,
+    ) -> None:
+        pairs[name] = (circuit, duration, eut, Counter(hand_excess or {}), fluids or {})
+
+    for tier in ("bronze", "steel", "titanium", "tungstensteel"):
+        add(f"boiler_room_{tier}", 7, 400, 16)
+    electric_tiers = ("mv", "hv", "ev", "iv", "luv", "zpm", "uv")
+    for index, tier in enumerate(electric_tiers, start=2):
+        add(f"electric_ore_crusher_{tier}", index, 100, 16 * (1 << index))
+    add("steam_fluid_input_hatch", 1, 100, 16)
+    add("steam_fluid_output_hatch", 2, 100, 16)
+    add("steam_air_intake_hatch", 3, 100, 16)
+
+    for difficulty in ("easy", "normal", "expert"):
+        plate = "double_plate" if difficulty == "expert" else "plate"
+        add(f"industrial_steam_casing_{difficulty}", 6, 50, 16)
+        add(
+            f"bronze_component_{difficulty}",
+            6,
+            50,
+            16,
+            {f"material:{plate}/bronze": 1, "material:spring/copper": 1},
+        )
+        grinding_gear = "gear" if difficulty == "expert" else "small_gear"
+        add(
+            f"steam_grinding_block_{difficulty}",
+            4,
+            100,
+            16,
+            {"material:plate/bronze": 1, f"material:{grinding_gear}/bronze": 1},
+        )
+        assembly_excess = (
+            {"material:plate/bronze": 1, "material:double_plate/bronze": 1}
+            if difficulty == "expert"
+            else {"material:plate/bronze": 2}
+        )
+        add(f"steam_assembly_block_{difficulty}", 4, 100, 16, assembly_excess)
+        add(
+            f"steam_circuit_assembly_block_{difficulty}",
+            5,
+            100,
+            16,
+            fluids={"forge:rubber": 288},
+        )
+        add(f"steam_mixing_block_{difficulty}", 6, 100, 16, assembly_excess)
+
+    assembler_root = ROOT / recipe_root / "assembler"
+    actual_names = {path.stem for path in assembler_root.glob("*.json")}
+    if actual_names != set(pairs):
+        raise ContractError(
+            "assembler acquisition route inventory differs from audited pairs: "
+            f"missing={sorted(set(pairs) - actual_names)}, extra={sorted(actual_names - set(pairs))}"
+        )
+
+    for name, (circuit, duration, eut, hand_excess, expected_fluids) in pairs.items():
+        shaped_path = f"{recipe_root}/shaped/{name}.json"
+        assembler_path = f"{recipe_root}/assembler/{name}.json"
+        hand_item, hand_count, hand_difficulty, hand_materials = crafting_route(shaped_path)
+        (
+            assembler_item,
+            assembler_count,
+            assembler_difficulty,
+            assembler_materials,
+            assembler_circuit,
+            assembler_duration,
+            assembler_eut,
+            assembler_fluids,
+        ) = assembler_route(assembler_path)
+
+        expected_difficulty = name.rsplit("_", 1)[-1]
+        if expected_difficulty not in {"easy", "normal", "expert"}:
+            expected_difficulty = None
+        if (hand_item, hand_count, hand_difficulty) != (
+            assembler_item,
+            assembler_count,
+            assembler_difficulty,
+        ) or hand_difficulty != expected_difficulty:
+            raise ContractError(
+                f"{name}: hand/assembler output or difficulty differs: "
+                f"hand={(hand_item, hand_count, hand_difficulty)}, "
+                f"assembler={(assembler_item, assembler_count, assembler_difficulty)}"
+            )
+
+        comparable_assembler = assembler_materials.copy()
+        if expected_fluids == {"forge:rubber": 288}:
+            comparable_assembler["material:plate/rubber"] += 2
+        if hand_materials != comparable_assembler + hand_excess:
+            raise ContractError(
+                f"{name}: material relationship differs: hand={dict(hand_materials)}, "
+                f"assembler={dict(assembler_materials)}, expected hand excess={dict(hand_excess)}"
+            )
+        if assembler_fluids != expected_fluids:
+            raise ContractError(
+                f"{name}: assembler fluids are {assembler_fluids}, expected {expected_fluids}"
+            )
+        actual_parameters = (assembler_circuit, assembler_duration, assembler_eut)
+        expected_parameters = (circuit, duration, eut)
+        if actual_parameters != expected_parameters:
+            raise ContractError(
+                f"{name}: assembler circuit/duration/EU/t is {actual_parameters}, "
+                f"expected {expected_parameters}"
+            )
+    print(f"ok: acquisition route parity = {len(pairs)} hand/assembler pairs")
 
 
 def check_acquisition_tier_boundaries() -> None:
@@ -474,6 +717,10 @@ def main() -> int:
         check_acquisition_tier_boundaries()
     except ContractError as error:
         errors.append(str(error))
+    try:
+        check_acquisition_route_parity()
+    except ContractError as error:
+        errors.append(str(error))
     for name, documented, implemented, expected in checks:
         try:
             check_contract(name, documented, implemented, expected)
@@ -489,7 +736,7 @@ def main() -> int:
         return 1
     print(
         f"Design contracts aligned: {len(checks)} representative numeric checks "
-        "plus acquisition tier audit."
+        "plus acquisition tier and route-parity audits."
     )
     return 0
 
