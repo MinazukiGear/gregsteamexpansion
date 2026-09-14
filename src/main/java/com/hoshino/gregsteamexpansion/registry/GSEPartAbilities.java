@@ -28,6 +28,12 @@ public final class GSEPartAbilities {
      * predicates; never a generic fluid source.
      */
     public static final PartAbility STEAM_AIR_INTAKE = new PartAbility("steam_air_intake");
+    /**
+     * Reserved identity for future dedicated large-furnace steam sources.
+     * No current machine registers this ability; declaring it alone never
+     * enables a new steam type or changes the furnace's structure predicate.
+     */
+    public static final PartAbility FURNACE_STEAM_SOURCE = new PartAbility("furnace_steam_source");
 
     private GSEPartAbilities() {}
 }

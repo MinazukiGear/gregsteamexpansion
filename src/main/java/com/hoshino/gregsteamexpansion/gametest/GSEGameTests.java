@@ -3,6 +3,8 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenMode;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenWorldData;
+import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamCapability;
+import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamSourceSpec;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
@@ -60,6 +62,7 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.List;
+import java.util.Set;
 
 @GameTestHolder(GregSteamExpansion.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -438,6 +441,50 @@ public final class GSEGameTests {
                 "The gtceu:steam_hatch recipe filter was never registered");
         helper.assertTrue(!helper.getLevel().getRecipeManager().byKey(GTCEu.id("steam_hatch")).isPresent(),
                 "The legacy gtceu:steam_hatch recipe still loads");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void furnaceSteamSourceExtensionStaysExplicitAndInactive(GameTestHelper helper) {
+        // large-heat-storage-steam-furnace.md future extension contract: the
+        // declaration can express every reserved property, while no current
+        // hatch silently opts into the dedicated-source ability.
+        ResourceLocation testType = GregSteamExpansion.id("test_superheated_steam");
+        FurnaceSteamSourceSpec spec = FurnaceSteamSourceSpec.capped(
+                testType,
+                stack -> stack.getFluid() == GTMaterials.Steam.getFluid(),
+                3, 2, 2_400, 10,
+                Set.of(FurnaceSteamCapability.ALLOW_MULTI_RECIPE_BATCH));
+
+        helper.assertTrue(spec.steamTypeId().equals(testType), "Dedicated steam type ID was not retained");
+        helper.assertTrue(spec.accepts(GTMaterials.Steam.getFluid(1)), "Declared steam predicate was ignored");
+        helper.assertTrue(!spec.accepts(GTMaterials.Water.getFluid(1)), "Undeclared fluid passed the steam predicate");
+        helper.assertTrue(spec.heatValueNumerator() == 3 && spec.heatValueDenominator() == 2,
+                "Exact steam heat-value ratio was not retained");
+        helper.assertTrue(!spec.unlimitedInput() && spec.inputLimitMbPerTick() == 2_400,
+                "Capped steam-source flow declaration changed");
+        helper.assertTrue(spec.priority() == 10, "Steam-source priority was not retained");
+        helper.assertTrue(spec.unlocks(FurnaceSteamCapability.ALLOW_MULTI_RECIPE_BATCH),
+                "Multi-recipe batch capability was not retained");
+        helper.assertTrue(FurnaceSteamCapability.ALLOW_MULTI_RECIPE_BATCH.id().equals(
+                        GregSteamExpansion.id("allow_multi_recipe_batch")),
+                "Multi-recipe batch capability ID is unstable");
+
+        FurnaceSteamSourceSpec unlimited = FurnaceSteamSourceSpec.unlimited(
+                GregSteamExpansion.id("test_network_steam"), stack -> true,
+                1, 1, 20, Set.of());
+        helper.assertTrue(unlimited.unlimitedInput() && unlimited.inputLimitMbPerTick() == 0,
+                "Unlimited steam-source declaration is ambiguous");
+
+        helper.assertTrue(!GSEPartAbilities.FURNACE_STEAM_SOURCE.isApplicable(
+                        GSEMachines.STEAM_SUPPLY_HATCH.getBlock()),
+                "Standard steam supply hatch was incorrectly registered as a dedicated source");
+        helper.assertTrue(!GSEPartAbilities.FURNACE_STEAM_SOURCE.isApplicable(
+                        GSEMachines.STEAM_FLUID_IMPORT_HATCH.getBlock()),
+                "Recipe fluid input hatch was incorrectly registered as a dedicated source");
+        helper.assertTrue(!GSEPartAbilities.FURNACE_STEAM_SOURCE.isApplicable(
+                        GSEMachines.STEAM_FLUID_EXPORT_HATCH.getBlock()),
+                "Recipe fluid output hatch was incorrectly registered as a dedicated source");
         helper.succeed();
     }
 
