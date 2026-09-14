@@ -122,6 +122,11 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void assemblerStateBoundaries(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_ASSEMBLER, m -> stateBoundaries(h, m));
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void furnaceStateBoundaries(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_HEAT_STORAGE_STEAM_FURNACE, m -> stateBoundaries(h, m));
     }
@@ -449,14 +454,25 @@ public final class GSESteamEngineTests {
         eq(h, steam(m), before, "Pause consumed steam");
         h.assertTrue(!(boolean) call(m, "isConsumingSteam"), "Paused machine retained a stale consuming state");
         call(m, "setWorkingEnabled", true);
-        h.getLevel().setBlockAndUpdate(front, Blocks.STONE.defaultBlockState());
-        tick(m);
-        eq(h, demand(m), 0, "Exhaust-blocked machine displayed a current steam demand");
-        eq(h, progress(m), 7, "Blocked exhaust rolled back progress");
-        eq(h, steam(m), before, "Blocked exhaust consumed steam");
-        h.assertTrue(!(boolean) call(m, "isConsumingSteam"), "Blocked machine retained a stale consuming state");
-        eq(h, number(m, "exhaustDamageTimer"), 198, "Inactive tick advanced exhaust damage");
-        h.getLevel().setBlockAndUpdate(front, Blocks.AIR.defaultBlockState());
+        for (int distance = 1; distance <= SteamExhaustHatchMachine.EXHAUST_CHANNEL_LENGTH; distance++) {
+            BlockPos obstruction = exhaust.getPos().relative(exhaust.getFrontFacing(), distance);
+            h.getLevel().setBlockAndUpdate(obstruction, Blocks.STONE.defaultBlockState());
+            h.assertTrue(exhaust.isExhaustBlocked(),
+                    "Exhaust channel ignored an obstruction at distance " + distance);
+            tick(m);
+            eq(h, demand(m), 0, "Exhaust-blocked machine displayed a current steam demand");
+            eq(h, progress(m), 7, "Blocked exhaust rolled back progress at distance " + distance);
+            eq(h, steam(m), before, "Blocked exhaust consumed steam at distance " + distance);
+            h.assertTrue(!(boolean) call(m, "isConsumingSteam"),
+                    "Blocked machine retained a stale consuming state at distance " + distance);
+            h.assertTrue(call(m, "getStatusId").equals("exhaust_obstructed"),
+                    "Blocked machine exposed the wrong status at distance " + distance);
+            eq(h, number(m, "exhaustDamageTimer"), 198,
+                    "Inactive tick advanced exhaust damage at distance " + distance);
+            h.getLevel().setBlockAndUpdate(obstruction, Blocks.AIR.defaultBlockState());
+            h.assertTrue(!exhaust.isExhaustBlocked(),
+                    "Exhaust channel stayed blocked after clearing distance " + distance);
+        }
 
         // A failed consuming tick rolls back but keeps locked batch economics.
         fillSteam(m, 1);

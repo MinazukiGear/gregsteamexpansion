@@ -1686,6 +1686,102 @@ public final class GSEGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamAssemblerRequiresExactlyOneExhaust(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_ASSEMBLER;
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(0));
+        helper.assertTrue(machine != null, "Missing large steam assembler fixture controller");
+        if (machine == null) {
+            return;
+        }
+
+        List<BlockPos> exhausts = new java.util.ArrayList<>();
+        List<BlockPos> wallCasings = new java.util.ArrayList<>();
+        for (BlockPos pos : BlockPos.betweenClosed(
+                machine.getPos().offset(-4, 0, 0), machine.getPos().offset(4, 8, 8))) {
+            BlockState state = helper.getLevel().getBlockState(pos);
+            if (state.is(GSEMachines.STEAM_EXHAUST_HATCH.getBlock())) {
+                exhausts.add(pos.immutable());
+            } else if (state.is(GSEProcessorPatterns.bronzeSteamCasing())) {
+                wallCasings.add(pos.immutable());
+            }
+        }
+        helper.assertTrue(exhausts.size() == 1,
+                "Assembler preview exhaust count changed: " + exhausts.size());
+        helper.assertTrue(!wallCasings.isEmpty(), "Assembler preview has no wall casing mutation position");
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
+                        "Baseline large steam assembler fixture did not form"))
+                .thenExecute(() -> {
+                    machine.onStructureInvalid();
+                    BlockPos exhaust = exhausts.get(0);
+                    BlockState exhaustState = helper.getLevel().getBlockState(exhaust);
+                    BlockState wallState = GSEProcessorPatterns.bronzeSteamCasing().defaultBlockState();
+
+                    helper.getLevel().setBlockAndUpdate(exhaust, wallState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Large steam assembler formed without an exhaust hatch");
+                    helper.getLevel().setBlockAndUpdate(exhaust, exhaustState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam assembler did not recover after restoring its exhaust hatch");
+
+                    BlockPos duplicate = wallCasings.get(0);
+                    BlockState duplicateOriginal = helper.getLevel().getBlockState(duplicate);
+                    helper.getLevel().setBlockAndUpdate(duplicate, exhaustState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Large steam assembler formed with two exhaust hatches");
+                    helper.getLevel().setBlockAndUpdate(duplicate, duplicateOriginal);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam assembler did not recover after removing its duplicate exhaust");
+
+                    machine.onStructureFormed();
+                    helper.assertTrue(machine.isFormed(),
+                            "Large steam assembler remained invalid with exactly one exhaust hatch");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void adjacentLargeSteamAssemblersShareSideWall(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_ASSEMBLER;
+        var shape = definition.getMatchingShapes().get(0);
+        MultiblockControllerMachine left = GSEStructureTestUtils.placeShape(
+                helper, definition, shape, new BlockPos(5, 16, 4), Direction.NORTH);
+        MultiblockControllerMachine right = GSEStructureTestUtils.placeShape(
+                helper, definition, shape, new BlockPos(13, 16, 4), Direction.NORTH);
+        helper.assertTrue(left != null && right != null,
+                "Missing adjacent large steam assembler fixture controller");
+        if (left == null || right == null) {
+            return;
+        }
+
+        // The controllers are eight blocks apart, so their nine-wide shells
+        // share the complete x=9 side wall without sharing any interface part.
+        for (int y = 16; y <= 24; y++) {
+            for (int z = 4; z <= 12; z++) {
+                BlockState state = helper.getBlockState(new BlockPos(9, y, z));
+                boolean industrial = y == 16 || y == 24 || z == 4 || z == 12;
+                helper.assertTrue(industrial
+                                ? state.is(GSEProcessorPatterns.industrialSteamCasing())
+                                : state.is(GSEProcessorPatterns.bronzeSteamCasing()),
+                        "Shared assembler wall differs at y/z=" + y + "/" + z);
+            }
+        }
+
+        helper.assertTrue(left.checkPattern(), "Left assembler rejected the shared side wall");
+        helper.assertTrue(right.checkPattern(), "Right assembler rejected the shared side wall");
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(left.isFormed(),
+                            "Left assembler did not remain formed on the shared side wall");
+                    helper.assertTrue(right.isFormed(),
+                            "Right assembler did not remain formed on the shared side wall");
+                })
+                .thenSucceed();
+    }
+
     private static Block expectedLargeSteamAssemblerBlock(MultiblockMachineDefinition definition,
                                                            int depth, int layer, int column) {
         if (layer == 0) {
