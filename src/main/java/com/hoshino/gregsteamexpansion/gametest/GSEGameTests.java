@@ -37,12 +37,16 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.BlockSnapshot;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -626,6 +630,35 @@ public final class GSEGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void legacySteamHatchItemsConvertOneToOne(GameTestHelper helper) {
+        // machines-and-hatches.md 旧存档迁移: dropped entities and loaded
+        // containers share the same exact-ID, count-preserving conversion.
+        ItemEntity dropped = new ItemEntity(helper.getLevel(), 0.5, 1.0, 0.5,
+                GTMachines.STEAM_HATCH.asStack(7));
+        LegacySteamHatchCompat.onEntityJoinLevel(new EntityJoinLevelEvent(dropped, helper.getLevel()));
+        helper.assertTrue(dropped.getItem().is(GSEMachines.STEAM_SUPPLY_HATCH.asStack().getItem()) &&
+                        dropped.getItem().getCount() == 7,
+                "Dropped legacy hatch stack did not convert 1:1");
+
+        ItemEntity unrelated = new ItemEntity(helper.getLevel(), 1.5, 1.0, 0.5,
+                new ItemStack(Items.IRON_INGOT, 3));
+        LegacySteamHatchCompat.onEntityJoinLevel(new EntityJoinLevelEvent(unrelated, helper.getLevel()));
+        helper.assertTrue(unrelated.getItem().is(Items.IRON_INGOT) && unrelated.getItem().getCount() == 3,
+                "Legacy hatch conversion changed an unrelated dropped item");
+
+        SimpleContainer container = new SimpleContainer(2);
+        container.setItem(0, GTMachines.STEAM_HATCH.asStack(11));
+        container.setItem(1, new ItemStack(Items.COBBLESTONE, 5));
+        invokeLegacySteamHatchContainerMigration(container);
+        helper.assertTrue(container.getItem(0).is(GSEMachines.STEAM_SUPPLY_HATCH.asStack().getItem()) &&
+                        container.getItem(0).getCount() == 11,
+                "Container legacy hatch stack did not convert 1:1");
+        helper.assertTrue(container.getItem(1).is(Items.COBBLESTONE) && container.getItem(1).getCount() == 5,
+                "Container migration changed an unrelated stack");
+        helper.succeed();
+    }
+
     private static void invokeLegacySteamHatchMigration(GameTestHelper helper, BlockPos pos) {
         try {
             var method = LegacySteamHatchCompat.class.getDeclaredMethod(
@@ -634,6 +667,16 @@ public final class GSEGameTests {
             method.invoke(null, helper.getLevel(), pos);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Could not invoke legacy steam hatch migration", e);
+        }
+    }
+
+    private static void invokeLegacySteamHatchContainerMigration(Container container) {
+        try {
+            var method = LegacySteamHatchCompat.class.getDeclaredMethod("convertContainer", Container.class);
+            method.setAccessible(true);
+            method.invoke(null, container);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Could not invoke legacy steam hatch container migration", e);
         }
     }
 
