@@ -20,8 +20,11 @@ import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidType;
 
@@ -125,16 +128,26 @@ public class SteamFluidHatchPartMachine extends FluidHatchPartMachine {
 
     @Override
     public boolean swapIO() {
-        Level level = getLevel();
-        if (level == null || level.isClientSide) {
-            return false;
-        }
         MachineDefinition newDefinition = io == IO.IN ? GSEMachines.STEAM_FLUID_EXPORT_HATCH :
                 GSEMachines.STEAM_FLUID_IMPORT_HATCH;
         if (newDefinition == null) {
             return false;
         }
+        return swapToDefinition(newDefinition);
+    }
+
+    private boolean swapToDefinition(MachineDefinition newDefinition) {
+        Level level = getLevel();
+        if (level == null || level.isClientSide) {
+            return false;
+        }
         BlockPos pos = getHolder().pos();
+        BlockState oldState = getBlockState();
+        BlockEntity oldEntity = level.getBlockEntity(pos);
+        if (oldEntity == null) {
+            return false;
+        }
+        CompoundTag savedOld = oldEntity.saveWithoutMetadata();
 
         // Snapshot everything the swapped hatch must keep, then detach covers
         // without dropping them: MetaMachineBlock#onRemove would otherwise pop
@@ -164,8 +177,34 @@ public class SteamFluidHatchPartMachine extends FluidHatchPartMachine {
             newMachine.markDirty();
             return true;
         }
-        // The swapped block was not created as expected; covers were already
-        // detached from the removed machine, so drop them beside it.
+
+        // Atomic rollback: savedOld still contains the covers because it was
+        // captured before silent detachment. Loading it into a recreated old
+        // hatch restores every field without also dropping the captured covers.
+        level.setBlockAndUpdate(pos, oldState);
+        BlockEntity restored = level.getBlockEntity(pos);
+        if (restored instanceof IMachineBlockEntity restoredHolder &&
+                restoredHolder.getMetaMachine() instanceof SteamFluidHatchPartMachine restoredMachine) {
+            restored.load(savedOld);
+            // Replay the same explicit snapshot used by the successful swap so
+            // rollback does not depend on block-entity load ordering details.
+            restoredMachine.setFrontFacing(frontFacing);
+            restoredMachine.setUpwardsFacing(upwardsFacing);
+            restoredMachine.setPaintingColor(paintingColor);
+            restoredMachine.setWorkingEnabled(workingEnabled);
+            restoredMachine.tank.setFluidInTank(0, fluidContent);
+            if (locked) {
+                restoredMachine.tank.setLocked(true, lockedFluid);
+            } else {
+                restoredMachine.tank.setLocked(false);
+            }
+            restoredMachine.markDirty();
+            restored.setChanged();
+            return false;
+        }
+
+        // Last resort: the original block entity could not be recreated. Avoid
+        // losing covers even though the hatch state itself cannot be restored.
         SteamHatchIOTransfer.dropCapturedCovers(level, pos, covers);
         return false;
     }

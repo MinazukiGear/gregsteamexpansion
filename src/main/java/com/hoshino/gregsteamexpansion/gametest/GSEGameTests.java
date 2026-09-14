@@ -47,6 +47,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.BlockSnapshot;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
@@ -530,6 +531,56 @@ public final class GSEGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void steamFluidHatchSwapFailureRollsBackAtomically(GameTestHelper helper) {
+        // machines-and-hatches.md 实现验收 6: if any replacement state cannot
+        // be created, the original hatch and all of its state must survive.
+        SteamFluidHatchPartMachine input = placeHatch(helper, GSEMachines.STEAM_FLUID_IMPORT_HATCH, HATCH_POS);
+        input.tank.fill(GTMaterials.Water.getFluid(5_000), FluidAction.EXECUTE);
+        input.tank.setLocked(true, GTMaterials.Water.getFluid(1));
+        input.setFrontFacing(Direction.EAST);
+        input.setPaintingColor(0x4C7899);
+        input.setWorkingEnabled(false);
+        attachDisabledShutter(helper, input, Direction.WEST);
+        Direction expectedFront = input.getFrontFacing();
+        Direction expectedUpwards = input.getUpwardsFacing();
+
+        // A supply-hatch definition deliberately creates the wrong machine
+        // class, exercising the same rollback used for a failed real swap.
+        helper.assertTrue(!invokeSteamFluidHatchSwap(input, GSEMachines.STEAM_SUPPLY_HATCH),
+                "Invalid steam fluid hatch replacement unexpectedly succeeded");
+
+        MetaMachine machine = MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(HATCH_POS));
+        helper.assertTrue(machine instanceof SteamFluidHatchPartMachine,
+                "Failed swap did not restore the original steam fluid hatch");
+        if (machine instanceof SteamFluidHatchPartMachine restored) {
+            helper.assertTrue(restored.getDefinition() == GSEMachines.STEAM_FLUID_IMPORT_HATCH,
+                    "Failed swap restored the wrong hatch definition");
+            helper.assertTrue(restored.tank.getFluidInTank(0).getAmount() == 5_000,
+                    "Failed swap lost or duplicated stored fluid");
+            helper.assertTrue(restored.tank.isLocked() &&
+                            restored.tank.getLockedFluid().getFluid().getFluid() ==
+                                    GTMaterials.Water.getFluid(1).getFluid(),
+                    "Failed swap lost the fluid lock");
+            helper.assertTrue(restored.getFrontFacing() == expectedFront,
+                    "Failed swap lost the front facing");
+            helper.assertTrue(restored.getUpwardsFacing() == expectedUpwards,
+                    "Failed swap lost the upwards-facing state");
+            helper.assertTrue(restored.getPaintingColor() == 0x4C7899,
+                    "Failed swap lost hatch painting color");
+            helper.assertTrue(!restored.isWorkingEnabled(),
+                    "Failed swap reset the working-enabled state");
+            assertDisabledShutter(helper, restored, Direction.WEST, "Failed swap rollback");
+        }
+
+        BlockPos absolutePos = helper.absolutePos(HATCH_POS);
+        List<ItemEntity> shutterDrops = helper.getLevel().getEntitiesOfClass(ItemEntity.class,
+                new AABB(absolutePos).inflate(1.0),
+                entity -> entity.getItem().is(GTItems.COVER_SHUTTER.get()));
+        helper.assertTrue(shutterDrops.isEmpty(), "Failed swap duplicated the restored shutter as an item drop");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 160)
     public static void steamAirIntakeDoesNotCollectWhileUnformed(GameTestHelper helper) {
         // machines-and-hatches.md 实现验收 1/4: the intake exposes no fluid
@@ -638,6 +689,18 @@ public final class GSEGameTests {
                     "Repeated migration changed an already converted hatch");
         }
         helper.succeed();
+    }
+
+    private static boolean invokeSteamFluidHatchSwap(SteamFluidHatchPartMachine hatch,
+                                                     MachineDefinition targetDefinition) {
+        try {
+            var method = SteamFluidHatchPartMachine.class.getDeclaredMethod(
+                    "swapToDefinition", MachineDefinition.class);
+            method.setAccessible(true);
+            return (boolean) method.invoke(hatch, targetDefinition);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Could not invoke steam fluid hatch swap transaction", e);
+        }
     }
 
     private static void attachDisabledShutter(GameTestHelper helper, MetaMachine machine, Direction side) {
