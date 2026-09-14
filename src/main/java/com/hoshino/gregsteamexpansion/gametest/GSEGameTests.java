@@ -10,6 +10,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamSou
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
+import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
@@ -22,8 +23,10 @@ import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.machine.MachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
+import com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.api.registry.GTRegistries;
@@ -38,6 +41,7 @@ import com.gregtechceu.gtceu.common.data.machines.GTMultiMachines;
 import com.gregtechceu.gtceu.data.recipe.CustomTags;
 import com.gregtechceu.gtceu.common.cover.ShutterCover;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
+import com.lowdragmc.lowdraglib.utils.BlockInfo;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
@@ -63,6 +67,8 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -1548,7 +1554,101 @@ public final class GSEGameTests {
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
     public static void largeSteamAssemblerFormsFromShape(GameTestHelper helper) {
-        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_ASSEMBLER);
+        var definition = GSEMachines.LARGE_STEAM_ASSEMBLER;
+        List<MultiblockShapeInfo> shapes = definition.getMatchingShapes();
+        helper.assertTrue(!shapes.isEmpty(), "Large steam assembler has no preview shape");
+        if (shapes.isEmpty()) {
+            return;
+        }
+
+        BlockInfo[][][] blocks = shapes.get(0).getBlocks();
+        helper.assertTrue(blocks.length == 9, "Large steam assembler width is not 9");
+        int industrial = 0;
+        int wallCasings = 0;
+        int workstations = 0;
+        int air = 0;
+        int interfaces = 0;
+        int controllers = 0;
+        for (int column = 0; column < blocks.length; column++) {
+            helper.assertTrue(blocks[column].length == 9,
+                    "Large steam assembler height is not 9 at column " + column);
+            for (int layer = 0; layer < blocks[column].length; layer++) {
+                helper.assertTrue(blocks[column][layer].length == 9,
+                        "Large steam assembler depth is not 9 at column/layer " + column + "/" + layer);
+                for (int depth = 0; depth < blocks[column][layer].length; depth++) {
+                    BlockState state = blocks[column][layer][depth].getBlockState();
+                    Block expected = expectedLargeSteamAssemblerBlock(definition, depth, layer, column);
+                    helper.assertTrue(expected == Blocks.AIR ? state.isAir() : state.is(expected),
+                            "Large steam assembler shape differs at depth/layer/column "
+                                    + depth + "/" + layer + "/" + column
+                                    + ": expected=" + expected + ", actual=" + state.getBlock());
+
+                    if (state.is(GSEProcessorPatterns.industrialSteamCasing())) industrial++;
+                    else if (state.is(GSEProcessorPatterns.bronzeSteamCasing())) wallCasings++;
+                    else if (state.is(GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())) workstations++;
+                    else if (state.isAir()) air++;
+                    else if (state.is(definition.getBlock())) controllers++;
+                    else interfaces++;
+                }
+            }
+        }
+        helper.assertTrue(industrial == 189, "Expected 189 industrial casings, found " + industrial);
+        helper.assertTrue(wallCasings == 191,
+                "Expected 191 wall casings after five representative interfaces, found " + wallCasings);
+        helper.assertTrue(interfaces == 5, "Expected five representative interfaces, found " + interfaces);
+        helper.assertTrue(workstations == 18, "Expected 18 assembly workstations, found " + workstations);
+        helper.assertTrue(air == 325, "Expected 325 strict-air cells, found " + air);
+        helper.assertTrue(controllers == 1, "Expected one assembler controller, found " + controllers);
+
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, shapes.get(0));
+        helper.assertTrue(machine != null, "Large steam assembler fixture has no controller");
+        if (machine == null) {
+            return;
+        }
+        helper.assertTrue(machine.checkPattern(), "Exact large steam assembler shape did not match its pattern");
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
+                        "Exact large steam assembler did not become formed"))
+                .thenSucceed();
+    }
+
+    private static Block expectedLargeSteamAssemblerBlock(MultiblockMachineDefinition definition,
+                                                           int depth, int layer, int column) {
+        if (layer == 0) {
+            return depth == 0 && column == 4
+                    ? definition.getBlock()
+                    : GSEProcessorPatterns.industrialSteamCasing();
+        }
+        if (layer == 8) {
+            return GSEProcessorPatterns.industrialSteamCasing();
+        }
+        boolean boundary = depth == 0 || depth == 8 || column == 0 || column == 8;
+        if (boundary) {
+            if (layer == 1 && depth == 0) {
+                return switch (column) {
+                    case 2 -> GTMachines.STEAM_IMPORT_BUS.getBlock();
+                    case 3 -> GTMachines.STEAM_EXPORT_BUS.getBlock();
+                    case 4 -> GSEMachines.STEAM_SUPPLY_HATCH.getBlock();
+                    case 5 -> GTMachines.FLUID_IMPORT_HATCH[1].getBlock();
+                    case 6 -> GSEMachines.STEAM_EXHAUST_HATCH.getBlock();
+                    default -> expectedLargeSteamAssemblerShell(depth, column);
+                };
+            }
+            return expectedLargeSteamAssemblerShell(depth, column);
+        }
+        boolean workstationLayer = layer == 1 || layer == 7;
+        boolean workstationColumn = column == 2 || column == 4 || column == 6;
+        boolean workstationDepth = depth == 2 || depth == 4 || depth == 6;
+        return workstationLayer && workstationColumn && workstationDepth
+                ? GSEBlocks.STEAM_ASSEMBLY_BLOCK.get()
+                : Blocks.AIR;
+    }
+
+    private static Block expectedLargeSteamAssemblerShell(int depth, int column) {
+        boolean edge = (depth == 0 || depth == 8) && (column == 0 || column == 8);
+        return edge ? GSEProcessorPatterns.industrialSteamCasing()
+                : GSEProcessorPatterns.bronzeSteamCasing();
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
