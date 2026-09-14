@@ -46,7 +46,7 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（115 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（116 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -60,7 +60,7 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 
 | 文件 | 覆盖内容 |
 | --- | --- |
-| `GSEGameTests` | 结构成型、水平朝向与非法接口边界、仓室行为、旧蒸汽仓迁移、注册一致性、配方注入与生存获取路线 |
+| `GSEGameTests` | 结构成型、水平朝向、结构共用与非法接口边界、仓室行为、旧蒸汽仓迁移、注册一致性、配方注入与生存获取路线 |
 | `GSEBoilerRoomTests` | 四档进气条带位置/数量、非法仓室拒绝、多进气室汇总供气与不足不扣、仪表同步、状态提示、原生/GTM Things 物品输入及完整燃料启动链 |
 | `GSEDifficultyGameTests` | 启动档位、GTCEu 配方难度映射、旗舰机器开关和权重表 |
 | `GSERecipeOptimizationTests` | 配方缓存失效与空闲机器唤醒 |

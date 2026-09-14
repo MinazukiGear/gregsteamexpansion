@@ -1376,6 +1376,49 @@ public final class GSEGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void adjacentLargeSteamBlastFurnacesShareSideWall(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
+        var shape = definition.getMatchingShapes().get(0);
+        MultiblockControllerMachine left = GSEStructureTestUtils.placeShape(
+                helper, definition, shape, new BlockPos(7, 16, 1), Direction.NORTH);
+        MultiblockControllerMachine right = GSEStructureTestUtils.placeShape(
+                helper, definition, shape, new BlockPos(19, 16, 1), Direction.NORTH);
+        helper.assertTrue(left != null && right != null,
+                "Missing adjacent blast-furnace fixture controller");
+        if (left == null || right == null) {
+            return;
+        }
+
+        // The 13-wide hearth and tuyere deck overlap at x=13. The west preview
+        // carries two intake hatches on this plane, so normalize the eleven
+        // candidate cells to blast bricks: both structures then share only
+        // ordinary structure blocks, while the industrial corner cells remain.
+        for (int z = 2; z <= 12; z++) {
+            helper.setBlock(new BlockPos(13, 17, z),
+                    GSEProcessorPatterns.blastBricks().defaultBlockState());
+        }
+        for (int z = 1; z <= 13; z++) {
+            helper.assertTrue(!helper.getBlockState(new BlockPos(13, 16, z)).isAir(),
+                    "Shared hearth wall contains air at z=" + z);
+            helper.assertTrue(!helper.getBlockState(new BlockPos(13, 17, z)).isAir(),
+                    "Shared tuyere wall contains air at z=" + z);
+        }
+
+        helper.assertTrue(left.checkPattern(),
+                "Left blast furnace rejected the shared side wall");
+        helper.assertTrue(right.checkPattern(),
+                "Right blast furnace rejected the shared side wall");
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(left.isFormed(),
+                            "Left blast furnace did not remain formed on the shared wall");
+                    helper.assertTrue(right.isFormed(),
+                            "Right blast furnace did not remain formed on the shared wall");
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
     public static void largeSteamAssemblerFormsFromShape(GameTestHelper helper) {
         GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_ASSEMBLER);
