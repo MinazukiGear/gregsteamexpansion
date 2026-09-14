@@ -395,6 +395,7 @@ def checkDesignContracts = tasks.register('checkDesignContracts', Exec) {
     inputs.file('README.md')
     inputs.files(fileTree('docs/design') { include '*.md' })
     inputs.files(fileTree('src/main/java/com/hoshino/gregsteamexpansion') { include '**/*.java' })
+    inputs.files(fileTree('src/generated/resources/data/gregsteamexpansion/recipes') { include '**/*.json' })
     doFirst {
         commandLine assetPythonExecutable.get(), 'tools/check_design_contracts.py'
     }

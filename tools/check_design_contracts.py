@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check representative numeric contracts shared by design docs and Java code."""
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -212,6 +213,123 @@ def check_game_test_inventory() -> None:
     )
 
 
+def crafting_ingredient_counts(relative: str) -> dict[str, int]:
+    data = json.loads(source(relative))
+    key = data.get("key")
+    pattern = data.get("pattern")
+    if not isinstance(key, dict) or not isinstance(pattern, list):
+        raise ContractError(f"{relative}: expected a shaped crafting recipe")
+
+    counts: dict[str, int] = {}
+    for row in pattern:
+        for symbol in row:
+            if symbol == " ":
+                continue
+            ingredient = key.get(symbol)
+            if not isinstance(ingredient, dict):
+                raise ContractError(f"{relative}: pattern symbol {symbol!r} has no ingredient")
+            if "item" in ingredient:
+                spec = f'item:{ingredient["item"]}'
+            elif "tag" in ingredient:
+                spec = f'tag:{ingredient["tag"]}'
+            else:
+                raise ContractError(f"{relative}: unsupported ingredient for symbol {symbol!r}")
+            counts[spec] = counts.get(spec, 0) + 1
+    return counts
+
+
+def check_acquisition_tier_boundaries() -> None:
+    recipe_root = "src/generated/resources/data/gregsteamexpansion/recipes"
+    large_hatch = f"{recipe_root}/shaped/large_steam_supply_hatch.json"
+    expected_large_hatch = {
+        "item:gtceu:bronze_drum": 4,
+        "tag:gtceu:circuits/hv": 4,
+        "item:gregsteamexpansion:steam_supply_hatch": 1,
+    }
+    actual_large_hatch = crafting_ingredient_counts(large_hatch)
+    if actual_large_hatch != expected_large_hatch:
+        raise ContractError(
+            f"large steam supply hatch tier boundary: {actual_large_hatch}, "
+            f"expected {expected_large_hatch}"
+        )
+
+    electric_tiers = {
+        "mv": ("aluminium_plate", "aluminium_frame"),
+        "hv": ("stainless_steel_plate", "stainless_steel_frame"),
+        "ev": ("titanium_plate", "titanium_frame"),
+        "iv": ("tungsten_steel_plate", "tungsten_steel_frame"),
+        "luv": ("rhodium_plated_palladium_plate", "ruridit_frame"),
+        "zpm": ("naquadah_alloy_plate", "iridium_frame"),
+        "uv": ("darmstadtium_plate", "naquadah_alloy_frame"),
+    }
+    electric_paths = set()
+    for tier, (plate, frame) in electric_tiers.items():
+        relative = f"{recipe_root}/shaped/electric_ore_crusher_{tier}.json"
+        electric_paths.add(relative)
+        expected = {
+            f"item:gtceu:{plate}": 6,
+            f"tag:gtceu:circuits/{tier}": 2,
+            f"item:gtceu:{frame}": 1,
+        }
+        actual = crafting_ingredient_counts(relative)
+        if actual != expected:
+            raise ContractError(
+                f"{tier.upper()} electric ore crusher tier boundary: {actual}, expected {expected}"
+            )
+
+    forbidden_markers = (
+        "circuits/",
+        "_circuit",
+        "electric_",
+        "battery",
+        "vacuum_tube",
+        "aluminium",
+        "stainless_steel",
+        "titanium",
+        "tungsten",
+        "chrome",
+        "rhodium",
+        "ruridit",
+        "iridium",
+        "naquadah",
+        "darmstadtium",
+        "osmium",
+        "europium",
+        "neutronium",
+        "tritanium",
+    )
+    intentional_late_routes = electric_paths | {
+        large_hatch,
+        f"{recipe_root}/shaped/boiler_room_titanium.json",
+        f"{recipe_root}/shaped/boiler_room_tungstensteel.json",
+    }
+    shaped_root = ROOT / recipe_root / "shaped"
+    audited = 0
+    audit_paths = list(shaped_root.glob("*.json")) + [
+        ROOT / recipe_root / "large_coke_oven.json",
+        ROOT / recipe_root / "large_coke_oven_hatch.json",
+    ]
+    for path in sorted(audit_paths):
+        relative = path.relative_to(ROOT).as_posix()
+        if relative in intentional_late_routes:
+            continue
+        for ingredient in crafting_ingredient_counts(relative):
+            if ingredient.startswith("item:gregsteamexpansion:"):
+                continue
+            if any(marker in ingredient for marker in forbidden_markers) or re.search(
+                r":(?:ulv|lv|mv|hv|ev|iv|luv|zpm|uv|uhv|uev|uiv|uxv|opv|max)_",
+                ingredient,
+            ):
+                raise ContractError(
+                    f"{relative}: early steam/steel acquisition route uses late-tier ingredient {ingredient}"
+                )
+        audited += 1
+    print(
+        "ok: acquisition tier boundaries = "
+        f"{audited} steam/steel recipes + HV hatch + {len(electric_tiers)} electric tiers"
+    )
+
+
 def check_contract(
     name: str,
     documented: tuple[int, ...],
@@ -352,6 +470,10 @@ def main() -> int:
         check_game_test_inventory()
     except ContractError as error:
         errors.append(str(error))
+    try:
+        check_acquisition_tier_boundaries()
+    except ContractError as error:
+        errors.append(str(error))
     for name, documented, implemented, expected in checks:
         try:
             check_contract(name, documented, implemented, expected)
@@ -365,7 +487,10 @@ def main() -> int:
         for error in errors:
             print(f"  {error}", file=sys.stderr)
         return 1
-    print(f"Design contracts aligned: {len(checks)} representative checks.")
+    print(
+        f"Design contracts aligned: {len(checks)} representative numeric checks "
+        "plus acquisition tier audit."
+    )
     return 0
 
 
