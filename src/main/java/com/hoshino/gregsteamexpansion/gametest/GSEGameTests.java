@@ -114,6 +114,72 @@ public final class GSEGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void implementedContentHasLoadedAcquisitionRecipes(GameTestHelper helper) {
+        // Alpha survival-loop guard: every implemented controller, hatch and
+        // supporting structure item must have a loaded crafting route. Legacy
+        // migration-only IDs are deliberately absent from this inventory.
+        String[][] fixedRoutes = {
+                { "shaped/lp_steam_mixed_fuel_boiler", "lp_steam_mixed_fuel_boiler" },
+                { "shaped/hp_steam_mixed_fuel_boiler", "hp_steam_mixed_fuel_boiler" },
+                { "shaped/steam_exhaust_hatch", "steam_exhaust_hatch" },
+                { "shaped/steam_supply_hatch", "steam_supply_hatch" },
+                { "shaped/large_steam_supply_hatch", "large_steam_supply_hatch" },
+                { "shaped/steam_fluid_input_hatch", "steam_fluid_input_hatch" },
+                { "shaped/steam_fluid_output_hatch", "steam_fluid_output_hatch" },
+                { "shaped/steam_air_intake_hatch", "steam_air_intake_hatch" },
+                { "shaped/steam_crusher", "steam_crusher" },
+                { "shaped/large_steam_crusher", "large_steam_crusher" },
+                { "shaped/steam_compressor", "steam_compressor" },
+                { "shaped/steam_extractor", "steam_extractor" },
+                { "shaped/steam_forge", "steam_forge" },
+                { "shaped/large_steam_ore_washer", "large_steam_ore_washer" },
+                { "shaped/steam_chemical_bath", "steam_chemical_bath" },
+                { "shaped/large_steam_macerator", "large_steam_macerator" },
+                { "shaped/large_steam_mixer", "large_steam_mixer" },
+                { "shaped/steam_centrifuge", "steam_centrifuge" },
+                { "shaped/large_steam_centrifuge", "large_steam_centrifuge" },
+                { "shaped/large_steam_thermal_centrifuge", "large_steam_thermal_centrifuge" },
+                { "shaped/large_steam_assembler", "large_steam_assembler" },
+                { "shaped/large_steam_circuit_assembler", "large_steam_circuit_assembler" },
+                { "shaped/large_steam_blast_furnace", "large_steam_blast_furnace" },
+                { "shaped/large_steam_ore_plant", "large_steam_ore_plant" },
+                { "shaped/large_steam_fluid_drill", "large_steam_fluid_drill" },
+                { "shaped/large_heat_storage_steam_furnace", "large_heat_storage_steam_furnace" },
+                { "large_coke_oven", "large_coke_oven" },
+                { "large_coke_oven_hatch", "large_coke_oven_hatch" },
+                { "shaped/boiler_room_bronze", "boiler_room_bronze" },
+                { "shaped/boiler_room_steel", "boiler_room_steel" },
+                { "shaped/boiler_room_titanium", "boiler_room_titanium" },
+                { "shaped/boiler_room_tungstensteel", "boiler_room_tungstensteel" },
+                { "shaped/electric_ore_crusher_mv", "mv_electric_ore_crusher" },
+                { "shaped/electric_ore_crusher_hv", "hv_electric_ore_crusher" },
+                { "shaped/electric_ore_crusher_ev", "ev_electric_ore_crusher" },
+                { "shaped/electric_ore_crusher_iv", "iv_electric_ore_crusher" },
+                { "shaped/electric_ore_crusher_luv", "luv_electric_ore_crusher" },
+                { "shaped/electric_ore_crusher_zpm", "zpm_electric_ore_crusher" },
+                { "shaped/electric_ore_crusher_uv", "uv_electric_ore_crusher" },
+                { "shaped/crafting_station", "crafting_station" },
+                { "shaped/crafting_station_slab", "crafting_station_slab" },
+        };
+        for (String[] route : fixedRoutes) {
+            assertLoadedRecipeOutput(helper, route[0], GregSteamExpansion.id(route[1]));
+        }
+
+        assertOneDifficultyRecipeOutput(helper, "shaped/bronze_component", GregSteamExpansion.id("bronze_component"));
+        assertOneDifficultyRecipeOutput(helper, "shaped/industrial_steam_casing",
+                GregSteamExpansion.gtceuId("industrial_steam_casing"));
+        assertOneDifficultyRecipeOutput(helper, "shaped/steam_grinding_block",
+                GregSteamExpansion.id("steam_grinding_block"));
+        assertOneDifficultyRecipeOutput(helper, "shaped/steam_assembly_block",
+                GregSteamExpansion.id("steam_assembly_block"));
+        assertOneDifficultyRecipeOutput(helper, "shaped/steam_circuit_assembly_block",
+                GregSteamExpansion.id("steam_circuit_assembly_block"));
+        assertOneDifficultyRecipeOutput(helper, "shaped/steam_mixing_block",
+                GregSteamExpansion.id("steam_mixing_block"));
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void mixedFuelBoilerFiltersInputsAndSwitchesModes(GameTestHelper helper) {
         MixedFuelBoilerMachine boiler = placeLowPressureBoiler(helper);
@@ -1169,6 +1235,36 @@ public final class GSEGameTests {
         @SuppressWarnings("unchecked")
         T typed = (T) machine;
         return typed;
+    }
+
+    private static void assertLoadedRecipeOutput(GameTestHelper helper, String recipePath,
+                                                  ResourceLocation expectedItemId) {
+        ResourceLocation recipeId = GregSteamExpansion.id(recipePath);
+        var recipe = helper.getLevel().getRecipeManager().byKey(recipeId).orElse(null);
+        helper.assertTrue(recipe != null, "Acquisition recipe was not loaded: " + recipeId);
+        Item expectedItem = ForgeRegistries.ITEMS.getValue(expectedItemId);
+        helper.assertTrue(expectedItem != null && expectedItem != Items.AIR,
+                "Acquisition target item is not registered: " + expectedItemId);
+        if (recipe != null && expectedItem != null) {
+            ItemStack result = recipe.getResultItem(helper.getLevel().registryAccess());
+            helper.assertTrue(result.is(expectedItem),
+                    "Acquisition recipe " + recipeId + " produces " + result.getItem()
+                            + " instead of " + expectedItemId);
+        }
+    }
+
+    private static void assertOneDifficultyRecipeOutput(GameTestHelper helper, String recipeBasePath,
+                                                        ResourceLocation expectedItemId) {
+        int loaded = 0;
+        for (String difficulty : List.of("easy", "normal", "expert")) {
+            String recipePath = recipeBasePath + "_" + difficulty;
+            if (helper.getLevel().getRecipeManager().byKey(GregSteamExpansion.id(recipePath)).isPresent()) {
+                loaded++;
+                assertLoadedRecipeOutput(helper, recipePath, expectedItemId);
+            }
+        }
+        helper.assertTrue(loaded == 1,
+                "Expected exactly one loaded difficulty recipe for " + recipeBasePath + ", found " + loaded);
     }
 
 }
