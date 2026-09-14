@@ -12,6 +12,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatch
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenMode;
 import com.hoshino.gregsteamexpansion.machine.multiblock.voidproducer.AbstractSteamVoidMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
+import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.registry.GSEVoidPatterns;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCrusherMachine;
 
@@ -21,6 +22,7 @@ import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.IRecipeCapabilityHolder;
+import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.recipe.modifier.ParallelLogic;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
@@ -41,6 +43,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -714,6 +717,161 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamOverclockLocksOnlyAtCrusherBatchStart(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_CRUSHER, m -> {
+            AbstractSteamCrusherMachine crusher = (AbstractSteamCrusherMachine) m;
+            eq(h, replaceSteamSupplyHatches(h, m, 1), 1,
+                    "Large crusher fixture did not replace exactly one supply hatch");
+            h.assertTrue(crusher.hasLargeSteamSupplyHatch(),
+                    "Reformed crusher did not collect the Large Steam Supply Hatch");
+
+            ItemBusPartMachine input = m.getParts().stream()
+                    .filter(ItemBusPartMachine.class::isInstance)
+                    .map(ItemBusPartMachine.class::cast)
+                    .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
+                    .findFirst().orElseThrow();
+            ItemStack crusherInput = migratedCrusherInput();
+            fillOutputs(m, false);
+            crusher.setLargeSteamOverclockEnabled(true);
+            input.getInventory().setStackInSlot(0, crusherInput.copy());
+            call(m, "tryStartBatch");
+            h.assertTrue((boolean) get(m, "hasBatch"),
+                    "Overclock-enabled crusher did not start a migrated ore-crushing recipe");
+            h.assertTrue(crusher.isCurrentBatchLargeSteamOverclocked(),
+                    "Crusher did not lock overclock at batch start");
+            eq(h, number(m, "batchDurationTicks"), 300,
+                    "Crusher did not halve its fixed 600-tick duration");
+            eq(h, number(m, "batchSteamPerTickMb"), 600,
+                    "Crusher did not triple its 200 mB/t single-parallel demand");
+            eq(h, number(m, "batchTotalSteamMb"), 180_000,
+                    "Crusher locked the wrong overclocked steam total");
+
+            crusher.setLargeSteamOverclockEnabled(false);
+            h.assertTrue(crusher.isCurrentBatchLargeSteamOverclocked(),
+                    "Disabling the toggle rewrote the running crusher batch");
+            fillSteam(m, 32_000);
+            long steamBeforeTick = steam(m);
+            tick(m);
+            eq(h, steamBeforeTick - steam(m), 600,
+                    "Running overclocked crusher batch did not draw its locked demand");
+
+            call(m, "completeBatch");
+            input.getInventory().setStackInSlot(0, crusherInput.copy());
+            call(m, "tryStartBatch");
+            h.assertTrue((boolean) get(m, "hasBatch"),
+                    "Crusher did not start the next batch after disabling overclock");
+            h.assertTrue(!crusher.isCurrentBatchLargeSteamOverclocked(),
+                    "Disabled overclock remained active for the next crusher batch");
+            eq(h, number(m, "batchDurationTicks"), 600,
+                    "Normal crusher batch kept the overclocked duration");
+            eq(h, number(m, "batchSteamPerTickMb"), 200,
+                    "Normal crusher batch kept the overclocked demand");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamOverclockLocksOnlyAtFurnaceBatchStart(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_HEAT_STORAGE_STEAM_FURNACE, m -> {
+            LargeHeatStorageSteamFurnaceMachine furnace = (LargeHeatStorageSteamFurnaceMachine) m;
+            eq(h, replaceSteamSupplyHatches(h, m, 1), 1,
+                    "Furnace fixture did not replace exactly one supply hatch");
+            h.assertTrue(furnace.hasLargeSteamSupplyHatch(),
+                    "Reformed furnace did not collect the Large Steam Supply Hatch");
+
+            ItemBusPartMachine input = m.getParts().stream()
+                    .filter(ItemBusPartMachine.class::isInstance)
+                    .map(ItemBusPartMachine.class::cast)
+                    .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
+                    .findFirst().orElseThrow();
+            fillOutputs(m, false);
+            fillSteam(m, 32_000);
+            set(m, "currentTemperature", call(m, "startupTemperature"));
+            Object difficulty = call(m, "currentDifficulty");
+
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            h.assertTrue((boolean) call(m, "tryStartBatch", difficulty),
+                    "Furnace did not start its normal cobblestone batch");
+            h.assertTrue(!furnace.isCurrentBatchLargeSteamOverclocked(),
+                    "Furnace overclocked while its toggle was disabled");
+            long normalDuration = number(m, "batchDuration");
+            long normalDemand = number(m, "batchSteamPerTickMb");
+            furnace.setLargeSteamOverclockEnabled(true);
+            h.assertTrue(!furnace.isCurrentBatchLargeSteamOverclocked(),
+                    "Enabling the toggle rewrote the running normal furnace batch");
+            eq(h, number(m, "batchDuration"), normalDuration,
+                    "Enabling the toggle changed the running furnace duration");
+            eq(h, number(m, "batchSteamPerTickMb"), normalDemand,
+                    "Enabling the toggle changed the running furnace demand");
+
+            clearActiveFurnaceBatch(m);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            h.assertTrue((boolean) call(m, "tryStartBatch", difficulty),
+                    "Furnace did not start the next batch after enabling overclock");
+            h.assertTrue(furnace.isCurrentBatchLargeSteamOverclocked(),
+                    "Furnace did not lock overclock for the next batch");
+            eq(h, number(m, "batchDuration"), (normalDuration + 1) / 2,
+                    "Furnace did not round its halved duration upward");
+            eq(h, number(m, "batchSteamPerTickMb"), normalDemand * 3,
+                    "Furnace did not triple its per-tick demand");
+
+            furnace.setLargeSteamOverclockEnabled(false);
+            h.assertTrue(furnace.isCurrentBatchLargeSteamOverclocked(),
+                    "Disabling the toggle rewrote the running overclocked furnace batch");
+            long steamBeforeTick = steam(m);
+            tick(m);
+            eq(h, steamBeforeTick - steam(m), normalDemand * 3,
+                    "Running overclocked furnace batch did not draw its locked demand");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamOverclockLocksOnlyAtVoidCycleStart(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> {
+            if (assertDisabledOrePlantStaysIdle(h, m)) return;
+            AbstractSteamVoidMachine producer = (AbstractSteamVoidMachine) m;
+            eq(h, replaceSteamSupplyHatches(h, m, Integer.MAX_VALUE), 10,
+                    "Ore plant fixture did not replace all ten supply hatches");
+            h.assertTrue(producer.hasLargeSteamSupplyHatch(),
+                    "Reformed ore plant did not collect its Large Steam Supply Hatches");
+
+            int normalDuration = producer.cycleTicks();
+            long normalDemand = producer.steamPerStationTick() * producer.stationCount();
+            producer.setLargeSteamOverclockEnabled(true);
+            fillSteam(m, 256_000);
+            long steamBeforeTick = steam(m);
+            tick(m);
+            h.assertTrue(producer.isCurrentCycleLargeSteamOverclocked(),
+                    "Void producer did not lock overclock at cycle start");
+            eq(h, producer.getCycleTicks(), (normalDuration + 1L) / 2,
+                    "Void producer did not halve its cycle duration");
+            eq(h, producer.getSteamPerTickDemand(), normalDemand * 3,
+                    "Void producer did not triple its cycle demand");
+            eq(h, steamBeforeTick - steam(m), normalDemand * 3,
+                    "Overclocked void cycle did not draw its locked demand");
+
+            producer.setLargeSteamOverclockEnabled(false);
+            steamBeforeTick = steam(m);
+            tick(m);
+            h.assertTrue(producer.isCurrentCycleLargeSteamOverclocked(),
+                    "Disabling the toggle rewrote the running void cycle");
+            eq(h, steamBeforeTick - steam(m), normalDemand * 3,
+                    "Running void cycle did not retain its overclocked demand");
+
+            set(m, "cycleProgress", 0);
+            steamBeforeTick = steam(m);
+            tick(m);
+            h.assertTrue(!producer.isCurrentCycleLargeSteamOverclocked(),
+                    "Disabled overclock remained active for the next void cycle");
+            eq(h, producer.getCycleTicks(), normalDuration,
+                    "Normal void cycle kept the overclocked duration");
+            eq(h, producer.getSteamPerTickDemand(), normalDemand,
+                    "Normal void cycle kept the overclocked demand");
+            eq(h, steamBeforeTick - steam(m), normalDemand,
+                    "Normal void cycle did not draw its locked demand");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void processorFluidCapacityAndRecovery(GameTestHelper h) {
         formed(h, GSEMachines.STEAM_CENTRIFUGE, m -> {
             List<FluidHatchPartMachine> hatches = list(m, "fluidOutputHatches");
@@ -1108,6 +1266,29 @@ public final class GSESteamEngineTests {
         return null;
     }
 
+    private static int replaceSteamSupplyHatches(GameTestHelper h, MultiblockControllerMachine m,
+                                                  int maximum) {
+        if (m.isFormed()) m.onStructureInvalid();
+        List<BlockPos> ordinaryHatches = new java.util.ArrayList<>();
+        for (BlockPos pos : BlockPos.betweenClosed(
+                m.getPos().offset(-15, -15, -15), m.getPos().offset(15, 15, 15))) {
+            if (h.getLevel().getBlockState(pos).is(GSEMachines.STEAM_SUPPLY_HATCH.getBlock())) {
+                ordinaryHatches.add(pos.immutable());
+            }
+        }
+        int replaced = Math.min(maximum, ordinaryHatches.size());
+        for (int i = 0; i < replaced; i++) {
+            h.getLevel().setBlockAndUpdate(ordinaryHatches.get(i),
+                    GSEMachines.LARGE_STEAM_SUPPLY_HATCH.getBlock().defaultBlockState());
+        }
+        h.assertTrue(replaced > 0, "Fixture has no ordinary Steam Supply Hatch to replace");
+        h.assertTrue(m.checkPattern(),
+                "Large Steam Supply Hatch replacement did not reform " + m.getDefinition().getId());
+        m.onStructureFormed();
+        h.assertTrue(m.isFormed(), "Controller remained invalid after Large Steam Supply Hatch replacement");
+        return replaced;
+    }
+
     private static void formed(GameTestHelper h, MultiblockMachineDefinition definition,
                                Consumer<MultiblockControllerMachine> checks) {
         var m = GSEStructureTestUtils.placeShape(h, definition, definition.getMatchingShapes().get(0));
@@ -1132,6 +1313,20 @@ public final class GSESteamEngineTests {
         return GTRecipeTypes.MACERATOR_RECIPES.recipeBuilder(GregSteamExpansion.id("engine_settlement"))
                 .outputItems(new ItemStack(Items.IRON_INGOT, 3))
                 .chancedOutput(new ItemStack(Items.GOLD_INGOT), 5000, 0).duration(200).EUt(8).buildRawRecipe();
+    }
+
+    private static ItemStack migratedCrusherInput() {
+        for (GTRecipe recipe : GSERecipeTypes.ORE_CRUSHING_RECIPES.getRecipesInCategory(
+                GSERecipeTypes.ORE_CRUSHING_RECIPES.getCategory())) {
+            var inputs = recipe.inputs.get(ItemRecipeCapability.CAP);
+            if (inputs == null || inputs.size() != 1 || !(inputs.get(0).content instanceof Ingredient ingredient)) {
+                continue;
+            }
+            for (ItemStack stack : ingredient.getItems()) {
+                if (!stack.isEmpty()) return stack.copyWithCount(1);
+            }
+        }
+        throw new AssertionError("No concrete input found in the migrated ore-crushing recipe table");
     }
 
     private static CompoundTag saveState(GameTestHelper h, MultiblockControllerMachine m) {
