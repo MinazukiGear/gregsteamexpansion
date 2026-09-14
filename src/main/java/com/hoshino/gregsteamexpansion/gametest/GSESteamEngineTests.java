@@ -6,6 +6,7 @@ import com.hoshino.gregsteamexpansion.integration.jade.GSEJadePlugin;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.AbstractSteamAssemblerMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.AbstractSteamProcessorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.cokeoven.GSECokeOvenMachine;
@@ -21,6 +22,7 @@ import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.GTValues;
 import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
 import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 import com.gregtechceu.gtceu.api.data.RotationState;
@@ -124,6 +126,54 @@ public final class GSESteamEngineTests {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void assemblerStateBoundaries(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_ASSEMBLER, m -> stateBoundaries(h, m));
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void emptyAssemblerSlotRunsOnlyUlvAtSingleParallel(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_ASSEMBLER, controller -> {
+            AbstractSteamAssemblerMachine machine = (AbstractSteamAssemblerMachine) controller;
+            ItemBusPartMachine input = inputBus(machine);
+            fillOutputs(machine, false);
+
+            h.assertTrue(machine.getAssemblerStack().isEmpty(),
+                    "Assembler fixture controller slot was not empty");
+            eq(h, machine.getAssemblerTier(), GTValues.ULV,
+                    "Empty assembler slot did not expose the ULV tier ceiling");
+            eq(h, machine.getAssemblerCount(), 0,
+                    "Empty assembler slot reported installed machines");
+            eq(h, machine.maximumParallel(), 1,
+                    "Empty assembler slot did not enforce single parallel");
+
+            GTRecipe lvRecipe = GTRecipeTypes.ASSEMBLER_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("empty_slot_lv_rejected"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE))
+                    .outputItems(new ItemStack(Items.STONE))
+                    .duration(20).EUt(GTValues.VA[GTValues.LV]).buildRawRecipe();
+            GTRecipe ulvRecipe = GTRecipeTypes.ASSEMBLER_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("empty_slot_ulv_accepted"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE))
+                    .outputItems(new ItemStack(Items.STONE))
+                    .duration(20).EUt(GTValues.VA[GTValues.ULV]).buildRawRecipe();
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 2));
+
+            h.assertTrue(!(boolean) call(machine, "tryStartRecipe", lvRecipe),
+                    "Empty assembler slot accepted an LV recipe");
+            eq(h, input.getInventory().getStackInSlot(0).getCount(), 2,
+                    "Rejected LV recipe consumed an input");
+            h.assertTrue(machine.getBatchRecipeId().isEmpty(),
+                    "Rejected LV recipe left a locked batch");
+
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", ulvRecipe),
+                    "Empty assembler slot rejected an ULV recipe");
+            eq(h, machine.getBatchParallel(), 1,
+                    "Empty assembler slot started more than one parallel");
+            eq(h, input.getInventory().getStackInSlot(0).getCount(), 1,
+                    "Single-parallel ULV batch consumed the wrong input count");
+            eq(h, machine.getBatchDuration(), 30,
+                    "Single-parallel ULV batch locked the wrong adjusted duration");
+            eq(h, machine.getBatchSteamPerTick(), GTValues.VA[GTValues.ULV] * 2L,
+                    "Single-parallel ULV batch locked the wrong steam demand");
+        });
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
@@ -2011,7 +2061,7 @@ public final class GSESteamEngineTests {
         }
     }
 
-    private static ItemBusPartMachine inputBus(LargeSteamBlastFurnaceMachine machine) {
+    private static ItemBusPartMachine inputBus(MultiblockControllerMachine machine) {
         return machine.getParts().stream()
                 .filter(ItemBusPartMachine.class::isInstance)
                 .map(ItemBusPartMachine.class::cast)

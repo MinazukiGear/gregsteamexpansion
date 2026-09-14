@@ -45,8 +45,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * <p>Structure rules (议题 4): large machines carry exactly one Steam Exhaust
  * Hatch (freeze while obstructed, feedback + heat damage while running), the
  * recipe type's single fluid input slot requires a fluid input hatch (GTCEu
- * standard or the mod's steam fluid input hatch, freely mixed), and the
- * interface total is capped at 16.</p>
+ * standard or the mod's steam fluid input hatch, freely mixed). Candidate
+ * positions have no combined interface cap.</p>
  */
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
