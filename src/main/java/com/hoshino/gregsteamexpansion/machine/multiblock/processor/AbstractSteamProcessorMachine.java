@@ -671,6 +671,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         // in registration order; both skip air recipes, which are deferred to a
         // second pass. One evaluation per candidate per pass — the air predicate
         // allocates a probe stack, so it is computed once and reused.
+        if (preferred != null && !preferredIsAir && tryStartRecipe(preferred)) return;
         List<GTRecipe> airCandidates = null;
         for (GTRecipe recipe : candidates) {
             if (recipe == preferred) continue;
@@ -681,7 +682,6 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             }
             if (tryStartRecipe(recipe)) return;
         }
-        if (preferred != null && !preferredIsAir && tryStartRecipe(preferred)) return;
         if (airCandidates != null) {
             for (GTRecipe recipe : airCandidates) {
                 if (tryStartRecipe(recipe)) return;
@@ -909,7 +909,6 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (id == null) {
             return null;
         }
-        refreshRecipeCache();
         return recipeCache.byId(id);
     }
 

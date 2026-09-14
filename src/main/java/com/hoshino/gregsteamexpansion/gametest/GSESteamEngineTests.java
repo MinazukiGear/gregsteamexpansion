@@ -16,6 +16,7 @@ import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.registry.GSEVoidPatterns;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCrusherMachine;
+import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
@@ -26,6 +27,7 @@ import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.IRecipeCapabilityHolder;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
+import com.gregtechceu.gtceu.api.capability.recipe.RecipeCapability;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.recipe.modifier.ParallelLogic;
@@ -68,7 +70,9 @@ import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -169,7 +173,9 @@ public final class GSESteamEngineTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 600)
+    // Chunk unload is asynchronous and can exceed 600 server ticks while the
+    // full GameTest suite is saturating CI; the condition remains exact.
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 1200)
     public static void processorStateSurvivesChunkUnloadReload(GameTestHelper h) {
         ServerLevel reloadLevel = h.getLevel().getServer().getLevel(Level.END);
         h.assertTrue(reloadLevel != null, "End level is unavailable for isolated chunk reload test");
@@ -1099,6 +1105,109 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceParallelUsesTightestLimit(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            ItemBusPartMachine input = inputBus(machine);
+            GTRecipe recipe = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("blast_parallel_limit_probe"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE))
+                    .outputItems(new ItemStack(Items.IRON_INGOT))
+                    .duration(100).buildRawRecipe();
+
+            // Ten inputs are available, but only six ingots fit in the outputs.
+            fillOutputs(machine, true);
+            ItemBusPartMachine output = outputs(machine).get(0);
+            output.getInventory().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 58));
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 10));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                    "Blast furnace rejected the output-limited probe recipe");
+            eq(h, machine.getBatchParallel(), 6,
+                    "Blast furnace did not let output capacity limit parallel to six");
+            eq(h, inputItemCount(input, Items.COBBLESTONE), 4,
+                    "Output-limited batch consumed the wrong input quantity");
+
+            // With empty outputs, eleven inputs become the tightest limit.
+            clearActiveProcessorBatch(machine);
+            fillOutputs(machine, false);
+            clearInventory(input);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 11));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                    "Blast furnace rejected the input-limited probe recipe");
+            eq(h, machine.getBatchParallel(), 11,
+                    "Blast furnace did not let available inputs limit parallel to eleven");
+            eq(h, inputItemCount(input, Items.COBBLESTONE), 0,
+                    "Input-limited batch left a consumed input behind");
+
+            // Inputs and outputs now allow more than the machine's fixed cap.
+            clearActiveProcessorBatch(machine);
+            fillOutputs(machine, false);
+            clearInventory(input);
+            h.assertTrue(input.getInventory().getSlots() >= 2,
+                    "Blast-furnace input bus lacks two slots for the cap probe");
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 64));
+            input.getInventory().setStackInSlot(1, new ItemStack(Items.COBBLESTONE, 64));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                    "Blast furnace rejected the machine-capped probe recipe");
+            eq(h, machine.getBatchParallel(), 96,
+                    "Blast furnace did not enforce its fixed 96-parallel cap");
+            eq(h, inputItemCount(input, Items.COBBLESTONE), 32,
+                    "Machine-capped batch did not consume exactly 96 inputs");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnacePrefersLastRecipeAfterReload(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            ItemBusPartMachine input = inputBus(machine);
+            GTRecipe fallback = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("blast_preference_fallback"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE))
+                    .outputItems(new ItemStack(Items.STONE))
+                    .duration(100).buildRawRecipe();
+            GTRecipe preferred = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("blast_preference_selected"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE))
+                    .outputItems(new ItemStack(Items.IRON_INGOT))
+                    .duration(100).buildRawRecipe();
+            List<GTRecipe> registrationOrder = List.of(fallback, preferred);
+            Map<RecipeCapability<?>, Map<Object, List<GTRecipe>>> byContent = new HashMap<>();
+            byContent.put(ItemRecipeCapability.CAP,
+                    Map.of(Items.COBBLESTONE, registrationOrder));
+            SteamRecipeCache.Entry cache = new SteamRecipeCache.Entry(
+                    registrationOrder,
+                    Map.of(fallback.getId(), fallback, preferred.getId(), preferred),
+                    Map.copyOf(byContent));
+            set(machine, "recipeCache", cache);
+
+            // A successful preferred batch writes the persisted preference.
+            fillOutputs(machine, false);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", preferred),
+                    "Blast furnace could not establish the preferred recipe");
+            h.assertTrue(get(machine, "preferredRecipeId").equals(preferred.getId().toString()),
+                    "Successful batch did not record its recipe preference");
+            clearActiveProcessorBatch(machine);
+
+            CompoundTag saved = saveState(h, machine);
+            set(machine, "preferredRecipeId", "");
+            loadState(h, machine, saved);
+            set(machine, "recipeCache", cache);
+            h.assertTrue(get(machine, "preferredRecipeId").equals(preferred.getId().toString()),
+                    "Blast-furnace recipe preference did not survive NBT reload");
+
+            // Both recipes match; the preferred recipe is second in registration
+            // order, so selecting it proves preference is evaluated first.
+            clearInventory(input);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            call(machine, "tryStartBatch");
+            h.assertTrue(get(machine, "batchRecipeId").equals(preferred.getId().toString()),
+                    "Reloaded blast furnace chose registration order before its preferred recipe");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceClosesWroughtIronAndSteelChain(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -1512,11 +1621,7 @@ public final class GSESteamEngineTests {
 
     private static void startFullLoadBlastRecipe(GameTestHelper h,
                                                   LargeSteamBlastFurnaceMachine machine) {
-        ItemBusPartMachine input = machine.getParts().stream()
-                .filter(ItemBusPartMachine.class::isInstance)
-                .map(ItemBusPartMachine.class::cast)
-                .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
-                .findFirst().orElseThrow();
+        ItemBusPartMachine input = inputBus(machine);
         h.assertTrue(input.getInventory().getSlots() >= 4,
                 "Full-load fixture input bus lacks four slots for split stacks");
         fillOutputs(machine, false);
@@ -1542,6 +1647,14 @@ public final class GSESteamEngineTests {
             h.assertTrue(input.getInventory().getStackInSlot(slot).isEmpty(),
                     "Full-load recipe left input in split stack slot " + slot);
         }
+    }
+
+    private static ItemBusPartMachine inputBus(LargeSteamBlastFurnaceMachine machine) {
+        return machine.getParts().stream()
+                .filter(ItemBusPartMachine.class::isInstance)
+                .map(ItemBusPartMachine.class::cast)
+                .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
+                .findFirst().orElseThrow();
     }
 
     private static void refillFullLoadSteam(GameTestHelper h, List<FluidHatchPartMachine> supplies) {
@@ -1792,6 +1905,20 @@ public final class GSESteamEngineTests {
         set(m, "batchInputSourcePos", Long.MIN_VALUE);
     }
 
+    private static void clearActiveProcessorBatch(AbstractSteamProcessorMachine m) {
+        set(m, "hasBatch", false);
+        set(m, "batchRecipe", null);
+        set(m, "batchRecipeId", "");
+        set(m, "batchParallel", 0);
+        set(m, "batchProgress", 0);
+        set(m, "batchDurationTicks", 0);
+        set(m, "batchSteamPerTickMb", 0L);
+        set(m, "batchTotalSteamMb", 0L);
+        set(m, "batchLargeSteamOverclock", false);
+        set(m, "batchOutputMultiplier", 1.0F);
+        set(m, "batchInputDisplay", ItemStack.EMPTY);
+    }
+
     private static void seedBatch(MultiblockControllerMachine m, GTRecipe recipe, int parallel) {
         if (m instanceof AbstractSteamVoidMachine) return;
         set(m, "hasBatch", true);
@@ -1857,6 +1984,21 @@ public final class GSESteamEngineTests {
         int total = 0;
         for (var bus : outputs(m)) for (int slot = 0; slot < bus.getInventory().getSlots(); slot++) {
             var stack = bus.getInventory().getStackInSlot(slot);
+            if (stack.is(item)) total += stack.getCount();
+        }
+        return total;
+    }
+
+    private static void clearInventory(ItemBusPartMachine bus) {
+        for (int slot = 0; slot < bus.getInventory().getSlots(); slot++) {
+            bus.getInventory().setStackInSlot(slot, ItemStack.EMPTY);
+        }
+    }
+
+    private static int inputItemCount(ItemBusPartMachine bus, Item item) {
+        int total = 0;
+        for (int slot = 0; slot < bus.getInventory().getSlots(); slot++) {
+            ItemStack stack = bus.getInventory().getStackInSlot(slot);
             if (stack.is(item)) total += stack.getCount();
         }
         return total;
