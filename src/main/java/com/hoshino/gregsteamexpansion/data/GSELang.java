@@ -56,21 +56,21 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_supply_hatch.tooltip.details.3",
                 "Structure-side supply limits still apply: the cache size never means the hatch can dump all 32,000 mB in one tick.");
 
-        // 大型蒸汽供给仓 / Large Steam Supply Hatch: behavior matches the
-        // ordinary supply hatch; only its fixed single-tank capacity differs.
+        // 大型蒸汽供给仓 / Large Steam Supply Hatch: large-machine-only,
+        // four times the ordinary machine-side input rate, with a larger tank.
         add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.capacity", "Fluid capacity: %s mB");
         add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.accepted", "Accepted fluid: Steam");
         add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.summary",
-                "Supplies steam to steam multiblock machines.");
+                "Supplies steam to large steam multiblock machines.");
         add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.subtitle", "Interface and Supply");
         add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.0",
-                "One steam input slot with a fixed 256,000 mB cache on every work intensity; upgraded from a Steam Supply Hatch.");
+                "One steam input slot with a fixed 256,000 mB cache on every work intensity; only large steam multiblocks accept this hatch.");
         add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.1",
                 "Only GTCEu standard steam (its own steam tag) is accepted; same-named third-party steams, superheated steam and other fluids are always rejected.");
         add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.2",
                 "Covers may be installed on the machine-facing front; a screwdriver can rotate the hatch but never swap it into an output hatch.");
         add("gregsteamexpansion.machine.large_steam_supply_hatch.tooltip.details.3",
-                "Structure-side supply limits still apply: the cache size never means the hatch can dump all 256,000 mB in one tick.");
+                "Large machines can draw up to 4,800 mB/t from this hatch, four times the ordinary Steam Supply Hatch rate.");
 
         // 蒸汽流体输入/输出仓 / Steam Fluid Input & Output Hatches two-tier item
         // tooltip (machines-and-hatches.md 模型、界面与提示). Both directions
@@ -371,13 +371,13 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.1",
                 "The coke-brick hearth bed is structure-only and grants no bonuses. The walls alone take ~370 blast bricks (\u2248 1,500 fireclay bricks) \u2014 a true megaproject in bricks; wrought iron stays reserved for the controller and the steel machinery it unlocks.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.2",
-                "Hatches replace ONLY wall blast brick positions: at least 1 item input bus, 1 item output bus and 1 steam supply hatch, EXACTLY 1 steam exhaust hatch, at least 1 steam air intake hatch (tuyere, up to 8), at most 28 hatches in total. No fluid hatch of any family is admissible. Full-load reference: 16 supply hatches + 2 buses + 1 exhaust + 8 tuyeres = 27.");
+                "Hatches replace ONLY wall blast brick positions: at least 1 item input bus, 1 item output bus and 1 steam supply hatch, EXACTLY 1 steam exhaust hatch, at least 1 steam air intake hatch (tuyere, up to 8), at most 28 hatches in total. No fluid hatch of any family is admissible. Full-load ordinary-hatch reference: 16 supply hatches + 2 buses + 1 exhaust + 8 tuyeres = 27.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle2",
                 "Processing & Steam");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.3",
                 "Runs every gtceu:primitive_blast_furnace recipe (steel from iron or wrought iron plus coal, charcoal or coke; wrought iron comes from iron dust + fuel here, on top of the upstream iron nugget smelting route); one recipe per batch, up to 96 parallel, duration = base \u00d7 0.4 (rounded up) \u2014 240\u00d7 the primitive blast furnace's throughput.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.4",
-                "The recipe type carries no EU/t: steam is a flat 200 mB/t per parallel \u2014 19,200 mB/t at full load, exactly 16 supply hatches at their 1,200 mB/t caps. Every consuming tick also draws blast air at 4 mB/t per parallel (384 mB/t full load) across the tuyeres; each intake collects 50 mB/t, so sustained full load needs ALL 8 tuyeres. An air or steam shortfall rolls the batch back to 1 tick and the status shows blast air shortage when air runs out.");
+                "The recipe type carries no EU/t: steam is a flat 200 mB/t per parallel \u2014 19,200 mB/t at full load, requiring 16 ordinary supply hatches (1,200 mB/t each) or 4 large supply hatches (4,800 mB/t each). Every consuming tick also draws blast air at 4 mB/t per parallel (384 mB/t full load) across the tuyeres; each intake collects 50 mB/t, so sustained full load needs ALL 8 tuyeres. An air or steam shortfall rolls the batch back to 1 tick and the status shows blast air shortage when air runs out.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.5",
                 "Outputs only leave through the item output buses; worst-case outputs are prechecked before startup and are never voided.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.6",
@@ -802,7 +802,7 @@ public final class GSELang {
                 "The weight table is config-overridable (machines.large_steam_ore_plant.weights); empty/invalid entries fall back to the built-in table. Restart required.");
         add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.subtitle2", "Steam and Outputs");
         add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.3",
-                "Steam only: 3,000 mB/t per station, 12,000 mB/t full speed \u2014 needs 10 Steam Supply Hatches (1,200 mB/t per-hatch cap).");
+                "Steam only: 3,000 mB/t per station, 12,000 mB/t full speed \u2014 needs 10 ordinary supply hatches (1,200 mB/t each) or 3 large supply hatches (4,800 mB/t each).");
         add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.4",
                 "A steam shortage rewinds the cycle to 1 tick and resumes; an obstructed exhaust hatch freezes it.");
         add("gregsteamexpansion.machine.large_steam_ore_plant.tooltip.details.5",

@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.gregtechceu.gtceu.api.data.RotationState;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.machine.MachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo;
@@ -10,6 +11,7 @@ import com.lowdragmc.lowdraglib.utils.BlockInfo;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
 import org.jetbrains.annotations.Nullable;
@@ -59,6 +61,87 @@ public final class GSEStructureTestUtils {
             return;
         }
         helper.succeed();
+    }
+
+    /**
+     * Verifies a normal preview shape, then swaps its first target block and
+     * checks whether the replacement is admitted by the same structure.
+     */
+    public static void assertFirstShapeReplacementMatches(GameTestHelper helper,
+                                                          MultiblockMachineDefinition definition,
+                                                          Block target,
+                                                          MachineDefinition replacement,
+                                                          boolean expectedMatch) {
+        java.util.List<MultiblockShapeInfo> shapes = definition.getMatchingShapes();
+        if (shapes.isEmpty()) {
+            helper.fail("No preview shape registered for " + definition.getId());
+            return;
+        }
+        MultiblockShapeInfo shape = shapes.get(0);
+        MultiblockControllerMachine controller = placeShape(helper, definition, shape);
+        if (controller == null || controller.getPattern() == null) {
+            helper.fail("No usable pattern registered for " + definition.getId());
+            return;
+        }
+        if (!controller.getPattern().checkPatternAt(controller.getMultiblockState(), true)) {
+            helper.fail("Baseline preview shape for " + definition.getId() + " does not match: "
+                    + describeError(helper, controller));
+            return;
+        }
+
+        BlockInfo[][][] blocks = shape.getBlocks();
+        int controllerX = blocks.length / 2;
+        int controllerY = findControllerY(blocks, definition);
+        if (controllerY < 0) {
+            helper.fail("Preview shape for " + definition.getId() + " contains no controller block");
+            return;
+        }
+        BlockPos anchor = new BlockPos(16, 16, 16);
+        BlockPos replacementPos = null;
+        for (int x = 0; x < blocks.length && replacementPos == null; x++) {
+            for (int y = 0; y < blocks[x].length && replacementPos == null; y++) {
+                for (int z = 0; z < blocks[x][y].length; z++) {
+                    BlockInfo info = blocks[x][y][z];
+                    if (info != null && info != BlockInfo.EMPTY && info.getBlockState().is(target)) {
+                        replacementPos = anchor.offset(x - controllerX, y - controllerY, z);
+                        break;
+                    }
+                }
+            }
+        }
+        if (replacementPos == null) {
+            helper.fail("Preview shape for " + definition.getId() + " contains no target block " + target);
+            return;
+        }
+
+        BlockState replacementState = replacement.getBlock().defaultBlockState();
+        RotationState replacementRotation = replacement.getRotationState();
+        if (replacementRotation != RotationState.NONE && replacementState.hasProperty(replacementRotation.property)) {
+            replacementState = replacementState.setValue(replacementRotation.property, Direction.NORTH);
+        }
+        helper.setBlock(replacementPos, replacementState);
+        boolean matched = controller.getPattern().checkPatternAt(controller.getMultiblockState(), true);
+        if (matched != expectedMatch) {
+            helper.fail("Replacement " + replacement.getId() + (expectedMatch ? " was rejected by " : " was accepted by ")
+                    + definition.getId() + ": " + describeError(helper, controller));
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static int findControllerY(BlockInfo[][][] blocks, MultiblockMachineDefinition definition) {
+        for (int x = 0; x < blocks.length; x++) {
+            for (int y = 0; y < blocks[x].length; y++) {
+                for (int z = 0; z < blocks[x][y].length; z++) {
+                    BlockInfo info = blocks[x][y][z];
+                    if (info != null && info != BlockInfo.EMPTY
+                            && info.getBlockState().getBlock() == definition.getBlock()) {
+                        return y;
+                    }
+                }
+            }
+        }
+        return -1;
     }
 
     /**

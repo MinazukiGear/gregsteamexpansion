@@ -21,7 +21,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * consumer here, non-mandatory).
  *
  * <p>Family rules via {@link AbstractSteamProcessorMachine}: ×1.5 duration,
- * 2 mB steam per EU with per-tick atomic withdrawal (1,200 mB/t per supply
+ * 2 mB steam per EU with per-tick atomic withdrawal (1,200 mB/t ordinary,
+ * 4,800 mB/t large supply
  * hatch), LV voltage gate, last-successful-recipe preference, worst-case
  * output precheck (up to 6 item + 6 fluid slots for this type), atomic
  * inputs, persisted pending outputs, steam-shortage rollback to 1 tick,

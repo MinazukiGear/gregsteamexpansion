@@ -141,11 +141,11 @@ public final class GSEMachines {
     public static final MachineDefinition LARGE_STEAM_SUPPLY_HATCH = GSERegistration.REGISTRATE
             .machine("large_steam_supply_hatch", LargeSteamSupplyHatchPartMachine::new)
             .rotationState(RotationState.ALL)
-            .abilities(PartAbility.STEAM)
+            .abilities(GSEPartAbilities.LARGE_STEAM_SUPPLY)
             .modelProperty(GTMachineModelProperties.IS_STEEL_MACHINE,
                     com.gregtechceu.gtceu.config.ConfigHolder.INSTANCE.machines.steelSteamMultiblocks)
             // Keep the same GTCEu-style supply port and configurable steam hull
-            // as the ordinary hatch; capacity is the only behavior difference.
+            // as the ordinary hatch; structure scope and throughput differ.
             .model(steamHatchModel(
                     GregSteamExpansion.gtceuId("block/overlay/machine/overlay_steam_miner")))
             .langValue("Large Steam Supply Hatch")

@@ -22,7 +22,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * dynamic tool/turbine-rotor breakdowns) at up to 64 parallel.
  *
  * <p>Family rules via {@link AbstractSteamProcessorMachine}: ×1.5 duration,
- * 2 mB steam per EU with per-tick atomic withdrawal (1,200 mB/t per supply
+ * 2 mB steam per EU with per-tick atomic withdrawal (1,200 mB/t ordinary,
+ * 4,800 mB/t large supply
  * hatch), LV voltage gate, last-successful-recipe preference, worst-case
  * output precheck (the type allows up to 4 item outputs incl. 14% chance
  * byproducts), atomic inputs, persisted pending outputs, steam-shortage

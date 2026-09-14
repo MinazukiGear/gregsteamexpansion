@@ -629,7 +629,8 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     /**
      * 原子取汽: simulate the full per-tick demand across all supply hatches in
      * stable position order and only execute the same plan when every hatch can
-     * deliver its share. Each physical supply hatch is capped at 1,200 mB/t.
+     * deliver its share. Ordinary hatches are capped at 1,200 mB/t and large
+     * hatches at 4,800 mB/t.
      */
     private boolean drawSteam(long amountMb) {
         return steamBudget.drawSteam(amountMb, remaining -> GregSteamExpansion.LOGGER.warn(

@@ -30,7 +30,9 @@ import javax.annotation.ParametersAreNonnullByDefault;
 /**
  * 蒸汽供给仓 / Steam Supply Hatch (machines-and-hatches.md 已定案：蒸汽供给仓):
  * the steam-age steam energy interface registered by this mod, replacing the
- * legacy upstream steam input hatch as the only standard steam part.
+ * legacy upstream steam input hatch as the standard supply part accepted by
+ * every steam multiblock. Large machines may additionally accept its upgraded
+ * high-throughput variant.
  *
  * <p>The hatch stores exactly one input slot of {@code 32,000 mB} — half of the
  * upstream cache — and only accepts GTCEu standard steam (the fluid's own steam
@@ -49,6 +51,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public class SteamSupplyHatchPartMachine extends FluidHatchPartMachine {
 
     public static final int INITIAL_TANK_CAPACITY = 32 * FluidType.BUCKET_VOLUME;
+    public static final int MACHINE_INPUT_RATE_MULTIPLIER = 1;
 
     public SteamSupplyHatchPartMachine(IMachineBlockEntity holder, Object... args) {
         this(holder, INITIAL_TANK_CAPACITY, args);
@@ -106,6 +109,11 @@ public class SteamSupplyHatchPartMachine extends FluidHatchPartMachine {
         // real capacity. Migrated over-limit legacy content may display above
         // it, which is exactly what the tank holds.
         return String.format("%,d / %,d mB", tank.getFluidInTank(0).getAmount(), tank.getTankCapacity(0));
+    }
+
+    /** Multiplier applied to the consuming machine's ordinary per-hatch limit. */
+    public int machineInputRateMultiplier() {
+        return MACHINE_INPUT_RATE_MULTIPLIER;
     }
 
     // A steam supply hatch only feeds steam in; a screwdriver must never turn

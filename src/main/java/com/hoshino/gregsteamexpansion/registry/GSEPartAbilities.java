@@ -29,6 +29,13 @@ public final class GSEPartAbilities {
      */
     public static final PartAbility STEAM_AIR_INTAKE = new PartAbility("steam_air_intake");
     /**
+     * 大型蒸汽供给仓 / Large Steam Supply Hatch: high-throughput steam input
+     * accepted only by structure predicates for large steam multiblocks.
+     * Large machines also retain {@link PartAbility#STEAM} so the ordinary
+     * supply hatch remains a valid lower-throughput option.
+     */
+    public static final PartAbility LARGE_STEAM_SUPPLY = new PartAbility("large_steam_supply");
+    /**
      * Reserved identity for future dedicated large-furnace steam sources.
      * No current machine registers this ability; declaring it alone never
      * enables a new steam type or changes the furnace's structure predicate.

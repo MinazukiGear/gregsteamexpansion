@@ -1014,16 +1014,16 @@ public final class GSERecipes {
                 'T', bronzeDrum);
 
         // 大型蒸汽供给仓: retain the ordinary supply hatch as the functional
-        // core and expand its reservoir with four bronze drums in a reinforced
-        // double-plate frame.
+        // core and expand its reservoir with four bronze drums. Four arbitrary
+        // HV circuits delay this high-throughput upgrade to the HV era.
         VanillaRecipeHelper.addShapedRecipe(provider,
                 GregSteamExpansion.id("large_steam_supply_hatch"),
                 GSEMachines.LARGE_STEAM_SUPPLY_HATCH.asStack(),
-                "DPD",
-                "PHP",
-                "DPD",
+                "DCD",
+                "CHC",
+                "DCD",
                 'D', bronzeDrum,
-                'P', ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Bronze),
+                'C', CustomTags.HV_CIRCUITS,
                 'H', GSEMachines.STEAM_SUPPLY_HATCH.asStack());
 
         // 蒸汽流体输入仓: single vertical pipe on top (no vertical mirroring;

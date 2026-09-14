@@ -30,14 +30,14 @@ import javax.annotation.ParametersAreNonnullByDefault;
  *
  * <p>The recipe type carries no EU/t, so the family's 2 mB/EU economics are
  * replaced by a flat draw of 200 mB/t per parallel (19,200 mB/t at full load,
- * exactly 16 supply hatches at their 1,200 mB/t caps). Every consuming tick
+ * 16 ordinary supply hatches at 1,200 mB/t or 4 large hatches at 4,800 mB/t). Every consuming tick
  * also draws blast air at 4 mB/t per parallel (384 mB/t at full load) from up
  * to 8 Steam Air Intake Hatch tuyeres — sustained full load needs all 8
  * (50 mB/t passive collection each, 400 mB/t); an air shortfall freezes the
  * tick with the steam-shortage rollback and reports "鼓风不足".</p>
  *
  * <p>Family rules via {@link AbstractSteamProcessorMachine}: per-tick atomic
- * steam withdrawal across supply hatches (1,200 mB/t per hatch), last-
+ * steam withdrawal across supply hatches (1,200 mB/t ordinary, 4,800 mB/t large), last-
  * successful-recipe preference, worst-case output precheck, atomic inputs,
  * persisted pending outputs, exactly-one Steam Exhaust Hatch with obstruction
  * freeze and hazard cycles, three difficulty tiers identical.</p>
@@ -122,7 +122,7 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     @Override
     protected long batchSteamPerTickMb(GTRecipe recipe, long eu, int parallel) {
         // 议题 5: 配方无 EU, 蒸汽按固定马力费计收 (与 EU 脱钩);
-        // 满载 96 并行 = 19,200 mB/t, 恰好用满 16 个供给仓 (1,200 mB/t/仓).
+        // 满载 96 并行 = 19,200 mB/t: 16 个普通仓或 4 个大型仓.
         return STEAM_PER_TICK_PER_PARALLEL_MB * parallel;
     }
 

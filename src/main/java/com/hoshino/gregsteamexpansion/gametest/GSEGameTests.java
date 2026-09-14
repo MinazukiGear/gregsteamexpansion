@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenMode;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenWorldData;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamCapability;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamSourceSpec;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
@@ -29,6 +30,7 @@ import com.gregtechceu.gtceu.common.data.GTRecipes;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.data.GTCovers;
 import com.gregtechceu.gtceu.common.data.GTItems;
+import com.gregtechceu.gtceu.data.recipe.CustomTags;
 import com.gregtechceu.gtceu.common.cover.ShutterCover;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
@@ -46,6 +48,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -420,8 +423,11 @@ public final class GSEGameTests {
         // for old saves.
         helper.assertTrue(PartAbility.STEAM.isApplicable(GSEMachines.STEAM_SUPPLY_HATCH.getBlock()),
                 "Steam supply hatch is not registered in PartAbility.STEAM");
-        helper.assertTrue(PartAbility.STEAM.isApplicable(GSEMachines.LARGE_STEAM_SUPPLY_HATCH.getBlock()),
-                "Large steam supply hatch is not registered in PartAbility.STEAM");
+        helper.assertTrue(!PartAbility.STEAM.isApplicable(GSEMachines.LARGE_STEAM_SUPPLY_HATCH.getBlock()),
+                "Large steam supply hatch can still form ordinary steam structures");
+        helper.assertTrue(GSEPartAbilities.LARGE_STEAM_SUPPLY.isApplicable(
+                        GSEMachines.LARGE_STEAM_SUPPLY_HATCH.getBlock()),
+                "Large steam supply hatch is not registered in LARGE_STEAM_SUPPLY");
         helper.assertTrue(GSEPartAbilities.STEAM_IMPORT_FLUIDS.isApplicable(
                         GSEMachines.STEAM_FLUID_IMPORT_HATCH.getBlock()),
                 "Steam fluid input hatch is not registered in STEAM_IMPORT_FLUIDS");
@@ -529,7 +535,7 @@ public final class GSEGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
-    public static void largeSteamSupplyHatchOnlyIncreasesCapacity(GameTestHelper helper) {
+    public static void largeSteamSupplyHatchAppliesLargeMachineRules(GameTestHelper helper) {
         LargeSteamSupplyHatchPartMachine hatch = placeHatch(
                 helper, GSEMachines.LARGE_STEAM_SUPPLY_HATCH, HATCH_POS);
 
@@ -545,6 +551,21 @@ public final class GSEGameTests {
         helper.assertTrue(hatch.tank.drain(1_000, FluidAction.SIMULATE).isEmpty(),
                 "Large steam supply hatch exposed steam for external extraction");
         helper.assertTrue(!hatch.swapIO(), "Large steam supply hatch swapped into an output hatch");
+
+        SteamBudget steamBudget = new SteamBudget(List.of(hatch));
+        long expectedInputRate = SteamBudget.PHYSICAL_HATCH_LIMIT_MB
+                * LargeSteamSupplyHatchPartMachine.MACHINE_INPUT_RATE_MULTIPLIER;
+        helper.assertTrue(steamBudget.physicalInputLimitMb() == expectedInputRate,
+                "Large steam supply hatch does not provide four times the ordinary input rate");
+        int beforeDraw = hatch.tank.getFluidInTank(0).getAmount();
+        helper.assertTrue(!steamBudget.drawSteam(expectedInputRate + 1, ignored -> {}),
+                "Large steam supply hatch exceeded its 4,800 mB/t machine-side limit");
+        helper.assertTrue(hatch.tank.getFluidInTank(0).getAmount() == beforeDraw,
+                "Failed large-hatch draw was not atomic");
+        helper.assertTrue(steamBudget.drawSteam(expectedInputRate, ignored -> {}),
+                "Large steam supply hatch refused its exact 4,800 mB/t budget");
+        helper.assertTrue(beforeDraw - hatch.tank.getFluidInTank(0).getAmount() == expectedInputRate,
+                "Large steam supply hatch charged the wrong amount after a successful draw");
 
         BlockEntity blockEntity = helper.getLevel().getBlockEntity(helper.absolutePos(HATCH_POS));
         helper.assertTrue(blockEntity != null, "Large steam supply hatch block entity was missing");
@@ -569,6 +590,16 @@ public final class GSEGameTests {
             helper.assertTrue(recipe.getIngredients().stream()
                             .anyMatch(ingredient -> ingredient.test(GSEMachines.STEAM_SUPPLY_HATCH.asStack())),
                     "Large steam supply hatch recipe does not upgrade the ordinary supply hatch");
+            var hvCircuitIterator = ForgeRegistries.ITEMS.tags().getTag(CustomTags.HV_CIRCUITS).iterator();
+            helper.assertTrue(hvCircuitIterator.hasNext(), "HV circuit tag is empty");
+            if (hvCircuitIterator.hasNext()) {
+                Item hvCircuit = hvCircuitIterator.next();
+                long circuitSlots = recipe.getIngredients().stream()
+                        .filter(ingredient -> ingredient.test(new ItemStack(hvCircuit)))
+                        .count();
+                helper.assertTrue(circuitSlots == 4,
+                        "Large steam supply hatch recipe does not require four arbitrary HV circuits");
+            }
         }
         helper.succeed();
     }
@@ -1003,12 +1034,22 @@ public final class GSEGameTests {
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
     public static void steamCrusherFormsFromShape(GameTestHelper helper) {
-        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.STEAM_CRUSHER);
+        GSEStructureTestUtils.assertFirstShapeReplacementMatches(
+                helper,
+                GSEMachines.STEAM_CRUSHER,
+                GSEMachines.STEAM_SUPPLY_HATCH.getBlock(),
+                GSEMachines.LARGE_STEAM_SUPPLY_HATCH,
+                false);
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
     public static void largeSteamCrusherFormsFromShape(GameTestHelper helper) {
-        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_CRUSHER);
+        GSEStructureTestUtils.assertFirstShapeReplacementMatches(
+                helper,
+                GSEMachines.LARGE_STEAM_CRUSHER,
+                GSEMachines.STEAM_SUPPLY_HATCH.getBlock(),
+                GSEMachines.LARGE_STEAM_SUPPLY_HATCH,
+                true);
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)

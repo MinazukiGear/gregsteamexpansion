@@ -73,7 +73,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
  *
  * <p>Implemented: formation with three variable-size patterns (P0.7), the
  * temperature/preheating/cooling state machine with size-change reset (P0.2),
- * steam drawing from standard steam hatches with the per-hatch 1200 mB/t
+ * steam drawing from physical hatches at 1,200 mB/t ordinary or 4,800 mB/t large
  * machine-side cap and atomic simulated-then-executed withdrawal (P0.3), the
  * parallel batch recipe engine (single-recipe batches, LV cap, worst-case
  * output precheck, one-shot chance roll, atomic input/output, per-tick steam
@@ -725,7 +725,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     // ***** Steam supply ******//
     //////////////////////////////////////
 
-    /** 合计机器侧供汽上限 in 1/100 mB units (N × 1200 mB/t; ME hatch later). */
+    /** 合计机器侧供汽上限 in 1/100 mB units (typed physical limits; ME hatch later). */
     private long steamInputLimitPerTickUnits() {
         if (steamUnlimited) {
             // ME 流体输入仓取消机器侧供汽上限
@@ -737,7 +737,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     /**
      * 原子扣取: simulate the full plan over the hatches in stable part order and
      * only execute the same plan when every hatch can deliver its share. Normal
-     * steam hatches are drawn first (each capped at 1200 mB/t); ME fluid input
+     * physical steam hatches are drawn first (1,200 mB/t ordinary, 4,800 mB/t large); ME fluid input
      * hatches top up the remainder without a machine-side cap. Steam is drawn
      * as exact GTCEu steam; other fluids never match.
      */

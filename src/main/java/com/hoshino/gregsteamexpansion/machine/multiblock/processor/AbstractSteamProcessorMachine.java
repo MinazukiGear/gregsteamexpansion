@@ -79,7 +79,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * GTCEu recipe type with a LV voltage gate, recipe-scaled duration (×1.5) and
  * linear steam cost (2 mB per EU), fixed parallel cap, worst-case output
  * precheck, atomic input consumption, per-tick atomic steam withdrawal across
- * all supply hatches (position order, 1,200 mB/t per hatch machine-side cap),
+ * all supply hatches (position order; ordinary 1,200 mB/t, large 4,800 mB/t),
  * exactly-once chance roll with a persisted pending-output list, last
  * successful recipe preference, working control and the steam-shortage /
  * structure-loss rollback to 1 tick.
@@ -100,7 +100,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     public static final double DURATION_MULTIPLIER = 1.5;
     /** 2 mB of standard steam per EU (家族换算率). */
     public static final long STEAM_PER_EU_MB = 2;
-    /** Machine-side per-hatch withdrawal cap (家族口径 1,200 mB/t). */
+    /** Machine-side withdrawal cap for an ordinary supply hatch. */
     public static final long PER_HATCH_STEAM_CAP_MB = SteamBudget.PHYSICAL_HATCH_LIMIT_MB;
 
     //////////////////////////////////////

@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.machine.multiblock;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
 
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
@@ -14,7 +15,8 @@ import java.util.function.LongConsumer;
  * Shared resource budget for steam-powered multiblock controllers.
  *
  * <p>Physical hatches are consumed in stable part order and have a per-tick
- * machine-side cap. Optional uncapped hatches, currently the heat-storage
+ * machine-side cap. A large supply hatch multiplies that ordinary cap by its
+ * declared input-rate multiplier. Optional uncapped hatches, currently the heat-storage
  * furnace's ME fluid inputs, supply only the remainder. A full draw is always
  * simulated before any tank is changed.</p>
  */
@@ -63,7 +65,7 @@ public final class SteamBudget {
     private long drainSteam(long amountMb, IFluidHandler.FluidAction action) {
         long remaining = amountMb;
         for (FluidHatchPartMachine hatch : physicalHatches) {
-            long share = Math.min(remaining, physicalHatchLimitMb);
+            long share = Math.min(remaining, limitFor(hatch));
             remaining -= hatch.tank.drainInternal(steam(share), action).getAmount();
             if (remaining <= 0) {
                 return 0;
@@ -80,7 +82,18 @@ public final class SteamBudget {
 
     /** Machine-side physical-hatch throughput; excludes uncapped sources. */
     public long physicalInputLimitMb() {
-        return (long) physicalHatches.size() * physicalHatchLimitMb;
+        long total = 0;
+        for (FluidHatchPartMachine hatch : physicalHatches) {
+            total += limitFor(hatch);
+        }
+        return total;
+    }
+
+    private long limitFor(FluidHatchPartMachine hatch) {
+        int multiplier = hatch instanceof SteamSupplyHatchPartMachine supplyHatch
+                ? supplyHatch.machineInputRateMultiplier()
+                : 1;
+        return physicalHatchLimitMb * multiplier;
     }
 
     /** Effective machine-side throughput, or {@link Long#MAX_VALUE} when uncapped. */
