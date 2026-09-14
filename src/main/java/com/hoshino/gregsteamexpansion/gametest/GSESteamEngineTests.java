@@ -1105,6 +1105,74 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceDistinguishesBlockedExhaustAndSteamShortage(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            ItemBusPartMachine input = inputBus(machine);
+            List<SteamAirIntakeHatchPartMachine> intakes = list(machine, "airIntakeHatches");
+            h.assertTrue(!intakes.isEmpty(), "Fixture lacks blast air intake");
+            for (var intake : intakes) intake.tank.getStorages()[0].setFluid(FluidStack.EMPTY);
+            intakes.get(0).tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(32_000));
+            fillOutputs(machine, false);
+
+            GTRecipe recipe = recipeEndingWith(
+                    GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES,
+                    "wrought_iron_from_dust_coke_dust");
+            input.getInventory().setStackInSlot(0,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 4));
+            input.getInventory().setStackInSlot(1,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 4));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                    "Blast furnace did not start its real four-parallel recipe");
+            eq(h, machine.getBatchParallel(), 4, "Real blast recipe locked the wrong parallel");
+            eq(h, machine.getBatchSteamPerTick(), 800, "Real blast recipe locked the wrong steam demand");
+            set(machine, "batchProgress", 7);
+
+            SteamExhaustHatchMachine exhaust = machine.getParts().stream()
+                    .filter(SteamExhaustHatchMachine.class::isInstance)
+                    .map(SteamExhaustHatchMachine.class::cast).findFirst().orElseThrow();
+            BlockPos front = exhaust.getPos().relative(exhaust.getFrontFacing());
+            h.assertTrue(!exhaust.isExhaustBlocked(), "Fixture exhaust channel is blocked");
+            fillSteam(machine, 32_000);
+            long steamBefore = steam(machine);
+            long airBefore = air(machine);
+
+            h.getLevel().setBlockAndUpdate(front, Blocks.STONE.defaultBlockState());
+            tick(machine);
+            eq(h, progress(machine), 7, "Blocked exhaust changed batch progress");
+            eq(h, steam(machine), steamBefore, "Blocked exhaust consumed steam");
+            eq(h, air(machine), airBefore, "Blocked exhaust consumed blast air");
+            eq(h, demand(machine), 0, "Blocked exhaust exposed a current steam demand");
+            h.assertTrue(!machine.isConsumingSteam(), "Blocked exhaust reported active steam consumption");
+            h.assertTrue(machine.getStatusId().equals("exhaust_obstructed"),
+                    "Blocked exhaust exposed the wrong status: " + machine.getStatusId());
+
+            h.getLevel().setBlockAndUpdate(front, Blocks.AIR.defaultBlockState());
+            fillSteam(machine, 0);
+            airBefore = air(machine);
+            tick(machine);
+            eq(h, progress(machine), 1, "Steam shortage did not roll batch progress back");
+            eq(h, steam(machine), 0, "Steam shortage changed empty steam storage");
+            eq(h, air(machine), airBefore, "Steam shortage consumed blast air");
+            eq(h, demand(machine), 800, "Steam shortage hid the resumable steam demand");
+            h.assertTrue(!machine.isConsumingSteam(), "Steam shortage reported active steam consumption");
+            h.assertTrue(machine.getStatusId().equals("low_steam"),
+                    "Steam shortage exposed the wrong status: " + machine.getStatusId());
+
+            fillSteam(machine, 32_000);
+            steamBefore = steam(machine);
+            airBefore = air(machine);
+            tick(machine);
+            eq(h, progress(machine), 2, "Refilled blast furnace did not resume from rollback progress");
+            eq(h, steamBefore - steam(machine), 800, "Resumed blast tick consumed the wrong steam amount");
+            eq(h, airBefore - air(machine), 16, "Resumed blast tick consumed the wrong air amount");
+            h.assertTrue(machine.isConsumingSteam(), "Resumed blast tick did not report steam consumption");
+            h.assertTrue(machine.getStatusId().equals("working"),
+                    "Refilled blast furnace did not restore the working status");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceParallelUsesTightestLimit(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
