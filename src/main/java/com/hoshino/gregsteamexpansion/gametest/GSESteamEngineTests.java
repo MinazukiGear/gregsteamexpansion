@@ -1126,6 +1126,69 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceFullLoadUsesFourLargeSuppliesAndEightIntakes(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            configureBlastFurnaceFullLoadHatches(h, machine);
+
+            List<FluidHatchPartMachine> supplies = supplies(machine);
+            long largeSupplies = supplies.stream()
+                    .filter(hatch -> hatch.self().getDefinition() == GSEMachines.LARGE_STEAM_SUPPLY_HATCH)
+                    .count();
+            eq(h, largeSupplies, 4, "Full-load fixture did not collect four large steam supply hatches");
+            List<SteamAirIntakeHatchPartMachine> intakes = list(machine, "airIntakeHatches");
+            eq(h, intakes.size(), 8, "Full-load fixture did not collect eight air intake hatches");
+
+            ItemBusPartMachine input = machine.getParts().stream()
+                    .filter(ItemBusPartMachine.class::isInstance)
+                    .map(ItemBusPartMachine.class::cast)
+                    .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
+                    .findFirst().orElseThrow();
+            h.assertTrue(input.getInventory().getSlots() >= 4,
+                    "Full-load fixture input bus lacks four slots for split stacks");
+            fillOutputs(machine, false);
+            input.getInventory().setStackInSlot(0,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 64));
+            input.getInventory().setStackInSlot(1,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 32));
+            input.getInventory().setStackInSlot(2,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 64));
+            input.getInventory().setStackInSlot(3,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 32));
+
+            GTRecipe recipe = recipeEndingWith(
+                    GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES,
+                    "wrought_iron_from_dust_coke_dust");
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                    "Large steam blast furnace did not start its 96-parallel real recipe");
+            eq(h, machine.getBatchParallel(), 96, "Blast furnace did not lock its maximum parallel");
+            eq(h, machine.getBatchDuration(), 240, "Full-load recipe did not apply 0.4x duration");
+            eq(h, machine.getBatchSteamPerTick(), 19_200,
+                    "Full-load recipe locked the wrong steam demand");
+            for (int slot = 0; slot < 4; slot++) {
+                h.assertTrue(input.getInventory().getStackInSlot(slot).isEmpty(),
+                        "Full-load recipe left input in split stack slot " + slot);
+            }
+
+            for (FluidHatchPartMachine hatch : supplies) {
+                boolean large = hatch.self().getDefinition() == GSEMachines.LARGE_STEAM_SUPPLY_HATCH;
+                hatch.tank.getStorages()[0].setFluid(
+                        large ? GTMaterials.Steam.getFluid(4_800) : FluidStack.EMPTY);
+            }
+            for (SteamAirIntakeHatchPartMachine intake : intakes) {
+                intake.tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(48));
+            }
+            eq(h, steam(machine), 19_200, "Full-load fixture did not stage exactly one steam tick");
+            eq(h, air(machine), 384, "Full-load fixture did not stage exactly one blast-air tick");
+
+            call(machine, "runBatchTick");
+            eq(h, machine.getBatchProgress(), 1, "Full-load batch did not advance exactly one tick");
+            eq(h, steam(machine), 0, "Four large supply hatches did not atomically provide 19,200 mB");
+            eq(h, air(machine), 0, "Eight air intakes did not atomically provide 384 mB");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceAcceptsCapabilityInputPart(GameTestHelper h) {
         var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
         var m = GSEStructureTestUtils.placeShape(h, definition, definition.getMatchingShapes().get(0));
@@ -1344,6 +1407,45 @@ public final class GSESteamEngineTests {
         m.onStructureFormed();
         h.assertTrue(m.isFormed(), "Controller remained invalid after Large Steam Supply Hatch replacement");
         return replaced;
+    }
+
+    private static void configureBlastFurnaceFullLoadHatches(GameTestHelper h,
+                                                              LargeSteamBlastFurnaceMachine machine) {
+        if (machine.isFormed()) machine.onStructureInvalid();
+        List<BlockPos> ordinarySupplies = new java.util.ArrayList<>();
+        int existingIntakes = 0;
+        for (BlockPos pos : BlockPos.betweenClosed(
+                machine.getPos().offset(-15, -15, -15), machine.getPos().offset(15, 15, 15))) {
+            if (h.getLevel().getBlockState(pos).is(GSEMachines.STEAM_SUPPLY_HATCH.getBlock())) {
+                ordinarySupplies.add(pos.immutable());
+            } else if (h.getLevel().getBlockState(pos).is(GSEMachines.STEAM_AIR_INTAKE_HATCH.getBlock())) {
+                existingIntakes++;
+            }
+        }
+        h.assertTrue(ordinarySupplies.size() >= 4,
+                "Blast-furnace preview lacks four supply hatches to upgrade");
+        for (int i = 0; i < 4; i++) {
+            h.getLevel().setBlockAndUpdate(ordinarySupplies.get(i),
+                    GSEMachines.LARGE_STEAM_SUPPLY_HATCH.getBlock().defaultBlockState());
+        }
+
+        int requiredIntakes = 8 - existingIntakes;
+        h.assertTrue(requiredIntakes >= 0, "Blast-furnace preview already exceeds eight air intakes");
+        int installedIntakes = 0;
+        for (BlockPos pos : BlockPos.betweenClosed(
+                machine.getPos().offset(-15, -15, -15), machine.getPos().offset(15, 15, 15))) {
+            if (h.getLevel().getBlockState(pos).is(GTBlocks.CASING_PRIMITIVE_BRICKS.get())) {
+                h.getLevel().setBlockAndUpdate(pos,
+                        GSEMachines.STEAM_AIR_INTAKE_HATCH.getBlock().defaultBlockState());
+                if (++installedIntakes == requiredIntakes) break;
+            }
+        }
+        eq(h, installedIntakes, requiredIntakes,
+                "Could not install all full-load air intake hatches in legal wall positions");
+        h.assertTrue(machine.checkPattern(),
+                "Four large supplies and eight air intakes did not reform the blast furnace");
+        machine.onStructureFormed();
+        h.assertTrue(machine.isFormed(), "Full-load blast-furnace fixture remained invalid");
     }
 
     private static void formed(GameTestHelper h, MultiblockMachineDefinition definition,
