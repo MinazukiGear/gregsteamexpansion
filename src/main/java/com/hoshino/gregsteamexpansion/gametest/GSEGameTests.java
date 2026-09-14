@@ -1613,6 +1613,79 @@ public final class GSEGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamAssemblerRestrictsHatchesToWallCasings(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_ASSEMBLER;
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(0));
+        helper.assertTrue(machine != null, "Missing large steam assembler fixture controller");
+        if (machine == null) {
+            return;
+        }
+
+        BlockPos controller = machine.getPos();
+        // North-facing preview coordinates relative to the bottom-front controller:
+        // one replaceable front wall cell and one fixed cell from each industrial region.
+        BlockPos wall = controller.offset(-3, 2, 0);
+        BlockPos bottom = controller.offset(-3, 0, 4);
+        BlockPos top = controller.offset(0, 8, 4);
+        BlockPos verticalEdge = controller.offset(-4, 2, 0);
+        BlockState wallState = helper.getLevel().getBlockState(wall);
+        BlockState bottomState = helper.getLevel().getBlockState(bottom);
+        BlockState topState = helper.getLevel().getBlockState(top);
+        BlockState edgeState = helper.getLevel().getBlockState(verticalEdge);
+        BlockState hatchState = GSEMachines.STEAM_SUPPLY_HATCH.getBlock().defaultBlockState();
+
+        helper.assertTrue(wallState.is(GSEProcessorPatterns.bronzeSteamCasing()),
+                "Assembler wall probe is not a bronze steam casing");
+        helper.assertTrue(bottomState.is(GSEProcessorPatterns.industrialSteamCasing()),
+                "Assembler bottom probe is not an industrial steam casing");
+        helper.assertTrue(topState.is(GSEProcessorPatterns.industrialSteamCasing()),
+                "Assembler top probe is not an industrial steam casing");
+        helper.assertTrue(edgeState.is(GSEProcessorPatterns.industrialSteamCasing()),
+                "Assembler edge probe is not an industrial steam casing");
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
+                        "Baseline large steam assembler fixture did not form"))
+                .thenExecute(() -> {
+                    machine.onStructureInvalid();
+
+                    helper.getLevel().setBlockAndUpdate(wall, hatchState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam assembler rejected a supply hatch on its wall");
+                    helper.getLevel().setBlockAndUpdate(wall, wallState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam assembler did not recover its wall casing");
+
+                    helper.getLevel().setBlockAndUpdate(bottom, hatchState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Large steam assembler accepted a hatch on its bottom face");
+                    helper.getLevel().setBlockAndUpdate(bottom, bottomState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam assembler did not recover its bottom casing");
+
+                    helper.getLevel().setBlockAndUpdate(top, hatchState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Large steam assembler accepted a hatch on its top face");
+                    helper.getLevel().setBlockAndUpdate(top, topState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam assembler did not recover its top casing");
+
+                    helper.getLevel().setBlockAndUpdate(verticalEdge, hatchState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Large steam assembler accepted a hatch on its vertical edge");
+                    helper.getLevel().setBlockAndUpdate(verticalEdge, edgeState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam assembler did not recover its edge casing");
+
+                    machine.onStructureFormed();
+                    helper.assertTrue(machine.isFormed(),
+                            "Large steam assembler remained invalid after restoring its shell");
+                })
+                .thenSucceed();
+    }
+
     private static Block expectedLargeSteamAssemblerBlock(MultiblockMachineDefinition definition,
                                                            int depth, int layer, int column) {
         if (layer == 0) {
