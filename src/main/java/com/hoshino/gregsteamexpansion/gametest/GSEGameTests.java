@@ -24,6 +24,9 @@ import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTRecipes;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
+import com.gregtechceu.gtceu.common.data.GTCovers;
+import com.gregtechceu.gtceu.common.data.GTItems;
+import com.gregtechceu.gtceu.common.cover.ShutterCover;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
@@ -500,6 +503,7 @@ public final class GSEGameTests {
         SteamFluidHatchPartMachine input = placeHatch(helper, GSEMachines.STEAM_FLUID_IMPORT_HATCH, HATCH_POS);
         input.tank.fill(GTMaterials.Water.getFluid(5_000), FluidAction.EXECUTE);
         input.setFrontFacing(Direction.EAST);
+        attachDisabledShutter(helper, input, Direction.WEST);
 
         helper.assertTrue(input.swapIO(), "Steam fluid input hatch refused the screwdriver swap");
         MetaMachine swapped = MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(HATCH_POS));
@@ -511,6 +515,7 @@ public final class GSEGameTests {
             helper.assertTrue(output.tank.getFluidInTank(0).getAmount() == 5_000,
                     "Swap lost the stored fluid");
             helper.assertTrue(output.getFrontFacing() == Direction.EAST, "Swap lost the front facing");
+            assertDisabledShutter(helper, output, Direction.WEST, "Swap");
 
             helper.assertTrue(output.swapIO(), "Steam fluid output hatch refused the swap back");
             MetaMachine back = MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(HATCH_POS));
@@ -518,6 +523,9 @@ public final class GSEGameTests {
                     restored.getDefinition() == GSEMachines.STEAM_FLUID_IMPORT_HATCH &&
                     restored.tank.getFluidInTank(0).getAmount() == 5_000,
                     "Swapping back did not restore the input hatch with its content");
+            if (back instanceof SteamFluidHatchPartMachine restored) {
+                assertDisabledShutter(helper, restored, Direction.WEST, "Swap back");
+            }
         }
         helper.succeed();
     }
@@ -594,6 +602,7 @@ public final class GSEGameTests {
         legacy.setPaintingColor(0x5A7C91);
         legacy.setWorkingEnabled(false);
         legacy.tank.setFluidInTank(0, GTMaterials.Steam.getFluid(50_000));
+        attachDisabledShutter(helper, legacy, Direction.WEST);
         Direction expectedFront = legacy.getFrontFacing();
         Direction expectedUpwards = legacy.getUpwardsFacing();
 
@@ -610,6 +619,7 @@ public final class GSEGameTests {
                     "Legacy migration lost the painting color");
             helper.assertTrue(!supply.isWorkingEnabled(),
                     "Legacy migration lost the working-enabled state");
+            assertDisabledShutter(helper, supply, Direction.WEST, "Legacy migration");
             helper.assertTrue(supply.tank.getFluidInTank(0).getAmount() == 50_000,
                     "Legacy migration truncated or duplicated over-cap steam");
             helper.assertTrue(supply.tank.fill(GTMaterials.Steam.getFluid(1), FluidAction.EXECUTE) == 0,
@@ -628,6 +638,30 @@ public final class GSEGameTests {
                     "Repeated migration changed an already converted hatch");
         }
         helper.succeed();
+    }
+
+    private static void attachDisabledShutter(GameTestHelper helper, MetaMachine machine, Direction side) {
+        boolean attached = machine.getCoverContainer().placeCoverOnSide(
+                side, GTItems.COVER_SHUTTER.asStack(), GTCovers.SHUTTER, null);
+        helper.assertTrue(attached, "Could not attach the shutter cover used by the transfer test");
+        var cover = machine.getCoverContainer().getCoverAtSide(side);
+        helper.assertTrue(cover instanceof ShutterCover, "Attached test cover was not a shutter");
+        if (cover instanceof ShutterCover shutter) {
+            shutter.setWorkingEnabled(false);
+        }
+    }
+
+    private static void assertDisabledShutter(GameTestHelper helper, MetaMachine machine, Direction side,
+                                              String operation) {
+        var cover = machine.getCoverContainer().getCoverAtSide(side);
+        helper.assertTrue(cover instanceof ShutterCover, operation + " lost the shutter cover");
+        if (cover instanceof ShutterCover shutter) {
+            helper.assertTrue(shutter.coverDefinition == GTCovers.SHUTTER,
+                    operation + " changed the shutter cover definition");
+            helper.assertTrue(!shutter.isWorkingEnabled(), operation + " reset the shutter cover configuration");
+            helper.assertTrue(shutter.getPickItem().is(GTItems.COVER_SHUTTER.get()),
+                    operation + " changed the shutter cover item");
+        }
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)

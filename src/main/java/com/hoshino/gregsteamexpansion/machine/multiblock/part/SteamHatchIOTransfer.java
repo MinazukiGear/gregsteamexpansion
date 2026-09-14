@@ -4,13 +4,17 @@ import com.gregtechceu.gtceu.api.cover.CoverBehavior;
 import com.gregtechceu.gtceu.api.cover.CoverDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 
+import com.lowdragmc.lowdraglib.gui.editor.runtime.PersistedParser;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -24,8 +28,8 @@ import java.util.List;
  */
 public final class SteamHatchIOTransfer {
 
-    /** One detached cover: side, definition and the item it was attached from. */
-    public record CoverData(Direction side, CoverDefinition definition, ItemStack item) {}
+    /** One detached cover: side, definition, attached item and persisted settings. */
+    public record CoverData(Direction side, CoverDefinition definition, ItemStack item, CompoundTag persistedState) {}
 
     private SteamHatchIOTransfer() {}
 
@@ -38,7 +42,9 @@ public final class SteamHatchIOTransfer {
         for (Direction side : Direction.values()) {
             CoverBehavior cover = machine.getCoverContainer().getCoverAtSide(side);
             if (cover != null) {
-                covers.add(new CoverData(side, cover.coverDefinition, cover.getPickItem().copy()));
+                CompoundTag persistedState = new CompoundTag();
+                PersistedParser.serializeNBT(persistedState, cover.getClass(), cover);
+                covers.add(new CoverData(side, cover.coverDefinition, cover.getPickItem().copy(), persistedState));
                 machine.getCoverContainer().setCoverAtSide(null, side);
             }
         }
@@ -48,8 +54,19 @@ public final class SteamHatchIOTransfer {
     /** Re-attaches covers on the new machine; rejects drop as items at pos. */
     public static void restoreCovers(MetaMachine machine, List<CoverData> covers, BlockPos pos) {
         for (CoverData cover : covers) {
-            boolean attached = machine.getCoverContainer().placeCoverOnSide(cover.side(), cover.item(),
-                    cover.definition(), null);
+            var container = machine.getCoverContainer();
+            CoverBehavior restored = cover.definition().createCoverBehavior(container, cover.side());
+            boolean attached = container.getCoverAtSide(cover.side()) == null &&
+                    container.canPlaceCoverOnSide(cover.definition(), cover.side()) && restored.canAttach();
+            if (attached) {
+                restored.onAttached(cover.item(), null);
+                PersistedParser.deserializeNBT(cover.persistedState(), new HashMap<>(), restored.getClass(), restored);
+                restored.onLoad();
+                container.setCoverAtSide(restored, cover.side());
+                container.notifyBlockUpdate();
+                container.markDirty();
+                container.scheduleNeighborShapeUpdate();
+            }
             if (!attached) {
                 Level level = machine.getLevel();
                 if (level != null) {
