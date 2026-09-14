@@ -98,12 +98,14 @@ public final class GSESteamEngineTests {
     public static void processorPersistedStateRoundTrip(GameTestHelper h) {
         formed(h, GSEMachines.STEAM_CENTRIFUGE, m -> {
             set(m, "workingEnabled", false);
+            set(m, "largeSteamOverclockEnabled", true);
             set(m, "hasBatch", true);
             set(m, "batchRecipeId", "gregsteamexpansion:persisted_processor");
             set(m, "batchParallel", 3);
             set(m, "batchProgress", 47);
             set(m, "batchDurationTicks", 211);
             set(m, "batchSteamPerTickMb", 600L);
+            set(m, "batchLargeSteamOverclock", true);
             set(m, "batchTotalSteamMb", 126_600L);
             set(m, "batchOutputMultiplier", 2.0F);
             set(m, "batchInputDisplay", new ItemStack(Items.IRON_INGOT, 2));
@@ -117,7 +119,11 @@ public final class GSESteamEngineTests {
             loadState(h, m, saved);
 
             h.assertTrue(!(boolean) call(m, "isWorkingEnabled"), "Processor work-enabled state was not restored");
+            h.assertTrue((boolean) call(m, "isLargeSteamOverclockEnabled"),
+                    "Processor overclock preference was not restored");
             h.assertTrue((boolean) get(m, "hasBatch"), "Processor batch flag was not restored");
+            h.assertTrue((boolean) call(m, "isCurrentBatchLargeSteamOverclocked"),
+                    "Processor locked batch overclock was not restored");
             h.assertTrue(get(m, "batchRecipeId").equals("gregsteamexpansion:persisted_processor"),
                     "Processor recipe id was not restored");
             eq(h, number(m, "batchParallel"), 3, "Processor parallel was not restored");
@@ -215,11 +221,14 @@ public final class GSESteamEngineTests {
     public static void crusherPersistedStateRoundTrip(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_CRUSHER, m -> {
             set(m, "workingEnabled", false);
+            set(m, "largeSteamOverclockEnabled", true);
             set(m, "hasBatch", true);
             set(m, "batchRecipeId", "gregsteamexpansion:persisted_crusher");
             set(m, "batchParallel", 6);
             set(m, "batchProgress", 173);
+            set(m, "batchDurationTicks", 300);
             set(m, "batchSteamPerTickMb", 1_200L);
+            set(m, "batchLargeSteamOverclock", true);
             set(m, "batchTotalSteamMb", 720_000L);
             set(m, "batchInputDisplay", new ItemStack(Items.RAW_IRON, 1));
             set(m, "pendingDataVersion", (byte) 1);
@@ -231,11 +240,16 @@ public final class GSESteamEngineTests {
             loadState(h, m, saved);
 
             h.assertTrue(!(boolean) call(m, "isWorkingEnabled"), "Crusher work-enabled state was not restored");
+            h.assertTrue((boolean) call(m, "isLargeSteamOverclockEnabled"),
+                    "Crusher overclock preference was not restored");
             h.assertTrue((boolean) get(m, "hasBatch"), "Crusher batch flag was not restored");
+            h.assertTrue((boolean) call(m, "isCurrentBatchLargeSteamOverclocked"),
+                    "Crusher locked batch overclock was not restored");
             h.assertTrue(get(m, "batchRecipeId").equals("gregsteamexpansion:persisted_crusher"),
                     "Crusher recipe id was not restored");
             eq(h, number(m, "batchParallel"), 6, "Crusher parallel was not restored");
             eq(h, number(m, "batchProgress"), 173, "Crusher progress was not restored");
+            eq(h, number(m, "batchDurationTicks"), 300, "Crusher duration was not restored");
             eq(h, number(m, "batchSteamPerTickMb"), 1_200, "Crusher steam demand was not restored");
             eq(h, number(m, "batchTotalSteamMb"), 720_000, "Crusher steam total was not restored");
             eq(h, number(m, "exhaustDamageTimer"), 197, "Crusher exhaust timer was not restored");
@@ -264,11 +278,13 @@ public final class GSESteamEngineTests {
             set(m, "coolTimer", 3);
             set(m, "exhaustDamageTimer", 199L);
             set(m, "workingEnabled", false);
+            set(m, "largeSteamOverclockEnabled", true);
             set(m, "lastAppliedDifficulty", 1);
             set(m, "recipeMode", LargeHeatStorageSteamFurnaceMachine.MODE_FURNACE);
             set(m, "hasBatch", true);
             set(m, "batchTotalSteamMb", 80_000L);
             set(m, "batchSteamPerTickMb", 400L);
+            set(m, "batchLargeSteamOverclock", true);
             set(m, "batchDuration", 200);
             set(m, "batchProgress", 73);
             set(m, "batchParallel", 4);
@@ -295,7 +311,11 @@ public final class GSESteamEngineTests {
             eq(h, number(m, "coolTimer"), 3, "Furnace cool timer was not restored");
             eq(h, number(m, "exhaustDamageTimer"), 199, "Furnace exhaust timer was not restored");
             h.assertTrue(!(boolean) call(m, "isWorkingEnabled"), "Furnace work-enabled state was not restored");
+            h.assertTrue((boolean) call(m, "isLargeSteamOverclockEnabled"),
+                    "Furnace overclock preference was not restored");
             h.assertTrue((boolean) get(m, "hasBatch"), "Furnace batch flag was not restored");
+            h.assertTrue((boolean) call(m, "isCurrentBatchLargeSteamOverclocked"),
+                    "Furnace locked batch overclock was not restored");
             eq(h, number(m, "batchProgress"), 73, "Furnace progress was not restored");
             eq(h, number(m, "batchDuration"), 200, "Furnace duration was not restored");
             eq(h, number(m, "batchParallel"), 4, "Furnace parallel was not restored");
@@ -320,21 +340,29 @@ public final class GSESteamEngineTests {
     public static void voidProducerPersistedStateRoundTrip(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> {
             set(m, "workingEnabled", false);
+            set(m, "largeSteamOverclockEnabled", true);
             set(m, "cycleProgress", 137);
+            set(m, "cycleLargeSteamOverclock", true);
             pending(m).add(new ItemStack(Items.RAW_GOLD, 11));
             List<FluidStack> fluids = list(m, "pendingFluids");
             fluids.add(GTMaterials.Water.getFluid(333));
 
             CompoundTag saved = saveState(h, m);
             set(m, "workingEnabled", true);
+            set(m, "largeSteamOverclockEnabled", false);
             set(m, "cycleProgress", 0);
+            set(m, "cycleLargeSteamOverclock", false);
             pending(m).clear();
             fluids.clear();
             loadState(h, m, saved);
 
             h.assertTrue(!(boolean) call(m, "isWorkingEnabled"),
                     "Void producer work-enabled state was not restored");
+            h.assertTrue((boolean) call(m, "isLargeSteamOverclockEnabled"),
+                    "Void producer overclock preference was not restored");
             eq(h, number(m, "cycleProgress"), 137, "Void producer progress was not restored");
+            h.assertTrue((boolean) call(m, "isCurrentCycleLargeSteamOverclocked"),
+                    "Void producer locked cycle overclock was not restored");
             eq(h, count(pending(m), Items.RAW_GOLD), 11, "Void producer pending item was not restored");
             eq(h, fluidAmount(fluids, GTMaterials.Water.getFluid(1)), 333,
                     "Void producer pending fluid was not restored");
@@ -1039,12 +1067,14 @@ public final class GSESteamEngineTests {
         MultiblockControllerMachine controller = (MultiblockControllerMachine) placed;
 
         set(controller, "workingEnabled", false);
+        set(controller, "largeSteamOverclockEnabled", true);
         set(controller, "hasBatch", true);
         set(controller, "batchRecipeId", "gregsteamexpansion:chunk_reload_processor");
         set(controller, "batchParallel", 3);
         set(controller, "batchProgress", 47);
         set(controller, "batchDurationTicks", 211);
         set(controller, "batchSteamPerTickMb", 600L);
+        set(controller, "batchLargeSteamOverclock", true);
         set(controller, "batchTotalSteamMb", 126_600L);
         pending(controller).add(new ItemStack(Items.DIAMOND, 5));
         list(controller, "pendingFluids").add(GTMaterials.Water.getFluid(750));
@@ -1061,8 +1091,12 @@ public final class GSESteamEngineTests {
                                                    String context) {
         h.assertTrue(!(boolean) call(restored, "isWorkingEnabled"),
                 context + " lost processor work-enabled state");
+        h.assertTrue((boolean) call(restored, "isLargeSteamOverclockEnabled"),
+                context + " lost processor overclock preference");
         h.assertTrue((boolean) get(restored, "hasBatch"),
                 context + " lost processor batch flag");
+        h.assertTrue((boolean) call(restored, "isCurrentBatchLargeSteamOverclocked"),
+                context + " lost processor locked batch overclock");
         h.assertTrue(get(restored, "batchRecipeId").equals("gregsteamexpansion:chunk_reload_processor"),
                 context + " lost processor recipe id");
         eq(h, number(restored, "batchParallel"), 3, context + " lost processor parallel");
@@ -1091,12 +1125,14 @@ public final class GSESteamEngineTests {
 
     private static void clearProcessorState(MultiblockControllerMachine m) {
         set(m, "workingEnabled", true);
+        set(m, "largeSteamOverclockEnabled", false);
         set(m, "hasBatch", false);
         set(m, "batchRecipeId", "");
         set(m, "batchParallel", 0);
         set(m, "batchProgress", 0);
         set(m, "batchDurationTicks", 0);
         set(m, "batchSteamPerTickMb", 0L);
+        set(m, "batchLargeSteamOverclock", false);
         set(m, "batchTotalSteamMb", 0L);
         set(m, "batchOutputMultiplier", 1.0F);
         set(m, "batchInputDisplay", ItemStack.EMPTY);
@@ -1107,11 +1143,14 @@ public final class GSESteamEngineTests {
 
     private static void clearCrusherState(MultiblockControllerMachine m) {
         set(m, "workingEnabled", true);
+        set(m, "largeSteamOverclockEnabled", false);
         set(m, "hasBatch", false);
         set(m, "batchRecipeId", "");
         set(m, "batchParallel", 0);
         set(m, "batchProgress", 0);
+        set(m, "batchDurationTicks", 600);
         set(m, "batchSteamPerTickMb", 0L);
+        set(m, "batchLargeSteamOverclock", false);
         set(m, "batchTotalSteamMb", 0L);
         set(m, "batchInputDisplay", ItemStack.EMPTY);
         set(m, "exhaustDamageTimer", 0L);
@@ -1127,10 +1166,12 @@ public final class GSESteamEngineTests {
         set(m, "coolTimer", 0);
         set(m, "exhaustDamageTimer", 0L);
         set(m, "workingEnabled", true);
+        set(m, "largeSteamOverclockEnabled", false);
         set(m, "lastAppliedDifficulty", 0);
         set(m, "hasBatch", false);
         set(m, "batchTotalSteamMb", 0L);
         set(m, "batchSteamPerTickMb", 0L);
+        set(m, "batchLargeSteamOverclock", false);
         set(m, "batchDuration", 0);
         set(m, "batchProgress", 0);
         set(m, "batchParallel", 0);
@@ -1153,6 +1194,7 @@ public final class GSESteamEngineTests {
         set(m, "batchDuration", 0);
         set(m, "batchTotalSteamMb", 0L);
         set(m, "batchSteamPerTickMb", 0L);
+        set(m, "batchLargeSteamOverclock", false);
         set(m, "batchInputSourcePos", Long.MIN_VALUE);
     }
 
