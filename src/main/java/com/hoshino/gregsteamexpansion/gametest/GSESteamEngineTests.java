@@ -20,6 +20,7 @@ import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
 import com.gregtechceu.gtceu.api.data.RotationState;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
@@ -40,6 +41,8 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachin
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -61,10 +64,13 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,6 +80,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -1173,6 +1180,118 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnacePersistsAndAtomicallyDeliversRealPendingOutput(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            ItemBusPartMachine input = inputBus(machine);
+            List<SteamAirIntakeHatchPartMachine> intakes = list(machine, "airIntakeHatches");
+            h.assertTrue(!intakes.isEmpty(), "Fixture lacks blast air intake");
+            for (var intake : intakes) intake.tank.getStorages()[0].setFluid(FluidStack.EMPTY);
+            intakes.get(0).tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(32_000));
+            fillOutputs(machine, false);
+            fillSteam(machine, 32_000);
+
+            GTRecipe recipe = recipeEndingWith(
+                    GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES,
+                    "wrought_iron_from_dust_coke_dust");
+            Item wroughtIron = ChemicalHelper.get(TagPrefix.ingot, GTMaterials.WroughtIron).getItem();
+            input.getInventory().setStackInSlot(0,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 4));
+            input.getInventory().setStackInSlot(1,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 4));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                    "Blast furnace did not start its real pending-output recipe");
+            eq(h, machine.getBatchParallel(), 4, "Pending-output recipe locked the wrong parallel");
+            eq(h, inputItemCount(input, ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron).getItem()), 0,
+                    "Controller retained iron input after starting the batch");
+            eq(h, inputItemCount(input, ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke).getItem()), 0,
+                    "Controller retained coke input after starting the batch");
+            eq(h, machine.getPendingTotalCount(), 0, "Live batch appeared in the pending-output cache");
+            set(machine, "batchProgress", 7);
+
+            var ui = machine.createUI(FakePlayerFactory.getMinecraft(h.getLevel()));
+            List<ToggleButtonWidget> powerButtons = ui.getFlatWidgetCollection().stream()
+                    .filter(ToggleButtonWidget.class::isInstance)
+                    .map(ToggleButtonWidget.class::cast)
+                    .filter(widget -> widget.getSelfPositionX() == 6)
+                    .toList();
+            h.assertTrue(powerButtons.size() == 1, "Controller UI did not expose exactly one power button");
+            ToggleButtonWidget powerButton = powerButtons.get(0);
+            powerButton.detectAndSendChanges();
+            h.assertTrue(powerButton.isPressed(), "Controller UI power button did not reflect enabled state");
+            guiToggle(powerButton, false);
+            h.assertTrue(!machine.isWorkingEnabled(), "GUI power button did not disable the blast furnace");
+            long steamBefore = steam(machine);
+            long airBefore = air(machine);
+            tick(machine);
+            eq(h, progress(machine), 7, "GUI-disabled blast furnace changed batch progress");
+            eq(h, steam(machine), steamBefore, "GUI-disabled blast furnace consumed steam");
+            eq(h, air(machine), airBefore, "GUI-disabled blast furnace consumed blast air");
+            h.assertTrue(machine.getStatusId().equals("working_disabled"),
+                    "GUI-disabled blast furnace exposed the wrong status");
+
+            BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(machine.getPos()),
+                    machine.getFrontFacing(), machine.getPos(), false);
+            InteractionResult malletResult = (InteractionResult) call(machine, "onSoftMalletClick",
+                    FakePlayerFactory.getMinecraft(h.getLevel()), InteractionHand.MAIN_HAND,
+                    machine.getFrontFacing(), hit);
+            h.assertTrue(malletResult.consumesAction(), "Soft mallet did not handle the controller click");
+            h.assertTrue(machine.isWorkingEnabled(), "Soft mallet did not re-enable the blast furnace");
+            tick(machine);
+            eq(h, progress(machine), 8, "Soft-mallet-enabled blast furnace did not resume");
+            eq(h, steamBefore - steam(machine), 800,
+                    "Soft-mallet-enabled blast furnace consumed the wrong steam amount");
+            eq(h, airBefore - air(machine), 16,
+                    "Soft-mallet-enabled blast furnace consumed the wrong air amount");
+
+            malletResult = (InteractionResult) call(machine, "onSoftMalletClick",
+                    FakePlayerFactory.getMinecraft(h.getLevel()), InteractionHand.MAIN_HAND,
+                    machine.getFrontFacing(), hit);
+            h.assertTrue(malletResult.consumesAction() && !machine.isWorkingEnabled(),
+                    "Second soft-mallet click did not disable the blast furnace");
+            guiToggle(powerButton, true);
+            h.assertTrue(machine.isWorkingEnabled(), "GUI power button did not re-enable the blast furnace");
+
+            fillOutputs(machine, true);
+            set(machine, "batchProgress", machine.getBatchDuration() - 1);
+            tick(machine);
+            h.assertTrue(!(boolean) get(machine, "hasBatch"), "Completed blast batch remained active");
+            eq(h, machine.getPendingTotalCount(), 4,
+                    "Blocked real recipe did not create four pending wrought-iron ingots");
+            eq(h, count(pending(machine), wroughtIron), 4,
+                    "Controller pending cache contained something other than the real recipe output");
+            h.assertTrue(machine.getStatusId().equals("insufficient_outputs"),
+                    "Blocked real output did not expose the output-full status");
+
+            CompoundTag saved = saveState(h, machine);
+            clearProcessorState(machine);
+            loadState(h, machine, saved);
+            eq(h, count(pending(machine), wroughtIron), 4,
+                    "Blast-furnace pending output did not survive controller NBT reload");
+            h.assertTrue((boolean) call(get(machine, "pendingBuffer"), "hasAny"),
+                    "Reloaded pending buffer detached from the restored output list");
+
+            ItemBusPartMachine output = outputs(machine).get(0);
+            output.getInventory().setStackInSlot(0, new ItemStack(wroughtIron, 62));
+            h.assertTrue(!(boolean) call(machine, "deliverPendingOutputs"),
+                    "Insufficient output space accepted the whole pending batch");
+            eq(h, outputCount(machine, wroughtIron), 62,
+                    "Failed pending-output delivery partially mutated the output bus");
+            eq(h, count(pending(machine), wroughtIron), 4,
+                    "Failed pending-output delivery partially consumed the controller cache");
+
+            output.getInventory().setStackInSlot(1, ItemStack.EMPTY);
+            h.assertTrue((boolean) call(machine, "deliverPendingOutputs"),
+                    "Sufficient output space rejected the restored pending batch");
+            eq(h, outputCount(machine, wroughtIron), 66,
+                    "Restored pending output was duplicated or lost during whole-batch delivery");
+            eq(h, machine.getPendingTotalCount(), 0, "Successful delivery left pending controller output");
+            h.assertTrue(!(boolean) call(get(machine, "pendingBuffer"), "hasAny"),
+                    "Successful delivery did not clear the pending buffer");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceParallelUsesTightestLimit(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -2085,6 +2204,11 @@ public final class GSESteamEngineTests {
             }
         }
         return total;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void guiToggle(ToggleButtonWidget widget, boolean enabled) {
+        ((BiConsumer<Object, Boolean>) get(widget, "onPressCallback")).accept(null, enabled);
     }
 
     private static int outputTotal(Object m) {
