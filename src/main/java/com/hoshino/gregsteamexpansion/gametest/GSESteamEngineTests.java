@@ -624,6 +624,96 @@ public final class GSESteamEngineTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamOverclockLocksOnlyAtProcessorBatchStart(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_MACERATOR, m -> {
+            AbstractSteamProcessorMachine processor = (AbstractSteamProcessorMachine) m;
+            h.assertTrue(!processor.hasLargeSteamSupplyHatch(),
+                    "Ordinary preview unexpectedly contains a Large Steam Supply Hatch");
+            processor.setLargeSteamOverclockEnabled(true);
+            h.assertTrue(!processor.isLargeSteamOverclockEnabled(),
+                    "Controller enabled large steam overclock without a Large Steam Supply Hatch");
+
+            BlockPos supplyPos = findBlock(h, m, GSEMachines.STEAM_SUPPLY_HATCH.getBlock());
+            h.assertTrue(supplyPos != null, "Large macerator fixture has no ordinary steam supply hatch");
+            m.onStructureInvalid();
+            h.getLevel().setBlockAndUpdate(supplyPos,
+                    GSEMachines.LARGE_STEAM_SUPPLY_HATCH.getBlock().defaultBlockState());
+            h.assertTrue(m.checkPattern(), "Large Steam Supply Hatch did not reform the large macerator");
+            m.onStructureFormed();
+            h.assertTrue(m.isFormed() && processor.hasLargeSteamSupplyHatch(),
+                    "Reformed controller did not collect the Large Steam Supply Hatch");
+
+            ItemBusPartMachine input = m.getParts().stream()
+                    .filter(ItemBusPartMachine.class::isInstance)
+                    .map(ItemBusPartMachine.class::cast)
+                    .filter(bus -> bus.getInventory().getHandlerIO() == IO.IN)
+                    .findFirst().orElseThrow();
+            GTRecipe recipe = GTRecipeTypes.MACERATOR_RECIPES.recipeBuilder(
+                            GregSteamExpansion.id("engine_large_steam_overclock"))
+                    .inputItems(new ItemStack(Items.IRON_INGOT))
+                    .outputItems(new ItemStack(Items.GOLD_INGOT))
+                    .duration(20).EUt(8).buildRawRecipe();
+            fillOutputs(m, false);
+
+            processor.setLargeSteamOverclockEnabled(true);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.IRON_INGOT));
+            h.assertTrue((boolean) call(m, "tryStartRecipe", recipe),
+                    "Overclock-enabled processor recipe did not start");
+            h.assertTrue(processor.isCurrentBatchLargeSteamOverclocked(),
+                    "Processor did not lock overclock at batch start");
+            eq(h, number(m, "batchDurationTicks"), 15,
+                    "Processor did not halve its 30-tick adjusted duration");
+            eq(h, number(m, "batchSteamPerTickMb"), 48,
+                    "Processor did not triple its 16 mB/t base steam demand");
+            eq(h, number(m, "batchTotalSteamMb"), 720,
+                    "Processor locked the wrong overclocked steam total");
+
+            processor.setLargeSteamOverclockEnabled(false);
+            h.assertTrue(processor.isCurrentBatchLargeSteamOverclocked(),
+                    "Disabling the toggle rewrote the running overclocked batch");
+            eq(h, number(m, "batchDurationTicks"), 15,
+                    "Disabling the toggle changed the running batch duration");
+            eq(h, number(m, "batchSteamPerTickMb"), 48,
+                    "Disabling the toggle changed the running batch demand");
+            fillSteam(m, 32_000);
+            long steamBeforeTick = steam(m);
+            tick(m);
+            eq(h, steamBeforeTick - steam(m), 48,
+                    "Running overclocked batch did not consume its locked steam demand");
+            eq(h, progress(m), 1,
+                    "Running overclocked batch did not advance after its locked steam draw");
+
+            call(m, "completeBatch");
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.IRON_INGOT));
+            h.assertTrue((boolean) call(m, "tryStartRecipe", recipe),
+                    "Normal processor recipe did not start after disabling overclock");
+            h.assertTrue(!processor.isCurrentBatchLargeSteamOverclocked(),
+                    "Disabled overclock remained active for the next batch");
+            eq(h, number(m, "batchDurationTicks"), 30,
+                    "Normal processor batch kept the overclocked duration");
+            eq(h, number(m, "batchSteamPerTickMb"), 16,
+                    "Normal processor batch kept the overclocked steam demand");
+            eq(h, number(m, "batchTotalSteamMb"), 480,
+                    "Normal processor batch kept the overclocked steam total");
+
+            processor.setLargeSteamOverclockEnabled(true);
+            h.assertTrue(!processor.isCurrentBatchLargeSteamOverclocked(),
+                    "Enabling the toggle rewrote a running normal batch");
+            eq(h, number(m, "batchDurationTicks"), 30,
+                    "Enabling the toggle changed the running normal duration");
+            eq(h, number(m, "batchSteamPerTickMb"), 16,
+                    "Enabling the toggle changed the running normal demand");
+            fillSteam(m, 32_000);
+            steamBeforeTick = steam(m);
+            tick(m);
+            eq(h, steamBeforeTick - steam(m), 16,
+                    "Running normal batch did not retain its locked steam demand");
+            eq(h, progress(m), 1,
+                    "Running normal batch did not advance after its locked steam draw");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void processorFluidCapacityAndRecovery(GameTestHelper h) {
         formed(h, GSEMachines.STEAM_CENTRIFUGE, m -> {
             List<FluidHatchPartMachine> hatches = list(m, "fluidOutputHatches");
