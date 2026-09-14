@@ -11,6 +11,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatch
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
+import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 
 import com.gregtechceu.gtceu.GTCEu;
@@ -21,6 +22,7 @@ import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.machine.MachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.PartAbility;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
@@ -1232,6 +1234,107 @@ public final class GSEGameTests {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
     public static void largeSteamBlastFurnaceFormsFromShape(GameTestHelper helper) {
         GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_BLAST_FURNACE);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamBlastFurnaceRejectsInvalidInterfaces(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(0));
+        helper.assertTrue(machine != null, "Missing blast-furnace fixture controller");
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
+                        "Baseline blast-furnace fixture did not form"))
+                .thenExecute(() -> {
+                    List<BlockPos> intakes = new java.util.ArrayList<>();
+                    List<BlockPos> exhausts = new java.util.ArrayList<>();
+                    List<BlockPos> bricks = new java.util.ArrayList<>();
+                    for (BlockPos pos : BlockPos.betweenClosed(
+                            machine.getPos().offset(-15, -15, -15),
+                            machine.getPos().offset(15, 15, 15))) {
+                        BlockState state = helper.getLevel().getBlockState(pos);
+                        if (state.is(GSEMachines.STEAM_AIR_INTAKE_HATCH.getBlock())) {
+                            intakes.add(pos.immutable());
+                        } else if (state.is(GSEMachines.STEAM_EXHAUST_HATCH.getBlock())) {
+                            exhausts.add(pos.immutable());
+                        } else if (state.is(GSEProcessorPatterns.blastBricks())) {
+                            bricks.add(pos.immutable());
+                        }
+                    }
+                    helper.assertTrue(intakes.size() == 3,
+                            "Blast-furnace preview intake count changed: " + intakes.size());
+                    helper.assertTrue(exhausts.size() == 1,
+                            "Blast-furnace preview exhaust count changed: " + exhausts.size());
+                    helper.assertTrue(bricks.size() >= 8,
+                            "Blast-furnace preview lacks mutation candidate bricks");
+
+                    machine.onStructureInvalid();
+                    Map<BlockPos, BlockState> intakeStates = new HashMap<>();
+                    for (BlockPos pos : intakes) {
+                        intakeStates.put(pos, helper.getLevel().getBlockState(pos));
+                        helper.getLevel().setBlockAndUpdate(
+                                pos, GSEProcessorPatterns.blastBricks().defaultBlockState());
+                    }
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Blast furnace formed without an air intake hatch");
+                    intakeStates.forEach(helper.getLevel()::setBlockAndUpdate);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Blast furnace did not recover after restoring its air intakes");
+
+                    BlockState intakeState = intakeStates.get(intakes.get(0));
+                    for (int i = 0; i < 5; i++) {
+                        helper.getLevel().setBlockAndUpdate(bricks.get(i), intakeState);
+                    }
+                    helper.assertTrue(machine.checkPattern(),
+                            "Blast furnace rejected the legal eight-intake maximum");
+                    helper.getLevel().setBlockAndUpdate(bricks.get(5), intakeState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Blast furnace formed with a ninth air intake hatch");
+                    for (int i = 0; i < 6; i++) {
+                        helper.getLevel().setBlockAndUpdate(
+                                bricks.get(i), GSEProcessorPatterns.blastBricks().defaultBlockState());
+                    }
+                    helper.assertTrue(machine.checkPattern(),
+                            "Blast furnace did not recover after removing excess air intakes");
+
+                    BlockPos fluidProbe = bricks.get(6);
+                    helper.getLevel().setBlockAndUpdate(
+                            fluidProbe, GTMachines.FLUID_IMPORT_HATCH[1].getBlock().defaultBlockState());
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Blast furnace accepted a standard fluid input hatch");
+                    helper.getLevel().setBlockAndUpdate(fluidProbe,
+                            GSEMachines.STEAM_FLUID_IMPORT_HATCH.getBlock().defaultBlockState());
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Blast furnace accepted a steam fluid input hatch");
+                    helper.getLevel().setBlockAndUpdate(
+                            fluidProbe, GSEProcessorPatterns.blastBricks().defaultBlockState());
+                    helper.assertTrue(machine.checkPattern(),
+                            "Blast furnace did not recover after removing the fluid hatch");
+
+                    BlockPos exhaust = exhausts.get(0);
+                    BlockState exhaustState = helper.getLevel().getBlockState(exhaust);
+                    helper.getLevel().setBlockAndUpdate(
+                            exhaust, GSEProcessorPatterns.blastBricks().defaultBlockState());
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Blast furnace formed without its exhaust hatch");
+                    helper.getLevel().setBlockAndUpdate(exhaust, exhaustState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Blast furnace did not recover after restoring its exhaust hatch");
+
+                    BlockPos duplicateExhaust = bricks.get(7);
+                    helper.getLevel().setBlockAndUpdate(duplicateExhaust, exhaustState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Blast furnace formed with two exhaust hatches");
+                    helper.getLevel().setBlockAndUpdate(
+                            duplicateExhaust, GSEProcessorPatterns.blastBricks().defaultBlockState());
+                    helper.assertTrue(machine.checkPattern(),
+                            "Blast furnace did not recover after removing its duplicate exhaust");
+                    machine.onStructureFormed();
+                    helper.assertTrue(machine.isFormed(),
+                            "Blast furnace remained invalid after restoring its legal interfaces");
+                })
+                .thenSucceed();
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)

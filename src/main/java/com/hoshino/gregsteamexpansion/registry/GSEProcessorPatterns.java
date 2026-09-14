@@ -386,7 +386,9 @@ public final class GSEProcessorPatterns {
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM, GSEPartAbilities.LARGE_STEAM_SUPPLY)
                         .setMinGlobalLimited(1))
-                .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMaxGlobalLimited(8))
+                .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE)
+                        .setMinGlobalLimited(1)
+                        .setMaxGlobalLimited(8))
                 .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 
