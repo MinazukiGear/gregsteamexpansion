@@ -29,6 +29,8 @@
 
 截至 2026-09-13，使用者已确认全部机器能够在游戏内正常运行；这代表基础运行冒烟测试通过，不等同于各设计文档中的存档、异常状态、兼容性和数值边界清单已经全部验收。对应清单位于各设计文档末尾，设计状态、代码入口与当前待办汇总见 [设计文档索引](docs/design/README.md)。
 
+2026-09-15，使用者在 Expert 开发客户端中确认 B1 大型蒸汽组装机与 B2 大型蒸汽电路组装机的本轮验收成功；本轮覆盖生存链衔接以及两台机器的结构、槽位、界面和实际运行主路径。未逐项反馈的存档、异常状态与跨模组组合仍保留在各自清单中。
+
 ## 开发环境
 
 | 组件 | 版本 |
@@ -46,7 +48,7 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（129 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（137 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -60,11 +62,11 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 
 | 文件 | 覆盖内容 |
 | --- | --- |
-| `GSEGameTests` | 结构成型（含大型蒸汽组装机 `9×9×9` 逐坐标与数量契约）、水平朝向、结构共用、仓室数量与非法接口边界、仓室行为、旧蒸汽仓迁移、注册一致性、配方注入、生存获取路线与高炉控制器精确合成契约 |
+| `GSEGameTests` | 结构成型（含大型蒸汽组装机 `9×9×9`、大型蒸汽电路组装机 `5×11×6` 逐坐标与数量契约）、水平朝向、结构共用、仓室数量与非法接口边界、仓室行为、旧蒸汽仓迁移、注册一致性、配方注入、生存获取路线与高炉控制器精确合成契约 |
 | `GSEBoilerRoomTests` | 四档进气条带位置/数量、非法仓室拒绝、多进气室汇总供气与不足不扣、仪表同步、状态提示、原生/GTM Things 物品输入及完整燃料启动链 |
 | `GSEDifficultyGameTests` | 启动档位、GTCEu 配方难度映射、旗舰机器开关和权重表 |
 | `GSERecipeOptimizationTests` | 配方缓存失效与空闲机器唤醒 |
-| `GSESteamEngineTests` | 五类引擎状态边界、组装机空槽 ULV/单并行门控、原子取汽、并行/输出容量、多产物槽位竞争、物品与流体批次结算、三格排气通道和鼓风、熔炉独立输入仓隔离与轮询、控制器 NBT 往返及真实区块落盘重载、大型蒸汽供给仓超频批次锁定、大型蒸汽高炉锻铁—炼钢生产闭环、96 并行满载供汽/鼓风边界、排气受阻与缺汽分界、真实待输出重载/整体提交/拆除掉落和 GUI/软锤控制、GUI/Jade 状态快照、三重并行限制、偏好配方重载与八进气室持续采集，以及创造/ME/样板总成接口兼容（45 个） |
+| `GSESteamEngineTests` | 五类引擎状态边界（含组装机与电路组装机独立实例）、组装机双机的空槽 ULV 门控与 `1–4` 台并行/经济阶梯、电路组装机焊锡和物品原子扣取及三档产出倍率、原子取汽、并行/输出容量、多产物槽位竞争、物品与流体批次结算、三格排气通道和鼓风、熔炉独立输入仓隔离与轮询、控制器 NBT 往返及真实区块落盘重载、大型蒸汽供给仓超频批次锁定、大型蒸汽高炉锻铁—炼钢生产闭环、96 并行满载供汽/鼓风边界、排气受阻与缺汽分界、真实待输出重载/整体提交/拆除掉落和 GUI/软锤控制、GUI/Jade 状态快照、三重并行限制、偏好配方重载与八进气室持续采集，以及创造/ME/样板总成接口兼容（50 个） |
 | `GSEStructureDiagnosticsTests` | 缺块/数量/一致性诊断、候选去重截断、哨兵状态安全、NBT 传输及成型后清除（7 个） |
 | `GSEStructureTestUtils` | 结构辅助：用机器注册的 `MultiblockShapeInfo` 反铺方块，再用图案校验 |
 
@@ -117,7 +119,7 @@ python tools/generate_assets.py --check
 
 - Mod ID：`gregsteamexpansion`
 - 入口类：`com.hoshino.gregsteamexpansion.GregSteamExpansion`
-- 当前版本：`0.1.0-alpha.4`（发布标签 [`v0.1.0-alpha.4`](https://github.com/MinazukiGear/gregsteamexpansion/releases/tag/v0.1.0-alpha.4)，测试版）
+- 当前版本：`0.1.0-alpha.5`（发布候选，尚未创建标签）
 - 许可：代码与功能性资源 LGPL-3.0（`LICENSE.txt`）；`textures/` 图像素材 CC BY-NC-SA 4.0，禁止商用（`LICENSE-ASSETS.txt`）
 
 ## 致谢

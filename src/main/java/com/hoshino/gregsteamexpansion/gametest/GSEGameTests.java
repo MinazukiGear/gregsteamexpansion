@@ -1822,7 +1822,286 @@ public final class GSEGameTests {
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
     public static void largeSteamCircuitAssemblerFormsFromShape(GameTestHelper helper) {
-        GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_CIRCUIT_ASSEMBLER);
+        var definition = GSEMachines.LARGE_STEAM_CIRCUIT_ASSEMBLER;
+        List<MultiblockShapeInfo> shapes = definition.getMatchingShapes();
+        helper.assertTrue(!shapes.isEmpty(), "Large steam circuit assembler has no preview shape");
+        if (shapes.isEmpty()) {
+            return;
+        }
+
+        BlockInfo[][][] blocks = shapes.get(0).getBlocks();
+        helper.assertTrue(blocks.length == 5, "Large steam circuit assembler width is not 5");
+        int bronzeCasings = 0;
+        int industrial = 0;
+        int circuitBlocks = 0;
+        int gearboxes = 0;
+        int assemblyBlocks = 0;
+        int pipeCasings = 0;
+        int air = 0;
+        int interfaces = 0;
+        int controllers = 0;
+        for (int column = 0; column < blocks.length; column++) {
+            helper.assertTrue(blocks[column].length == 6,
+                    "Large steam circuit assembler height is not 6 at column " + column);
+            for (int layer = 0; layer < blocks[column].length; layer++) {
+                helper.assertTrue(blocks[column][layer].length == 11,
+                        "Large steam circuit assembler depth is not 11 at column/layer "
+                                + column + "/" + layer);
+                for (int depth = 0; depth < blocks[column][layer].length; depth++) {
+                    BlockState state = blocks[column][layer][depth].getBlockState();
+                    Block expected = expectedLargeSteamCircuitAssemblerBlock(
+                            definition, depth, layer, column);
+                    helper.assertTrue(expected == Blocks.AIR ? state.isAir() : state.is(expected),
+                            "Large steam circuit assembler shape differs at depth/layer/column "
+                                    + depth + "/" + layer + "/" + column
+                                    + ": expected=" + expected + ", actual=" + state.getBlock());
+
+                    if (state.is(GSEProcessorPatterns.bronzeSteamCasing())) bronzeCasings++;
+                    else if (state.is(GSEProcessorPatterns.industrialSteamCasing())) industrial++;
+                    else if (state.is(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get())) circuitBlocks++;
+                    else if (state.is(GTBlocks.CASING_BRONZE_GEARBOX.get())) gearboxes++;
+                    else if (state.is(GSEBlocks.STEAM_ASSEMBLY_BLOCK.get())) assemblyBlocks++;
+                    else if (state.is(GSEProcessorPatterns.bronzePipeCasing())) pipeCasings++;
+                    else if (state.isAir()) air++;
+                    else if (state.is(definition.getBlock())) controllers++;
+                    else interfaces++;
+                }
+            }
+        }
+        helper.assertTrue(bronzeCasings == 161,
+                "Expected 161 bronze steam casings after five representative interfaces, found "
+                        + bronzeCasings);
+        helper.assertTrue(industrial == 11, "Expected 11 industrial ridge casings, found " + industrial);
+        helper.assertTrue(circuitBlocks == 9, "Expected 9 circuit assembly blocks, found " + circuitBlocks);
+        helper.assertTrue(gearboxes == 9, "Expected 9 bronze gearboxes, found " + gearboxes);
+        helper.assertTrue(assemblyBlocks == 9, "Expected 9 assembly blocks, found " + assemblyBlocks);
+        helper.assertTrue(pipeCasings == 9, "Expected 9 bronze pipe casings, found " + pipeCasings);
+        helper.assertTrue(air == 116, "Expected 116 strict-air cells, found " + air);
+        helper.assertTrue(interfaces == 5, "Expected five representative interfaces, found " + interfaces);
+        helper.assertTrue(controllers == 1, "Expected one circuit assembler controller, found " + controllers);
+
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, shapes.get(0));
+        helper.assertTrue(machine != null, "Large steam circuit assembler fixture has no controller");
+        if (machine == null) {
+            return;
+        }
+        helper.assertTrue(machine.checkPattern(),
+                "Exact large steam circuit assembler shape did not match its pattern");
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
+                        "Exact large steam circuit assembler did not become formed"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamCircuitAssemblerRestrictsHatchesToShell(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_CIRCUIT_ASSEMBLER;
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(0));
+        helper.assertTrue(machine != null, "Missing large steam circuit assembler fixture controller");
+        if (machine == null) {
+            return;
+        }
+
+        BlockPos controller = machine.getPos();
+        BlockPos wall = controller.offset(-1, 2, 0);
+        BlockPos bottom = controller.offset(-1, 0, 4);
+        BlockPos ridge = controller.offset(0, 5, 4);
+        BlockPos processTower = controller.offset(0, 1, 4);
+        BlockState wallState = helper.getLevel().getBlockState(wall);
+        BlockState bottomState = helper.getLevel().getBlockState(bottom);
+        BlockState ridgeState = helper.getLevel().getBlockState(ridge);
+        BlockState processTowerState = helper.getLevel().getBlockState(processTower);
+        BlockState hatchState = GSEMachines.STEAM_SUPPLY_HATCH.getBlock().defaultBlockState();
+
+        helper.assertTrue(wallState.is(GSEProcessorPatterns.bronzeSteamCasing()),
+                "Circuit assembler wall probe is not a bronze steam casing");
+        helper.assertTrue(bottomState.is(GSEProcessorPatterns.bronzeSteamCasing()),
+                "Circuit assembler bottom probe is not a bronze steam casing");
+        helper.assertTrue(ridgeState.is(GSEProcessorPatterns.industrialSteamCasing()),
+                "Circuit assembler ridge probe is not an industrial steam casing");
+        helper.assertTrue(processTowerState.is(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get()),
+                "Circuit assembler process-tower probe is not a circuit assembly block");
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
+                        "Baseline large steam circuit assembler fixture did not form"))
+                .thenExecute(() -> {
+                    machine.onStructureInvalid();
+
+                    helper.getLevel().setBlockAndUpdate(wall, hatchState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam circuit assembler rejected a supply hatch on its wall");
+                    helper.getLevel().setBlockAndUpdate(wall, wallState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam circuit assembler did not recover its wall casing");
+
+                    helper.getLevel().setBlockAndUpdate(bottom, hatchState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam circuit assembler rejected a supply hatch on its bottom face");
+                    helper.getLevel().setBlockAndUpdate(bottom, bottomState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam circuit assembler did not recover its bottom casing");
+
+                    helper.getLevel().setBlockAndUpdate(ridge, hatchState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Large steam circuit assembler accepted a hatch on its industrial ridge");
+                    helper.getLevel().setBlockAndUpdate(ridge, ridgeState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam circuit assembler did not recover its ridge casing");
+
+                    helper.getLevel().setBlockAndUpdate(processTower, hatchState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Large steam circuit assembler accepted a hatch in its process tower");
+                    helper.getLevel().setBlockAndUpdate(processTower, processTowerState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam circuit assembler did not recover its process tower");
+
+                    machine.onStructureFormed();
+                    helper.assertTrue(machine.isFormed(),
+                            "Large steam circuit assembler remained invalid after restoring its structure");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamCircuitAssemblerRequiresExactlyOneExhaust(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_CIRCUIT_ASSEMBLER;
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(0));
+        helper.assertTrue(machine != null, "Missing large steam circuit assembler fixture controller");
+        if (machine == null) {
+            return;
+        }
+
+        List<BlockPos> exhausts = new java.util.ArrayList<>();
+        List<BlockPos> shellCasings = new java.util.ArrayList<>();
+        for (BlockPos pos : BlockPos.betweenClosed(
+                machine.getPos().offset(-2, 0, 0), machine.getPos().offset(2, 5, 10))) {
+            BlockState state = helper.getLevel().getBlockState(pos);
+            if (state.is(GSEMachines.STEAM_EXHAUST_HATCH.getBlock())) {
+                exhausts.add(pos.immutable());
+            } else if (state.is(GSEProcessorPatterns.bronzeSteamCasing())) {
+                shellCasings.add(pos.immutable());
+            }
+        }
+        helper.assertTrue(exhausts.size() == 1,
+                "Circuit assembler preview exhaust count changed: " + exhausts.size());
+        helper.assertTrue(!shellCasings.isEmpty(),
+                "Circuit assembler preview has no shell casing mutation position");
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
+                        "Baseline large steam circuit assembler fixture did not form"))
+                .thenExecute(() -> {
+                    machine.onStructureInvalid();
+                    BlockPos exhaust = exhausts.get(0);
+                    BlockState exhaustState = helper.getLevel().getBlockState(exhaust);
+                    BlockState casingState = GSEProcessorPatterns.bronzeSteamCasing().defaultBlockState();
+
+                    helper.getLevel().setBlockAndUpdate(exhaust, casingState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Large steam circuit assembler formed without an exhaust hatch");
+                    helper.getLevel().setBlockAndUpdate(exhaust, exhaustState);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam circuit assembler did not recover its exhaust hatch");
+
+                    BlockPos duplicate = shellCasings.get(0);
+                    BlockState duplicateOriginal = helper.getLevel().getBlockState(duplicate);
+                    helper.getLevel().setBlockAndUpdate(duplicate, exhaustState);
+                    helper.assertTrue(!machine.checkPattern(),
+                            "Large steam circuit assembler formed with two exhaust hatches");
+                    helper.getLevel().setBlockAndUpdate(duplicate, duplicateOriginal);
+                    helper.assertTrue(machine.checkPattern(),
+                            "Large steam circuit assembler did not recover after removing its duplicate exhaust");
+
+                    machine.onStructureFormed();
+                    helper.assertTrue(machine.isFormed(),
+                            "Large steam circuit assembler remained invalid with exactly one exhaust hatch");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void backToBackLargeSteamCircuitAssemblersShareRearWall(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_CIRCUIT_ASSEMBLER;
+        var shape = definition.getMatchingShapes().get(0);
+        MultiblockControllerMachine north = GSEStructureTestUtils.placeShape(
+                helper, definition, shape, new BlockPos(8, 16, 4), Direction.NORTH);
+        MultiblockControllerMachine south = GSEStructureTestUtils.placeShape(
+                helper, definition, shape, new BlockPos(8, 16, 24), Direction.SOUTH);
+        helper.assertTrue(north != null && south != null,
+                "Missing back-to-back large steam circuit assembler fixture controller");
+        if (north == null || south == null) {
+            return;
+        }
+
+        // Opposite-facing structures meet at their plain rear faces (z=14),
+        // keeping both five-interface front rows independent.
+        for (int y = 16; y <= 20; y++) {
+            for (int x = 6; x <= 10; x++) {
+                helper.assertTrue(helper.getBlockState(new BlockPos(x, y, 14))
+                                .is(GSEProcessorPatterns.bronzeSteamCasing()),
+                        "Shared circuit assembler rear wall differs at x/y=" + x + "/" + y);
+            }
+        }
+        for (int x = 6; x <= 10; x++) {
+            BlockState state = helper.getBlockState(new BlockPos(x, 21, 14));
+            helper.assertTrue(x == 8
+                            ? state.is(GSEProcessorPatterns.industrialSteamCasing())
+                            : state.isAir(),
+                    "Shared circuit assembler roof edge differs at x=" + x);
+        }
+
+        helper.assertTrue(north.checkPattern(),
+                "North-facing circuit assembler rejected the shared rear wall");
+        helper.assertTrue(south.checkPattern(),
+                "South-facing circuit assembler rejected the shared rear wall");
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(north.isFormed(),
+                            "North-facing circuit assembler did not remain formed");
+                    helper.assertTrue(south.isFormed(),
+                            "South-facing circuit assembler did not remain formed");
+                })
+                .thenSucceed();
+    }
+
+    private static Block expectedLargeSteamCircuitAssemblerBlock(
+            MultiblockMachineDefinition definition, int depth, int layer, int column) {
+        if (layer == 0) {
+            return depth == 0 && column == 2
+                    ? definition.getBlock()
+                    : GSEProcessorPatterns.bronzeSteamCasing();
+        }
+        if (layer == 5) {
+            return column == 2 ? GSEProcessorPatterns.industrialSteamCasing() : Blocks.AIR;
+        }
+        boolean boundary = depth == 0 || depth == 10 || column == 0 || column == 4;
+        if (boundary) {
+            if (layer == 1 && depth == 0) {
+                return switch (column) {
+                    case 0 -> GTMachines.STEAM_IMPORT_BUS.getBlock();
+                    case 1 -> GTMachines.STEAM_EXPORT_BUS.getBlock();
+                    case 2 -> GSEMachines.STEAM_SUPPLY_HATCH.getBlock();
+                    case 3 -> GTMachines.FLUID_IMPORT_HATCH[1].getBlock();
+                    case 4 -> GSEMachines.STEAM_EXHAUST_HATCH.getBlock();
+                    default -> throw new IllegalStateException("Unexpected circuit assembler column " + column);
+                };
+            }
+            return GSEProcessorPatterns.bronzeSteamCasing();
+        }
+        if (column != 2) {
+            return Blocks.AIR;
+        }
+        return switch (layer) {
+            case 1 -> GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK.get();
+            case 2 -> GTBlocks.CASING_BRONZE_GEARBOX.get();
+            case 3 -> GSEBlocks.STEAM_ASSEMBLY_BLOCK.get();
+            case 4 -> GSEProcessorPatterns.bronzePipeCasing();
+            default -> throw new IllegalStateException("Unexpected circuit assembler layer " + layer);
+        };
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
