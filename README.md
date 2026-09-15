@@ -119,7 +119,7 @@ python tools/generate_assets.py --check
 
 - Mod ID：`gregsteamexpansion`
 - 入口类：`com.hoshino.gregsteamexpansion.GregSteamExpansion`
-- 当前版本：`0.1.0-alpha.5`（发布候选，尚未创建标签）
+- 当前版本：`0.1.0-alpha.5`（发布标签 [`v0.1.0-alpha.5`](https://github.com/MinazukiGear/gregsteamexpansion/releases/tag/v0.1.0-alpha.5)，测试版）
 - 许可：代码与功能性资源 LGPL-3.0（`LICENSE.txt`）；`textures/` 图像素材 CC BY-NC-SA 4.0，禁止商用（`LICENSE-ASSETS.txt`）
 
 ## 致谢
