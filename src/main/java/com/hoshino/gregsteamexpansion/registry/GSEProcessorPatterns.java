@@ -264,7 +264,7 @@ public final class GSEProcessorPatterns {
         return block.asItem() != net.minecraft.world.item.Items.AIR
                 && block.asItem().builtInRegistryHolder().is(net.minecraft.tags.TagKey.create(
                         net.minecraft.core.registries.Registries.ITEM,
-                        new net.minecraft.resources.ResourceLocation("c", "glass")));
+                        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("c", "glass")));
     }
 
     /**

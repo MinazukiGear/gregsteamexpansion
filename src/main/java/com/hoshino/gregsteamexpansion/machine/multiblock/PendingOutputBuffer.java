@@ -1,8 +1,10 @@
 package com.hoshino.gregsteamexpansion.machine.multiblock;
 
+import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
+import com.gregtechceu.gtceu.api.machine.trait.NotifiableItemStackHandler;
+import com.gregtechceu.gtceu.api.recipe.content.Content;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
-import com.gregtechceu.gtceu.api.machine.trait.NotifiableItemStackHandler;
 
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
@@ -182,6 +184,38 @@ public final class PendingOutputBuffer {
             }
         }
         return scaled;
+    }
+
+    /**
+     * Materializes GT recipe item contents through the same representative-stack
+     * rule used by output prechecks and completed batches.
+     */
+    public static List<ItemStack> materializeItems(List<Content> contents) {
+        List<ItemStack> stacks = new ArrayList<>(contents.size());
+        for (Content content : contents) {
+            ItemStack stack = materializeItem(content);
+            if (!stack.isEmpty()) {
+                stacks.add(stack);
+            }
+        }
+        return stacks;
+    }
+
+    /** Returns the first accepted stack with a {@code SizedIngredient}'s amount applied. */
+    public static ItemStack materializeItem(Content content) {
+        var ingredient = ItemRecipeCapability.CAP.of(content.content);
+        if (ingredient == null) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack[] items = ingredient.getItems();
+        if (items.length == 0 || items[0].isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack stack = items[0].copy();
+        if (content.content instanceof com.gregtechceu.gtceu.api.recipe.ingredient.SizedIngredient sized) {
+            stack.setCount(Math.max(1, sized.getAmount()));
+        }
+        return stack;
     }
 
     private static List<FluidStack> copyFluids(List<FluidStack> stacks) {

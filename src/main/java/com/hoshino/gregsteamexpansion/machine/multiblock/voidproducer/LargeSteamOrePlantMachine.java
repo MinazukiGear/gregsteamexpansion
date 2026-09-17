@@ -197,7 +197,8 @@ public class LargeSteamOrePlantMachine extends AbstractSteamVoidMachine {
             warnInvalid(entry);
             return null;
         }
-        var item = ForgeRegistries.ITEMS.getValue(new net.minecraft.resources.ResourceLocation(parts[0].trim()));
+        var id = net.minecraft.resources.ResourceLocation.tryParse(parts[0].trim());
+        var item = id == null ? null : ForgeRegistries.ITEMS.getValue(id);
         if (item == null || item.getDefaultInstance().isEmpty()) {
             warnInvalid(entry);
             return null;

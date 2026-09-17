@@ -25,13 +25,12 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * 蒸汽排气仓 / Steam Exhaust Hatch (large-heat-storage-steam-furnace.md):
  * reusable exhaust interface for compatible multiblock steam machines.
  *
- * <p>The hatch owns no timing itself: a consuming controller checks
- * {@link #isExhaustBlocked()} before drawing steam, calls
- * {@link #performExhaustFeedback()} every 20 ticks while it actually consumes
- * steam, and calls {@link #applyExhaustDamage()} whenever its own persisted
- * 200-active-tick damage cycle elapses. There is no GUI, no inventory and no
- * fluid output; obstruction uses a strict air check along the six-way front
- * facing and never clears blocks.</p>
+ * <p>The hatch owns no persisted timing itself. A consuming controller checks
+ * {@link #isExhaustBlocked()} before drawing steam and passes its persisted
+ * counters through {@link #advanceFeedbackCycle(int)} and
+ * {@link #advanceDamageCycle(long)} after a successful draw. There is no GUI,
+ * no inventory and no fluid output; obstruction uses a strict air check along
+ * the six-way front facing and never clears blocks.</p>
  */
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -104,6 +103,16 @@ public class SteamExhaustHatchMachine extends MultiblockPartMachine {
         }
     }
 
+    /** Advances a controller-owned feedback timer and emits the due pulse. */
+    public int advanceFeedbackCycle(int elapsedTicks) {
+        int next = elapsedTicks + 1;
+        if (next < FEEDBACK_INTERVAL_TICKS) {
+            return next;
+        }
+        performExhaustFeedback();
+        return 0;
+    }
+
     /**
      * Deals the heat damage of one elapsed damage cycle to living entities in
      * the first block straight ahead. Creative and spectator players are
@@ -120,5 +129,15 @@ public class SteamExhaustHatchMachine extends MultiblockPartMachine {
                 target -> !(target instanceof Player player) || !player.isSpectator() && !player.isCreative())) {
             entity.hurt(GTDamageTypes.HEAT.source(level), EXHAUST_DAMAGE);
         }
+    }
+
+    /** Advances a controller-owned damage timer and applies the due strike. */
+    public long advanceDamageCycle(long elapsedTicks) {
+        long next = elapsedTicks + 1;
+        if (next < DAMAGE_CYCLE_TICKS) {
+            return next;
+        }
+        applyExhaustDamage();
+        return 0;
     }
 }

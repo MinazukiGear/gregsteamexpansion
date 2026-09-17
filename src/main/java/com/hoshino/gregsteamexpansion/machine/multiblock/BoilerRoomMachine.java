@@ -4,9 +4,6 @@ import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.IRecipeHandler;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
-import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
-import com.gregtechceu.gtceu.api.data.chemical.material.Material;
-import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.gui.GuiTextures;
 import com.gregtechceu.gtceu.api.gui.UITemplate;
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
@@ -19,11 +16,10 @@ import com.gregtechceu.gtceu.api.recipe.ingredient.FluidIngredient;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine;
 import com.gregtechceu.gtceu.config.ConfigHolder;
-import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
+import com.hoshino.gregsteamexpansion.machine.CoFiringPowderFuel;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
-import com.hoshino.gregsteamexpansion.registry.GSETags;
 
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
@@ -236,10 +232,6 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     // ***** Co-firing powder ******//
     //////////////////////////////////////
 
-    private static boolean isValidPowder(ItemStack stack) {
-        return !stack.isEmpty() && stack.is(GSETags.CO_FIRING_DUST_FUELS);
-    }
-
     /**
      * All item-input recipe handlers attached to the formed structure. Reading
      * the controller capability map also supports addon buses which advertise
@@ -255,7 +247,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     private static ItemStack firstValidPowder(IRecipeHandler<?> handler) {
         for (Object content : handler.getContents()) {
-            if (content instanceof ItemStack stack && isValidPowder(stack)) {
+            if (content instanceof ItemStack stack && CoFiringPowderFuel.isValid(stack)) {
                 return stack;
             }
         }
@@ -282,24 +274,12 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         return ItemStack.EMPTY;
     }
 
-    private static int getPowderBurnTime(ItemStack stack) {
-        Material material = ChemicalHelper.getMaterialStack(stack).material();
-        int base = material == GTMaterials.Coal || material == GTMaterials.Charcoal ? 1600 :
-                material == GTMaterials.Coke ? 3200 : material == GTMaterials.Wood ? 300 :
-                        GTUtil.getItemBurnTime(stack.getItem());
-        if (base <= 0) base = 1600;
-        TagPrefix prefix = ChemicalHelper.getPrefix(stack.getItem());
-        if (prefix == TagPrefix.dustSmall) return Math.max(1, base / 4);
-        if (prefix == TagPrefix.dustTiny) return Math.max(1, base / 9);
-        return base;
-    }
-
     /** Refills the powder heat buffer from the buses; false when nothing to burn. */
     private boolean preparePowder(@Nullable GTRecipe recipe) {
         if (powderBurnRemaining > 0) return true;
         ItemStack powder = extractOnePowder(recipe);
         if (powder.isEmpty()) return false;
-        int burnTime = getPowderBurnTime(powder);
+        int burnTime = CoFiringPowderFuel.burnTime(powder);
         if (burnTime <= 0) return false;
         burningPowder = powder.copyWithCount(1);
         powderBurnRemaining = burnTime;

@@ -177,7 +177,8 @@ public class LargeSteamFluidDrillMachine extends AbstractSteamVoidMachine {
             GregSteamExpansion.LOGGER.warn("[Fluid Drill] Invalid configured pool entry '{}'; entry skipped.", entry);
             return null;
         }
-        Fluid fluid = ForgeRegistries.FLUIDS.getValue(new ResourceLocation(parts[0].trim()));
+        ResourceLocation id = ResourceLocation.tryParse(parts[0].trim());
+        Fluid fluid = id == null ? null : ForgeRegistries.FLUIDS.getValue(id);
         if (fluid == null || fluid.defaultFluidState().isEmpty()) {
             GregSteamExpansion.LOGGER.warn("[Fluid Drill] Invalid configured pool entry '{}'; entry skipped.", entry);
             return null;

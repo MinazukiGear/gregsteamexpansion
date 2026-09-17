@@ -32,6 +32,19 @@ public final class GSEStructureTestUtils {
 
     private GSEStructureTestUtils() {}
 
+    /** Places one registered machine block and returns its typed runtime instance. */
+    public static <T extends MetaMachine> T placeMachine(GameTestHelper helper, MachineDefinition definition,
+                                                         BlockPos pos) {
+        helper.setBlock(pos, definition.defaultBlockState());
+        MetaMachine machine = MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(pos));
+        helper.assertTrue(machine != null && machine.getDefinition() == definition,
+                "Placed block did not create the expected machine");
+        // The generic cast is safe: every caller passes the matching definition.
+        @SuppressWarnings("unchecked")
+        T typed = (T) machine;
+        return typed;
+    }
+
     /**
      * 铺出该机器第一个 shape 并按 EMI 的方式断言其 pattern 可以匹配。
      *

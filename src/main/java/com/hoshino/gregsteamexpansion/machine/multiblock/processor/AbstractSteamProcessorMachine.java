@@ -39,11 +39,12 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamStatusText;
-import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
-import com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
+import com.hoshino.gregsteamexpansion.recipe.RecipeCacheLifecycle;
+import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
+import com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.ISubscription;
@@ -210,6 +211,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      * live in a process-wide cache rather than being copied per instance.
      */
     private SteamRecipeCache.Entry recipeCache = SteamRecipeCache.get(null);
+    private long recipeCacheRevision = Long.MIN_VALUE;
 
     protected final void requestRecipeSearch() {
         recipeSearchDirty = true;
@@ -228,7 +230,12 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     private void refreshRecipeCache() {
+        long currentRevision = RecipeCacheLifecycle.revision();
+        if (recipeCacheRevision == currentRevision) {
+            return;
+        }
         recipeCache = SteamRecipeCache.get(recipeType());
+        recipeCacheRevision = currentRevision;
         requestRecipeSearch();
     }
 
@@ -504,24 +511,12 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                     getPos());
         }
         if (hasExhaustHazard() && !exhaustHatches.isEmpty()) {
-            runExhaustCycles(exhaustHatches.get(0));
+            SteamExhaustHatchMachine exhaustHatch = exhaustHatches.get(0);
+            exhaustFeedbackTimer = exhaustHatch.advanceFeedbackCycle(exhaustFeedbackTimer);
+            exhaustDamageTimer = exhaustHatch.advanceDamageCycle(exhaustDamageTimer);
         }
         if (tick.completed()) {
             completeBatch();
-        }
-    }
-
-    /** Exhaust feedback pulse every 20 running ticks + 200-tick damage cycle. */
-    private void runExhaustCycles(SteamExhaustHatchMachine exhaustHatch) {
-        exhaustFeedbackTimer++;
-        if (exhaustFeedbackTimer >= SteamExhaustHatchMachine.FEEDBACK_INTERVAL_TICKS) {
-            exhaustFeedbackTimer = 0;
-            exhaustHatch.performExhaustFeedback();
-        }
-        exhaustDamageTimer++;
-        if (exhaustDamageTimer >= SteamExhaustHatchMachine.DAMAGE_CYCLE_TICKS) {
-            exhaustDamageTimer = 0;
-            exhaustHatch.applyExhaustDamage();
         }
     }
 
@@ -930,8 +925,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         List<ItemStack> perOperationItems = new ArrayList<>();
         if (itemOutputs != null) {
             for (Content content : itemOutputs) {
-                ItemStack stack = representativeStackOf(content);
-                if (stack == null || stack.isEmpty()) {
+                ItemStack stack = PendingOutputBuffer.materializeItem(content);
+                if (stack.isEmpty()) {
                     continue;
                 }
                 if (content.chance >= content.maxChance) {
@@ -978,24 +973,6 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         // merge equal stacks first so the simulation respects stacking capacity
         PendingOutputBuffer.mergeItems(simulation);
         return PendingOutputBuffer.itemsFit(simulation, outputBuses);
-    }
-
-    /** Representative stack of an output Content (sized amount preserved). */
-    @Nullable
-    private static ItemStack representativeStackOf(Content content) {
-        var ingredient = ItemRecipeCapability.CAP.of(content.content);
-        if (ingredient == null) {
-            return null;
-        }
-        ItemStack[] items = ingredient.getItems();
-        if (items.length == 0 || items[0].isEmpty()) {
-            return null;
-        }
-        ItemStack stack = items[0].copy();
-        if (content.content instanceof com.gregtechceu.gtceu.api.recipe.ingredient.SizedIngredient sized) {
-            stack.setCount(Math.max(1, sized.getAmount()));
-        }
-        return stack;
     }
 
     /**
@@ -1069,7 +1046,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             // (SizedIngredient amount × P). ChanceLogic.OR's `times` would
             // multiply the guaranteed part AGAIN.
             if (capability == ItemRecipeCapability.CAP) {
-                produced.addAll(materializeItemContents(rolled));
+                produced.addAll(PendingOutputBuffer.materializeItems(rolled));
             } else {
                 producedFluids.addAll(materializeFluidContents(rolled));
             }
@@ -1138,32 +1115,6 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** True while any finished output (item or fluid) still awaits delivery. */
     public boolean hasPendingOutputs() {
         return pendingBuffer.hasAny();
-    }
-
-    /**
-     * Official content materialization (mirrors NotifiableItemStackHandler):
-     * item contents hold Ingredients (usually SizedIngredient) — take the
-     * representative stack and re-apply the sized amount.
-     */
-    public static List<ItemStack> materializeItemContents(List<Content> rolled) {
-        List<ItemStack> stacks = new ArrayList<>();
-        for (Content content : rolled) {
-            var ingredient = ItemRecipeCapability.CAP.of(content.content);
-            if (ingredient == null) {
-                continue;
-            }
-            ItemStack[] items = ingredient.getItems();
-            if (items.length == 0 || items[0].isEmpty()) {
-                continue;
-            }
-            ItemStack stack = items[0].copy();
-            int amount = content.content instanceof com.gregtechceu.gtceu.api.recipe.ingredient.SizedIngredient sized
-                    ? sized.getAmount()
-                    : stack.getCount();
-            stack.setCount(Math.max(1, amount));
-            stacks.add(stack);
-        }
-        return stacks;
     }
 
     //////////////////////////////////////

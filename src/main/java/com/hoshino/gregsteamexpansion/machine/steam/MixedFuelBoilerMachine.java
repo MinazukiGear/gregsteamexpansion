@@ -2,9 +2,6 @@ package com.hoshino.gregsteamexpansion.machine.steam;
 
 import com.gregtechceu.gtceu.api.GTValues;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
-import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
-import com.gregtechceu.gtceu.api.data.chemical.material.Material;
-import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.gui.GuiTextures;
 import com.gregtechceu.gtceu.api.gui.UITemplate;
 import com.gregtechceu.gtceu.api.gui.widget.SlotWidget;
@@ -28,10 +25,9 @@ import com.gregtechceu.gtceu.common.item.PortableScannerBehavior;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.gregtechceu.gtceu.utils.GTTransferUtils;
-import com.gregtechceu.gtceu.utils.GTUtil;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
+import com.hoshino.gregsteamexpansion.machine.CoFiringPowderFuel;
 import com.hoshino.gregsteamexpansion.recipe.BoilerFuelCache;
-import com.hoshino.gregsteamexpansion.registry.GSETags;
 
 import com.lowdragmc.lowdraglib.gui.editor.ColorPattern;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
@@ -157,7 +153,7 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
         // Powder is an externally accessible co-firing input, not a main boiler recipe input.
         // Keeping handlerIO at NONE prevents solid steam-boiler recipes from using dust by itself.
         powderHandler = new NotifiableItemStackHandler(this, 1, IO.NONE, IO.IN)
-                .setFilter(this::isValidPowder);
+                .setFilter(CoFiringPowderFuel::isValid);
     }
 
     @Override
@@ -416,9 +412,7 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
     private boolean preparePowder() {
         if (powderBurnRemaining > 0) return true;
         ItemStack stack = powderHandler.getStackInSlot(0);
-        if (!isValidPowder(stack)) return false;
-
-        int burnTime = getPowderBurnTime(stack);
+        int burnTime = CoFiringPowderFuel.burnTime(stack);
         if (burnTime <= 0) return false;
 
         ItemStack consumed = powderHandler.extractItemInternal(0, 1, false);
@@ -444,22 +438,6 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
         }
     }
 
-    private boolean isValidPowder(ItemStack stack) {
-        return !stack.isEmpty() && stack.is(GSETags.CO_FIRING_DUST_FUELS);
-    }
-
-    private int getPowderBurnTime(ItemStack stack) {
-        Material material = ChemicalHelper.getMaterialStack(stack).material();
-        int base = material == GTMaterials.Coal || material == GTMaterials.Charcoal ? 1600 :
-                material == GTMaterials.Coke ? 3200 : material == GTMaterials.Wood ? 300 :
-                        GTUtil.getItemBurnTime(stack.getItem());
-        if (base <= 0) base = 1600;
-        TagPrefix prefix = ChemicalHelper.getPrefix(stack.getItem());
-        if (prefix == TagPrefix.dustSmall) return Math.max(1, base / 4);
-        if (prefix == TagPrefix.dustTiny) return Math.max(1, base / 9);
-        return base;
-    }
-
     public boolean isCoFiring() {
         return coFiring;
     }
@@ -472,7 +450,8 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
     }
 
     private boolean isMissingPowder() {
-        return coFiring && powderBurnRemaining <= 0 && !isValidPowder(powderHandler.getStackInSlot(0));
+        return coFiring && powderBurnRemaining <= 0 &&
+                !CoFiringPowderFuel.isValid(powderHandler.getStackInSlot(0));
     }
 
     private boolean isCoFiringPaused() {

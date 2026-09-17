@@ -602,7 +602,7 @@ public final class GSERecipes {
                         'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
                         'G', net.minecraft.tags.TagKey.create(
                                 net.minecraft.core.registries.Registries.ITEM,
-                                new ResourceLocation("c", "glass")),
+                                ResourceLocation.fromNamespaceAndPath("c", "glass")),
                         'C', new ItemStack(GSEBlocks.BRONZE_COMPONENT.get())}));
     }
 

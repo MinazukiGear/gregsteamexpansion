@@ -109,7 +109,8 @@ public final class GSERecipeOptimizationTests {
 
         // Upstream GTCEu recipe; datapack ids carry the type path as a prefix
         // (gtceu:centrifuge/air_separation), not the bare builder name.
-        var airSeparation = entry.byId(new ResourceLocation("gtceu", "centrifuge/air_separation"));
+        var airSeparation = entry.byId(ResourceLocation.fromNamespaceAndPath(
+                "gtceu", "centrifuge/air_separation"));
         helper.assertTrue(airSeparation != null, "air_separation is not present in the centrifuge cache");
         helper.assertTrue(airBucket.contains(airSeparation),
                 "air_separation is not reachable through the air index bucket");
@@ -379,6 +380,20 @@ public final class GSERecipeOptimizationTests {
                         selectCandidates.setAccessible(true);
                         var candidates = (List<?>) selectCandidates.invoke(machine);
                         helper.assertTrue(candidates.isEmpty(), "Empty inputs reached recipe candidate traversal");
+
+                        // A stable datapack revision must not dirty the search on
+                        // every server tick; doing so silently defeats the
+                        // 20-tick fallback interval above.
+                        var searchDirty = AbstractSteamProcessorMachine.class
+                                .getDeclaredField("recipeSearchDirty");
+                        searchDirty.setAccessible(true);
+                        searchDirty.setBoolean(machine, false);
+                        var refreshCache = AbstractSteamProcessorMachine.class
+                                .getDeclaredMethod("refreshRecipeCache");
+                        refreshCache.setAccessible(true);
+                        refreshCache.invoke(machine);
+                        helper.assertTrue(!searchDirty.getBoolean(machine),
+                                "Unchanged recipe revision dirtied the idle recipe search");
                     } catch (ReflectiveOperationException e) {
                         throw new AssertionError("Could not inspect recipe candidates", e);
                     }

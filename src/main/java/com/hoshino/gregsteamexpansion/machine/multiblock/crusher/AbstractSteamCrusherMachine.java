@@ -18,7 +18,6 @@ import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
 import com.gregtechceu.gtceu.api.pattern.MultiblockState;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
-import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.api.recipe.chance.logic.ChanceLogic;
 import com.gregtechceu.gtceu.api.recipe.content.Content;
 import com.gregtechceu.gtceu.api.recipe.content.ContentModifier;
@@ -36,9 +35,11 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamStatusText;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
+import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
+import com.lowdragmc.lowdraglib.syncdata.ISubscription;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 
@@ -51,7 +52,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.fluids.FluidStack;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -178,6 +178,10 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     /** Part recipe handlers aggregated on formation (WorkableMultiblockMachine wiring). */
     private final Map<IO, List<RecipeHandlerList>> capabilitiesProxy = new EnumMap<>(IO.class);
     private final Map<IO, Map<RecipeCapability<?>, List<IRecipeHandler<?>>>> capabilitiesFlat = new EnumMap<>(IO.class);
+    private static final int IDLE_RECIPE_RETRY_TICKS = 20;
+    private final List<ISubscription> searchSubscriptions = new ArrayList<>();
+    private boolean recipeSearchDirty = true;
+    private long nextRecipeSearchTick;
 
     protected AbstractSteamCrusherMachine(IMachineBlockEntity holder) {
         super(holder);
@@ -239,6 +243,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
 
     @Override
     public void onStructureInvalid() {
+        clearSearchSubscriptions();
         super.onStructureInvalid();
         // 结构失效: keep the batch and locked parameters, roll progress back to
         // 1 tick (steam-crushers.md 结构失效). Exhaust timers freeze, not clear.
@@ -269,12 +274,34 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
     }
 
     private void collectParts() {
+        clearSearchSubscriptions();
         capabilitiesProxy.clear();
         capabilitiesFlat.clear();
         partCollector.collect(this);
         for (SteamPartCollector.HandlerBinding binding : partCollector.recipeHandlers()) {
-            addHandlerList(binding.handlers());
+            RecipeHandlerList handlerList = binding.handlers();
+            addHandlerList(handlerList);
+            if (inputBuses.contains(binding.part())) {
+                searchSubscriptions.add(handlerList.subscribe(this::requestRecipeSearch,
+                        ItemRecipeCapability.CAP));
+            }
         }
+    }
+
+    private void requestRecipeSearch() {
+        recipeSearchDirty = true;
+    }
+
+    private void clearSearchSubscriptions() {
+        searchSubscriptions.forEach(ISubscription::unsubscribe);
+        searchSubscriptions.clear();
+        requestRecipeSearch();
+    }
+
+    @Override
+    public void onUnload() {
+        clearSearchSubscriptions();
+        super.onUnload();
     }
 
     @NotNull
@@ -333,7 +360,11 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
 
         if (hasBatch) {
             runBatchTick();
-        } else {
+        } else if (recipeSearchDirty || level.getGameTime() >= nextRecipeSearchTick) {
+            recipeSearchDirty = false;
+            // Fallback for external handlers and output-space changes that do
+            // not emit an input notification.
+            nextRecipeSearchTick = level.getGameTime() + IDLE_RECIPE_RETRY_TICKS;
             tryStartBatch();
         }
         updateWorkingAppearance();
@@ -357,24 +388,12 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             return;
         }
         if (hasExhaustHazard() && !exhaustHatches.isEmpty()) {
-            runExhaustCycles(exhaustHatches.get(0));
+            SteamExhaustHatchMachine exhaustHatch = exhaustHatches.get(0);
+            exhaustFeedbackTimer = exhaustHatch.advanceFeedbackCycle(exhaustFeedbackTimer);
+            exhaustDamageTimer = exhaustHatch.advanceDamageCycle(exhaustDamageTimer);
         }
         if (tick.completed()) {
             completeBatch();
-        }
-    }
-
-    /** Only ticks with a successful full steam withdrawal advance these cycles. */
-    private void runExhaustCycles(SteamExhaustHatchMachine exhaustHatch) {
-        exhaustFeedbackTimer++;
-        if (exhaustFeedbackTimer >= SteamExhaustHatchMachine.FEEDBACK_INTERVAL_TICKS) {
-            exhaustFeedbackTimer = 0;
-            exhaustHatch.performExhaustFeedback();
-        }
-        exhaustDamageTimer++;
-        if (exhaustDamageTimer >= SteamExhaustHatchMachine.DAMAGE_CYCLE_TICKS) {
-            exhaustDamageTimer = 0;
-            exhaustHatch.applyExhaustDamage();
         }
     }
 
@@ -392,6 +411,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         if (inputBuses.size() != 1) {
             return;
         }
+        SteamRecipeCache.Entry recipes = SteamRecipeCache.get(GSERecipeTypes.ORE_CRUSHING_RECIPES);
         List<ItemStack> inputs = new ArrayList<>();
         for (var handlers : inputBuses.get(0).getRecipeHandlers()) {
             if (!handlers.isValid(IO.IN)) continue;
@@ -406,7 +426,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             if (stack.isEmpty()) {
                 continue;
             }
-            GTRecipe recipe = findRecipeForStack(stack);
+            GTRecipe recipe = findRecipeForStack(stack, recipes);
             if (recipe == null) {
                 continue;
             }
@@ -460,12 +480,19 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
      * 经济以 MV 上限为前提; 电力粉碎机按配方基准功率付费.
      */
     @Nullable
-    private GTRecipe findRecipeForStack(ItemStack stack) {
-        GTRecipeType type = GSERecipeTypes.ORE_CRUSHING_RECIPES;
-        if (type == null || !hasCapabilityProxies()) {
+    private GTRecipe findRecipeForStack(ItemStack stack, SteamRecipeCache.Entry recipes) {
+        if (!hasCapabilityProxies()) {
             return null;
         }
-        for (GTRecipe recipe : type.getRecipesInCategory(type.getCategory())) {
+        Map<Object, List<GTRecipe>> itemBuckets = recipes.byContent().get(ItemRecipeCapability.CAP);
+        if (itemBuckets == null) {
+            return null;
+        }
+        List<GTRecipe> candidates = itemBuckets.get(stack.getItem());
+        if (candidates == null) {
+            return null;
+        }
+        for (GTRecipe recipe : candidates) {
             List<Content> inputs = recipe.inputs.get(ItemRecipeCapability.CAP);
             if (inputs == null || inputs.size() != 1) {
                 continue;
@@ -490,16 +517,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         if (id == null) {
             return null;
         }
-        GTRecipeType type = GSERecipeTypes.ORE_CRUSHING_RECIPES;
-        if (type == null) {
-            return null;
-        }
-        for (GTRecipe recipe : type.getRecipesInCategory(type.getCategory())) {
-            if (recipe.getId().equals(id)) {
-                return recipe;
-            }
-        }
-        return null;
+        return SteamRecipeCache.get(GSERecipeTypes.ORE_CRUSHING_RECIPES).byId(id);
     }
 
     /**
@@ -520,8 +538,8 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         // sized amount + one of every chanced product
         List<ItemStack> perOperation = new ArrayList<>();
         for (Content content : itemOutputs) {
-            ItemStack stack = representativeStackOf(content);
-            if (stack == null || stack.isEmpty()) {
+            ItemStack stack = PendingOutputBuffer.materializeItem(content);
+            if (stack.isEmpty()) {
                 continue;
             }
             if (content.chance >= content.maxChance) {
@@ -549,29 +567,12 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
         return PendingOutputBuffer.itemsFit(simulation, outputBuses);
     }
 
-    /** Representative stack of an output Content (sized amount preserved). */
-    @Nullable
-    private ItemStack representativeStackOf(Content content) {
-        var ingredient = ItemRecipeCapability.CAP.of(content.content);
-        if (ingredient == null) {
-            return null;
-        }
-        ItemStack[] items = ingredient.getItems();
-        if (items.length == 0 || items[0].isEmpty()) {
-            return null;
-        }
-        ItemStack stack = items[0].copy();
-        if (content.content instanceof com.gregtechceu.gtceu.api.recipe.ingredient.SizedIngredient sized) {
-            stack.setCount(Math.max(1, sized.getAmount()));
-        }
-        return stack;
-    }
-
     /**
      * 配方完成: one chance roll, products persisted to the pending list first,
      * then delivered atomically (steam-crushers.md 并行与处理时间).
      */
     private void completeBatch() {
+        requestRecipeSearch();
         if (batchRecipe == null) {
             hasBatch = false;
             batchLargeSteamOverclock = false;
@@ -593,7 +594,7 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
             // times=1: the parallel quantity is ALREADY in the copied outputs
             // (SizedIngredient amount × P). ChanceLogic.OR's `times` would
             // multiply the guaranteed part AGAIN (output = 3 × P²).
-            produced.addAll(materializeItemContents(rolled));
+            produced.addAll(PendingOutputBuffer.materializeItems(rolled));
         });
         pendingBuffer.addMergedItems(produced);
 
@@ -613,32 +614,6 @@ public abstract class AbstractSteamCrusherMachine extends MultiblockControllerMa
      */
     private boolean deliverPendingOutputs() {
         return pendingBuffer.deliverItems(outputBuses);
-    }
-
-    /**
-     * Official content materialization (mirrors NotifiableItemStackHandler):
-     * item contents hold Ingredients (usually SizedIngredient) — take the
-     * representative stack and re-apply the sized amount.
-     */
-    public static List<ItemStack> materializeItemContents(List<Content> rolled) {
-        List<ItemStack> stacks = new ArrayList<>();
-        for (Content content : rolled) {
-            var ingredient = ItemRecipeCapability.CAP.of(content.content);
-            if (ingredient == null) {
-                continue;
-            }
-            ItemStack[] items = ingredient.getItems();
-            if (items.length == 0 || items[0].isEmpty()) {
-                continue;
-            }
-            ItemStack stack = items[0].copy();
-            int amount = content.content instanceof com.gregtechceu.gtceu.api.recipe.ingredient.SizedIngredient sized
-                    ? sized.getAmount()
-                    : stack.getCount();
-            stack.setCount(Math.max(1, amount));
-            stacks.add(stack);
-        }
-        return stacks;
     }
 
     //////////////////////////////////////

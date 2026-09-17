@@ -28,6 +28,9 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+
+import net.minecraftforge.registries.ForgeRegistries;
 
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IBlockComponentProvider;
@@ -43,6 +46,9 @@ import java.util.List;
 
 @WailaPlugin
 public final class GSEJadePlugin implements IWailaPlugin {
+    private static final String CRUSHER_TOOLTIP_PREFIX = "gregsteamexpansion.jade.steam_crusher.";
+    private static final String PROCESSOR_TOOLTIP_PREFIX = "gregsteamexpansion.jade.steam_processor.";
+
     @Override
     public void register(IWailaCommonRegistration registration) {
         registration.registerBlockDataProvider(MixedFuelBoilerProvider.INSTANCE, MetaMachineBlockEntity.class);
@@ -97,23 +103,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
                     !(blockEntity.getMetaMachine() instanceof AbstractSteamCrusherMachine crusher)) {
                 return;
             }
-            CompoundTag data = new CompoundTag();
-            data.putString("statusId", crusher.getStatusId());
-            data.putString("recipeId", crusher.getBatchRecipeId());
-            data.putString("inputItem", crusher.getBatchInputDisplay().isEmpty() ? ""
-                    : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(
-                            crusher.getBatchInputDisplay().getItem()).toString());
-            data.putInt("progress", crusher.getBatchProgress());
-            data.putInt("duration", crusher.getBatchDuration());
-            data.putInt("parallel", crusher.getBatchParallel());
-            data.putInt("parallelCap", crusher.maximumParallel());
-            data.putLong("steamTotal", crusher.getSteamTotalStored());
-            data.putLong("steamCap", crusher.getSteamTotalCapacity());
-            data.putLong("steamPerTick", crusher.getBatchSteamPerTick());
-            data.putBoolean("consuming", crusher.isConsumingSteam());
-            data.putLong("pendingTotal", crusher.getPendingTotalCount());
-            data.putInt("pendingKinds", crusher.getPendingKinds());
-            serverData.put(DATA_KEY, data);
+            serverData.put(DATA_KEY, SteamMachineSnapshot.from(crusher).toTag());
         }
 
         @Override
@@ -121,48 +111,8 @@ public final class GSEJadePlugin implements IWailaPlugin {
             CompoundTag serverData = accessor.getServerData();
             if (!serverData.contains(DATA_KEY, Tag.TAG_COMPOUND)) return;
             CompoundTag data = serverData.getCompound(DATA_KEY);
-
-            tooltip.add(line("status", Component.translatable(statusKey(data.getString("statusId")))));
-            if (!data.getString("recipeId").isEmpty()) {
-                tooltip.add(line("recipe", data.getString("recipeId")));
-                tooltip.add(line("progress", FormattingUtil.formatNumbers(data.getInt("progress")),
-                        FormattingUtil.formatNumbers(data.getInt("duration"))));
-            }
-            tooltip.add(line("parallel", data.contains("parallel") && data.getInt("parallel") > 0
-                    ? FormattingUtil.formatNumbers(data.getInt("parallel"))
-                    : "—",
-                    FormattingUtil.formatNumbers(data.getInt("parallelCap"))));
-            tooltip.add(line("steam", FormattingUtil.formatNumbers(data.getLong("steamTotal")),
-                    FormattingUtil.formatNumbers(data.getLong("steamCap"))));
-            tooltip.add(line("demand",
-                    data.getLong("steamPerTick") > 0
-                            ? FormattingUtil.formatNumbers(data.getLong("steamPerTick"))
-                            : "0"));
-            if (data.getLong("pendingTotal") > 0) {
-                tooltip.add(line("pending", FormattingUtil.formatNumbers(data.getLong("pendingTotal")),
-                        String.valueOf(data.getInt("pendingKinds"))));
-            }
-            if (data.contains("pendingFluidTotal") && data.getLong("pendingFluidTotal") > 0) {
-                tooltip.add(line("pending_fluid", FormattingUtil.formatNumbers(data.getLong("pendingFluidTotal")),
-                        String.valueOf(data.getInt("pendingFluidKinds"))));
-            }
-        }
-
-        private static String statusKey(String statusId) {
-            return switch (statusId) {
-                case "invalid_structure" -> "gtceu.multiblock.invalid_structure";
-                case "exhaust_obstructed" -> "gregsteamexpansion.multiblock.steam_exhaust_hatch_obstructed";
-                case "insufficient_outputs" -> "gtceu.recipe_logic.insufficient_out";
-                case "working_disabled" -> "gtceu.top.working_disabled";
-                case "low_steam" -> "gtceu.multiblock.steam.low_steam";
-                case "working" -> "gtceu.multiblock.large_miner.working";
-                default -> "gtceu.multiblock.idling";
-            };
-        }
-
-        private static Component line(String name, Object... arguments) {
-            return Component.translatable("gregsteamexpansion.jade.steam_crusher." + name, arguments)
-                    .withStyle(ChatFormatting.GRAY);
+            appendSteamMachineTooltip(tooltip, data, CRUSHER_TOOLTIP_PREFIX,
+                    steamMachineStatusKey(data.getString("statusId")));
         }
 
         @Override
@@ -189,8 +139,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
                     !(blockEntity.getMetaMachine() instanceof AbstractSteamProcessorMachine processor)) {
                 return;
             }
-            CompoundTag data = new CompoundTag();
-            data.putString("statusId", processor.getStatusId());
+            CompoundTag data = SteamMachineSnapshot.from(processor).toTag();
             // Preserve the controller's concrete status wording. Some processors
             // intentionally specialize a shared state id (the blast furnace uses
             // auxiliary_shortfall for its dedicated "blast air shortage" text).
@@ -198,20 +147,6 @@ public final class GSEJadePlugin implements IWailaPlugin {
             if (statusText.getContents() instanceof TranslatableContents translatable) {
                 data.putString("statusKey", translatable.getKey());
             }
-            data.putString("recipeId", processor.getBatchRecipeId());
-            data.putString("inputItem", processor.getBatchInputDisplay().isEmpty() ? ""
-                    : net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(
-                            processor.getBatchInputDisplay().getItem()).toString());
-            data.putInt("progress", processor.getBatchProgress());
-            data.putInt("duration", processor.getBatchDuration());
-            data.putInt("parallel", processor.getBatchParallel());
-            data.putInt("parallelCap", processor.maximumParallel());
-            data.putLong("steamTotal", processor.getSteamTotalStored());
-            data.putLong("steamCap", processor.getSteamTotalCapacity());
-            data.putLong("steamPerTick", processor.getBatchSteamPerTick());
-            data.putBoolean("consuming", processor.isConsumingSteam());
-            data.putLong("pendingTotal", processor.getPendingTotalCount());
-            data.putInt("pendingKinds", processor.getPendingKinds());
             data.putLong("pendingFluidTotal", processor.getPendingFluidTotal());
             data.putInt("pendingFluidKinds", processor.getPendingFluidKinds());
             // 议题 12: 进气室状态与缓存 (仅接受进气室的机型会带出非空状态 id).
@@ -232,34 +167,11 @@ public final class GSEJadePlugin implements IWailaPlugin {
 
             String statusKey = data.contains("statusKey", Tag.TAG_STRING)
                     ? data.getString("statusKey")
-                    : statusKey(data.getString("statusId"));
-            tooltip.add(line("status", Component.translatable(statusKey)));
-            if (!data.getString("recipeId").isEmpty()) {
-                tooltip.add(line("recipe", data.getString("recipeId")));
-                tooltip.add(line("progress", FormattingUtil.formatNumbers(data.getInt("progress")),
-                        FormattingUtil.formatNumbers(data.getInt("duration"))));
-            }
-            tooltip.add(line("parallel", data.contains("parallel") && data.getInt("parallel") > 0
-                    ? FormattingUtil.formatNumbers(data.getInt("parallel"))
-                    : "—",
-                    FormattingUtil.formatNumbers(data.getInt("parallelCap"))));
-            tooltip.add(line("steam", FormattingUtil.formatNumbers(data.getLong("steamTotal")),
-                    FormattingUtil.formatNumbers(data.getLong("steamCap"))));
-            tooltip.add(line("demand",
-                    data.getLong("steamPerTick") > 0
-                            ? FormattingUtil.formatNumbers(data.getLong("steamPerTick"))
-                            : "0"));
-            if (data.getLong("pendingTotal") > 0) {
-                tooltip.add(line("pending", FormattingUtil.formatNumbers(data.getLong("pendingTotal")),
-                        String.valueOf(data.getInt("pendingKinds"))));
-            }
-            if (data.contains("pendingFluidTotal") && data.getLong("pendingFluidTotal") > 0) {
-                tooltip.add(line("pending_fluid", FormattingUtil.formatNumbers(data.getLong("pendingFluidTotal")),
-                        String.valueOf(data.getInt("pendingFluidKinds"))));
-            }
+                    : steamMachineStatusKey(data.getString("statusId"));
+            appendSteamMachineTooltip(tooltip, data, PROCESSOR_TOOLTIP_PREFIX, statusKey);
             if (data.getBoolean("hasIntake")) {
                 // 议题 12: 与控制器 GUI 同源 — 状态 id 复用进气室自有文本.
-                tooltip.add(line("intake", Component.translatable(
+                tooltip.add(steamMachineLine(PROCESSOR_TOOLTIP_PREFIX, "intake", Component.translatable(
                                 "gregsteamexpansion.machine.steam_air_intake_hatch.status."
                                         + data.getString("intakeStatusId")),
                         FormattingUtil.formatNumbers(data.getLong("intakeStored")),
@@ -267,27 +179,113 @@ public final class GSEJadePlugin implements IWailaPlugin {
             }
         }
 
-        private static String statusKey(String statusId) {
-            return switch (statusId) {
-                case "invalid_structure" -> "gtceu.multiblock.invalid_structure";
-                case "insufficient_outputs" -> "gtceu.recipe_logic.insufficient_out";
-                case "working_disabled" -> "gtceu.top.working_disabled";
-                case "auxiliary_shortfall" -> "gregsteamexpansion.multiblock.auxiliary_shortfall";
-                case "low_steam" -> "gtceu.multiblock.steam.low_steam";
-                case "working" -> "gtceu.multiblock.large_miner.working";
-                default -> "gtceu.multiblock.idling";
-            };
-        }
-
-        private static Component line(String name, Object... arguments) {
-            return Component.translatable("gregsteamexpansion.jade.steam_processor." + name, arguments)
-                    .withStyle(ChatFormatting.GRAY);
-        }
-
         @Override
         public ResourceLocation getUid() {
             return UID;
         }
+    }
+
+    private record SteamMachineSnapshot(
+            String statusId,
+            String recipeId,
+            ItemStack inputItem,
+            int progress,
+            int duration,
+            int parallel,
+            int parallelCap,
+            long steamTotal,
+            long steamCapacity,
+            long steamPerTick,
+            boolean consuming,
+            long pendingTotal,
+            int pendingKinds) {
+
+        private static SteamMachineSnapshot from(AbstractSteamCrusherMachine machine) {
+            return new SteamMachineSnapshot(
+                    machine.getStatusId(), machine.getBatchRecipeId(), machine.getBatchInputDisplay(),
+                    machine.getBatchProgress(), machine.getBatchDuration(), machine.getBatchParallel(),
+                    machine.maximumParallel(), machine.getSteamTotalStored(), machine.getSteamTotalCapacity(),
+                    machine.getBatchSteamPerTick(), machine.isConsumingSteam(), machine.getPendingTotalCount(),
+                    machine.getPendingKinds());
+        }
+
+        private static SteamMachineSnapshot from(AbstractSteamProcessorMachine machine) {
+            return new SteamMachineSnapshot(
+                    machine.getStatusId(), machine.getBatchRecipeId(), machine.getBatchInputDisplay(),
+                    machine.getBatchProgress(), machine.getBatchDuration(), machine.getBatchParallel(),
+                    machine.maximumParallel(), machine.getSteamTotalStored(), machine.getSteamTotalCapacity(),
+                    machine.getBatchSteamPerTick(), machine.isConsumingSteam(), machine.getPendingTotalCount(),
+                    machine.getPendingKinds());
+        }
+
+        private CompoundTag toTag() {
+            CompoundTag data = new CompoundTag();
+            data.putString("statusId", statusId);
+            data.putString("recipeId", recipeId);
+            data.putString("inputItem", inputItem.isEmpty() ? ""
+                    : ForgeRegistries.ITEMS.getKey(inputItem.getItem()).toString());
+            data.putInt("progress", progress);
+            data.putInt("duration", duration);
+            data.putInt("parallel", parallel);
+            data.putInt("parallelCap", parallelCap);
+            data.putLong("steamTotal", steamTotal);
+            data.putLong("steamCap", steamCapacity);
+            data.putLong("steamPerTick", steamPerTick);
+            data.putBoolean("consuming", consuming);
+            data.putLong("pendingTotal", pendingTotal);
+            data.putInt("pendingKinds", pendingKinds);
+            return data;
+        }
+    }
+
+    private static void appendSteamMachineTooltip(ITooltip tooltip, CompoundTag data,
+                                                   String translationPrefix, String statusKey) {
+        tooltip.add(steamMachineLine(translationPrefix, "status", Component.translatable(statusKey)));
+        if (!data.getString("recipeId").isEmpty()) {
+            tooltip.add(steamMachineLine(translationPrefix, "recipe", data.getString("recipeId")));
+            tooltip.add(steamMachineLine(translationPrefix, "progress",
+                    FormattingUtil.formatNumbers(data.getInt("progress")),
+                    FormattingUtil.formatNumbers(data.getInt("duration"))));
+        }
+        tooltip.add(steamMachineLine(translationPrefix, "parallel",
+                data.contains("parallel") && data.getInt("parallel") > 0
+                        ? FormattingUtil.formatNumbers(data.getInt("parallel"))
+                        : "—",
+                FormattingUtil.formatNumbers(data.getInt("parallelCap"))));
+        tooltip.add(steamMachineLine(translationPrefix, "steam",
+                FormattingUtil.formatNumbers(data.getLong("steamTotal")),
+                FormattingUtil.formatNumbers(data.getLong("steamCap"))));
+        tooltip.add(steamMachineLine(translationPrefix, "demand",
+                data.getLong("steamPerTick") > 0
+                        ? FormattingUtil.formatNumbers(data.getLong("steamPerTick"))
+                        : "0"));
+        if (data.getLong("pendingTotal") > 0) {
+            tooltip.add(steamMachineLine(translationPrefix, "pending",
+                    FormattingUtil.formatNumbers(data.getLong("pendingTotal")),
+                    String.valueOf(data.getInt("pendingKinds"))));
+        }
+        if (data.contains("pendingFluidTotal") && data.getLong("pendingFluidTotal") > 0) {
+            tooltip.add(steamMachineLine(translationPrefix, "pending_fluid",
+                    FormattingUtil.formatNumbers(data.getLong("pendingFluidTotal")),
+                    String.valueOf(data.getInt("pendingFluidKinds"))));
+        }
+    }
+
+    private static String steamMachineStatusKey(String statusId) {
+        return switch (statusId) {
+            case "invalid_structure" -> "gtceu.multiblock.invalid_structure";
+            case "exhaust_obstructed" -> "gregsteamexpansion.multiblock.steam_exhaust_hatch_obstructed";
+            case "insufficient_outputs" -> "gtceu.recipe_logic.insufficient_out";
+            case "working_disabled" -> "gtceu.top.working_disabled";
+            case "auxiliary_shortfall" -> "gregsteamexpansion.multiblock.auxiliary_shortfall";
+            case "low_steam" -> "gtceu.multiblock.steam.low_steam";
+            case "working" -> "gtceu.multiblock.large_miner.working";
+            default -> "gtceu.multiblock.idling";
+        };
+    }
+
+    private static Component steamMachineLine(String translationPrefix, String name, Object... arguments) {
+        return Component.translatable(translationPrefix + name, arguments).withStyle(ChatFormatting.GRAY);
     }
 
     private enum AirIntakeProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
@@ -469,7 +467,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
             var fluid = oven.exportFluids.getStorages()[0].getFluid();
             data.putInt("fluidAmount", fluid.getAmount());
             data.putString("fluidId", fluid.isEmpty() ? ""
-                    : net.minecraftforge.registries.ForgeRegistries.FLUIDS.getKey(fluid.getFluid()).toString());
+                    : ForgeRegistries.FLUIDS.getKey(fluid.getFluid()).toString());
             data.putInt("fluidCapacity", oven.exportFluids.getStorages()[0].getCapacity());
             serverData.put(DATA_KEY, data);
         }
@@ -507,8 +505,9 @@ public final class GSEJadePlugin implements IWailaPlugin {
             }
             String fluidName;
             if (!fluidId.isEmpty()) {
-                var fluid = net.minecraftforge.registries.ForgeRegistries.FLUIDS.getValue(
-                        new ResourceLocation(fluidId));
+                ResourceLocation fluidKey = ResourceLocation.tryParse(fluidId);
+                var fluid = fluidKey == null ? null
+                        : ForgeRegistries.FLUIDS.getValue(fluidKey);
                 fluidName = fluid == null ? fluidId
                         : fluid.getFluidType().getDescription().getString();
             } else {

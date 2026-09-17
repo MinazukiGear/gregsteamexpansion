@@ -48,7 +48,7 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（137 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（138 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -62,11 +62,21 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 
 | 文件 | 覆盖内容 |
 | --- | --- |
-| `GSEGameTests` | 结构成型（含大型蒸汽组装机 `9×9×9`、大型蒸汽电路组装机 `5×11×6` 逐坐标与数量契约）、水平朝向、结构共用、仓室数量与非法接口边界、仓室行为、旧蒸汽仓迁移、注册一致性、配方注入、生存获取路线与高炉控制器精确合成契约 |
+| `GSEGameTests` | 混合燃料锅炉行为、配方重写一致性、焦炉仓与过期占用、组装机控制器槽、配方类型接线及合成站容器视图 |
+| `GSEAcquisitionTests` | 已实现内容的获取配方清单、原料标签解析与内部依赖无环检查，以及大型蒸汽高炉精确升级配方 |
+| `GSESteamHatchTests` | 蒸汽供汽/流体/进气仓能力、专用蒸汽源声明、大型供汽仓超频经济、流体仓互换回滚、覆盖板状态与旧蒸汽仓方块/物品迁移 |
+| `GSEStructureFormationTests` | 30 个结构成型契约：预览形状逐坐标与数量、水平朝向、共用墙体、仓室位置/数量及非法接口边界 |
 | `GSEBoilerRoomTests` | 四档进气条带位置/数量、非法仓室拒绝、多进气室汇总供气与不足不扣、仪表同步、状态提示、原生/GTM Things 物品输入及完整燃料启动链 |
 | `GSEDifficultyGameTests` | 启动档位、GTCEu 配方难度映射、旗舰机器开关和权重表 |
 | `GSERecipeOptimizationTests` | 配方缓存失效与空闲机器唤醒 |
-| `GSESteamEngineTests` | 五类引擎状态边界（含组装机与电路组装机独立实例）、组装机双机的空槽 ULV 门控与 `1–4` 台并行/经济阶梯、电路组装机焊锡和物品原子扣取及三档产出倍率、原子取汽、并行/输出容量、多产物槽位竞争、物品与流体批次结算、三格排气通道和鼓风、熔炉独立输入仓隔离与轮询、控制器 NBT 往返及真实区块落盘重载、大型蒸汽供给仓超频批次锁定、大型蒸汽高炉锻铁—炼钢生产闭环、96 并行满载供汽/鼓风边界、排气受阻与缺汽分界、真实待输出重载/整体提交/拆除掉落和 GUI/软锤控制、GUI/Jade 状态快照、三重并行限制、偏好配方重载与八进气室持续采集，以及创造/ME/样板总成接口兼容（50 个） |
+| `GSESteamEngineTests` | 蒸汽处理机的状态边界、批次结算、输入与流体容量、持久化及大型供汽仓超频锁定（10 个） |
+| `GSECrusherTests` | 蒸汽破碎机的状态边界、持久化、搜索唤醒、批次结算、并行容量、GUI/Jade 及超频锁定（6 个） |
+| `GSEAssemblerTests` | 大型蒸汽组装机与电路组装机的槽位等级、并行/经济阶梯、状态边界及物品—焊料原子扣取（7 个） |
+| `GSEVoidProducerTests` | 蒸汽虚空生产机的状态边界、控制器持久化、待输出恢复及大型供汽仓超频锁定（4 个） |
+| `GSEFurnaceTests` | 大型蓄热蒸汽熔炉的热状态、控制器持久化、待输出结算、大型供汽仓超频锁定、输出并行容量及独立输入仓轮询（6 个） |
+| `GSEBlastFurnaceTests` | 大型蒸汽高炉的风汽原子扣取、GUI/Jade、排气与缺汽状态、待输出持久化、三重并行限制、配方偏好、炼钢闭环及 96 并行满载边界（11 个） |
+| `GSEAutomationInterfaceTests` | 蒸汽破碎机、处理机、化学浸洗机、离心机及两类焦炉的创造/ME/样板总成输入输出接口兼容（6 个） |
+| `GSESteamEngineTestSupport` | 运行态测试共享夹具：真实结构成型、蒸汽/输出操作、输入总线、状态保存、批次边界、GUI/Jade 和反射适配 |
 | `GSEStructureDiagnosticsTests` | 缺块/数量/一致性诊断、候选去重截断、哨兵状态安全、NBT 传输及成型后清除（7 个） |
 | `GSEStructureTestUtils` | 结构辅助：用机器注册的 `MultiblockShapeInfo` 反铺方块，再用图案校验 |
 

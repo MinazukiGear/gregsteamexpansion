@@ -32,7 +32,6 @@ import net.minecraftforge.common.crafting.CraftingHelper;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -69,7 +68,7 @@ public final class GregSteamExpansion {
         modEventBus.addGenericListener(GTRecipeType.class, this::registerRecipeTypes);
         modEventBus.addListener(this::commonSetup);
 
-        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, GSEDifficultyConfig.SPEC);
+        context.registerConfig(ModConfig.Type.COMMON, GSEDifficultyConfig.SPEC);
         // The mod is required on both sides (mods.toml displayTest MATCH_VERSION),
         // so the common constructor must stay server-safe: the client setup
         // listener and config screen only wire up on the client dist because
@@ -77,7 +76,7 @@ public final class GregSteamExpansion {
         if (FMLEnvironment.dist.isClient()) {
             GSEClientSetup.registerEarly();
             modEventBus.addListener(GSEClientSetup::init);
-            ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
+            context.registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
                     () -> new ConfigScreenHandler.ConfigScreenFactory(GSEConfigScreen::new));
         }
         modEventBus.addListener(GSEDifficultyConfig::onConfigLoading);

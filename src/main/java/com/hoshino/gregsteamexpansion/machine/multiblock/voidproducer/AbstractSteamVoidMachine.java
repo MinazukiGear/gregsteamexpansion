@@ -299,25 +299,13 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
             return;
         }
         if (!exhaustHatches.isEmpty()) {
-            runExhaustCycles(exhaustHatches.get(0));
+            SteamExhaustHatchMachine exhaustHatch = exhaustHatches.get(0);
+            exhaustFeedbackTimer = exhaustHatch.advanceFeedbackCycle(exhaustFeedbackTimer);
+            exhaustDamageTimer = exhaustHatch.advanceDamageCycle(exhaustDamageTimer);
         }
         if (tick.completed()) {
             cycleProgress = 0;
             completeCycle();
-        }
-    }
-
-    /** Exhaust feedback pulse every 20 running ticks + 200-tick damage cycle. */
-    private void runExhaustCycles(SteamExhaustHatchMachine exhaustHatch) {
-        exhaustFeedbackTimer++;
-        if (exhaustFeedbackTimer >= SteamExhaustHatchMachine.FEEDBACK_INTERVAL_TICKS) {
-            exhaustFeedbackTimer = 0;
-            exhaustHatch.performExhaustFeedback();
-        }
-        exhaustDamageTimer++;
-        if (exhaustDamageTimer >= SteamExhaustHatchMachine.DAMAGE_CYCLE_TICKS) {
-            exhaustDamageTimer = 0;
-            exhaustHatch.applyExhaustDamage();
         }
     }
 

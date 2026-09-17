@@ -650,94 +650,6 @@ public class CraftingStationMenu extends AbstractContainerMenu {
         public List<ItemStack> getItems() {
             List<ItemStack> items = new ArrayList<>(GRID_SLOTS);
             for (int i = 0; i < GRID_SLOTS; i++) {
-                items.add(station.getGrid().getStackInSlot(i));
-            }
-            return items;
-        }
-
-        @Override
-        public void fillStackedContents(StackedContents contents) {
-            for (int i = 0; i < GRID_SLOTS; i++) {
-                contents.accountSimpleStack(station.getGrid().getStackInSlot(i));
-            }
-        }
-    }
-
-    /**
-     * Read-only matching view with one empty grid cell virtually filled by a
-     * tool from the tool slots.
-     */
-    private class AugmentedView implements CraftingContainer {
-        private final int substitutedCell;
-        private final ItemStack tool;
-
-        private AugmentedView(int substitutedCell, ItemStack tool) {
-            this.substitutedCell = substitutedCell;
-            this.tool = tool;
-        }
-
-        @Override
-        public int getContainerSize() {
-            return GRID_SLOTS;
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return gridView.isEmpty();
-        }
-
-        @Override
-        public ItemStack getItem(int slot) {
-            if (slot == substitutedCell && station.getGrid().getStackInSlot(slot).isEmpty()) {
-                return tool;
-            }
-            return station.getGrid().getStackInSlot(slot);
-        }
-
-        @Override
-        public ItemStack removeItem(int slot, int count) {
-            return gridView.removeItem(slot, count);
-        }
-
-        @Override
-        public ItemStack removeItemNoUpdate(int slot) {
-            return gridView.removeItemNoUpdate(slot);
-        }
-
-        @Override
-        public void setItem(int slot, ItemStack stack) {
-            gridView.setItem(slot, stack);
-        }
-
-        @Override
-        public void setChanged() {
-            matchDirty = true;
-        }
-
-        @Override
-        public boolean stillValid(Player player) {
-            return station.canPlayerUse(player);
-        }
-
-        @Override
-        public void clearContent() {
-            gridView.clearContent();
-        }
-
-        @Override
-        public int getWidth() {
-            return 3;
-        }
-
-        @Override
-        public int getHeight() {
-            return 3;
-        }
-
-        @Override
-        public List<ItemStack> getItems() {
-            List<ItemStack> items = new ArrayList<>(GRID_SLOTS);
-            for (int i = 0; i < GRID_SLOTS; i++) {
                 items.add(getItem(i));
             }
             return items;
@@ -748,6 +660,28 @@ public class CraftingStationMenu extends AbstractContainerMenu {
             for (int i = 0; i < GRID_SLOTS; i++) {
                 contents.accountSimpleStack(getItem(i));
             }
+        }
+    }
+
+    /**
+     * Read-only matching view with one empty grid cell virtually filled by a
+     * tool from the tool slots.
+     */
+    private class AugmentedView extends GridView {
+        private final int substitutedCell;
+        private final ItemStack tool;
+
+        private AugmentedView(int substitutedCell, ItemStack tool) {
+            this.substitutedCell = substitutedCell;
+            this.tool = tool;
+        }
+
+        @Override
+        public ItemStack getItem(int slot) {
+            if (slot == substitutedCell && station.getGrid().getStackInSlot(slot).isEmpty()) {
+                return tool;
+            }
+            return station.getGrid().getStackInSlot(slot);
         }
     }
 

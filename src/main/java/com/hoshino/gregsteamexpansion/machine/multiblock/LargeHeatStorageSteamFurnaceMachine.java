@@ -9,7 +9,6 @@ import com.gregtechceu.gtceu.api.capability.recipe.RecipeCapability;
 import com.gregtechceu.gtceu.api.gui.GuiTextures;
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
-import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
 import com.gregtechceu.gtceu.api.machine.feature.IUIMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.machine.property.GTMachineModelProperties;
@@ -31,7 +30,10 @@ import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
+import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceInputScheduler;
+import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceThermalLogic;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
+import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 import com.hoshino.gregsteamexpansion.registry.GSEFurnacePatterns;
 
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
@@ -51,7 +53,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraftforge.fluids.FluidStack;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -91,8 +92,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(
             LargeHeatStorageSteamFurnaceMachine.class, MultiblockControllerMachine.MANAGED_FIELD_HOLDER);
 
-    public static final int COLD_TEMPERATURE = 20;
-    public static final int MIN_WORKING_TEMPERATURE = 400;
+    public static final int COLD_TEMPERATURE = FurnaceThermalLogic.COLD_TEMPERATURE;
+    public static final int MIN_WORKING_TEMPERATURE = FurnaceThermalLogic.MIN_WORKING_TEMPERATURE;
     /** Steam per tick a single standard steam hatch may supply to this machine. */
     public static final int STEAM_PER_HATCH_LIMIT_MB = (int) SteamBudget.PHYSICAL_HATCH_LIMIT_MB;
     /** Heat damage of one exhaust damage cycle. */
@@ -223,8 +224,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     /** Part recipe handlers aggregated on formation (WorkableMultiblockMachine wiring). */
     private final Map<IO, List<RecipeHandlerList>> capabilitiesProxy = new EnumMap<>(IO.class);
     private final Map<IO, Map<RecipeCapability<?>, List<IRecipeHandler<?>>>> capabilitiesFlat = new EnumMap<>(IO.class);
-    /** One stable, independently searchable capability view per ordinary or ME item input part. */
-    private final List<InputScope> inputScopes = new ArrayList<>();
+    /** Runtime-only isolated input views; the persisted round-robin cursor remains above. */
+    private final FurnaceInputScheduler inputScheduler = new FurnaceInputScheduler();
 
     public LargeHeatStorageSteamFurnaceMachine(IMachineBlockEntity holder) {
         super(holder);
@@ -300,10 +301,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
 
     /** 尺寸改变时的温度重置: cold furnace, accumulation and timers cleared. */
     private void resetTemperatureState() {
-        currentTemperature = COLD_TEMPERATURE;
-        preheatProgressUnits = 0;
-        heatTimer = 0;
-        coolTimer = 0;
+        applyThermalState(FurnaceThermalLogic.coldState());
     }
 
     @Override
@@ -312,7 +310,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         // at the idle rate (large-heat-storage-steam-furnace.md 结构失效).
         super.onStructureInvalid();
         batchProgress = batchState.invalidate(batchProgress, hasBatch);
-        inputScopes.clear();
+        inputScheduler.clear();
         exhaustBlocked = false;
         fireboxActive = false;
         updateFireboxBlocks(false);
@@ -328,27 +326,12 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         for (SteamPartCollector.HandlerBinding binding : partCollector.recipeHandlers()) {
             addHandlerList(binding.handlers());
         }
-        rebuildInputScopes();
+        inputScheduler.rebuild(partCollector);
         exhaustHatch = partCollector.exhaustHatches().isEmpty() ? null : partCollector.exhaustHatches().get(0);
         steamUnlimited = steamBudget.isUnlimited();
         GregSteamExpansion.LOGGER.debug("Furnace at {} formed {}x{}x{}: {} steam hatches, {} ME hatches, unlimited={}",
                 getPos(), formedWidth, formedWidth, formedHeight, steamHatches.size(), meSteamHatches.size(),
                 steamUnlimited);
-    }
-
-    private void rebuildInputScopes() {
-        inputScopes.clear();
-        for (IMultiPart inputPart : partCollector.inputParts()) {
-            InputScope scope = new InputScope(inputPart.self().getPos());
-            for (SteamPartCollector.HandlerBinding binding : partCollector.recipeHandlers()) {
-                if (binding.part() == inputPart && binding.handlers().isValid(IO.IN)) {
-                    scope.addHandlerList(binding.handlers());
-                }
-            }
-            if (scope.hasCapabilityProxies()) {
-                inputScopes.add(scope);
-            }
-        }
     }
 
     @NotNull
@@ -378,21 +361,21 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
 
         if (!isWorkingEnabled()) {
             batchState.freeze(BatchStateMachine.HoldReason.PAUSED);
-            coolDown(difficulty);
+            coolDown();
             updateWorkingAppearance();
             return;
         }
         if (!isFormed()) {
             // 结构失效: cool at the idle rate while loaded; kept batches freeze.
             batchState.freeze(BatchStateMachine.HoldReason.INVALID_STRUCTURE);
-            coolDown(difficulty);
+            coolDown();
             return;
         }
         exhaustBlocked = exhaustHatch != null && exhaustHatch.isExhaustBlocked();
         if (exhaustBlocked) {
             // 排气受阻: stop drawing steam and working, cool at idle rate.
             batchState.freeze(BatchStateMachine.HoldReason.EXHAUST_BLOCKED);
-            coolDown(difficulty);
+            coolDown();
             updateWorkingAppearance();
             return;
         }
@@ -400,7 +383,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         // 待输出产物优先送出; 失败即输出堵塞 (停机冷却, 保留待输出列表).
         if (!pendingOutputs.isEmpty() && !deliverPendingOutputs()) {
             batchState.freeze(BatchStateMachine.HoldReason.OUTPUTS);
-            coolDown(difficulty);
+            coolDown();
             updateWorkingAppearance();
             return;
         }
@@ -442,11 +425,14 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
                 batchProgress, batchDuration, () -> drawSteam(batchSteamPerTickMb));
         batchProgress = tick.progress();
         if (!tick.consumed()) {
-            coolDown(currentDifficulty());
+            coolDown();
             updateWorkingAppearance();
             return;
         }
-        runExhaustCycles();
+        if (exhaustHatch != null) {
+            exhaustFeedbackTimer = exhaustHatch.advanceFeedbackCycle(exhaustFeedbackTimer);
+            exhaustDamageTimer = exhaustHatch.advanceDamageCycle(exhaustDamageTimer);
+        }
         if (tick.completed()) {
             completeBatch();
         }
@@ -467,27 +453,16 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
             }
             return tryStartBatchFrom(this, recipes.next(), difficulty, NO_INPUT_SOURCE);
         }
-        if (inputScopes.isEmpty()) {
-            batchState.freeze(BatchStateMachine.HoldReason.INPUTS);
-            return false;
+        FurnaceInputScheduler.SearchResult result = inputScheduler.tryStart(
+                inputBusCursor,
+                this::findRecipes,
+                (holder, recipe, sourcePosition) ->
+                        tryStartBatchFrom(holder, recipe, difficulty, sourcePosition));
+        if (result.started()) {
+            inputBusCursor = result.nextCursor();
+            return true;
         }
-
-        int scopeCount = inputScopes.size();
-        int start = Math.floorMod(inputBusCursor, scopeCount);
-        boolean foundCandidate = false;
-        for (int offset = 0; offset < scopeCount; offset++) {
-            int index = (start + offset) % scopeCount;
-            InputScope scope = inputScopes.get(index);
-            Iterator<GTRecipe> recipes = findRecipes(scope);
-            while (recipes.hasNext()) {
-                foundCandidate = true;
-                if (tryStartBatchFrom(scope, recipes.next(), difficulty, scope.position().asLong())) {
-                    inputBusCursor = (index + 1) % scopeCount;
-                    return true;
-                }
-            }
-        }
-        if (!foundCandidate) {
+        if (!result.foundCandidate()) {
             batchState.freeze(BatchStateMachine.HoldReason.INPUTS);
         }
         return false;
@@ -582,8 +557,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
                     recipeTier, chanceTier, null, 1);
             // times=1: parallel quantity already applied by the copy above
             // (double application squared the output, e.g. 3 × P²).
-            produced.addAll(com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCrusherMachine
-                    .materializeItemContents(rolled));
+            produced.addAll(PendingOutputBuffer.materializeItems(rolled));
         });
         pendingBuffer.addMergedItems(produced);
 
@@ -636,34 +610,6 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
                 RecipeHelper.getRecipeEUtTier(recipe) <= 1);
     }
 
-    private static final class InputScope implements IRecipeCapabilityHolder {
-
-        private final BlockPos position;
-        private final Map<IO, List<RecipeHandlerList>> capabilitiesProxy = new EnumMap<>(IO.class);
-        private final Map<IO, Map<RecipeCapability<?>, List<IRecipeHandler<?>>>> capabilitiesFlat =
-                new EnumMap<>(IO.class);
-
-        private InputScope(BlockPos position) {
-            this.position = position.immutable();
-        }
-
-        private BlockPos position() {
-            return position;
-        }
-
-        @NotNull
-        @Override
-        public Map<IO, List<RecipeHandlerList>> getCapabilitiesProxy() {
-            return capabilitiesProxy;
-        }
-
-        @NotNull
-        @Override
-        public Map<IO, Map<RecipeCapability<?>, List<IRecipeHandler<?>>>> getCapabilitiesFlat() {
-            return capabilitiesFlat;
-        }
-    }
-
     @Nullable
     private GTRecipe findRecipeById() {
         if (batchRecipeId.isEmpty()) {
@@ -673,14 +619,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         if (id == null) {
             return null;
         }
-        for (GTRecipeType type : List.of(GTRecipeTypes.FURNACE_RECIPES, GTRecipeTypes.ALLOY_SMELTER_RECIPES)) {
-            for (GTRecipe recipe : type.getRecipesInCategory(type.getCategory())) {
-                if (recipe.getId().equals(id)) {
-                    return recipe;
-                }
-            }
-        }
-        return null;
+        GTRecipeType type = batchRecipeMode == MODE_ALLOY ? GTRecipeTypes.ALLOY_SMELTER_RECIPES
+                : GTRecipeTypes.FURNACE_RECIPES;
+        return SteamRecipeCache.get(type).byId(id);
     }
 
     /**
@@ -692,49 +633,22 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
      * @return true when steam was actually consumed this tick
      */
     private boolean tryPreheat(Difficulty difficulty) {
-        int limit = maxTemperature();
-        if (formedWidth == 0 || currentTemperature >= limit) {
+        FurnaceThermalLogic.PreheatPlan plan = FurnaceThermalLogic.planPreheat(
+                formedWidth, formedHeight, thermalState(), steamInputLimitPerTickUnits(), difficulty);
+        if (!plan.shouldAdvance()) {
             return false;
         }
-        long costUnits = preheatCostPerDegreeUnits(difficulty);
-        long missingUnits = costUnits - preheatProgressUnits;
-        if (missingUnits <= 0) {
-            // Degree already funded; still honour the heating-rate interval.
-            advanceHeatTimer();
+        if (plan.drawsSteam() && !drawSteam(plan.steamMb())) {
             return false;
         }
-        long planUnits = Math.min(missingUnits, steamInputLimitPerTickUnits());
-        long planMb = (planUnits + 99) / 100;
-        if (!drawSteam(planMb)) {
-            return false;
-        }
-        preheatProgressUnits += planMb * 100L;
-        advanceHeatTimer();
-        return true;
-    }
-
-    private void advanceHeatTimer() {
-        Difficulty difficulty = currentDifficulty();
-        heatTimer++;
-        if (heatTimer >= difficulty.getPreheatIntervalTicks()) {
-            heatTimer = 0;
-            preheatProgressUnits = 0;
-            if (currentTemperature < maxTemperature()) {
-                currentTemperature++;
-            }
-        }
+        applyThermalState(FurnaceThermalLogic.advanceHeating(
+                thermalState(), maxTemperature(), difficulty.getPreheatIntervalTicks(), plan.steamMb() * 100L));
+        return plan.drawsSteam();
     }
 
     /** 停机或加工冷却公式; a missing structure cools with its last known size. */
-    private void coolDown(Difficulty difficulty) {
-        if (currentTemperature <= COLD_TEMPERATURE) {
-            return;
-        }
-        coolTimer++;
-        if (coolTimer >= coolingIntervalTicks(false)) {
-            coolTimer = 0;
-            currentTemperature--;
-        }
+    private void coolDown() {
+        applyThermalState(FurnaceThermalLogic.cool(formedWidth, formedHeight, thermalState(), false));
     }
 
     //////////////////////////////////////
@@ -764,27 +678,6 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     }
 
     //////////////////////////////////////
-    // ***** Exhaust ******//
-    //////////////////////////////////////
-
-    /** Only ticks where steam was actually consumed advance these cycles. */
-    private void runExhaustCycles() {
-        if (exhaustHatch == null) {
-            return;
-        }
-        exhaustFeedbackTimer++;
-        if (exhaustFeedbackTimer >= SteamExhaustHatchMachine.FEEDBACK_INTERVAL_TICKS) {
-            exhaustFeedbackTimer = 0;
-            exhaustHatch.performExhaustFeedback();
-        }
-        exhaustDamageTimer++;
-        if (exhaustDamageTimer >= SteamExhaustHatchMachine.DAMAGE_CYCLE_TICKS) {
-            exhaustDamageTimer = 0;
-            exhaustHatch.applyExhaustDamage();
-        }
-    }
-
-    //////////////////////////////////////
     // ***** Formulas ******//
     //////////////////////////////////////
 
@@ -796,8 +689,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     private void migrateDifficulty() {
         Difficulty difficulty = currentDifficulty();
         if (difficulty.ordinal() < lastAppliedDifficulty) {
-            preheatProgressUnits = 0;
-            heatTimer = 0;
+            applyThermalState(thermalState().clearPreheat());
         }
         if (difficulty.ordinal() != lastAppliedDifficulty) {
             lastAppliedDifficulty = difficulty.ordinal();
@@ -805,16 +697,12 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     }
 
     public int maxTemperature() {
-        return switch (formedWidth) {
-            case 11 -> 1500;
-            case 15 -> 2000;
-            default -> 1000;
-        };
+        return FurnaceThermalLogic.maxTemperature(formedWidth);
     }
 
     /** 启动温度统一取温度上限的 60%. */
     public int startupTemperature() {
-        return maxTemperature() * 3 / 5;
+        return FurnaceThermalLogic.startupTemperature(formedWidth);
     }
 
     /** 最大并行数 = 64 + 16 × (高度 − 6), clamped to the 64–256 range. */
@@ -827,8 +715,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
 
     /** 预热每 1°C 蒸汽成本 in 1/100 mB units: (宽²−4) × 高 × 2 × percent / 100. */
     public long preheatCostPerDegreeUnits(Difficulty difficulty) {
-        long base = (long) (formedWidth * (long) formedWidth - 4) * formedHeight * 2;
-        return base * difficulty.getPreheatCostPercent();
+        return FurnaceThermalLogic.preheatCostPerDegreeUnits(formedWidth, formedHeight, difficulty);
     }
 
     /**
@@ -836,47 +723,29 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
      * −1°C takes; processing cools ~8× slower than idle.
      */
     public int coolingIntervalTicks(boolean processing) {
-        if (formedWidth == 0 || currentTemperature <= COLD_TEMPERATURE) {
-            return Integer.MAX_VALUE;
-        }
-        double innerArea = (double) formedWidth * formedWidth - 4;
-        double volume = innerArea * formedHeight;
-        double area = 2 * innerArea + 4.0 * formedWidth * formedHeight;
-        double ratio = volume / area;
-        double temperatureFactor = (currentTemperature - COLD_TEMPERATURE) / 980.0;
-        if (temperatureFactor <= 0) {
-            return Integer.MAX_VALUE;
-        }
-        return (int) Math.ceil((processing ? 40 : 5) * ratio / temperatureFactor);
+        return FurnaceThermalLogic.coolingIntervalTicks(
+                formedWidth, formedHeight, currentTemperature, processing);
     }
 
     /** 速度倍率 M = 1 + (2 + 22 × v³) × t² (ready for the batch engine). */
     public double speedMultiplier() {
-        double v = volumeProgress();
-        double t = temperatureProgress();
-        return 1 + (2 + 22 * v * v * v) * t * t;
+        return FurnaceThermalLogic.speedMultiplier(formedWidth, formedHeight, currentTemperature);
     }
 
     /** 加工蒸汽体积减免 D = 1 / (1 + 3 × v²) (ready for the batch engine). */
     public double steamDiscount() {
-        double v = volumeProgress();
-        return 1 / (1 + 3 * v * v);
+        return FurnaceThermalLogic.steamDiscount(formedWidth, formedHeight);
     }
 
-    private double volumeProgress() {
-        if (formedWidth == 0) {
-            return 0;
-        }
-        double volume = (double) (formedWidth * (long) formedWidth - 4) * formedHeight;
-        return Math.min(1, Math.max(0, (volume - 270) / (3978.0 - 270)));
+    private FurnaceThermalLogic.State thermalState() {
+        return new FurnaceThermalLogic.State(currentTemperature, preheatProgressUnits, heatTimer, coolTimer);
     }
 
-    private double temperatureProgress() {
-        int max = maxTemperature();
-        if (max <= MIN_WORKING_TEMPERATURE) {
-            return 0;
-        }
-        return Math.min(1, Math.max(0, (currentTemperature - MIN_WORKING_TEMPERATURE) / (double) (max - MIN_WORKING_TEMPERATURE)));
+    private void applyThermalState(FurnaceThermalLogic.State state) {
+        currentTemperature = state.temperature();
+        preheatProgressUnits = state.preheatProgressUnits();
+        heatTimer = state.heatTimer();
+        coolTimer = state.coolTimer();
     }
 
     //////////////////////////////////////
@@ -1113,7 +982,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     }
 
     private long formedVolume() {
-        return formedWidth == 0 ? 0 : (long) (formedWidth * (long) formedWidth - 4) * formedHeight;
+        return FurnaceThermalLogic.formedVolume(formedWidth, formedHeight);
     }
 
     private boolean canToggleDistinctBuses() {
