@@ -1,16 +1,24 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.terminal.TerminalBuildProfile;
 import com.hoshino.gregsteamexpansion.terminal.UltimateStructurePlanner;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalWorldData;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
@@ -49,6 +57,23 @@ public final class GSETerminalTests {
         GSEStructureTestUtils.placeMachine(helper, GSEMachines.STEAM_CRUSHER, CONTROLLER);
         BlockPos controllerPos = helper.absolutePos(CONTROLLER);
         TerminalBuildProfile profile = new TerminalBuildProfile();
+
+        var player = FakePlayerFactory.getMinecraft(helper.getLevel());
+        ItemStack terminal = new ItemStack(GSEBlocks.ULTIMATE_TERMINAL.get());
+        player.setItemInHand(InteractionHand.MAIN_HAND, terminal);
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(controllerPos), Direction.UP,
+                controllerPos, false);
+        UltimateTerminalWorldData data = UltimateTerminalWorldData.get(helper.getLevel().getServer());
+        data.removeTarget(player, helper.getLevel().dimension(), controllerPos);
+        player.setShiftKeyDown(false);
+        player.gameMode.useItemOn(player, helper.getLevel(), terminal, InteractionHand.MAIN_HAND, hit);
+        helper.assertTrue(data.targetCount(player.getUUID()) == 1,
+                "Controller use consumed the interaction before the terminal added its target");
+        player.setShiftKeyDown(true);
+        player.gameMode.useItemOn(player, helper.getLevel(), terminal, InteractionHand.MAIN_HAND, hit);
+        helper.assertTrue(data.targetCount(player.getUUID()) == 0,
+                "Sneak-use did not remove the selected controller target");
+        player.setShiftKeyDown(false);
 
         UltimateStructurePlanner.Plan missing = UltimateStructurePlanner.plan(
                 helper.getLevel(), controllerPos, profile, false);

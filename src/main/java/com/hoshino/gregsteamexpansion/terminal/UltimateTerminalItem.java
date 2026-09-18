@@ -30,8 +30,21 @@ public final class UltimateTerminalItem extends Item {
         super(properties);
     }
 
+    /**
+     * Runs before the clicked block's use method, so controller GUIs cannot
+     * consume the interaction before the terminal records the target.
+     */
+    @Override
+    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
+        return selectTarget(context);
+    }
+
     @Override
     public InteractionResult useOn(UseOnContext context) {
+        return selectTarget(context);
+    }
+
+    private InteractionResult selectTarget(UseOnContext context) {
         Player player = context.getPlayer();
         if (player == null || !TerminalCompatibility.isAvailable()) {
             return InteractionResult.PASS;
@@ -72,12 +85,6 @@ public final class UltimateTerminalItem extends Item {
                     Component.translatable("item.gregsteamexpansion.ultimate_terminal")));
         }
         return InteractionResultHolder.sidedSuccess(held, level.isClientSide);
-    }
-
-    @Override
-    public boolean doesSneakBypassUse(ItemStack stack, net.minecraft.world.level.LevelReader level,
-                                      BlockPos pos, Player player) {
-        return true;
     }
 
     @Override

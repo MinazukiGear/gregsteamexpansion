@@ -61,7 +61,7 @@ public final class UltimateTerminalMessages {
     }
 
     public static void forceFull(ServerPlayer player) {
-        if (!TerminalCompatibility.isAvailable()) return;
+        if (!TerminalCompatibility.isAvailable() || player.connection == null) return;
         Session previous = SESSIONS.get(player.getUUID());
         int revision = previous == null ? 1 : previous.snapshot.revision() + 1;
         UltimateTerminalSnapshot snapshot = UltimateTerminalSnapshot.from(
