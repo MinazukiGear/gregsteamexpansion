@@ -11,6 +11,7 @@ import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.api.recipe.content.Content;
 import com.gregtechceu.gtceu.api.recipe.content.ContentModifier;
+import com.gregtechceu.gtceu.api.recipe.ingredient.SizedIngredient;
 import com.gregtechceu.gtceu.api.recipe.lookup.RecipeManagerHandler;
 import com.gregtechceu.gtceu.common.data.GTRecipeCategories;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
@@ -21,9 +22,12 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMac
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.PreparableReloadListener;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraftforge.event.AddReloadListenerEvent;
@@ -68,6 +72,8 @@ public final class OreCrushingMigration {
      * by display name, class-name strings or id substrings.
      */
     public record ConsumerEntry(MachineDefinition definition, ResourceLocation acquisitionRecipeId) {}
+
+    private record OreInput(Material material, boolean oreBlock) {}
 
     private static final List<ConsumerEntry> CONSUMERS = new ArrayList<>();
 
@@ -278,12 +284,7 @@ public final class OreCrushingMigration {
                 return false;
             }
         }
-        ItemStack representative = representativeStack(itemInputs.get(0));
-        if (representative == null || representative.isEmpty()) {
-            return false;
-        }
-        TagPrefix prefix = ChemicalHelper.getPrefix(representative.getItem());
-        return prefix != null && (TagPrefix.ORES.containsKey(prefix) || prefix == TagPrefix.rawOre);
+        return classifyOreInput(itemInputs.get(0)) != null;
     }
 
     /**
@@ -314,26 +315,12 @@ public final class OreCrushingMigration {
             return null;
         }
 
-        // input material from the ingredient's first representative stack.
-        // Deserialized recipe contents hold Ingredients (often SizedIngredient),
-        // never raw ItemStacks — always go through CAP.of(...).getItems().
-        var inputIngredient = ItemRecipeCapability.CAP.of(itemInputs.get(0).content);
-        if (inputIngredient == null) {
+        OreInput oreInput = classifyOreInput(itemInputs.get(0));
+        if (oreInput == null) {
             return null;
         }
-        ItemStack[] representative = inputIngredient.getItems();
-        if (representative.length == 0 || representative[0].isEmpty()) {
-            return null;
-        }
-        TagPrefix inputPrefix = ChemicalHelper.getPrefix(representative[0].getItem());
-        Material inputMaterial = inputPrefix != null
-                ? resolveMaterial(representative[0])
-                : null;
-        boolean isOre = inputPrefix != null && TagPrefix.ORES.containsKey(inputPrefix);
-        boolean isRawOre = inputPrefix == TagPrefix.rawOre;
-        if (inputMaterial == null || inputMaterial.isNull() || (!isOre && !isRawOre)) {
-            return null;
-        }
+        Material inputMaterial = oreInput.material();
+        boolean isOre = oreInput.oreBlock();
 
         // main product: the guaranteed crushed output of the same material.
         // A guaranteed output carries chance == maxChance (10000/10000 after the
@@ -424,6 +411,53 @@ public final class OreCrushingMigration {
         copy.ocLevel = detached.ocLevel;
         copy.parallels = detached.parallels;
         return copy;
+    }
+
+    /**
+     * Resolves an ore-block or raw-ore input without assuming every matching
+     * item has a direct prefix entry. Vanilla raw ores are commonly supplied by
+     * a material tag: their material is known, while {@code getPrefix(item)}
+     * can return {@code NULL_PREFIX}. Matching the recipe ingredient against
+     * the material's canonical raw-ore stack preserves the tag semantics.
+     */
+    @Nullable
+    private static OreInput classifyOreInput(Content input) {
+        var ingredient = ItemRecipeCapability.CAP.of(input.content);
+        if (ingredient == null) return null;
+
+        OreInput taggedInput = classifyTaggedOreInput(ingredient);
+        if (taggedInput != null) return taggedInput;
+
+        for (ItemStack stack : ingredient.getItems()) {
+            if (stack.isEmpty()) continue;
+            Material material = resolveMaterial(stack);
+            if (material == null || material.isNull()) continue;
+
+            TagPrefix prefix = ChemicalHelper.getPrefix(stack.getItem());
+            if (TagPrefix.ORES.containsKey(prefix)) {
+                return new OreInput(material, true);
+            }
+
+            ItemStack rawOre = ChemicalHelper.get(TagPrefix.rawOre, material);
+            if (!rawOre.isEmpty() && ingredient.test(rawOre)) {
+                return new OreInput(material, false);
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private static OreInput classifyTaggedOreInput(Ingredient ingredient) {
+        Ingredient inner = ingredient instanceof SizedIngredient sized ? sized.getInner() : ingredient;
+        var json = inner.toJson();
+        if (!json.isJsonObject() || !json.getAsJsonObject().has("tag")) return null;
+
+        ResourceLocation tagId = ResourceLocation.tryParse(json.getAsJsonObject().get("tag").getAsString());
+        if (tagId == null) return null;
+
+        var entry = ChemicalHelper.getMaterialEntry(TagKey.create(Registries.ITEM, tagId));
+        if (entry.isEmpty() || entry.tagPrefix() != TagPrefix.rawOre || entry.material().isNull()) return null;
+        return new OreInput(entry.material(), false);
     }
 
     /** First representative stack of a Content's item ingredient, or null. */

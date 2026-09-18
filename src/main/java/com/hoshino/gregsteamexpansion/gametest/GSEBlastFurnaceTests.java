@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamBlastFurnaceMachine;
@@ -102,6 +103,34 @@ public final class GSEBlastFurnaceTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void advancedExhaustReducesNewBlastBatchSteamDemand(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            replaceSteamExhaustHatch(h, machine);
+            machine.setSteamThrottlePercent(50);
+            ItemBusPartMachine input = inputBus(machine);
+            fillOutputs(machine, false);
+            GTRecipe recipe = recipeEndingWith(
+                    GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES,
+                    "wrought_iron_from_dust_coke_dust");
+            input.getInventory().setStackInSlot(0,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Iron, 4));
+            input.getInventory().setStackInSlot(1,
+                    ChemicalHelper.get(TagPrefix.dust, GTMaterials.Coke, 4));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                    "Blast furnace did not start with an advanced exhaust hatch");
+            eq(h, machine.getBatchParallel(), 4,
+                    "Advanced exhaust hatch changed the selected parallel");
+            eq(h, machine.getBatchSteamPerTick(), 268,
+                    "50% throttle did not reduce the advanced exhaust demand from 536 to 268 mB/t");
+            eq(h, machine.getBatchDuration(), 480,
+                    "50% throttle did not double the advanced exhaust batch duration");
+            eq(h, number(machine, "batchTotalSteamMb"), 128_640,
+                    "Throttle changed the advanced exhaust batch's total steam consumption");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceGuiAndJadeExposeAirShortfall(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -154,6 +183,8 @@ public final class GSEBlastFurnaceTests {
                     "Jade snapshot lost the dedicated blast-air translation key");
             eq(h, data.getInt("parallel"), 4, "Jade snapshot changed locked parallel");
             eq(h, data.getInt("parallelCap"), 96, "Jade snapshot changed the parallel cap");
+            eq(h, data.getLong("steamInputLimit"), machine.getSteamInputLimitPerTick(),
+                    "Jade snapshot changed the steam input limit used by the demand bar");
             h.assertTrue(data.getBoolean("hasIntake"), "Jade snapshot omitted the intake state");
             h.assertTrue(data.getString("intakeStatusId").equals(machine.getAirIntakeStatusId()),
                     "Jade snapshot changed the intake status id");
@@ -171,7 +202,7 @@ public final class GSEBlastFurnaceTests {
                                     "gregsteamexpansion.machine.large_steam_blast_furnace.low_blast"))),
                     "Jade client tooltip did not render the dedicated blast-air status");
             h.assertTrue(tooltipContains(tooltipLines, Component.translatable(
-                            "gregsteamexpansion.jade.steam_processor.parallel", "4", "96")),
+                            "gregsteamexpansion.jade.bar.parallel", "4", "96")),
                     "Jade client tooltip did not render parallel as 4 / 96");
             h.assertTrue(tooltipLines.stream().anyMatch(line ->
                             line.getContents() instanceof TranslatableContents text
@@ -181,12 +212,13 @@ public final class GSEBlastFurnaceTests {
             h.assertTrue(tooltipTranslationKeys(tooltipLines).equals(List.of(
                             "gregsteamexpansion.jade.steam_processor.status",
                             "gregsteamexpansion.jade.steam_processor.recipe",
-                            "gregsteamexpansion.jade.steam_processor.progress",
-                            "gregsteamexpansion.jade.steam_processor.parallel",
-                            "gregsteamexpansion.jade.steam_processor.steam",
-                            "gregsteamexpansion.jade.steam_processor.demand",
-                            "gregsteamexpansion.jade.steam_processor.intake")),
-                    "Processor Jade tooltip changed its translation keys or row order");
+                            "gtceu.jade.progress_sec",
+                            "gregsteamexpansion.jade.bar.parallel",
+                            "gregsteamexpansion.jade.bar.fluid_stored",
+                            "gtceu.jade.fluid_use",
+                            "gregsteamexpansion.jade.steam_processor.intake",
+                            "gregsteamexpansion.jade.bar.fluid_stored")),
+                    "Processor Jade tooltip stopped using GTCEu-style bar text or changed row order");
         });
     }
 
@@ -298,6 +330,17 @@ public final class GSEBlastFurnaceTests {
             ToggleButtonWidget powerButton = powerButtons.get(0);
             powerButton.detectAndSendChanges();
             h.assertTrue(powerButton.isPressed(), "Controller UI power button did not reflect enabled state");
+            List<ToggleButtonWidget> overclockButtons = ui.getFlatWidgetCollection().stream()
+                    .filter(ToggleButtonWidget.class::isInstance)
+                    .map(ToggleButtonWidget.class::cast)
+                    .filter(widget -> widget.getSelfPositionX() == SteamProcessorUI.WIDTH - 24)
+                    .toList();
+            h.assertTrue(overclockButtons.size() == 1,
+                    "Controller UI did not build its synchronized large-steam overclock button");
+            ToggleButtonWidget overclockButton = overclockButtons.get(0);
+            overclockButton.detectAndSendChanges();
+            h.assertTrue(!overclockButton.isVisible() && !overclockButton.isActive(),
+                    "Large-steam overclock button was available without a large steam supply hatch");
             guiToggle(powerButton, false);
             h.assertTrue(!machine.isWorkingEnabled(), "GUI power button did not disable the blast furnace");
             long steamBefore = steam(machine);
@@ -478,7 +521,9 @@ public final class GSEBlastFurnaceTests {
             eq(h, inputItemCount(input, Items.COBBLESTONE), 0,
                     "Input-limited batch left a consumed input behind");
 
-            // Inputs and outputs now allow more than the machine's fixed cap.
+            // Inputs and outputs now allow more than the machine's fixed cap,
+            // but the fixture's 9,600 mB/t supply can sustain only 48-way
+            // parallel at this recipe's locked 200 mB/t per operation.
             clearActiveProcessorBatch(machine);
             fillOutputs(machine, false);
             clearInventory(input);
@@ -488,10 +533,10 @@ public final class GSEBlastFurnaceTests {
             input.getInventory().setStackInSlot(1, new ItemStack(Items.COBBLESTONE, 64));
             h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
                     "Blast furnace rejected the machine-capped probe recipe");
-            eq(h, machine.getBatchParallel(), 96,
-                    "Blast furnace did not enforce its fixed 96-parallel cap");
-            eq(h, inputItemCount(input, Items.COBBLESTONE), 32,
-                    "Machine-capped batch did not consume exactly 96 inputs");
+            eq(h, machine.getBatchParallel(), 48,
+                    "Blast furnace did not lower parallel to its sustainable supply limit");
+            eq(h, inputItemCount(input, Items.COBBLESTONE), 80,
+                    "Steam-limited batch consumed inputs above its locked parallel");
         });
     }
 
@@ -650,7 +695,8 @@ public final class GSEBlastFurnaceTests {
                 set(intake, "syncedCycleTimer", 0);
             }
 
-            for (int tick = 1; tick <= 160; tick++) {
+            int sustainedTicks = SteamAirIntakeHatchPartMachine.COLLECT_CYCLE_TICKS * 4;
+            for (int tick = 1; tick <= sustainedTicks; tick++) {
                 if ((tick - 1) % 40 == 0) refillFullLoadSteam(h, supplies);
                 for (SteamAirIntakeHatchPartMachine intake : intakes) {
                     call(intake, "updateIntake");
@@ -664,7 +710,7 @@ public final class GSEBlastFurnaceTests {
             }
 
             eq(h, air(machine), 34_560,
-                    "Two passive collection cycles did not leave the expected growing air reserve");
+                    "Four passive collection cycles did not leave the expected growing air reserve");
             for (SteamAirIntakeHatchPartMachine intake : intakes) {
                 h.assertTrue(intake.getIntakeStatus()
                                 == SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,

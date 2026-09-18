@@ -21,6 +21,7 @@ import com.hoshino.gregsteamexpansion.migration.OreCrushingMigration;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.LargeSteamTankMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.voidproducer.LargeSteamFluidDrillMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.voidproducer.LargeSteamOrePlantMachine;
 import com.gregtechceu.gtceu.api.GTValues;
@@ -43,12 +44,14 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamThe
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamCompressorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamExtractorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.SteamForgeMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.AdvancedSteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamTankValvePartMachine;
 import com.hoshino.gregsteamexpansion.machine.steam.MixedFuelBoilerMachine;
 
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
@@ -103,6 +106,14 @@ public final class GSEMachines {
             .model(GSEMachines::steamExhaustHatchModel)
             .langValue("Steam Exhaust Hatch")
             .tooltipBuilder(GSEMachineTooltips.STEAM_EXHAUST_HATCH)
+            .register();
+
+    public static final MachineDefinition ADVANCED_STEAM_EXHAUST_HATCH = GSERegistration.REGISTRATE
+            .machine("advanced_steam_exhaust_hatch", AdvancedSteamExhaustHatchMachine::new)
+            .rotationState(RotationState.ALL)
+            .model(GSEMachines::steamExhaustHatchModel)
+            .langValue("Advanced Steam Exhaust Hatch")
+            .tooltipBuilder(GSEMachineTooltips.ADVANCED_STEAM_EXHAUST_HATCH)
             .register();
 
     private static void steamExhaustHatchModel(DataGenContext<Block, ? extends Block> context,
@@ -670,6 +681,45 @@ public final class GSEMachines {
         // satisfies the migration check.
         OreCrushingMigration.registerConsumer(STEAM_CRUSHER, GregSteamExpansion.id("shaped/steam_crusher"));
     }
+
+    // ------------------------------------------------------------------
+    // 大型蒸汽储罐 / Large Steam Tank (large-steam-tank.md)
+    // ------------------------------------------------------------------
+
+    public static final MachineDefinition STEAM_TANK_VALVE = GSERegistration.REGISTRATE
+            .machine("steam_tank_valve", SteamTankValvePartMachine::new)
+            .rotationState(RotationState.ALL)
+            .abilities(GSEPartAbilities.STEAM_TANK_VALVE)
+            .workableCasingModel(
+                    GregSteamExpansion.gtceuId("block/casings/solid/machine_casing_bronze_plated_bricks"),
+                    GregSteamExpansion.gtceuId("block/multiblock/tank_valve"))
+            .langValue("Steam Tank Valve")
+            .tooltips(
+                    Component.translatable("gregsteamexpansion.machine.steam_tank_valve.tooltip.0"),
+                    Component.translatable("gregsteamexpansion.machine.steam_tank_valve.tooltip.1"))
+            .allowCoverOnFront(true)
+            .register();
+
+    public static final MultiblockMachineDefinition LARGE_STEAM_TANK = GSERegistration.REGISTRATE
+            .multiblock("large_steam_tank", LargeSteamTankMachine::new)
+            .rotationState(RotationState.NON_Y_AXIS)
+            .recipeType(GTRecipeTypes.DUMMY_RECIPES)
+            .appearanceBlock(GCYMBlocks.CASING_INDUSTRIAL_STEAM)
+            .pattern(definition -> GSESteamTankPatterns.create(definition, 9))
+            .shapeInfos(definition -> List.of(GSESteamTankPatterns.createShapeInfo(definition, 9)))
+            .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
+            .hasBER(true)
+            .model(GTMachineModels.createWorkableCasingMachineModel(
+                    GregSteamExpansion.gtceuId("block/casings/gcym/industrial_steam_casing"),
+                    GregSteamExpansion.gtceuId("block/multiblock/multiblock_tank"))
+                    .andThen(builder -> builder.addDynamicRenderer(
+                            com.hoshino.gregsteamexpansion.client.LargeSteamTankRenderer::new)))
+            .langValue("Large Steam Tank")
+            .tooltips(
+                    Component.translatable("gregsteamexpansion.machine.large_steam_tank.tooltip.0"),
+                    Component.translatable("gregsteamexpansion.machine.large_steam_tank.tooltip.1"),
+                    Component.translatable("gregsteamexpansion.machine.large_steam_tank.tooltip.2"))
+            .register();
 
     /**
      * 大型蓄热蒸汽熔炉 / Large Heat-Storage Steam Furnace controller

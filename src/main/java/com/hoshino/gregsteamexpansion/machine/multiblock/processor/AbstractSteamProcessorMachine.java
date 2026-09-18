@@ -39,6 +39,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamStatusText;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamThrottle;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
@@ -116,6 +117,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** UI preference; sampled only when a new batch starts. */
     @Persisted
     private boolean largeSteamOverclockEnabled = false;
+    /** Four-position UI preference, sampled only when a new batch starts. */
+    @Persisted
+    private int steamThrottlePercent = SteamThrottle.MAX_PERCENT;
     /** Whether the locked-batch fields below describe a live batch. */
     @Persisted
     private boolean hasBatch = false;
@@ -134,9 +138,17 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     /** Whether the current batch locked the Large Steam Supply Hatch overclock. */
     @Persisted
     private boolean batchLargeSteamOverclock = false;
+    /** Manual throttle locked by the current batch. */
+    @Persisted
+    private int batchSteamThrottlePercent = SteamThrottle.MAX_PERCENT;
     /** Locked batch total after duration rounding and the optional large-hatch overclock. */
     @Persisted
     private long batchTotalSteamMb = 0;
+    /** Exact total and maximum tick demand for auxiliary inputs such as blast air. */
+    @Persisted
+    private long batchAuxiliaryTotalMb = 0;
+    @Persisted
+    private long batchAuxiliaryPerTickMb = 0;
     /** Output multiplier locked at batch start (B1/B2 Easy 2×; family default 1). */
     @Persisted
     private float batchOutputMultiplier = 1.0f;
@@ -497,9 +509,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         BatchStateMachine.TickResult tick = batchState.runTick(
                 batchProgress,
                 batchDurationTicks,
-                () -> drawAuxiliaryInputs(batchParallel, true),
-                () -> drawSteam(batchSteamPerTickMb),
-                () -> drawAuxiliaryInputs(batchParallel, false));
+                () -> drawAuxiliaryInputs(batchAuxiliaryDemandForProgress(), true),
+                () -> drawSteam(batchSteamDemandForProgress()),
+                () -> drawAuxiliaryInputs(batchAuxiliaryDemandForProgress(), false));
         batchProgress = tick.progress();
         if (!tick.consumed()) {
             updateWorkingAppearance();
@@ -584,8 +596,12 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      * the steam draw succeeded, so an auxiliary shortfall never wastes steam.
      * Family default consumes nothing.
      */
-    protected boolean drawAuxiliaryInputs(int parallel, boolean simulate) {
-        return true;
+    protected long batchAuxiliaryPerTickMb(int parallel) {
+        return 0;
+    }
+
+    protected boolean drawAuxiliaryInputs(long amount, boolean simulate) {
+        return amount == 0;
     }
 
     /**
@@ -838,6 +854,14 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return false;
         }
 
+        long eu = batchEu(recipe);
+        parallel = steamLimitedParallel(recipe, eu, parallel);
+        if (parallel <= 0) {
+            batchState.freeze(BatchStateMachine.HoldReason.STEAM);
+            return false;
+        }
+        LockedBatchEconomics lockedEconomics = lockBatchEconomics(recipe, eu, parallel);
+
         GTRecipe multiplied = recipe.copy(ContentModifier.multiplier(parallel));
         multiplied.parallels = parallel;
         // 原子扣取: extract the full parallel input in one operation.
@@ -847,7 +871,6 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return false;
         }
 
-        long eu = batchEu(recipe);
         hasBatch = true;
         batchRecipe = recipe;
         batchRecipeId = recipe.getId().toString();
@@ -857,15 +880,18 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         }
         batchParallel = parallel;
         batchProgress = 0;
-        LargeSteamOverclock.LockedEconomics economics = LargeSteamOverclock.lock(
-                (int) batchDurationTicks(recipe, parallel),
-                batchSteamPerTickMb(recipe, eu, parallel),
-                largeSteamOverclockEnabled,
-                hasLargeSteamSupplyHatch());
+        LargeSteamOverclock.LockedEconomics economics = lockedEconomics.overclock();
+        SteamThrottle.LockedEconomics throttled = lockedEconomics.throttled();
         batchLargeSteamOverclock = economics.active();
-        batchDurationTicks = economics.durationTicks();
-        batchSteamPerTickMb = economics.steamPerTickMb();
-        batchTotalSteamMb = batchSteamPerTickMb * batchDurationTicks;
+        batchSteamThrottlePercent = throttled.throttlePercent();
+        batchDurationTicks = throttled.durationTicks();
+        batchSteamPerTickMb = throttled.steamPerTickMb();
+        batchTotalSteamMb = throttled.totalSteamMb();
+        SteamThrottle.LockedEconomics auxiliary = SteamThrottle.spread(
+                batchAuxiliaryPerTickMb(parallel) * economics.durationTicks(),
+                batchDurationTicks, batchSteamThrottlePercent);
+        batchAuxiliaryTotalMb = auxiliary.totalSteamMb();
+        batchAuxiliaryPerTickMb = auxiliary.steamPerTickMb();
         batchOutputMultiplier = batchOutputMultiplier();
         batchInputDisplay = firstInputDisplay(recipe);
         GregSteamExpansion.LOGGER.debug(
@@ -873,6 +899,29 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 getPos(), batchRecipeId, parallel, batchDurationTicks, batchTotalSteamMb, batchSteamPerTickMb);
         return true;
     }
+
+    /** Large machines lower parallel before consuming inputs until supply can sustain the batch. */
+    private int steamLimitedParallel(GTRecipe recipe, long eu, int candidate) {
+        if (!requiresExhaustHatch()) {
+            return candidate;
+        }
+        return SteamThrottle.largestSupportedCount(candidate, steamBudget.inputLimitMb(),
+                parallel -> lockBatchEconomics(recipe, eu, parallel).throttled().steamPerTickMb());
+    }
+
+    private LockedBatchEconomics lockBatchEconomics(GTRecipe recipe, long eu, int parallel) {
+        LargeSteamOverclock.LockedEconomics overclock = LargeSteamOverclock.lock(
+                (int) batchDurationTicks(recipe, parallel),
+                partCollector.modifySteamConsumption(batchSteamPerTickMb(recipe, eu, parallel)),
+                largeSteamOverclockEnabled,
+                hasLargeSteamSupplyHatch());
+        SteamThrottle.LockedEconomics throttled = SteamThrottle.lock(
+                overclock.durationTicks(), overclock.steamPerTickMb(), steamThrottlePercent);
+        return new LockedBatchEconomics(overclock, throttled);
+    }
+
+    private record LockedBatchEconomics(LargeSteamOverclock.LockedEconomics overclock,
+                                        SteamThrottle.LockedEconomics throttled) {}
 
     /** First sized item input of the recipe, for the GUI display. */
     private static ItemStack firstInputDisplay(GTRecipe recipe) {
@@ -1169,6 +1218,18 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return hasBatch && batchLargeSteamOverclock;
     }
 
+    public int getSteamThrottlePercent() {
+        return SteamThrottle.normalize(steamThrottlePercent);
+    }
+
+    public void setSteamThrottlePercent(int percent) {
+        steamThrottlePercent = SteamThrottle.normalize(percent);
+    }
+
+    public int getCurrentBatchSteamThrottlePercent() {
+        return hasBatch ? SteamThrottle.normalize(batchSteamThrottlePercent) : getSteamThrottlePercent();
+    }
+
     public void setWorkingEnabled(boolean workingEnabled) {
         this.workingEnabled = workingEnabled;
         requestRecipeSearch();
@@ -1303,15 +1364,17 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             // 议题 12: 进气室状态与缓存存量 (未安装显示 —), 仅接受进气室的机型显示.
             y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "intake", this::intakeText, ChatFormatting.WHITE);
         }
+        if (requiresExhaustHatch()) {
+            y = SteamProcessorUI.throttleRows(scroll, y, isRemote(),
+                    this::getSteamThrottlePercent, this::setSteamThrottlePercent);
+        }
         SteamProcessorUI.tooltipRow(scroll, y, UI_PREFIX + "pending", this::pendingSummaryText,
                 this::pendingDetailTooltips);
         ui.widget(scroll);
         // GTCEu standard power button fixed outside the scroll area.
         SteamProcessorUI.addPowerButton(ui, uiHeight, this::isWorkingEnabled, this::setWorkingEnabled);
-        if (hasLargeSteamSupplyHatch()) {
-            SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight,
-                    this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
-        }
+        SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight, this::hasLargeSteamSupplyHatch,
+                this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
         return ui;
     }
 
@@ -1380,11 +1443,35 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return currentSteamDemandPerTick();
     }
 
+    public long getSteamInputLimitPerTick() {
+        return steamBudget.physicalInputLimitMb();
+    }
+
     private long currentSteamDemandPerTick() {
         if (!hasBatch) return 0;
         String status = getStatusId();
         return status.equals("working") || status.equals("low_steam") || status.equals("auxiliary_shortfall")
-                ? batchSteamPerTickMb : 0;
+                ? batchSteamDemandForProgress() : 0;
+    }
+
+    private long batchSteamDemandForProgress() {
+        // Saves made before exact throttle accounting have no total field for
+        // the active batch. Preserve their locked per-tick economics.
+        if (batchTotalSteamMb <= 0) {
+            return Math.max(0, batchSteamPerTickMb);
+        }
+        return new SteamThrottle.LockedEconomics(batchSteamThrottlePercent, batchDurationTicks,
+                batchSteamPerTickMb, batchTotalSteamMb).steamForProgress(batchProgress);
+    }
+
+    private long batchAuxiliaryDemandForProgress() {
+        // The auxiliary total/rate are new with throttling. Reconstruct the
+        // legacy per-tick demand so an in-flight blast batch can resume.
+        if (batchAuxiliaryTotalMb <= 0 && batchAuxiliaryPerTickMb <= 0) {
+            return Math.max(0, batchAuxiliaryPerTickMb(batchParallel));
+        }
+        return new SteamThrottle.LockedEconomics(batchSteamThrottlePercent, batchDurationTicks,
+                batchAuxiliaryPerTickMb, batchAuxiliaryTotalMb).steamForProgress(batchProgress);
     }
 
     public boolean isConsumingSteam() {
@@ -1467,7 +1554,11 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchDurationTicks = 0;
         batchTotalSteamMb = 0;
         batchSteamPerTickMb = 0;
+        batchAuxiliaryTotalMb = 0;
+        batchAuxiliaryPerTickMb = 0;
         batchLargeSteamOverclock = false;
+        batchSteamThrottlePercent = SteamThrottle.MAX_PERCENT;
+        steamThrottlePercent = SteamThrottle.MAX_PERCENT;
         batchOutputMultiplier = 1.0f;
         batchInputDisplay = ItemStack.EMPTY;
         pendingBuffer.clear();

@@ -21,6 +21,7 @@ public final class GSEClientSetup {
      */
     public static void registerEarly() {
         LargeCokeOvenRenderer.bootstrap();
+        LargeSteamTankRenderer.bootstrap();
     }
 
     public static void init(FMLClientSetupEvent event) {
@@ -29,6 +30,7 @@ public final class GSEClientSetup {
         IEventBus forgeBus = net.minecraftforge.common.MinecraftForge.EVENT_BUS;
         forgeBus.addListener(GSEClientSetup::onClientLoggingIn);
         forgeBus.addListener(GSEClientSetup::onClientLoggingOut);
+        forgeBus.addListener(StructureErrorHighlight::onRenderLevelStage);
     }
 
     /**
@@ -42,5 +44,6 @@ public final class GSEClientSetup {
 
     private static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         GSEDifficultyState.clearClientTierSynced();
+        StructureErrorHighlight.clear();
     }
 }

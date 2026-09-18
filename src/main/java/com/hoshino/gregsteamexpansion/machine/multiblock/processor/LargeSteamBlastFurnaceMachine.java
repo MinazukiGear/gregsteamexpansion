@@ -127,11 +127,15 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     }
 
     @Override
-    protected boolean drawAuxiliaryInputs(int parallel, boolean simulate) {
+    protected long batchAuxiliaryPerTickMb(int parallel) {
+        return BLAST_AIR_PER_PARALLEL_MB * parallel;
+    }
+
+    @Override
+    protected boolean drawAuxiliaryInputs(long demand, boolean simulate) {
         // 鼓风随并行线性缩放, 跨全部鼓风口聚合抽取 (SIMULATE 先行, 缺风不取汽;
         // EXECUTE 仅在蒸汽成功扣取后调用).
         List<SteamAirIntakeHatchPartMachine> intakes = airIntakes();
-        long demand = BLAST_AIR_PER_PARALLEL_MB * parallel;
         return SteamBudget.drawBlastAir(intakes, demand,
                 simulate ? IFluidHandler.FluidAction.SIMULATE : IFluidHandler.FluidAction.EXECUTE);
     }

@@ -795,11 +795,10 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
                     "gregsteamexpansion.large_coke_oven.detail.awaiting_reinput"));
             default -> {}
         }
-        // 优先配方仅在附加提示标注, 不覆盖当前批次显示。
+        // 只提示已记录偏好，不向玩家暴露内部配方资源 ID。
         if (ovenLogic.getPreferredRecipeId() != null &&
                 !ovenLogic.getPreferredRecipeId().equals(ovenLogic.getBatchRecipeId())) {
-            details.add(Component.translatable("gregsteamexpansion.large_coke_oven.detail.preferred",
-                    ovenLogic.getPreferredRecipeId().toString()));
+            details.add(Component.translatable("gregsteamexpansion.large_coke_oven.detail.preferred"));
         }
         return details;
     }
@@ -872,8 +871,8 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
 
     /**
      * GUI: 顶部只读状态栏 (悬浮列出全部详细原因); 3×2 编号输入槽 →
-     * 配方进度 → 3×2 输出槽 → 64,000 mB 流体罐; 配方信息行 (配方 / 并行 p/6 /
-     * 进度 / 百分比 / 预计剩余); 待提交产物仅在"等待输出"详情中显示。
+     * 配方进度 → 3×2 输出槽 → 64,000 mB 流体罐; 批次信息行只显示并行，
+     * 进度与预计剩余时间统一由 GTCEu 进度条及其悬浮提示承担。
      * 标准 GTCEu 启停: 左下角固定电源按钮 (用户 2026-09-06 变更)。
      */
     @Override
@@ -915,8 +914,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
                 .setBackground(GuiTextures.FLUID_TANK_BACKGROUND)
                 .setFillDirection(ProgressTexture.FillDirection.DOWN_TO_UP)
                 .setShowAmountOverlay(false));
-        // 配方信息行: 配方 / 并行 p/6 / 进度 / 百分比 / 预计剩余时间。
-        var recipeLine = new LabelWidget(5, 84, this::getRecipeInfoLine) {
+        var recipeLine = new LabelWidget(5, 84, this::getParallelText) {
             @Override
             public void drawInForeground(net.minecraft.client.gui.GuiGraphics graphics, int mouseX,
                                          int mouseY, float partialTicks) {
@@ -938,30 +936,21 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
         return details > 0 ? status + " (" + details + ")" : status;
     }
 
-    private String getRecipeInfoLine() {
-        var recipeId = ovenLogic.getBatchRecipeId();
-        if (recipeId == null) {
+    private String getParallelText() {
+        if (!ovenLogic.hasActiveBatch()) {
             return Component.translatable("gregsteamexpansion.large_coke_oven.gui.no_batch").getString();
         }
-        double percent = ovenLogic.getBatchTotalDuration() == 0 ? 0 :
-                Math.round(ovenLogic.getBatchProgress() * 1000.0 / ovenLogic.getBatchTotalDuration()) / 10.0;
-        String eta;
-        if (ovenLogic.isWaitingOutput()) {
-            eta = Component.translatable("gregsteamexpansion.large_coke_oven.gui.waiting_output").getString();
-        } else {
-            int remaining = Math.max(0, ovenLogic.getBatchTotalDuration() - ovenLogic.getBatchProgress());
-            eta = FormattingUtil.formatNumbers(remaining / 20.0) + "s";
-        }
         return Component.translatable("gregsteamexpansion.large_coke_oven.gui.recipe_line",
-                recipeId.getPath(),
-                ovenLogic.getBatchParallel() + "/" + LargeCokeOvenRecipeLogic.MAX_PARALLEL,
-                ovenLogic.getBatchProgress() + "/" + ovenLogic.getBatchTotalDuration(),
-                percent + "%", eta).getString();
+                ovenLogic.getBatchParallel() + "/" + LargeCokeOvenRecipeLogic.MAX_PARALLEL).getString();
     }
 
     private String getProgressHoverText(double percent) {
         if (ovenLogic.getBatchTotalDuration() == 0) {
             return Component.translatable("gregsteamexpansion.large_coke_oven.gui.progress.idle",
+                    String.format("%.0f%%", percent * 100)).getString();
+        }
+        if (ovenLogic.isWaitingOutput()) {
+            return Component.translatable("gregsteamexpansion.large_coke_oven.gui.progress.waiting_output",
                     String.format("%.0f%%", percent * 100)).getString();
         }
         int remaining = Math.max(0, ovenLogic.getBatchTotalDuration() - ovenLogic.getBatchProgress());

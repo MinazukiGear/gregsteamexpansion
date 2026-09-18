@@ -9,6 +9,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachin
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.SteamHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.AdvancedSteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
@@ -209,6 +210,16 @@ public final class SteamPartCollector {
 
     public List<SteamExhaustHatchMachine> exhaustHatches() {
         return exhaustHatches;
+    }
+
+    /** Applies the installed exhaust hatch's efficiency to a newly locked demand. */
+    public long modifySteamConsumption(long steamMb) {
+        return exhaustHatches.isEmpty() ? Math.max(0, steamMb)
+                : exhaustHatches.get(0).modifySteamConsumption(steamMb);
+    }
+
+    public boolean hasAdvancedSteamExhaustHatch() {
+        return exhaustHatches.stream().anyMatch(AdvancedSteamExhaustHatchMachine.class::isInstance);
     }
 
     public List<SteamAirIntakeHatchPartMachine> airIntakeHatches() {

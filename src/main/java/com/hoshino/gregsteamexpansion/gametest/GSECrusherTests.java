@@ -7,8 +7,11 @@ import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
+import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
+import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
+import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 
 import net.minecraft.gametest.framework.GameTest;
@@ -206,16 +209,18 @@ public final class GSECrusherTests {
                 "Jade server provider omitted the crusher snapshot");
         CompoundTag data = serverData.getCompound("GregSteamExpansionCrusher");
         List<String> commonKeys = List.of(
-                "statusId", "recipeId", "inputItem", "progress", "duration", "parallel", "parallelCap",
-                "steamTotal", "steamCap", "steamPerTick", "consuming", "pendingTotal", "pendingKinds");
+                "statusId", "hasBatch", "inputItem", "progress", "duration", "parallel", "parallelCap",
+                "steamTotal", "steamCap", "steamPerTick", "steamInputLimit", "consuming", "pendingTotal",
+                "pendingKinds");
         h.assertTrue(data.size() == commonKeys.size() && data.getAllKeys().containsAll(commonKeys),
                 "Crusher Jade snapshot changed its common field schema: " + data.getAllKeys());
         h.assertTrue(data.getString("statusId").equals(crusher.getStatusId()),
                 "Crusher Jade snapshot changed the status id");
-        h.assertTrue(data.getString("recipeId").equals(crusher.getBatchRecipeId()),
-                "Crusher Jade snapshot changed the recipe id");
-        h.assertTrue(data.getString("inputItem").equals("minecraft:diamond"),
-                "Crusher Jade snapshot changed the input item id");
+        h.assertTrue(data.getBoolean("hasBatch"), "Crusher Jade snapshot lost the active-batch marker");
+        h.assertTrue(!data.contains("recipeId"), "Crusher Jade snapshot exposed the internal recipe id");
+        h.assertTrue(ItemStack.isSameItemSameTags(ItemStack.of(data.getCompound("inputItem")),
+                        new ItemStack(Items.DIAMOND)),
+                "Crusher Jade snapshot changed the display input item");
         eq(h, data.getInt("progress"), 7, "Crusher Jade snapshot changed progress");
         eq(h, data.getInt("duration"), 123, "Crusher Jade snapshot changed duration");
         eq(h, data.getInt("parallel"), 2, "Crusher Jade snapshot changed parallel");
@@ -226,30 +231,35 @@ public final class GSECrusherTests {
 
         List<Component> tooltipLines = new ArrayList<>();
         ((IBlockComponentProvider) provider).appendTooltip(jadeTooltip(tooltipLines), accessor, null);
+        h.assertTrue(tooltipContains(tooltipLines, Component.translatable(
+                        "gregsteamexpansion.jade.steam_crusher.recipe",
+                        new ItemStack(Items.DIAMOND).getHoverName())),
+                "Crusher Jade tooltip did not use the localized input name");
+        h.assertTrue(tooltipLines.stream().noneMatch(line -> line.getString().contains(crusher.getBatchRecipeId())),
+                "Crusher Jade tooltip exposed the current recipe id");
         h.assertTrue(tooltipTranslationKeys(tooltipLines).equals(List.of(
                         "gregsteamexpansion.jade.steam_crusher.status",
                         "gregsteamexpansion.jade.steam_crusher.recipe",
-                        "gregsteamexpansion.jade.steam_crusher.progress",
-                        "gregsteamexpansion.jade.steam_crusher.parallel",
-                        "gregsteamexpansion.jade.steam_crusher.steam",
-                        "gregsteamexpansion.jade.steam_crusher.demand",
+                        "gtceu.jade.progress_sec",
+                        "gregsteamexpansion.jade.bar.parallel",
+                        "gregsteamexpansion.jade.bar.fluid_stored",
+                        "gtceu.jade.fluid_use",
                         "gregsteamexpansion.jade.steam_crusher.pending")),
-                "Crusher Jade tooltip changed its translation keys or row order");
+                "Crusher Jade tooltip stopped using GTCEu-style bar text or changed row order");
         clearCrusherState(controller);
     }
 
     private static ItemStack migratedCrusherInput() {
+        ItemStack rawCopper = ChemicalHelper.get(TagPrefix.rawOre, GTMaterials.Copper);
         for (GTRecipe recipe : GSERecipeTypes.ORE_CRUSHING_RECIPES.getRecipesInCategory(
                 GSERecipeTypes.ORE_CRUSHING_RECIPES.getCategory())) {
             var inputs = recipe.inputs.get(ItemRecipeCapability.CAP);
             if (inputs == null || inputs.size() != 1 || !(inputs.get(0).content instanceof Ingredient ingredient)) {
                 continue;
             }
-            for (ItemStack stack : ingredient.getItems()) {
-                if (!stack.isEmpty()) return stack.copyWithCount(1);
-            }
+            if (ingredient.test(rawCopper)) return rawCopper.copyWithCount(1);
         }
-        throw new AssertionError("No concrete input found in the migrated ore-crushing recipe table");
+        throw new AssertionError("Raw copper is absent from the migrated ore-crushing recipe table");
     }
 
     private static void clearCrusherState(MultiblockControllerMachine m) {

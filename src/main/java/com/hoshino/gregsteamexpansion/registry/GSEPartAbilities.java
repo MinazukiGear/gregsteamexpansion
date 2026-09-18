@@ -41,6 +41,8 @@ public final class GSEPartAbilities {
      * enables a new steam type or changes the furnace's structure predicate.
      */
     public static final PartAbility FURNACE_STEAM_SOURCE = new PartAbility("furnace_steam_source");
+    /** Dedicated proxy valve accepted only by the Large Steam Tank shell. */
+    public static final PartAbility STEAM_TANK_VALVE = new PartAbility("steam_tank_valve");
 
     private GSEPartAbilities() {}
 }

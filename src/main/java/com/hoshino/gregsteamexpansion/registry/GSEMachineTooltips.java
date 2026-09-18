@@ -96,6 +96,17 @@ final class GSEMachineTooltips {
             detail("steam_exhaust_hatch", "details.5", ChatFormatting.GRAY),
             detail("steam_exhaust_hatch", "details.6", ChatFormatting.YELLOW)));
 
+    static final BiConsumer<ItemStack, List<Component>> ADVANCED_STEAM_EXHAUST_HATCH = tooltip(profile(
+            row("advanced_steam_exhaust_hatch", "summary.0", ChatFormatting.GRAY),
+            row("advanced_steam_exhaust_hatch", "summary.1", ChatFormatting.GREEN),
+            row("advanced_steam_exhaust_hatch", "summary.2", ChatFormatting.YELLOW),
+            detail("advanced_steam_exhaust_hatch", "details.subtitle", ChatFormatting.GRAY),
+            detail("advanced_steam_exhaust_hatch", "details.0", ChatFormatting.GREEN,
+                    aquaText("33%")),
+            detail("advanced_steam_exhaust_hatch", "details.1", ChatFormatting.GRAY),
+            detail("advanced_steam_exhaust_hatch", "details.2", ChatFormatting.YELLOW),
+            detail("advanced_steam_exhaust_hatch", "details.3", ChatFormatting.RED)));
+
     static final BiConsumer<ItemStack, List<Component>> LARGE_HEAT_STORAGE_STEAM_FURNACE = tooltip(profile(
             row("large_heat_storage_steam_furnace", "summary.0", ChatFormatting.GRAY),
             row("large_heat_storage_steam_furnace", "summary.1", ChatFormatting.GRAY),

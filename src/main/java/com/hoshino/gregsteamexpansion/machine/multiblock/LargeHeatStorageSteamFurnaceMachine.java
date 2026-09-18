@@ -121,6 +121,13 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     /** Ticks accumulated towards the next +1°C. */
     @Persisted
     private int heatTimer = 0;
+    /** Throttle and exact steam total locked for the current +1°C preheat step. */
+    @Persisted
+    private int preheatSteamThrottlePercent = SteamThrottle.MAX_PERCENT;
+    @Persisted
+    private int preheatDurationTicks = 0;
+    @Persisted
+    private long preheatTotalSteamMb = 0;
     /** Ticks accumulated towards the next −1°C. */
     @Persisted
     private int coolTimer = 0;
@@ -133,6 +140,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     /** UI preference; sampled only when a new recipe batch starts. */
     @Persisted
     private boolean largeSteamOverclockEnabled = false;
+    /** Four-position UI preference, sampled only when a new recipe batch starts. */
+    @Persisted
+    private int steamThrottlePercent = SteamThrottle.MAX_PERCENT;
     /** Last applied save difficulty ordinal, for one-shot downgrade migration. */
     @Persisted
     private int lastAppliedDifficulty = Difficulty.NORMAL.ordinal();
@@ -150,6 +160,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     /** Whether the current batch locked the Large Steam Supply Hatch overclock. */
     @Persisted
     private boolean batchLargeSteamOverclock = false;
+    /** Manual throttle locked by the current batch. */
+    @Persisted
+    private int batchSteamThrottlePercent = SteamThrottle.MAX_PERCENT;
     @Persisted
     private int batchDuration = 0;
     @Persisted
@@ -302,6 +315,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     /** 尺寸改变时的温度重置: cold furnace, accumulation and timers cleared. */
     private void resetTemperatureState() {
         applyThermalState(FurnaceThermalLogic.coldState());
+        preheatDurationTicks = 0;
+        preheatTotalSteamMb = 0;
     }
 
     @Override
@@ -422,7 +437,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
             }
         }
         BatchStateMachine.TickResult tick = batchState.runTick(
-                batchProgress, batchDuration, () -> drawSteam(batchSteamPerTickMb));
+                batchProgress, batchDuration, () -> drawSteam(batchSteamDemandForProgress()));
         batchProgress = tick.progress();
         if (!tick.consumed()) {
             coolDown();
@@ -499,11 +514,14 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         long totalSteam = (long) Math.ceil(baseEnergy * 2.0 * parallel * discount * processingMultiplier);
         double speed = speedMultiplier();
         int normalDuration = Math.max(1, (int) Math.ceil(recipe.duration / speed));
-        long normalPerTick = (long) Math.ceil((double) totalSteam / normalDuration);
+        long normalPerTick = partCollector.modifySteamConsumption(
+                (long) Math.ceil((double) totalSteam / normalDuration));
         LargeSteamOverclock.LockedEconomics economics = LargeSteamOverclock.lock(
                 normalDuration, normalPerTick, overclock, true);
-        int duration = economics.durationTicks();
-        long perTick = economics.steamPerTickMb();
+        SteamThrottle.LockedEconomics throttled = SteamThrottle.lock(
+                economics.durationTicks(), economics.steamPerTickMb(), steamThrottlePercent);
+        int duration = throttled.durationTicks();
+        long perTick = throttled.steamPerTickMb();
 
         GTRecipe multiplied = recipe.copy(ContentModifier.multiplier(parallel));
         multiplied.parallels = parallel;
@@ -521,11 +539,13 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         batchRecipeMode = recipeMode;
         batchParallel = parallel;
         batchLargeSteamOverclock = economics.active();
-        batchTotalSteamMb = perTick * duration;
+        batchSteamThrottlePercent = throttled.throttlePercent();
+        batchTotalSteamMb = throttled.totalSteamMb();
         batchSteamPerTickMb = perTick;
         batchDuration = duration;
         batchProgress = 0;
-        batchSpeed = (float) (speed * (economics.active() ? LargeSteamOverclock.DURATION_DIVISOR : 1));
+        batchSpeed = (float) (speed * (economics.active() ? LargeSteamOverclock.DURATION_DIVISOR : 1)
+                * batchSteamThrottlePercent / 100.0);
         batchOriginWidth = formedWidth;
         batchOriginHeight = formedHeight;
         batchInputSourcePos = inputSourcePos;
@@ -577,7 +597,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
 
     /** 每刻蒸汽上限允许的最大并行；超频时先把普通需求乘 3 再与仓室上限比较。 */
     private int steamLimitedParallel(GTRecipe recipe, Difficulty difficulty, boolean overclock) {
-        long limit = steamBudget.physicalInputLimitMb();
+        long limit = steamBudget.inputLimitMb();
         if (limit <= 0) {
             return 0;
         }
@@ -589,10 +609,13 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         int normalDuration = Math.max(1, (int) Math.ceil(recipe.duration / speed));
         for (int parallel = maximumParallel(); parallel >= 1; parallel--) {
             long total = (long) Math.ceil(baseEnergy * 2.0 * parallel * discount * processingMultiplier);
-            long normalPerTick = (long) Math.ceil((double) total / normalDuration);
+            long normalPerTick = partCollector.modifySteamConsumption(
+                    (long) Math.ceil((double) total / normalDuration));
             LargeSteamOverclock.LockedEconomics economics = LargeSteamOverclock.lock(
                     normalDuration, normalPerTick, overclock, true);
-            if (economics.steamPerTickMb() <= limit) {
+            SteamThrottle.LockedEconomics throttled = SteamThrottle.lock(
+                    economics.durationTicks(), economics.steamPerTickMb(), steamThrottlePercent);
+            if (throttled.steamPerTickMb() <= limit) {
                 return parallel;
             }
         }
@@ -625,25 +648,47 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     }
 
     /**
-     * 预热: consume steam towards the next +1°C. The plan is the smaller of the
-     * missing steam for the next degree and this tick's supply cap; only a
-     * fully satisfiable plan is executed (atomic), otherwise nothing is drawn
-     * and the already-invested accumulation is kept.
+     * Preheats one degree with throttle locked for that degree. Steam and heat
+     * investment are spread across the proportionally extended interval, so
+     * total steam remains exact while startup demand obeys hatch throughput.
      *
      * @return true when steam was actually consumed this tick
      */
     private boolean tryPreheat(Difficulty difficulty) {
-        FurnaceThermalLogic.PreheatPlan plan = FurnaceThermalLogic.planPreheat(
-                formedWidth, formedHeight, thermalState(), steamInputLimitPerTickUnits(), difficulty);
-        if (!plan.shouldAdvance()) {
+        if (formedWidth == 0 || currentTemperature >= maxTemperature()) {
             return false;
         }
-        if (plan.drawsSteam() && !drawSteam(plan.steamMb())) {
+
+        long heatTotalUnits = preheatCostPerDegreeUnits(difficulty);
+        if ((heatTimer == 0 && preheatProgressUnits == 0) || preheatDurationTicks <= 0) {
+            preheatSteamThrottlePercent = SteamThrottle.normalize(steamThrottlePercent);
+            preheatDurationTicks = SteamThrottle.scaledDuration(
+                    difficulty.getPreheatIntervalTicks(), preheatSteamThrottlePercent);
+            preheatTotalSteamMb = partCollector.modifySteamConsumption((heatTotalUnits + 99) / 100);
+        }
+
+        SteamThrottle.LockedEconomics steamPlan = SteamThrottle.spread(
+                preheatTotalSteamMb, preheatDurationTicks, preheatSteamThrottlePercent);
+        SteamThrottle.LockedEconomics heatPlan = SteamThrottle.spread(
+                heatTotalUnits, preheatDurationTicks, preheatSteamThrottlePercent);
+        long steamDraw = steamPlan.steamForProgress(heatTimer);
+        if (steamDraw > steamBudget.inputLimitMb()) {
+            batchState.freeze(BatchStateMachine.HoldReason.STEAM);
             return false;
         }
+        if (steamDraw > 0 && !drawSteam(steamDraw)) {
+            batchState.freeze(BatchStateMachine.HoldReason.STEAM);
+            return false;
+        }
+
         applyThermalState(FurnaceThermalLogic.advanceHeating(
-                thermalState(), maxTemperature(), difficulty.getPreheatIntervalTicks(), plan.steamMb() * 100L));
-        return plan.drawsSteam();
+                thermalState(), maxTemperature(), preheatDurationTicks,
+                heatPlan.steamForProgress(heatTimer)));
+        if (heatTimer == 0) {
+            preheatDurationTicks = 0;
+            preheatTotalSteamMb = 0;
+        }
+        return steamDraw > 0;
     }
 
     /** 停机或加工冷却公式; a missing structure cools with its last known size. */
@@ -654,15 +699,6 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     //////////////////////////////////////
     // ***** Steam supply ******//
     //////////////////////////////////////
-
-    /** 合计机器侧供汽上限 in 1/100 mB units (typed physical limits; ME hatch later). */
-    private long steamInputLimitPerTickUnits() {
-        if (steamUnlimited) {
-            // ME 流体输入仓取消机器侧供汽上限
-            return Long.MAX_VALUE;
-        }
-        return steamBudget.physicalInputLimitMb() * 100L;
-    }
 
     /**
      * 原子扣取: simulate the full plan over the hatches in stable part order and
@@ -772,6 +808,18 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
 
     public boolean isCurrentBatchLargeSteamOverclocked() {
         return hasBatch && batchLargeSteamOverclock;
+    }
+
+    public int getSteamThrottlePercent() {
+        return SteamThrottle.normalize(steamThrottlePercent);
+    }
+
+    public void setSteamThrottlePercent(int percent) {
+        steamThrottlePercent = SteamThrottle.normalize(percent);
+    }
+
+    public int getCurrentBatchSteamThrottlePercent() {
+        return hasBatch ? SteamThrottle.normalize(batchSteamThrottlePercent) : getSteamThrottlePercent();
     }
 
     public void setWorkingEnabled(boolean workingEnabled) {
@@ -922,7 +970,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
                 ChatFormatting.WHITE);
         y = SteamProcessorUI.infoRow(scroll, y, uiKey("ui.steam"),
                 () -> (hasBatch ? currentDemandPerTick() + " mB/t / "
-                        + (steamUnlimited ? unlimitedText() : FormattingUtil.formatNumbers(steamInputLimitPerTickUnits() / 100))
+                        + (steamUnlimited ? unlimitedText()
+                                : FormattingUtil.formatNumbers(steamBudget.physicalInputLimitMb()))
                         : "— / " + (steamUnlimited ? unlimitedText()
                                 : FormattingUtil.formatNumbers(steamBudget.physicalInputLimitMb()))),
                 ChatFormatting.WHITE);
@@ -941,8 +990,10 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         y = SteamProcessorUI.infoRow(scroll, y, uiKey("ui.speed"),
                 () -> hasBatch ? "×" + FormattingUtil.formatNumber2Places((float) batchSpeed) : "—",
                 ChatFormatting.WHITE);
-        SteamProcessorUI.infoRow(scroll, y, uiKey("ui.duration"),
+        y = SteamProcessorUI.infoRow(scroll, y, uiKey("ui.duration"),
                 () -> hasBatch ? SteamProcessorUI.duration(batchDuration) : "—", ChatFormatting.WHITE);
+        SteamProcessorUI.throttleRows(scroll, y, isRemote(),
+                this::getSteamThrottlePercent, this::setSteamThrottlePercent);
         ui.widget(scroll);
         // 电源按钮与总线隔离固定在滚动区之外; 总线隔离仅有按钮, 说明放入悬浮提示.
         SteamProcessorUI.addPowerButton(ui, uiHeight, this::isWorkingEnabled, this::setWorkingEnabled);
@@ -956,10 +1007,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
                         .withStyle(ChatFormatting.YELLOW),
                 Component.translatable("gtceu.multiblock.universal.distinct.info")
                         .withStyle(ChatFormatting.GRAY)));
-        if (hasLargeSteamSupplyHatch()) {
-            SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight,
-                    this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
-        }
+        SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight, this::hasLargeSteamSupplyHatch,
+                this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
         return ui;
     }
 
@@ -974,7 +1023,15 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     private long currentDemandPerTick() {
         if (!hasBatch) return 0;
         String status = getStatusId();
-        return status.equals("working") || status.equals("low_steam") ? batchSteamPerTickMb : 0;
+        return status.equals("working") || status.equals("low_steam") ? batchSteamDemandForProgress() : 0;
+    }
+
+    private long batchSteamDemandForProgress() {
+        if (batchTotalSteamMb <= 0) {
+            return Math.max(0, batchSteamPerTickMb);
+        }
+        return new SteamThrottle.LockedEconomics(batchSteamThrottlePercent, batchDuration,
+                batchSteamPerTickMb, batchTotalSteamMb).steamForProgress(batchProgress);
     }
 
     private String unlimitedText() {
@@ -1043,6 +1100,14 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
 
     public int getStartupTemperature() {
         return startupTemperature();
+    }
+
+    public long getPreheatProgressUnits() {
+        return preheatProgressUnits;
+    }
+
+    public long getPreheatTargetUnits() {
+        return formedWidth == 0 ? 0 : preheatCostPerDegreeUnits(currentDifficulty());
     }
 
     public int getFormedWidth() {

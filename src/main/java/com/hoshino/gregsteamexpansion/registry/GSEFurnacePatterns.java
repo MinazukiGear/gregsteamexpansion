@@ -80,7 +80,8 @@ public final class GSEFurnacePatterns {
     }
 
     private static TraceabilityPredicate exhaustHatch() {
-        return Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock())
+        return Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock(),
+                GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH.getBlock())
                 .setMinGlobalLimited(1)
                 .setMaxGlobalLimited(1);
     }

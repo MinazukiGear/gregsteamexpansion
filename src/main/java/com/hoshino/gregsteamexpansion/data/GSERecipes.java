@@ -70,6 +70,7 @@ public final class GSERecipes {
         addSteamMixingBlockRecipes(provider);
         addSteamExhaustHatchRecipe(provider);
         addSteamHatchRecipes(provider);
+        addLargeSteamTankRecipes(provider);
         addSteamCrusherRecipes(provider);
         addSteamCompressorRecipe(provider);
         addSteamExtractorRecipe(provider);
@@ -984,6 +985,18 @@ public final class GSERecipes {
                 'B', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
                 'P', ChemicalHelper.get(TagPrefix.pipeNormalFluid, GTMaterials.Bronze),
                 'G', ChemicalHelper.get(TagPrefix.gear, GTMaterials.Bronze));
+
+        // 高级蒸汽排气仓: mirror the Large Steam Supply Hatch's HV-gated
+        // upgrade layout, retaining the ordinary exhaust hatch as its core.
+        VanillaRecipeHelper.addShapedRecipe(provider,
+                GregSteamExpansion.id("advanced_steam_exhaust_hatch"),
+                GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH.asStack(),
+                "DCD",
+                "CHC",
+                "DCD",
+                'D', GTMachines.BRONZE_DRUM.asStack(),
+                'C', CustomTags.HV_CIRCUITS,
+                'H', GSEMachines.STEAM_EXHAUST_HATCH.asStack());
     }
 
     // ------------------------------------------------------------------
@@ -1100,6 +1113,30 @@ public final class GSERecipes {
                 .duration(100)
                 .EUt(16)
                 .save(provider);
+    }
+
+    // ------------------------------------------------------------------
+    // 大型蒸汽储罐 / 蒸汽储罐阀 (large-steam-tank.md 获取配方)
+    // ------------------------------------------------------------------
+
+    private static void addLargeSteamTankRecipes(Consumer<FinishedRecipe> provider) {
+        VanillaRecipeHelper.addShapedRecipe(
+                provider,
+                GregSteamExpansion.id("large_steam_tank"),
+                GSEMachines.LARGE_STEAM_TANK.asStack(),
+                "BDB",
+                " H ",
+                'B', GTBlocks.CASING_BRONZE_BRICKS.asStack(),
+                'D', GTMachines.BRONZE_DRUM.asStack(),
+                'H', GSEMachines.STEAM_SUPPLY_HATCH.asStack());
+
+        VanillaRecipeHelper.addShapedRecipe(
+                provider,
+                GregSteamExpansion.id("steam_tank_valve"),
+                GSEMachines.STEAM_TANK_VALVE.asStack(),
+                "PVP",
+                'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
+                'V', GTMultiMachines.BRONZE_TANK_VALVE.asStack());
     }
 
     // ------------------------------------------------------------------

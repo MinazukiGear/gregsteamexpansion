@@ -15,6 +15,7 @@ import net.minecraft.world.level.block.Blocks;
 
 import java.util.Map;
 
+import static com.hoshino.gregsteamexpansion.registry.GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH;
 import static com.hoshino.gregsteamexpansion.registry.GSEMachines.STEAM_EXHAUST_HATCH;
 import static com.hoshino.gregsteamexpansion.registry.GSEMachines.STEAM_FLUID_EXPORT_HATCH;
 import static com.hoshino.gregsteamexpansion.registry.GSEMachines.STEAM_SUPPLY_HATCH;
@@ -65,7 +66,8 @@ public final class GSEVoidPatterns {
                         .setMinGlobalLimited(1))
                 .or(Predicates.abilities(PartAbility.STEAM_EXPORT_ITEMS))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
-                .or(Predicates.blocks(STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(Predicates.blocks(STEAM_EXHAUST_HATCH.getBlock(),
+                        ADVANCED_STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 
     /** Row set of an ore-plant workstation layer: 3×3 grinding grid (z/x ∈ {3,5,7}). */
@@ -187,7 +189,8 @@ public final class GSEVoidPatterns {
                         .setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
-                .or(Predicates.blocks(STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(Predicates.blocks(STEAM_EXHAUST_HATCH.getBlock(),
+                        ADVANCED_STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 
     /** Row set of a drill ring layer (h2-h7: pipe column; h8: mixing separator). */

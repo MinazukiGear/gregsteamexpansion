@@ -3,9 +3,11 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeSteamOverclock;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamThrottle;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamCapability;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceSteamSourceSpec;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.AdvancedSteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
@@ -30,6 +32,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
@@ -51,8 +55,17 @@ import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import snownee.jade.api.BlockAccessor;
+import snownee.jade.api.IBlockComponentProvider;
+import snownee.jade.api.IServerDataProvider;
+import snownee.jade.api.ITooltip;
+import snownee.jade.api.Identifiers;
+import snownee.jade.api.callback.JadeTooltipCollectedCallback;
 
 @GameTestHolder(GregSteamExpansion.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -256,6 +269,39 @@ public final class GSESteamHatchTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)
+    public static void advancedSteamExhaustHatchDiscountAndRecipe(GameTestHelper helper) {
+        AdvancedSteamExhaustHatchMachine hatch = GSEStructureTestUtils.placeMachine(
+                helper, GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH, HATCH_POS);
+        helper.assertTrue(hatch.modifySteamConsumption(100) == 67,
+                "Advanced exhaust hatch did not reduce steam demand by 33%");
+        helper.assertTrue(hatch.modifySteamConsumption(1) == 1,
+                "Advanced exhaust hatch rounded a positive steam demand down to zero");
+        helper.assertTrue(hatch.modifySteamConsumption(801) == 537,
+                "Advanced exhaust hatch did not round fractional mB/t demand up");
+
+        var recipe = helper.getLevel().getRecipeManager()
+                .byKey(GregSteamExpansion.id("shaped/advanced_steam_exhaust_hatch"))
+                .orElse(null);
+        helper.assertTrue(recipe != null, "Advanced steam exhaust hatch recipe is missing");
+        if (recipe != null) {
+            helper.assertTrue(recipe.getIngredients().stream()
+                            .anyMatch(ingredient -> ingredient.test(GSEMachines.STEAM_EXHAUST_HATCH.asStack())),
+                    "Advanced exhaust recipe does not upgrade the ordinary exhaust hatch");
+            var hvCircuitIterator = ForgeRegistries.ITEMS.tags().getTag(CustomTags.HV_CIRCUITS).iterator();
+            helper.assertTrue(hvCircuitIterator.hasNext(), "HV circuit tag is empty");
+            if (hvCircuitIterator.hasNext()) {
+                Item hvCircuit = hvCircuitIterator.next();
+                long circuitSlots = recipe.getIngredients().stream()
+                        .filter(ingredient -> ingredient.test(new ItemStack(hvCircuit)))
+                        .count();
+                helper.assertTrue(circuitSlots == 4,
+                        "Advanced exhaust recipe does not require four arbitrary HV circuits");
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
     public static void largeSteamOverclockLocksNextExecutionEconomics(GameTestHelper helper) {
         LargeSteamOverclock.LockedEconomics normal = LargeSteamOverclock.lock(601, 400, false, true);
         helper.assertTrue(!normal.active() && normal.durationTicks() == 601 && normal.steamPerTickMb() == 400,
@@ -273,6 +319,31 @@ public final class GSESteamHatchTests {
                 "Large steam overclock did not round half duration up to a whole tick");
         helper.assertTrue(overclocked.steamPerTickMb() == 1_200,
                 "Large steam overclock did not triple per-tick steam demand");
+
+        SteamThrottle.LockedEconomics quarter = SteamThrottle.lock(240, 19_200, 25);
+        helper.assertTrue(quarter.throttlePercent() == 25
+                        && quarter.durationTicks() == 960
+                        && quarter.steamPerTickMb() == 4_800,
+                "25% steam throttle did not quarter demand and quadruple duration");
+        helper.assertTrue(quarter.totalSteamMb() == 4_608_000,
+                "Steam throttle changed the batch's nominal total consumption");
+        SteamThrottle.LockedEconomics rounded = SteamThrottle.lock(3, 7, 50);
+        helper.assertTrue(rounded.durationTicks() == 6
+                        && rounded.steamPerTickMb() == 4
+                        && rounded.steamForProgress(5) == 1,
+                "Steam throttle did not preserve an indivisible total on its final tick");
+        helper.assertTrue(SteamThrottle.step(100, false) == 75
+                        && SteamThrottle.step(25, false) == 25
+                        && SteamThrottle.step(75, true) == 100,
+                "Steam throttle did not use the four 25% controller levels");
+        helper.assertTrue(SteamThrottle.scaledDuration(5, 25) == 20,
+                "25% throttle did not quadruple a preheat interval");
+        helper.assertTrue(SteamThrottle.largestSupportedCount(
+                        96, 9_600, parallel -> 200L * parallel) == 48,
+                "Startup protection did not lower parallel to the largest sustainable value");
+        helper.assertTrue(SteamThrottle.largestSupportedCount(
+                        4, 1_200, stations -> 3_000L * stations) == 0,
+                "Startup protection admitted a minimum workload above the supply limit");
         helper.succeed();
     }
 
@@ -382,12 +453,12 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 160)
-    public static void steamAirIntakeDoesNotCollectWhileUnformed(GameTestHelper helper) {
-        // machines-and-hatches.md 实现验收 1/4: the intake exposes no fluid
-        // capability and collects nothing until its multiblock forms. The
-        // full 80-tick collection cycle is exercised once the first
-        // controller that accepts STEAM_AIR_INTAKE exists.
+    @GameTest(template = "empty", timeoutTicks = 100)
+    @SuppressWarnings("unchecked")
+    public static void steamAirIntakeCollectsWhileUnformed(GameTestHelper helper) {
+        // The intake begins collecting as soon as the placed block is loaded;
+        // multiblock formation only controls which controller may consume the
+        // cached air. External fluid access remains disabled.
         SteamAirIntakeHatchPartMachine intake = GSEStructureTestUtils.placeMachine(helper, GSEMachines.STEAM_AIR_INTAKE_HATCH, HATCH_POS);
         BlockEntity blockEntity = helper.getLevel().getBlockEntity(helper.absolutePos(HATCH_POS));
         helper.assertTrue(blockEntity != null, "Steam air intake hatch block entity was missing");
@@ -400,11 +471,32 @@ public final class GSESteamHatchTests {
                     "Steam air intake hatch exposed a usable fluid capability");
         }
 
-        helper.runAfterDelay(100, () -> {
-            helper.assertTrue(intake.tank.getFluidInTank(0).isEmpty(),
-                    "Steam air intake hatch collected air without a formed multiblock");
-            helper.assertTrue(intake.getIntakeStatus() == SteamAirIntakeHatchPartMachine.IntakeStatus.NOT_FORMED,
-                    "Unformed steam air intake hatch reported the wrong status");
+        helper.runAfterDelay(SteamAirIntakeHatchPartMachine.COLLECT_CYCLE_TICKS + 20, () -> {
+            helper.assertTrue(intake.tank.getFluidInTank(0).getAmount() ==
+                            SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT,
+                    "Standalone steam air intake hatch did not complete one collection cycle");
+            helper.assertTrue(intake.getIntakeStatus() ==
+                            SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,
+                    "Standalone steam air intake hatch did not report collecting status");
+
+            CompoundTag serverData = new CompoundTag();
+            BlockAccessor accessor = GSESteamEngineTestSupport.jadeAccessor(intake, serverData);
+            Object airProvider = GSESteamEngineTestSupport.jadeProvider("AirIntakeProvider");
+            ((IServerDataProvider<BlockAccessor>) airProvider).appendServerData(serverData, accessor);
+            List<Component> lines = new ArrayList<>();
+            Set<ResourceLocation> tags = new HashSet<>();
+            ITooltip tooltip = GSESteamEngineTestSupport.jadeTooltip(lines, tags);
+            ((IBlockComponentProvider) airProvider).appendTooltip(tooltip, accessor, null);
+            ResourceLocation fallbackStorage = GregSteamExpansion.id("steam_air_intake_fluid_summary");
+            helper.assertTrue(tags.contains(fallbackStorage),
+                    "Air intake tooltip omitted its fallback storage bar");
+            tags.add(Identifiers.UNIVERSAL_FLUID_STORAGE);
+            Object deduplication = GSESteamEngineTestSupport.jadeProvider("TooltipDeduplication");
+            ((JadeTooltipCollectedCallback) deduplication).onTooltipCollected(tooltip, accessor);
+            helper.assertTrue(tags.contains(Identifiers.UNIVERSAL_FLUID_STORAGE),
+                    "Air intake tooltip removed the preferred upstream fluid view");
+            helper.assertTrue(!tags.contains(fallbackStorage),
+                    "Air intake tooltip retained its fallback bar beside the upstream fluid view");
             helper.succeed();
         });
     }

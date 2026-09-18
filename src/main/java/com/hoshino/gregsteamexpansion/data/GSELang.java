@@ -37,6 +37,32 @@ public final class GSELang {
         add("gregsteamexpansion.emi.recipe.eu", "Usage: %s EU/t (%s A @ %s)");
         add("gregsteamexpansion.emi.recipe.eu_inverted", "Generation: %s EU/t (%s A @ %s)");
 
+        // large-steam-tank.md: controller, configurable valve and status text.
+        add("gregsteamexpansion.machine.large_steam_tank.tooltip.0",
+                "Variable 3×3–9×9 square footprint and 4–8 block height.");
+        add("gregsteamexpansion.machine.large_steam_tank.tooltip.1",
+                "Stores only standard steam; capacity is outer volume × 64,000 mB.");
+        add("gregsteamexpansion.machine.large_steam_tank.tooltip.2",
+                "Requires at least one Steam Tank Valve and one real glass block.");
+        add("gregsteamexpansion.machine.steam_tank_valve.tooltip.0",
+                "Proxies the shared Large Steam Tank storage without adding capacity.");
+        add("gregsteamexpansion.machine.steam_tank_valve.tooltip.1",
+                "Use a screwdriver to switch between input and active output modes.");
+        add("gregsteamexpansion.machine.steam_tank_valve.mode.input", "Steam Tank Valve: input mode");
+        add("gregsteamexpansion.machine.steam_tank_valve.mode.output", "Steam Tank Valve: output mode");
+        add("gregsteamexpansion.gui.large_steam_tank.title", "Large Steam Tank");
+        add("gregsteamexpansion.gui.large_steam_tank.valves", "Valves: %s");
+        add("gregsteamexpansion.gui.large_steam_tank.ready", "Ready");
+        add("gregsteamexpansion.gui.large_steam_tank.over_capacity", "Over capacity — output only");
+        add("gregsteamexpansion.jade.large_steam_tank.valve_mode", "Valve mode: %s");
+        add("gregsteamexpansion.jade.large_steam_tank.input", "Input");
+        add("gregsteamexpansion.jade.large_steam_tank.output", "Output");
+        add("gregsteamexpansion.jade.large_steam_tank.unformed", "Tank structure is not formed");
+        add("gregsteamexpansion.jade.large_steam_tank.storage", "Steam: %s / %s mB");
+        add("gregsteamexpansion.jade.large_steam_tank.structure", "Structure: %s×%s×%s; %s valves");
+        add("gregsteamexpansion.jade.large_steam_tank.over_capacity", "Stored steam exceeds current capacity — output only");
+        add("config.jade.plugin_gregsteamexpansion.large_steam_tank_info", "Large Steam Tank Information");
+
         // Ore Crushing recipe type / viewer category name (ore-crushing.md).
         add("gregsteamexpansion.ore_crushing", "Ore Crushing");
 
@@ -81,6 +107,8 @@ public final class GSELang {
                 "Enabled: 3× steam demand per tick and 50% recipe duration.");
         add("gregsteamexpansion.machine.large_steam_overclock.next_recipe",
                 "Changes apply when the next recipe or production cycle starts.");
+        add("gregsteamexpansion.machine.steam_throttle.tooltip",
+                "Selects 25%, 50%, 75% or 100% for newly started work. Lower throttle reduces per-tick steam demand and proportionally extends duration without changing total steam consumption.");
 
         // 蒸汽流体输入/输出仓 / Steam Fluid Input & Output Hatches two-tier item
         // tooltip (machines-and-hatches.md 模型、界面与提示). Both directions
@@ -110,16 +138,16 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.rate",
                 "Collection cycle: every %s ticks, %s mB");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.summary",
-                "Collects air for formed steam multiblock machines.");
+                "Collects and stores air as soon as it is placed in a valid environment.");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.no_output",
                 "Cannot output air to pipes or containers.");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.subtitle", "Collection and Interface");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.0",
-                "Collects while its multiblock is formed, the hatch stands in the Overworld, one strict-air block sits directly in front and the cache has room; each finished cycle adds up to %s mB.");
+                "Collects whenever the placed hatch is loaded in the Overworld, one strict-air block sits directly in front and the cache has room; each finished cycle adds up to %s mB.");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.1",
                 "Strict air means plain, cave and void air only: snow layers, fire, plants, vines, webs, non-colliding blocks and fluids all block the intake without being cleared, and any interruption discards the unfinished cycle.");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.2",
-                "Pipes, covers and containers can neither fill nor drain the cache; only its formed controller consumes the actual air, atomically with every other recipe condition.");
+                "Pipes, covers and containers can neither fill nor drain the cache; a compatible formed controller may consume the actual air, atomically with every other recipe condition.");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.3",
                 "Breaking the hatch scatters its air, the dropped item never carries fluid, and unfinished cycle progress is never saved.");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.tooltip.details.4",
@@ -129,7 +157,6 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_air_intake_hatch.status.cache_full", "Cache Full");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.status.intake_blocked", "Intake Blocked");
         add("gregsteamexpansion.machine.steam_air_intake_hatch.status.wrong_dimension", "Dimension Not Supported");
-        add("gregsteamexpansion.machine.steam_air_intake_hatch.status.structure_not_formed", "Structure Not Formed");
         // 蒸汽粉碎机 / Steam Crusher two-tier item tooltip (steam-crushers.md
         // 物品提示与本地化). Group subtitles reuse one shared key.
         add("gregsteamexpansion.machine.steam_crusher.tooltip.summary.0",
@@ -588,14 +615,10 @@ public final class GSELang {
         // Jade lines for the light processor family share the crusher shape.
         add("gregsteamexpansion.jade.steam_processor.status", "Status: %s");
         add("gregsteamexpansion.jade.steam_processor.recipe", "Recipe: %s");
-        add("gregsteamexpansion.jade.steam_processor.progress", "Progress: %s / %s tick");
-        add("gregsteamexpansion.jade.steam_processor.parallel", "Parallel: %s / %s");
-        add("gregsteamexpansion.jade.steam_processor.steam", "Steam: %s / %s mB");
-        add("gregsteamexpansion.jade.steam_processor.demand", "Steam demand: %s mB/t");
         add("gregsteamexpansion.jade.steam_processor.pending", "Pending: %s (%s kinds)");
         add("gregsteamexpansion.jade.steam_processor.pending_fluid", "Pending fluids: %s mB (%s kinds)");
         // 议题 12: 控制器侧的进气室汇总行 (状态 + 缓存存量 / 容量).
-        add("gregsteamexpansion.jade.steam_processor.intake", "Air intake: %s (%s / %s mB)");
+        add("gregsteamexpansion.jade.steam_processor.intake", "Air intake: %s");
         add("config.jade.plugin_gregsteamexpansion.steam_compressor_info", "Steam Compressor Info");
 
         // Shared controller GUI info-page labels (steam-crushers.md 运行信息页).
@@ -616,17 +639,17 @@ public final class GSELang {
         // Jade lines for the air intake hatch share the GUI's server status
         // source (machines-and-hatches.md GUI/Jade 一致性).
         add("gregsteamexpansion.jade.steam_air_intake_hatch.status", "Status: %s");
-        add("gregsteamexpansion.jade.steam_air_intake_hatch.air", "Air: %s / %s mB");
-        add("gregsteamexpansion.jade.steam_air_intake_hatch.next_collect", "Next collection: %s ticks");
         add("config.jade.plugin_gregsteamexpansion.steam_air_intake_hatch_info", "Steam Air Intake Hatch Info");
         add("gregsteamexpansion.jade.steam_crusher.status", "Status: %s");
         add("gregsteamexpansion.jade.steam_crusher.recipe", "Recipe: %s");
-        add("gregsteamexpansion.jade.steam_crusher.progress", "Progress: %s / %s tick");
-        add("gregsteamexpansion.jade.steam_crusher.parallel", "Parallel: %s / %s");
-        add("gregsteamexpansion.jade.steam_crusher.steam", "Steam: %s / %s mB");
-        add("gregsteamexpansion.jade.steam_crusher.demand", "Steam demand: %s mB/t");
         add("gregsteamexpansion.jade.steam_crusher.pending", "Pending: %s (%s kinds)");
         add("config.jade.plugin_gregsteamexpansion.steam_crusher_info", "Steam Crusher Info");
+
+        // Shared text inside Jade bars. Recipe/cycle progress and fluid use
+        // reuse gtceu.jade.progress_* and gtceu.jade.fluid_use directly.
+        add("gregsteamexpansion.jade.bar.fluid_stored", "%s / %s mB");
+        add("gregsteamexpansion.jade.bar.parallel", "%sx / %sx");
+        add("gregsteamexpansion.jade.bar.temperature", "%s / %s °C");
 
 
         // Steam Exhaust Hatch two-tier item tooltip
@@ -651,6 +674,23 @@ public final class GSELang {
                 "This hatch has no GUI, internal slots or generic fluid output; it outputs no condensate, recipe fluid, pollutant or item byproducts.");
         add("gregsteamexpansion.machine.steam_exhaust_hatch.tooltip.details.6",
                 "In the Large Heat-Storage Steam Furnace exactly one hatch must be installed, in the outer wall layer of the second layer from the top.");
+
+        add("gregsteamexpansion.machine.advanced_steam_exhaust_hatch.tooltip.summary.0",
+                "A high-efficiency exhaust interface for large steam multiblock machines.");
+        add("gregsteamexpansion.machine.advanced_steam_exhaust_hatch.tooltip.summary.1",
+                "Reduces the steam consumption of newly started work by 33%.");
+        add("gregsteamexpansion.machine.advanced_steam_exhaust_hatch.tooltip.summary.2",
+                "The 3 blocks straight ahead must stay air; hold Shift for details.");
+        add("gregsteamexpansion.machine.advanced_steam_exhaust_hatch.tooltip.details.subtitle",
+                "Efficient Exhaust");
+        add("gregsteamexpansion.machine.advanced_steam_exhaust_hatch.tooltip.details.0",
+                "When a compatible large machine starts a recipe or production cycle, its locked steam demand is reduced by %s.");
+        add("gregsteamexpansion.machine.advanced_steam_exhaust_hatch.tooltip.details.1",
+                "A running batch keeps the demand it locked at startup across pauses, structure loss and world reloads.");
+        add("gregsteamexpansion.machine.advanced_steam_exhaust_hatch.tooltip.details.2",
+                "Only large steam multiblock structures accept this hatch, and it occupies their single required exhaust position.");
+        add("gregsteamexpansion.machine.advanced_steam_exhaust_hatch.tooltip.details.3",
+                "Obstruction checks, exhaust feedback and heat damage are identical to the ordinary Steam Exhaust Hatch.");
 
         // Large Heat-Storage Steam Furnace two-tier item tooltip
         // (large-heat-storage-steam-furnace.md 物品提示与本地化范围).
@@ -729,11 +769,6 @@ public final class GSELang {
                 "Batch duration");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.ui.unlimited", "Unlimited");
         add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.status", "Status: %s");
-        add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.temperature",
-                "Temperature: %s°C / %s°C / %s°C");
-        add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.parallel", "Parallel: %s / %s");
-        add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.steam", "Steam: %s mB/t / %s");
-        add("gregsteamexpansion.jade.large_heat_storage_steam_furnace.progress", "Progress: %s (%s)");
         add("config.jade.plugin_gregsteamexpansion.large_heat_storage_steam_furnace_info",
                 "Large Heat-Storage Steam Furnace Info");
 
@@ -877,6 +912,10 @@ public final class GSELang {
                 "Disabled in config (machines.*.enabled=false) \u2014 restart to apply changes");
         add("gregsteamexpansion.machine.void_producer.ui.exhaust_obstructed",
                 "Exhaust hatch obstructed \u2014 cycle frozen");
+        add("gregsteamexpansion.jade.void_producer.status", "Status: %s");
+        add("gregsteamexpansion.jade.void_producer.pending", "Pending: %s (%s kinds)");
+        add("gregsteamexpansion.jade.void_producer.pending_fluid", "Pending fluids: %s mB (%s kinds)");
+        add("config.jade.plugin_gregsteamexpansion.void_producer_info", "Void Producer Info");
 
         // ---- 电力粉碎机 (ore-crushing.md 电力消费机器) ----
         add("gregsteamexpansion.machine.electric_ore_crusher.tooltip",
@@ -1022,15 +1061,15 @@ public final class GSELang {
         add("gregsteamexpansion.large_coke_oven.detail.awaiting_reinput",
                 "A legacy batch was cancelled. Insert a valid coke oven ingredient once to resume.");
         add("gregsteamexpansion.large_coke_oven.detail.preferred",
-                "Preferred recipe: %s");
+                "A preferred recipe is remembered");
 
         // ---- GUI ----
         add("gregsteamexpansion.large_coke_oven.gui.slot_number", "Slot %s");
         add("gregsteamexpansion.large_coke_oven.gui.no_batch", "No active batch");
-        add("gregsteamexpansion.large_coke_oven.gui.recipe_line", "%s · parallel %s · %s ticks · %s · %s left");
+        add("gregsteamexpansion.large_coke_oven.gui.recipe_line", "Parallel %s");
         add("gregsteamexpansion.large_coke_oven.gui.progress", "%s · about %s remaining");
         add("gregsteamexpansion.large_coke_oven.gui.progress.idle", "%s · idle");
-        add("gregsteamexpansion.large_coke_oven.gui.waiting_output", "awaiting output");
+        add("gregsteamexpansion.large_coke_oven.gui.progress.waiting_output", "%s · waiting for output");
 
         // ---- 大型焦炉仓 ----
         add("gregsteamexpansion.large_coke_oven_hatch.facing.locked",
@@ -1090,9 +1129,6 @@ public final class GSELang {
         // ---- Jade: 大型焦炉与已归属砖 ----
         add("gregsteamexpansion.jade.large_coke_oven.status", "Status: %s");
         add("gregsteamexpansion.jade.large_coke_oven.detail", "· %s");
-        add("gregsteamexpansion.jade.large_coke_oven.recipe", "Recipe: %s (parallel %s)");
-        add("gregsteamexpansion.jade.large_coke_oven.progress", "Progress: %s (%s left)");
-        add("gregsteamexpansion.jade.large_coke_oven.waiting", "Waiting for output: %s, products pending commit");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.mode", "Mode: %s");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.facing", "Working face: %s");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.covered", "Cover installed on the front");
@@ -1166,7 +1202,6 @@ public final class GSELang {
         // ---- Jade: 控制器 ----
         add("gregsteamexpansion.jade.coke_oven.status", "Status: %s");
         add("gregsteamexpansion.jade.coke_oven.detail", "· %s");
-        add("gregsteamexpansion.jade.coke_oven.progress", "Progress: %s (%s left)");
         add("gregsteamexpansion.jade.coke_oven.fluid", "Output tank: %s %s / %s mB");
         add("gregsteamexpansion.jade.coke_oven.empty", "Empty");
         add("config.jade.plugin_gregsteamexpansion.coke_oven_info", "Coke Oven Info");
@@ -1240,7 +1275,7 @@ public final class GSELang {
     private static void addStructureDiagnosticsLang() {
         // ---- Jade 原因行 (P5: 只说原因, 不重复"结构未成型"状态行) ----
         add("gregsteamexpansion.jade.structure.title", "First problem: %s");
-        add("gregsteamexpansion.jade.structure.pos", "At: %s, %s, %s");
+        add("gregsteamexpansion.jade.structure.pos", "At (red outline): %s, %s, %s");
         add("gregsteamexpansion.jade.structure.expected", "Expects: %s");
         // P6: 引擎只记录首个失败点, 明写以免玩家以为修好这处就完事。
         add("gregsteamexpansion.jade.structure.maybe_more", "More problems may surface after this one is fixed");

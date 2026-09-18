@@ -128,7 +128,7 @@ public final class GSERecipeOptimizationTests {
      * separation batch and keep the intake's cache as a usable recipe input.
      *
      * <p>This exercises the whole air chain end to end — the intake's own
-     * 80-tick environment collection, the cache accumulating across cycles
+     * 40-tick environment collection, the cache accumulating across cycles
      * (a rewrite bug once capped it at one cycle and made every air recipe
      * unreachable), the controller seeing that air as a fluid input, the
      * worst-case output precheck accepting a two-fluid product, and the batch
@@ -220,8 +220,8 @@ public final class GSERecipeOptimizationTests {
                     // Air is deliberately NOT primed by hand: the whole point is
                     // that the hatch's own environment collection fills the
                     // cache the machine reads. A full air_separation dose is
-                    // 10,000 mB and the hatch banks 4,000 mB per 80-tick cycle,
-                    // so three cycles are needed — this also guards the cache
+                    // 10,000 mB and the hatch banks 2,000 mB per 40-tick cycle,
+                    // so five cycles are needed — this also guards the cache
                     // accumulating instead of overwriting itself every cycle.
                     helper.assertTrue(intake.getIntakeStatus()
                             == SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,
@@ -238,7 +238,7 @@ public final class GSERecipeOptimizationTests {
                     supply.tank.getStorages()[0].setFluid(
                             new FluidStack(GTMaterials.Steam.getFluid(), 32_000));
                 })
-                // 3 collection cycles (240 ticks) to bank 10,000 mB, plus the
+                // 5 collection cycles (200 ticks) to bank 10,000 mB, plus the
                 // 20-tick idle retry window for the machine to notice it.
                 .thenIdle(320)
                 .thenExecute(() -> helper.assertTrue(machine.getBatchParallel() > 0,

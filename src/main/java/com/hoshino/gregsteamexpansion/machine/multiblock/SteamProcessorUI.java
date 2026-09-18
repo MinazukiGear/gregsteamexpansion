@@ -4,12 +4,18 @@ import com.gregtechceu.gtceu.api.gui.GuiTextures;
 import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
+import com.lowdragmc.lowdraglib.gui.widget.ComponentPanelWidget;
 import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.items.ItemHandlerHelper;
 
@@ -18,6 +24,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 /** Common widgets and live text formatting for steam controller information pages. */
@@ -66,18 +74,106 @@ public final class SteamProcessorUI {
                 enabled, value -> setEnabled.accept(value)));
     }
 
+    /** Adds the upstream large-boiler-style throttle readout and [-]/[+] controls. */
+    public static int throttleRows(DraggableScrollableWidgetGroup group, int y, boolean remote,
+                                   IntSupplier throttlePercent, IntConsumer setThrottlePercent) {
+        Consumer<List<Component>> text = lines -> {
+            Component throttle = Component.translatable("gtceu.multiblock.large_boiler.throttle",
+                    ChatFormatting.AQUA.toString() + throttlePercent.getAsInt() + "%")
+                    .withStyle(Style.EMPTY.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            Component.translatable("gregsteamexpansion.machine.steam_throttle.tooltip"))));
+            lines.add(throttle);
+            var controls = Component.translatable("gtceu.multiblock.large_boiler.throttle_modify");
+            controls.append(" ");
+            controls.append(ComponentPanelWidget.withButton(Component.literal("[-]"), "sub"));
+            controls.append(" ");
+            controls.append(ComponentPanelWidget.withButton(Component.literal("[+]"), "add"));
+            lines.add(controls);
+        };
+        group.addWidget(new ComponentPanelWidget(LABEL_X, y, text)
+                .textSupplier(remote ? null : text)
+                .setMaxWidthLimit(WIDTH - 14)
+                .clickHandler((componentData, clickData) -> {
+                    if (!clickData.isRemote) {
+                        setThrottlePercent.accept(SteamThrottle.step(
+                                throttlePercent.getAsInt(), componentData.equals("add")));
+                    }
+                }));
+        return y + ROW_HEIGHT * 2;
+    }
+
     /** Adds the Large Steam Supply Hatch overclock toggle at the right edge. */
-    public static void addLargeSteamOverclockButton(ModularUI ui, int height,
+    public static void addLargeSteamOverclockButton(ModularUI ui, int height, BooleanSupplier available,
                                                     BooleanSupplier enabled,
                                                     Consumer<Boolean> setEnabled) {
-        ui.widget(new ToggleButtonWidget(WIDTH - 24, height - 24, 18, 18, GuiTextures.BUTTON_BATCH,
-                enabled, value -> setEnabled.accept(value)).setHoverTooltips(
+        ui.widget(new AvailableToggleButtonWidget(WIDTH - 24, height - 24, available,
+                enabled, setEnabled).setHoverTooltips(
                 Component.translatable("gregsteamexpansion.machine.large_steam_overclock")
                         .withStyle(ChatFormatting.YELLOW),
                 Component.translatable("gregsteamexpansion.machine.large_steam_overclock.info")
                         .withStyle(ChatFormatting.GRAY),
                 Component.translatable("gregsteamexpansion.machine.large_steam_overclock.next_recipe")
                         .withStyle(ChatFormatting.GRAY)));
+    }
+
+    /**
+     * Keeps the controller UI widget tree identical on both logical sides.
+     * The part collector is server-only runtime state, so deciding whether to
+     * construct the widget in {@code createUI} can omit it from the client
+     * tree. Only its visibility is derived from that state and synchronized.
+     */
+    private static final class AvailableToggleButtonWidget extends ToggleButtonWidget {
+
+        private static final int AVAILABILITY_UPDATE_ID = 3;
+        private final BooleanSupplier available;
+
+        private AvailableToggleButtonWidget(int x, int y, BooleanSupplier available,
+                                            BooleanSupplier enabled, Consumer<Boolean> setEnabled) {
+            super(x, y, 18, 18, GuiTextures.BUTTON_BATCH, enabled,
+                    value -> setEnabled.accept(value));
+            this.available = available;
+            setVisible(false);
+            setActive(false);
+        }
+
+        @Override
+        public void writeInitialData(FriendlyByteBuf buffer) {
+            super.writeInitialData(buffer);
+            boolean value = available.getAsBoolean();
+            setAvailable(value);
+            buffer.writeBoolean(value);
+        }
+
+        @Override
+        public void readInitialData(FriendlyByteBuf buffer) {
+            super.readInitialData(buffer);
+            setAvailable(buffer.readBoolean());
+        }
+
+        @Override
+        public void detectAndSendChanges() {
+            super.detectAndSendChanges();
+            boolean value = available.getAsBoolean();
+            if (isVisible() != value || isActive() != value) {
+                setAvailable(value);
+                writeUpdateInfo(AVAILABILITY_UPDATE_ID, data -> data.writeBoolean(value));
+            }
+        }
+
+        @Override
+        @OnlyIn(Dist.CLIENT)
+        public void readUpdateInfo(int id, FriendlyByteBuf buffer) {
+            if (id == AVAILABILITY_UPDATE_ID) {
+                setAvailable(buffer.readBoolean());
+            } else {
+                super.readUpdateInfo(id, buffer);
+            }
+        }
+
+        private void setAvailable(boolean value) {
+            setVisible(value);
+            setActive(value);
+        }
     }
 
     public static String progress(boolean visible, int progress, int duration) {

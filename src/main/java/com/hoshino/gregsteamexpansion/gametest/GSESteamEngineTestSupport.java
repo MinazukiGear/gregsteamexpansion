@@ -11,6 +11,8 @@ import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSEVoidPatterns;
 
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
+import com.gregtechceu.gtceu.api.data.RotationState;
+import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
@@ -25,6 +27,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -33,6 +36,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.fluids.FluidStack;
 
@@ -41,6 +45,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -206,6 +211,26 @@ final class GSESteamEngineTestSupport {
         m.onStructureFormed();
         h.assertTrue(m.isFormed(), "Controller remained invalid after Large Steam Supply Hatch replacement");
         return replaced;
+    }
+
+    static void replaceSteamExhaustHatch(GameTestHelper h, MultiblockControllerMachine m) {
+        SteamExhaustHatchMachine ordinary = m.getParts().stream()
+                .filter(part -> part instanceof SteamExhaustHatchMachine)
+                .map(part -> (SteamExhaustHatchMachine) part)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Fixture has no Steam Exhaust Hatch to replace"));
+        if (m.isFormed()) m.onStructureInvalid();
+        BlockState oldState = h.getLevel().getBlockState(ordinary.getPos());
+        BlockState replacement = GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH.defaultBlockState();
+        RotationState rotation = GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH.getRotationState();
+        if (rotation != RotationState.NONE && oldState.hasProperty(rotation.property)
+                && replacement.hasProperty(rotation.property)) {
+            replacement = replacement.setValue(rotation.property, oldState.getValue(rotation.property));
+        }
+        h.getLevel().setBlockAndUpdate(ordinary.getPos(), replacement);
+        h.assertTrue(m.checkPattern(), "Advanced Steam Exhaust Hatch did not reform " + m.getDefinition().getId());
+        m.onStructureFormed();
+        h.assertTrue(m.isFormed(), "Controller remained invalid after advanced exhaust replacement");
     }
 
     static void formed(GameTestHelper h, MultiblockMachineDefinition definition,
@@ -490,7 +515,7 @@ final class GSESteamEngineTestSupport {
         }
     }
 
-    static BlockAccessor jadeAccessor(MultiblockControllerMachine machine, CompoundTag serverData) {
+    static BlockAccessor jadeAccessor(MetaMachine machine, CompoundTag serverData) {
         return (BlockAccessor) Proxy.newProxyInstance(
                 GSESteamEngineTestSupport.class.getClassLoader(),
                 new Class<?>[] { BlockAccessor.class },
@@ -506,6 +531,10 @@ final class GSESteamEngineTestSupport {
     }
 
     static ITooltip jadeTooltip(List<Component> lines) {
+        return jadeTooltip(lines, new java.util.HashSet<>());
+    }
+
+    static ITooltip jadeTooltip(List<Component> lines, Set<ResourceLocation> tags) {
         return (ITooltip) Proxy.newProxyInstance(
                 GSESteamEngineTestSupport.class.getClassLoader(),
                 new Class<?>[] { ITooltip.class },
@@ -513,7 +542,17 @@ final class GSESteamEngineTestSupport {
                     if (method.getName().equals("add") && args != null) {
                         for (Object argument : args) {
                             if (argument instanceof Component component) lines.add(component);
+                            if (argument instanceof ResourceLocation uid) tags.add(uid);
                         }
+                    }
+                    if (method.getName().equals("get") && args != null && args.length == 1 &&
+                            args[0] instanceof ResourceLocation uid) {
+                        return tags.contains(uid) ? List.of(Component.empty()) : List.of();
+                    }
+                    if (method.getName().equals("remove") && args != null && args.length == 1 &&
+                            args[0] instanceof ResourceLocation uid) {
+                        tags.remove(uid);
+                        return null;
                     }
                     if (method.getName().equals("size")) return lines.size();
                     if (method.getName().equals("clear")) lines.clear();

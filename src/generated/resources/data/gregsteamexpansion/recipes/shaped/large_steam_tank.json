@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "B": {
+      "item": "gtceu:steam_machine_casing"
+    },
+    "D": {
+      "item": "gtceu:bronze_drum"
+    },
+    "H": {
+      "item": "gregsteamexpansion:steam_supply_hatch"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "BDB",
+    " H "
+  ],
+  "result": {
+    "item": "gregsteamexpansion:large_steam_tank"
+  }
+}

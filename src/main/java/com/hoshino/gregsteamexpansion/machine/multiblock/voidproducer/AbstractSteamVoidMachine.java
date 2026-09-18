@@ -21,6 +21,8 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamStatusText;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamThrottle;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.AdvancedSteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
 
@@ -81,12 +83,24 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     /** UI preference; sampled only when a new production cycle starts. */
     @Persisted
     private boolean largeSteamOverclockEnabled = false;
+    /** Four-position UI preference, sampled only when a new production cycle starts. */
+    @Persisted
+    private int steamThrottlePercent = SteamThrottle.MAX_PERCENT;
     /** Progress inside the current production cycle (0..cycleTicks). */
     @Persisted
     private int cycleProgress = 0;
+    /** Station count selected by startup protection for the current cycle. */
+    @Persisted
+    private int cycleActiveStations = 0;
     /** Whether the current production cycle locked the large-hatch overclock. */
     @Persisted
     private boolean cycleLargeSteamOverclock = false;
+    /** Whether the current production cycle locked the advanced-exhaust discount. */
+    @Persisted
+    private boolean cycleAdvancedSteamExhaust = false;
+    /** Manual throttle locked by the current production cycle. */
+    @Persisted
+    private int cycleSteamThrottlePercent = SteamThrottle.MAX_PERCENT;
     /** Finished items waiting for output space. */
     @Persisted
     private final List<ItemStack> pendingOutputs = new ArrayList<>();
@@ -289,10 +303,18 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     private void runCycleTick() {
         if (cycleProgress == 0) {
             cycleLargeSteamOverclock = largeSteamOverclockEnabled && hasLargeSteamSupplyHatch();
+            cycleAdvancedSteamExhaust = partCollector.hasAdvancedSteamExhaustHatch();
+            cycleSteamThrottlePercent = SteamThrottle.normalize(steamThrottlePercent);
+            cycleActiveStations = steamLimitedStationCount();
+            if (cycleActiveStations <= 0) {
+                batchState.freeze(BatchStateMachine.HoldReason.STEAM);
+                return;
+            }
         }
-        LargeSteamOverclock.LockedEconomics economics = currentCycleEconomics();
+        SteamThrottle.LockedEconomics economics = currentCycleEconomics();
         BatchStateMachine.TickResult tick = batchState.runTick(
-                cycleProgress, economics.durationTicks(), () -> drawSteam(economics.steamPerTickMb()));
+                cycleProgress, economics.durationTicks(),
+                () -> drawSteam(economics.steamForProgress(cycleProgress)));
         cycleProgress = tick.progress();
         if (!tick.consumed()) {
             updateWorkingAppearance();
@@ -306,6 +328,7 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
         if (tick.completed()) {
             cycleProgress = 0;
             completeCycle();
+            cycleActiveStations = 0;
         }
     }
 
@@ -317,9 +340,21 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
         if (pendingBuffer.entryCount() > before) {
             GregSteamExpansion.LOGGER.debug(
                     "Void producer at {} completed a cycle: {} draws, {} pending items / {} pending fluids",
-                    getPos(), stationCount(), pendingOutputs.size(), pendingFluids.size());
+                    getPos(), activeStationCount(), pendingOutputs.size(), pendingFluids.size());
         }
         deliverPendingOutputs();
+    }
+
+    /** Effective stations for production and display; old saves fall back to the machine maximum. */
+    protected final int activeStationCount() {
+        return cycleActiveStations > 0 ? cycleActiveStations : stationCount();
+    }
+
+    /** Reduces stations before cycle start until the locked demand fits the available throughput. */
+    private int steamLimitedStationCount() {
+        return SteamThrottle.largestSupportedCount(stationCount(), steamBudget.inputLimitMb(),
+                stations -> cycleEconomics(stations, cycleLargeSteamOverclock,
+                        cycleAdvancedSteamExhaust, cycleSteamThrottlePercent).steamPerTickMb());
     }
 
     //////////////////////////////////////
@@ -400,6 +435,19 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
 
     public boolean isCurrentCycleLargeSteamOverclocked() {
         return cycleProgress > 0 && cycleLargeSteamOverclock;
+    }
+
+    public int getSteamThrottlePercent() {
+        return SteamThrottle.normalize(steamThrottlePercent);
+    }
+
+    public void setSteamThrottlePercent(int percent) {
+        steamThrottlePercent = SteamThrottle.normalize(percent);
+    }
+
+    public int getCurrentCycleSteamThrottlePercent() {
+        return cycleProgress > 0 ? SteamThrottle.normalize(cycleSteamThrottlePercent)
+                : getSteamThrottlePercent();
     }
 
     public void setWorkingEnabled(boolean workingEnabled) {
@@ -519,15 +567,15 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
                 () -> SteamProcessorUI.steamStorage(isFormed(), getSteamTotalStored(), getSteamTotalCapacity()),
                 ChatFormatting.WHITE);
         y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "demand", this::demandText, ChatFormatting.WHITE);
+        y = SteamProcessorUI.throttleRows(scroll, y, isRemote(),
+                this::getSteamThrottlePercent, this::setSteamThrottlePercent);
         SteamProcessorUI.tooltipRow(scroll, y, UI_PREFIX + "pending", this::pendingSummaryText,
                 this::pendingDetailTooltips);
         ui.widget(scroll);
         // GTCEu standard power button fixed outside the scroll area.
         SteamProcessorUI.addPowerButton(ui, uiHeight, this::isWorkingEnabled, this::setWorkingEnabled);
-        if (hasLargeSteamSupplyHatch()) {
-            SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight,
-                    this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
-        }
+        SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight, this::hasLargeSteamSupplyHatch,
+                this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
         return ui;
     }
 
@@ -564,12 +612,30 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     private long currentSteamDemandPerTick() {
         String status = getStatusId();
         return status.equals("working") || status.equals("low_steam")
-                ? currentCycleEconomics().steamPerTickMb() : 0;
+                ? currentCycleEconomics().steamForProgress(cycleProgress) : 0;
     }
 
-    private LargeSteamOverclock.LockedEconomics currentCycleEconomics() {
-        return LargeSteamOverclock.lock(cycleTicks(), steamPerStationTick() * stationCount(),
-                cycleLargeSteamOverclock, true);
+    private SteamThrottle.LockedEconomics currentCycleEconomics() {
+        boolean locked = cycleActiveStations > 0;
+        boolean advancedExhaust = locked
+                ? cycleAdvancedSteamExhaust
+                : partCollector.hasAdvancedSteamExhaustHatch();
+        boolean overclock = locked
+                ? cycleLargeSteamOverclock
+                : largeSteamOverclockEnabled && hasLargeSteamSupplyHatch();
+        int throttle = locked ? cycleSteamThrottlePercent : steamThrottlePercent;
+        return cycleEconomics(activeStationCount(), overclock, advancedExhaust, throttle);
+    }
+
+    private SteamThrottle.LockedEconomics cycleEconomics(int stations, boolean overclockEnabled,
+                                                          boolean advancedExhaust, int throttle) {
+        long baseDemand = steamPerStationTick() * stations;
+        long demand = advancedExhaust
+                ? AdvancedSteamExhaustHatchMachine.discountedSteam(baseDemand)
+                : baseDemand;
+        LargeSteamOverclock.LockedEconomics overclock = LargeSteamOverclock.lock(
+                cycleTicks(), demand, overclockEnabled, true);
+        return SteamThrottle.lock(overclock.durationTicks(), overclock.steamPerTickMb(), throttle);
     }
 
     /** `128（3 种）` style pending summary; `—` when nothing is pending. */
@@ -597,6 +663,14 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
 
     public long getSteamPerTickDemand() {
         return currentCycleEconomics().steamPerTickMb();
+    }
+
+    public long getCurrentSteamDemandPerTick() {
+        return currentSteamDemandPerTick();
+    }
+
+    public long getSteamInputLimitPerTick() {
+        return steamBudget.physicalInputLimitMb();
     }
 
     public boolean isConsumingSteam() {
@@ -632,7 +706,11 @@ public abstract class AbstractSteamVoidMachine extends MultiblockControllerMachi
     @Override
     public void onMachineRemoved() {
         cycleProgress = 0;
+        cycleActiveStations = 0;
         cycleLargeSteamOverclock = false;
+        cycleAdvancedSteamExhaust = false;
+        cycleSteamThrottlePercent = SteamThrottle.MAX_PERCENT;
+        steamThrottlePercent = SteamThrottle.MAX_PERCENT;
         pendingBuffer.clear();
         exhaustFeedbackTimer = 0;
         exhaustDamageTimer = 0;

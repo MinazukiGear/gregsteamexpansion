@@ -484,6 +484,7 @@ def check_acquisition_route_parity() -> None:
 def check_acquisition_tier_boundaries() -> None:
     recipe_root = "src/generated/resources/data/gregsteamexpansion/recipes"
     large_hatch = f"{recipe_root}/shaped/large_steam_supply_hatch.json"
+    advanced_exhaust_hatch = f"{recipe_root}/shaped/advanced_steam_exhaust_hatch.json"
     expected_large_hatch = {
         "item:gtceu:bronze_drum": 4,
         "tag:gtceu:circuits/hv": 4,
@@ -494,6 +495,18 @@ def check_acquisition_tier_boundaries() -> None:
         raise ContractError(
             f"large steam supply hatch tier boundary: {actual_large_hatch}, "
             f"expected {expected_large_hatch}"
+        )
+
+    expected_advanced_exhaust_hatch = {
+        "item:gtceu:bronze_drum": 4,
+        "tag:gtceu:circuits/hv": 4,
+        "item:gregsteamexpansion:steam_exhaust_hatch": 1,
+    }
+    actual_advanced_exhaust_hatch = crafting_ingredient_counts(advanced_exhaust_hatch)
+    if actual_advanced_exhaust_hatch != expected_advanced_exhaust_hatch:
+        raise ContractError(
+            f"advanced steam exhaust hatch tier boundary: {actual_advanced_exhaust_hatch}, "
+            f"expected {expected_advanced_exhaust_hatch}"
         )
 
     electric_tiers = {
@@ -543,6 +556,7 @@ def check_acquisition_tier_boundaries() -> None:
     )
     intentional_late_routes = electric_paths | {
         large_hatch,
+        advanced_exhaust_hatch,
         f"{recipe_root}/shaped/boiler_room_titanium.json",
         f"{recipe_root}/shaped/boiler_room_tungstensteel.json",
     }
@@ -569,7 +583,7 @@ def check_acquisition_tier_boundaries() -> None:
         audited += 1
     print(
         "ok: acquisition tier boundaries = "
-        f"{audited} steam/steel recipes + HV hatch + {len(electric_tiers)} electric tiers"
+        f"{audited} steam/steel recipes + 2 HV hatches + {len(electric_tiers)} electric tiers"
     )
 
 

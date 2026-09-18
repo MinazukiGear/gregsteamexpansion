@@ -1,0 +1,23 @@
+{
+  "parent": "minecraft:block/block",
+  "loader": "gtceu:machine",
+  "machine": "gregsteamexpansion:advanced_steam_exhaust_hatch",
+  "replaceable_textures": [
+    "bottom",
+    "top",
+    "side"
+  ],
+  "variants": {
+    "": {
+      "model": {
+        "parent": "gtceu:block/machine/template/sided/sided",
+        "textures": {
+          "bottom": "gtceu:block/casings/steam/bronze/bottom",
+          "overlay_front": "gtceu:block/overlay/machine/overlay_steam_vent",
+          "side": "gtceu:block/casings/steam/bronze/side",
+          "top": "gtceu:block/casings/steam/bronze/top"
+        }
+      }
+    }
+  }
+}

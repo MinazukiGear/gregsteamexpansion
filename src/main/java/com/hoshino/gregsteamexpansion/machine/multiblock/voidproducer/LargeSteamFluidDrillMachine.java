@@ -208,7 +208,7 @@ public class LargeSteamFluidDrillMachine extends AbstractSteamVoidMachine {
             return;
         }
         int multiplier = outputMultiplier();
-        for (int pump = 0; pump < stationCount(); pump++) {
+        for (int pump = 0; pump < activeStationCount(); pump++) {
             WeightedEntry entry = weightedPick(pool);
             if (entry == null) {
                 return;
@@ -239,7 +239,7 @@ public class LargeSteamFluidDrillMachine extends AbstractSteamVoidMachine {
 
     /** `2 泵位 × 200t · 产出倍率 ×4`. */
     private String stationSummary() {
-        return stationCount() + " × " + cycleTicks() + "t · ×" + outputMultiplier();
+        return activeStationCount() + " / " + stationCount() + " × " + cycleTicks() + "t · ×" + outputMultiplier();
     }
 
     /** Hover: 当前生效权重表逐条 (流体 ×mB · 百分比). */

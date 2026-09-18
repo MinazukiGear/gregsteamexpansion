@@ -74,7 +74,8 @@ public final class GSECrusherPatterns {
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM, GSEPartAbilities.LARGE_STEAM_SUPPLY)
                         .setMinGlobalLimited(1))
-                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock(),
+                        GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
     }
 
     /** 蒸汽粉碎机: fixed 3×3×3 (steam-crushers.md 分层结构图). */

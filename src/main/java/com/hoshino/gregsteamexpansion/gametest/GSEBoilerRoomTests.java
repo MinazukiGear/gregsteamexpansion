@@ -8,6 +8,7 @@ import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
+import com.gregtechceu.gtceu.api.pattern.MultiblockState;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
@@ -325,6 +326,21 @@ public final class GSEBoilerRoomTests {
                     h.assertTrue(ui.getFlatWidgetCollection().stream().anyMatch(ComponentPanelWidget.class::isInstance),
                             "UI lost its status panel and throttle controls");
                     set(m, "roomTemperature", 400);
+                    set(m, "cycleSteamGenerated", 123);
+                    m.getMultiblockState().error = MultiblockState.UNLOAD_ERROR;
+                    updateRoomTemperature(m);
+                    h.assertTrue(m.getRoomTemperature() == 400 && m.getCycleSteamGenerated() == 0,
+                            "A hot boiler must pause without cooling or dry-boiling while a structure chunk is unloaded");
+                    h.assertTrue(h.getLevel().getBlockState(m.getPos()).is(m.getDefinition().getBlock()),
+                            "A hot boiler exploded while its structure carried the chunk-unload marker");
+                    set(m, "cycleSteamGenerated", 123);
+                    m.getMultiblockState().error = MultiblockState.UNINIT_ERROR;
+                    updateRoomTemperature(m);
+                    h.assertTrue(m.getRoomTemperature() == 400 && m.getCycleSteamGenerated() == 0,
+                            "A hot persisted boiler must wait for its first structure recheck after world load");
+                    h.assertTrue(h.getLevel().getBlockState(m.getPos()).is(m.getDefinition().getBlock()),
+                            "A hot boiler exploded before its first structure recheck after world load");
+                    m.getMultiblockState().error = null;
                     set(m, "powderBurnTotal", 1600);
                     set(m, "powderBurnRemaining", 400);
                     h.assertTrue(gauges.get(0).progressSupplier.getAsDouble() == 0.5,
@@ -382,6 +398,16 @@ public final class GSEBoilerRoomTests {
             field.setInt(m, value);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Cannot seed boiler fixture field " + name, e);
+        }
+    }
+
+    private static void updateRoomTemperature(BoilerRoomMachine m) {
+        try {
+            var method = BoilerRoomMachine.class.getDeclaredMethod("updateRoomTemperature");
+            method.setAccessible(true);
+            method.invoke(m);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Cannot execute boiler temperature tick", e);
         }
     }
 }

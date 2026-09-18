@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamThrottle;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceThermalLogic;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
@@ -37,8 +38,37 @@ public final class GSEFurnaceTests {
     public static void furnaceStateBoundaries(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_HEAT_STORAGE_STEAM_FURNACE, m -> {
             assertFurnaceThermalLogic(h);
+            assertThrottledPreheat(h, m);
             stateBoundaries(h, m);
         });
+    }
+
+    private static void assertThrottledPreheat(GameTestHelper h, MultiblockControllerMachine m) {
+        LargeHeatStorageSteamFurnaceMachine furnace = (LargeHeatStorageSteamFurnaceMachine) m;
+        Difficulty difficulty = (Difficulty) call(m, "currentDifficulty");
+        set(m, "currentTemperature", LargeHeatStorageSteamFurnaceMachine.COLD_TEMPERATURE);
+        set(m, "preheatProgressUnits", 0L);
+        set(m, "heatTimer", 0);
+        set(m, "preheatDurationTicks", 0);
+        set(m, "preheatTotalSteamMb", 0L);
+        furnace.setSteamThrottlePercent(25);
+        fillSteam(m, 32_000);
+        long steamBefore = steam(m);
+
+        h.assertTrue((boolean) call(m, "tryPreheat", difficulty),
+                "Throttled furnace preheat did not consume its first tick");
+        int duration = (int) number(m, "preheatDurationTicks");
+        eq(h, duration, SteamThrottle.scaledDuration(difficulty.getPreheatIntervalTicks(), 25),
+                "25% furnace preheat did not lock a four-times interval");
+        long lockedTotal = number(m, "preheatTotalSteamMb");
+        for (int tick = 1; tick < duration; tick++) {
+            call(m, "tryPreheat", difficulty);
+        }
+        eq(h, number(m, "currentTemperature"), LargeHeatStorageSteamFurnaceMachine.COLD_TEMPERATURE + 1,
+                "Throttled preheat did not advance exactly one degree at its locked duration");
+        eq(h, steamBefore - steam(m), lockedTotal,
+                "Throttled preheat changed the exact per-degree steam total");
+        furnace.setSteamThrottlePercent(100);
     }
 
     private static void assertFurnaceThermalLogic(GameTestHelper h) {
@@ -85,6 +115,9 @@ public final class GSEFurnaceTests {
             set(m, "currentTemperature", 777);
             set(m, "preheatProgressUnits", 12_345L);
             set(m, "heatTimer", 2);
+            set(m, "preheatSteamThrottlePercent", 25);
+            set(m, "preheatDurationTicks", 20);
+            set(m, "preheatTotalSteamMb", 2_652L);
             set(m, "coolTimer", 3);
             set(m, "exhaustDamageTimer", 199L);
             set(m, "workingEnabled", false);
@@ -118,6 +151,12 @@ public final class GSEFurnaceTests {
             eq(h, number(m, "currentTemperature"), 777, "Furnace temperature was not restored");
             eq(h, number(m, "preheatProgressUnits"), 12_345, "Furnace preheat remainder was not restored");
             eq(h, number(m, "heatTimer"), 2, "Furnace heat timer was not restored");
+            eq(h, number(m, "preheatSteamThrottlePercent"), 25,
+                    "Furnace locked preheat throttle was not restored");
+            eq(h, number(m, "preheatDurationTicks"), 20,
+                    "Furnace locked preheat duration was not restored");
+            eq(h, number(m, "preheatTotalSteamMb"), 2_652,
+                    "Furnace locked preheat total was not restored");
             eq(h, number(m, "coolTimer"), 3, "Furnace cool timer was not restored");
             eq(h, number(m, "exhaustDamageTimer"), 199, "Furnace exhaust timer was not restored");
             h.assertTrue(!(boolean) call(m, "isWorkingEnabled"), "Furnace work-enabled state was not restored");
@@ -331,6 +370,9 @@ public final class GSEFurnaceTests {
         set(m, "currentTemperature", LargeHeatStorageSteamFurnaceMachine.COLD_TEMPERATURE);
         set(m, "preheatProgressUnits", 0L);
         set(m, "heatTimer", 0);
+        set(m, "preheatSteamThrottlePercent", 100);
+        set(m, "preheatDurationTicks", 0);
+        set(m, "preheatTotalSteamMb", 0L);
         set(m, "coolTimer", 0);
         set(m, "exhaustDamageTimer", 0L);
         set(m, "workingEnabled", true);

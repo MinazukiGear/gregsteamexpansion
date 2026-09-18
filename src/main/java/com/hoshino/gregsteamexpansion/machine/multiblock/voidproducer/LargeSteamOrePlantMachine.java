@@ -245,7 +245,7 @@ public class LargeSteamOrePlantMachine extends AbstractSteamVoidMachine {
             return;
         }
         int multiplier = outputMultiplier();
-        for (int station = 0; station < stationCount(); station++) {
+        for (int station = 0; station < activeStationCount(); station++) {
             WeightedEntry entry = weightedPick(pool);
             if (entry == null) {
                 return;
@@ -281,7 +281,7 @@ public class LargeSteamOrePlantMachine extends AbstractSteamVoidMachine {
 
     /** `4 工位 × 200t · 产出倍率 ×4`. */
     private String stationSummary() {
-        return stationCount() + " × " + cycleTicks() + "t · ×" + outputMultiplier();
+        return activeStationCount() + " / " + stationCount() + " × " + cycleTicks() + "t · ×" + outputMultiplier();
     }
 
     /** Hover: 当前生效权重表逐条 (物品 ×数量 · 百分比). */

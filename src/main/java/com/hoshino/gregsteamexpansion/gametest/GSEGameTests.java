@@ -421,6 +421,14 @@ public final class GSEGameTests {
                 "GTCEu ore-crushing staging disagrees with RecipeManager: manager="
                         + managerIds.size() + ", staged=" + stagedOreIds.size());
 
+        ItemStack rawCopper = ChemicalHelper.get(TagPrefix.rawOre, GTMaterials.Copper);
+        helper.assertTrue(!rawCopper.isEmpty(), "GTCEu exposes no representative raw copper item");
+        helper.assertTrue(migrated.stream().anyMatch(recipe -> recipeAcceptsItem(recipe, rawCopper)),
+                "Raw copper recipe was not migrated into ore crushing");
+        helper.assertTrue(manager.getAllRecipesFor(GTRecipeTypes.MACERATOR_RECIPES).stream()
+                        .noneMatch(recipe -> recipeAcceptsItem(recipe, rawCopper)),
+                "Raw copper recipe incorrectly remains in the macerator");
+
         long eligibleBoilerFuels = manager.getAllRecipesFor(GTRecipeTypes.STEAM_BOILER_RECIPES).stream()
                 .filter(recipe -> recipe.inputs.getOrDefault(FluidRecipeCapability.CAP, List.of()).size() > 0)
                 .filter(recipe -> recipe.inputs.getOrDefault(ItemRecipeCapability.CAP, List.of()).isEmpty())
@@ -439,6 +447,17 @@ public final class GSEGameTests {
                     "Boiler-room sync produced an unexpected ID: " + recipe.getId());
         }
         helper.succeed();
+    }
+
+    private static boolean recipeAcceptsItem(GTRecipe recipe, ItemStack stack) {
+        for (var content : recipe.inputs.getOrDefault(ItemRecipeCapability.CAP, List.of())) {
+            var ingredient = ItemRecipeCapability.CAP.of(content.content);
+            if (ingredient == null) continue;
+            for (ItemStack candidate : ingredient.getItems()) {
+                if (ItemStack.isSameItemSameTags(candidate, stack)) return true;
+            }
+        }
+        return false;
     }
 
     private static final BlockPos HATCH_POS = new BlockPos(0, 0, 0);

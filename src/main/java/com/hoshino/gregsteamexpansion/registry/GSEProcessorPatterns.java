@@ -64,6 +64,12 @@ public final class GSEProcessorPatterns {
                 .or(Predicates.abilities(PartAbility.STEAM).setMinGlobalLimited(1));
     }
 
+    /** Exactly one ordinary or advanced exhaust hatch across the structure. */
+    private static TraceabilityPredicate exhaustHatches() {
+        return Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock(),
+                GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1);
+    }
+
     /**
      * 背面中心活塞 (steam-compressor.md 议题 4 建议): a vanilla piston that is
      * NOT extended and whose pushing facing points at the controller column
@@ -251,7 +257,7 @@ public final class GSEProcessorPatterns {
      * AbstractGlassBlock; add-on glasses qualify through the common
      * {@code c:glass} item tag on the block's item.
      */
-    private static TraceabilityPredicate anyGlass() {
+    public static TraceabilityPredicate anyGlass() {
         return Predicates.custom(GSEProcessorPatterns::testGlass,
                 () -> new BlockInfo[]{new BlockInfo(Blocks.GLASS.defaultBlockState())});
     }
@@ -284,7 +290,7 @@ public final class GSEProcessorPatterns {
                 .or(Predicates.abilities(PartAbility.STEAM, GSEPartAbilities.LARGE_STEAM_SUPPLY)
                         .setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
-                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(exhaustHatches());
     }
 
     /**
@@ -389,7 +395,7 @@ public final class GSEProcessorPatterns {
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE)
                         .setMinGlobalLimited(1)
                         .setMaxGlobalLimited(8))
-                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(exhaustHatches());
     }
 
     /** L1 hearth: 13×13 industrial ring (48) around the 11×11 coke-brick bed (121). */
@@ -569,7 +575,7 @@ public final class GSEProcessorPatterns {
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM, GSEPartAbilities.LARGE_STEAM_SUPPLY)
                         .setMinGlobalLimited(1))
-                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(exhaustHatches());
     }
 
     /** gtceu:bronze_firebox_casing — the bronze boiler firebox casing (heat source hearth). */
@@ -660,7 +666,7 @@ public final class GSEProcessorPatterns {
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_ITEMS))
                 .or(Predicates.abilities(PartAbility.STEAM, GSEPartAbilities.LARGE_STEAM_SUPPLY)
                         .setMinGlobalLimited(1))
-                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(exhaustHatches());
     }
 
     /**
@@ -736,7 +742,7 @@ public final class GSEProcessorPatterns {
                 .or(GSEPatternBufferCompat.abilities(PartAbility.EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
-                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(exhaustHatches());
     }
 
     /**
@@ -968,7 +974,7 @@ public final class GSEProcessorPatterns {
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_EXPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_AIR_INTAKE).setMaxGlobalLimited(1))
-                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(exhaustHatches());
     }
 
     /**
@@ -1098,7 +1104,7 @@ public final class GSEProcessorPatterns {
                         .setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
-                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(exhaustHatches());
     }
 
     /** Row set of a B1 workstation layer: M grid at 1-indexed x/z ∈ {3, 5, 7} (9 blocks). */
@@ -1224,7 +1230,7 @@ public final class GSEProcessorPatterns {
                         .setMinGlobalLimited(1))
                 .or(GSEPatternBufferCompat.abilities(PartAbility.IMPORT_FLUIDS))
                 .or(Predicates.abilities(GSEPartAbilities.STEAM_IMPORT_FLUIDS))
-                .or(Predicates.blocks(GSEMachines.STEAM_EXHAUST_HATCH.getBlock()).setExactLimit(1));
+                .or(exhaustHatches());
     }
 
     /**

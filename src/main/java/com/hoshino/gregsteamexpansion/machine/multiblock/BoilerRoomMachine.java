@@ -33,6 +33,7 @@ import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
@@ -413,6 +414,15 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
      * the parent's 5-tick cycle with the P1#4 co-firing formula.
      */
     protected void updateRoomTemperature() {
+        // GTCEu persists isFormed, but recreates MultiblockState as UNINIT_ERROR
+        // after a world load. It can also keep isFormed true with UNLOAD_ERROR
+        // while part chunks reconnect. In both cases the capability map is not
+        // safe to use yet, even when a chunk loader keeps the whole range loaded.
+        if (isStructureTemporarilyUnavailable()) {
+            cycleSteamGenerated = 0;
+            return;
+        }
+
         if (recipeLogic.isWorking()) {
             if (consumeAir() && ++heatCounter >= heatIntervalTicks) {
                 heatCounter = 0;
@@ -434,6 +444,48 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             generateSteamCycle();
         }
         updateRoomTemperatureSubscription();
+    }
+
+    private boolean isStructureTemporarilyUnavailable() {
+        return getMultiblockState().hasError() || !isStructureRangeLoaded();
+    }
+
+    /** Whether every chunk intersecting the 7-wide, 11-deep structure is loaded. */
+    private boolean isStructureRangeLoaded() {
+        if (getLevel() == null) return false;
+
+        var back = getFrontFacing().getOpposite();
+        var side = getFrontFacing().getClockWise();
+        BlockPos backCenter = getPos().relative(back, 10);
+        BlockPos[] corners = {
+                getPos().relative(side, 3),
+                getPos().relative(side, -3),
+                backCenter.relative(side, 3),
+                backCenter.relative(side, -3),
+        };
+        int minX = corners[0].getX();
+        int maxX = minX;
+        int minZ = corners[0].getZ();
+        int maxZ = minZ;
+        for (int i = 1; i < corners.length; i++) {
+            minX = Math.min(minX, corners[i].getX());
+            maxX = Math.max(maxX, corners[i].getX());
+            minZ = Math.min(minZ, corners[i].getZ());
+            maxZ = Math.max(maxZ, corners[i].getZ());
+        }
+
+        int minChunkX = Math.floorDiv(minX, 16);
+        int maxChunkX = Math.floorDiv(maxX, 16);
+        int minChunkZ = Math.floorDiv(minZ, 16);
+        int maxChunkZ = Math.floorDiv(maxZ, 16);
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                if (!getLevel().isLoaded(new BlockPos(chunkX * 16, getPos().getY(), chunkZ * 16))) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**

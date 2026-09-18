@@ -11,11 +11,15 @@ import com.gregtechceu.gtceu.common.data.GTMaterials;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+
+import snownee.jade.api.BlockAccessor;
+import snownee.jade.api.IServerDataProvider;
 
 import java.util.List;
 
@@ -41,6 +45,7 @@ public final class GSEVoidProducerTests {
             set(m, "workingEnabled", false);
             set(m, "largeSteamOverclockEnabled", true);
             set(m, "cycleProgress", 137);
+            set(m, "cycleActiveStations", 2);
             set(m, "cycleLargeSteamOverclock", true);
             pending(m).add(new ItemStack(Items.RAW_GOLD, 11));
             List<FluidStack> fluids = list(m, "pendingFluids");
@@ -50,6 +55,7 @@ public final class GSEVoidProducerTests {
             set(m, "workingEnabled", true);
             set(m, "largeSteamOverclockEnabled", false);
             set(m, "cycleProgress", 0);
+            set(m, "cycleActiveStations", 0);
             set(m, "cycleLargeSteamOverclock", false);
             pending(m).clear();
             fluids.clear();
@@ -60,6 +66,8 @@ public final class GSEVoidProducerTests {
             h.assertTrue((boolean) call(m, "isLargeSteamOverclockEnabled"),
                     "Void producer overclock preference was not restored");
             eq(h, number(m, "cycleProgress"), 137, "Void producer progress was not restored");
+            eq(h, number(m, "cycleActiveStations"), 2,
+                    "Void producer startup-limited station count was not restored");
             h.assertTrue((boolean) call(m, "isCurrentCycleLargeSteamOverclocked"),
                     "Void producer locked cycle overclock was not restored");
             eq(h, count(pending(m), Items.RAW_GOLD), 11, "Void producer pending item was not restored");
@@ -67,6 +75,25 @@ public final class GSEVoidProducerTests {
                     "Void producer pending fluid was not restored");
             h.assertTrue((boolean) call(get(m, "pendingBuffer"), "hasAny"),
                     "Void producer pending buffer detached from restored lists");
+
+            CompoundTag serverData = new CompoundTag();
+            Object provider = jadeProvider("VoidProducerProvider");
+            BlockAccessor accessor = jadeAccessor(m, serverData);
+            @SuppressWarnings("unchecked")
+            IServerDataProvider<BlockAccessor> serverProvider =
+                    (IServerDataProvider<BlockAccessor>) provider;
+            serverProvider.appendServerData(serverData, accessor);
+            h.assertTrue(serverData.contains("GregSteamExpansionVoidProducer", Tag.TAG_COMPOUND),
+                    "Jade server provider omitted the void-producer snapshot");
+            CompoundTag jade = serverData.getCompound("GregSteamExpansionVoidProducer");
+            eq(h, jade.getInt("progress"), 137, "Jade snapshot changed void-producer progress");
+            eq(h, jade.getLong("pendingTotal"), 11,
+                    "Jade snapshot changed void-producer pending item count");
+            eq(h, jade.getLong("pendingFluidTotal"), 333,
+                    "Jade snapshot changed void-producer pending fluid amount");
+            eq(h, jade.getLong("steamInputLimit"),
+                    ((AbstractSteamVoidMachine) m).getSteamInputLimitPerTick(),
+                    "Jade snapshot changed the void-producer demand-bar limit");
         });
     }
 

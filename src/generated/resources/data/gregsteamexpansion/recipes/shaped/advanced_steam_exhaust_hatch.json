@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "key": {
+    "C": {
+      "tag": "gtceu:circuits/hv"
+    },
+    "D": {
+      "item": "gtceu:bronze_drum"
+    },
+    "H": {
+      "item": "gregsteamexpansion:steam_exhaust_hatch"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "DCD",
+    "CHC",
+    "DCD"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:advanced_steam_exhaust_hatch"
+  }
+}

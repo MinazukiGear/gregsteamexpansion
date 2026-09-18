@@ -4,6 +4,7 @@ import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
+import com.hoshino.gregsteamexpansion.registry.GSECrusherPatterns;
 
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
@@ -57,6 +58,26 @@ public final class GSEStructureFormationTests {
                 GSEMachines.STEAM_SUPPLY_HATCH.getBlock(),
                 GSEMachines.LARGE_STEAM_SUPPLY_HATCH,
                 true);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void largeSteamCrusherAcceptsAdvancedExhaustHatch(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeReplacementMatches(
+                helper,
+                GSEMachines.LARGE_STEAM_CRUSHER,
+                GSEMachines.STEAM_EXHAUST_HATCH.getBlock(),
+                GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH,
+                true);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void smallSteamCrusherRejectsAdvancedExhaustHatch(GameTestHelper helper) {
+        GSEStructureTestUtils.assertFirstShapeReplacementMatches(
+                helper,
+                GSEMachines.STEAM_CRUSHER,
+                GSECrusherPatterns.bronzeSteamCasing(),
+                GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH,
+                false);
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)

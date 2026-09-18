@@ -7,7 +7,6 @@ import com.gregtechceu.gtceu.api.gui.widget.TankWidget;
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
 import com.gregtechceu.gtceu.api.machine.feature.IMachineLife;
-import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
 import com.gregtechceu.gtceu.api.machine.multiblock.part.MultiblockPartMachine;
 import com.gregtechceu.gtceu.api.machine.trait.NotifiableFluidTank;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
@@ -37,13 +36,13 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * interface for steam multiblocks that explicitly accept
  * {@code GSEPartAbilities.STEAM_AIR_INTAKE}.
  *
- * <p>Every {@code 80} server ticks the hatch adds up to {@code 4,000 mB} of
+ * <p>Every {@code 40} server ticks the hatch adds up to {@code 2,000 mB} of
  * GTCEu standard air into its single {@code 64,000 mB} cache — the same average
- * rate as an LV gas collector ({@code 50 mB/t}) on a longer internal cycle.
- * Collection only advances while the hatch belongs to a formed multiblock,
- * stands in the overworld, has one strict-air block directly in front and has
- * cache room left; every other condition freezes and clears the unfinished
- * cycle, and cycle progress is never persisted.</p>
+ * rate as an LV gas collector ({@code 50 mB/t}) in smaller collection batches.
+ * Collection advances whenever the placed hatch is loaded in the overworld,
+ * has one strict-air block directly in front and has cache room left. It does
+ * not depend on a multiblock being formed; every environmental interruption
+ * clears the unfinished cycle, and cycle progress is never persisted.</p>
  *
  * <p>The internal tank is a recipe input handler for its controller
  * ({@code handlerIO = IO.IN}) but deliberately exposes no Forge fluid
@@ -58,16 +57,15 @@ public class SteamAirIntakeHatchPartMachine extends MultiblockPartMachine implem
             SteamAirIntakeHatchPartMachine.class, MultiblockPartMachine.MANAGED_FIELD_HOLDER);
 
     public static final int INITIAL_TANK_CAPACITY = 64 * FluidType.BUCKET_VOLUME;
-    public static final int COLLECT_CYCLE_TICKS = 80;
-    public static final int COLLECT_AMOUNT = 4_000;
+    public static final int COLLECT_CYCLE_TICKS = 40;
+    public static final int COLLECT_AMOUNT = 2_000;
 
     /**
      * 服务端状态来源: shared verbatim by the GUI, Jade/探针 and nothing else.
      * Priority is fixed (machines-and-hatches.md 状态固定区分):
-     * 结构未成型 > 维度不支持 > 进气口阻塞 > 缓存已满 > 采集中.
+     * 维度不支持 > 进气口阻塞 > 缓存已满 > 采集中.
      */
     public enum IntakeStatus {
-        NOT_FORMED("structure_not_formed"),
         WRONG_DIMENSION("wrong_dimension"),
         BLOCKED("intake_blocked"),
         FULL("cache_full"),
@@ -100,7 +98,7 @@ public class SteamAirIntakeHatchPartMachine extends MultiblockPartMachine implem
     @DescSynced
     private int syncedCycleTimer = 0;
     @DescSynced
-    private int syncedStatus = IntakeStatus.NOT_FORMED.ordinal();
+    private int syncedStatus = IntakeStatus.COLLECTING.ordinal();
 
     public SteamAirIntakeHatchPartMachine(IMachineBlockEntity holder) {
         super(holder);
@@ -147,8 +145,8 @@ public class SteamAirIntakeHatchPartMachine extends MultiblockPartMachine implem
         IntakeStatus status = computeStatus();
         syncedStatus = status.ordinal();
         if (status != IntakeStatus.COLLECTING) {
-            // Blocked, wrong dimension, cache full or structure lost: freeze and
-            // clear the unfinished cycle; recovery restarts from a full 80 ticks.
+            // Blocked, wrong dimension or cache full: clear the unfinished
+            // cycle; recovery restarts from a full 40 ticks.
             cycleTimer = 0;
             syncedCycleTimer = 0;
             return;
@@ -175,8 +173,8 @@ public class SteamAirIntakeHatchPartMachine extends MultiblockPartMachine implem
     }
 
     /**
-     * Fixed display/logic priority: NOT_FORMED > WRONG_DIMENSION > BLOCKED >
-     * FULL > COLLECTING (machines-and-hatches.md 状态固定区分).
+     * Fixed display/logic priority: WRONG_DIMENSION > BLOCKED > FULL >
+     * COLLECTING (machines-and-hatches.md 状态固定区分).
      */
     public IntakeStatus getIntakeStatus() {
         return IntakeStatus.VALUES[Math.floorMod(syncedStatus, IntakeStatus.VALUES.length)];
@@ -188,9 +186,6 @@ public class SteamAirIntakeHatchPartMachine extends MultiblockPartMachine implem
     }
 
     private IntakeStatus computeStatus() {
-        if (!isFormedForIntake()) {
-            return IntakeStatus.NOT_FORMED;
-        }
         Level level = getLevel();
         if (level == null || level.dimension() != Level.OVERWORLD) {
             return IntakeStatus.WRONG_DIMENSION;
@@ -202,20 +197,6 @@ public class SteamAirIntakeHatchPartMachine extends MultiblockPartMachine implem
             return IntakeStatus.FULL;
         }
         return IntakeStatus.COLLECTING;
-    }
-
-    /**
-     * 成型判定: the hatch must belong to at least one controller whose structure
-     * is actually formed — {@link MultiblockPartMachine#isFormed()} alone would
-     * only prove that a controller position was ever registered.
-     */
-    private boolean isFormedForIntake() {
-        for (IMultiController controller : getControllers()) {
-            if (controller.isFormed()) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**

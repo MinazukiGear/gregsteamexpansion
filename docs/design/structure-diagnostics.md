@@ -1,6 +1,6 @@
 # 结构诊断（多方块未成型原因显示）设计文档
 
-> 状态：**已定案（P0–P6 按 A 档建议全部锁定），A 档已实现**。本文档是本要素的唯一设计文件。
+> 状态：**已定案（P0–P6 按 A 档建议全部锁定），A 档与 T5 错误方块高亮已实现**。本文档是本要素的唯一设计文件。
 >
 > 要素：**所有多方块机器在结构未成型时，必须向玩家说明"为什么没成型"**，而不是只显示一句"结构未成型"。
 >
@@ -179,7 +179,7 @@
 
 ---
 
-## 八、实现清单（A 档，已落地）
+## 八、实现清单（A 档 + T5 方块高亮，已落地）
 
 | 文件 | 动作 | 说明 |
 | --- | --- | --- |
@@ -187,6 +187,7 @@
 | `structure/StructureDiagnostics.java` | 新建 | 抽取器 `describe(IMultiController[, maxExpected])`：类型分派（先分流 `UNINIT_ERROR`）+ 候选展平去重截断 |
 | `structure/StructureText.java` | 新建 | kind → 文案的共用装配，避免 Jade 与指令两处 switch 漂移 |
 | `integration/jade/GSEJadePlugin.java` | 修改 | 新增 `StructureDiagnosticsProvider`，注册在 `MetaMachineBlockEntity` / `MetaMachineBlock` 上（一处覆盖全部多方块） |
+| `client/StructureErrorHighlight.java` | 新建 | Jade 显示诊断时记录控制器与首个错误坐标；世界渲染阶段绘制可穿透遮挡的红色方框，保持到对应控制器确认成型，退出世界时清除 |
 | `command/GSECommands.java` | 新建 | `/gse structure`（权限 2）：准星 12 格内控制器，打印全量候选 + 引擎原始键 |
 | `GregSteamExpansion.java` | 修改 | 注册 `GSECommands::onRegisterCommands` |
 | `data/GSELang.java` | 修改 | en_us 键（datagen） |
@@ -213,12 +214,12 @@
 
 **逻辑成立但未纳入自动化**（需要在真机或额外场景中确认）：
 
-- [ ] Jade 面板的实际渲染效果 —— GameTest 验证的是抽取器输出与 DTO 序列化，不是 Jade 的 tooltip 实体。
+- [ ] Jade 面板与错误方块红框的实际渲染效果 —— GameTest 验证的是抽取器输出与 DTO 序列化，不覆盖客户端渲染实体。
 - [ ] 候选截断状态已自动验证；Jade 中“等 N 种”文案的实际排版仍需目视确认。
 - [ ] 客户端按本地语言显示方块名 —— 依赖客户端解析 `ItemStack#getHoverName`，未目视验证。
 - [ ] 其余 19 台多方块 —— Jade 按方块类型注册、抽取器只依赖 `IMultiController`，逻辑上全覆盖；实测只做了蒸汽粉碎机。
 - [ ] `/gse structure` 指令的实际输出 —— 未在 GameTest 中执行指令。
-- [ ] 无新增逐 tick 开销 —— 诊断只在 Jade 的服务端数据请求时计算（玩家看向方块），没有 tick 钩子。
+- [ ] 高亮存在时每帧只读取一次已加载控制器的客户端成型状态；结构诊断仍只在 Jade 的服务端数据请求时计算。
 
 **提交提醒**：`runData` 已重写 `src/generated/.../lang/en_us.json`（及 `en_ud.json`），这两个文件需要随改动一起提交，否则 CI 的 datagen 新鲜度门禁会失败。
 
@@ -227,7 +228,7 @@
 
 ## 十、决策记录（已锁定）
 
-用户 2026-09-11 拍板「都按建议来」，P0–P6 全部按建议值锁定，A 档已实现。
+用户 2026-09-11 拍板「都按建议来」，P0–P6 全部按建议值锁定，A 档已实现；2026-09-18 追加 P7 世界内错误方块高亮。
 
 | 编号 | 议题 | 决策 |
 | --- | --- | --- |
@@ -238,5 +239,6 @@
 | P4 | `/gse structure` 调试指令 | ✅ **是**（`GSECommands`） |
 | P5 | 与既有 status 行的分工 | ✅ **新 provider 只说原因**，既有 8 个 provider 保留状态行 |
 | P6 | 文案口径 | ✅ **明写"首个问题"**，并附"修好后可能还有下一个问题" |
+| P7 | 世界内定位 | ✅ **T5 方块高亮**：看向未成型控制器时，以可穿透遮挡的红框标出服务端返回的首个错误坐标；无坐标错误不显示，红框仅在对应控制器确认成型后清除 |
 
-B/C/D 档（右键提示 / GUI 常驻 / 世界内高亮）本次不做，可在 A 档之上单独追加，不返工。
+B/C 档（右键提示 / GUI 常驻）仍未实现；T5 世界内高亮已直接叠加在 A 档的 Jade 数据通道上，没有引入额外同步字段。

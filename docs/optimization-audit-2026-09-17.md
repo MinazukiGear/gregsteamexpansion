@@ -6,7 +6,7 @@
 
 - `src/main/java`：134 个 Java 文件、33,211 行。
 - 排除 `gametest` 与数据生成代码后：121 个文件、24,022 行。
-- 当前自动回归：138 个 GameTest。
+- 当前自动回归：142 个 GameTest。
 - 最大的生产类依次为 `AbstractSteamProcessorMachine`（1,491 行）、`GSEProcessorPatterns`（1,327 行）、`LargeHeatStorageSteamFurnaceMachine`（1,186 行）、`LargeCokeOvenMachine`（1,064 行）和 `GSEJadePlugin`（936 行）。行数只用于定位审查入口，不单独作为重构理由。
 
 ## 已实施：配方热路径与重复产出解析
@@ -41,7 +41,7 @@
 
 ## 已实施：收敛 Jade 蒸汽机器快照
 
-`GSEJadePlugin` 中粉碎机与处理机原本分别写入同一组状态、配方、进度、并行、蒸汽和待输出字段，也分别渲染相同顺序的 tooltip 行。现在两者通过内部 `SteamMachineSnapshot` 写入 13 个公共字段，并复用统一的状态、配方、进度、并行、蒸汽需求与待输出行渲染器；处理机 provider 只追加专用状态键、流体待输出和进气室信息。
+`GSEJadePlugin` 中粉碎机与处理机原本分别写入同一组状态、批次、进度、并行、蒸汽和待输出字段，也分别渲染相同顺序的 tooltip 行。现在两者通过内部 `SteamMachineSnapshot` 写入 13 个公共字段，并复用统一的状态、输入名称、进度、并行、蒸汽需求与待输出行渲染器；处理机 provider 只追加专用状态键、流体待输出和进气室信息。玩家侧快照不携带内部配方资源 ID。
 
 现有粉碎机结算与鼓风炉 GUI/Jade GameTest 已扩展为协议回归：分别校验公共 NBT 字段集合、字段值、两种翻译键前缀和 tooltip 行顺序。数据键、字段名和显示顺序保持不变，GameTest 总数仍为 137。
 

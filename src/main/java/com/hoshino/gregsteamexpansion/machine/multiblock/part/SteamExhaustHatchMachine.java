@@ -52,6 +52,14 @@ public class SteamExhaustHatchMachine extends MultiblockPartMachine {
         super(holder);
     }
 
+    /**
+     * Applies this hatch's steam-consumption modifier when a controller locks
+     * the economics of a new batch or production cycle.
+     */
+    public long modifySteamConsumption(long steamMb) {
+        return Math.max(0, steamMb);
+    }
+
     @Override
     public ManagedFieldHolder getFieldHolder() {
         return MANAGED_FIELD_HOLDER;
