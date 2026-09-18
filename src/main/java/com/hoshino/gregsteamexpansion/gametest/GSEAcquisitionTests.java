@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
@@ -87,10 +88,12 @@ public final class GSEAcquisitionTests {
                 { "shaped/electric_ore_crusher_uv", "uv_electric_ore_crusher" },
                 { "shaped/crafting_station", "crafting_station" },
                 { "shaped/crafting_station_slab", "crafting_station_slab" },
+                { "shaped/ultimate_terminal", "ultimate_terminal" },
         };
         for (String[] route : fixedRoutes) {
             assertLoadedRecipeOutput(helper, route[0], GregSteamExpansion.id(route[1]));
         }
+        assertUltimateTerminalRecipe(helper);
 
         assertOneDifficultyRecipeOutput(helper, "shaped/bronze_component", GregSteamExpansion.id("bronze_component"));
         assertOneDifficultyRecipeOutput(helper, "shaped/industrial_steam_casing",
@@ -242,6 +245,52 @@ public final class GSEAcquisitionTests {
                     "Acquisition recipe " + recipeId + " produces " + result.getItem()
                             + " instead of " + expectedItemId);
         }
+    }
+
+    private static void assertUltimateTerminalRecipe(GameTestHelper helper) {
+        ResourceLocation recipeId = GregSteamExpansion.id("shaped/ultimate_terminal");
+        var loaded = helper.getLevel().getRecipeManager().byKey(recipeId).orElse(null);
+        helper.assertTrue(loaded instanceof ShapedRecipe,
+                "Ultimate terminal recipe is missing or is not shaped");
+        ShapedRecipe recipe = (ShapedRecipe) loaded;
+        helper.assertTrue(recipe.getWidth() == 3 && recipe.getHeight() == 3,
+                "Ultimate terminal recipe is not an exact 3x3 pattern");
+
+        ItemStack screw = ChemicalHelper.get(TagPrefix.screw, GTMaterials.Electrum);
+        ItemStack plate = ChemicalHelper.get(TagPrefix.plate, GTMaterials.Electrum);
+        ItemStack wire = ChemicalHelper.get(TagPrefix.wireGtSingle, GTMaterials.Tin);
+        Item advancedItem = ForgeRegistries.ITEMS.getValue(
+                ResourceLocation.fromNamespaceAndPath("gtmthings", "advanced_terminal"));
+        helper.assertTrue(advancedItem != null && advancedItem != Items.AIR,
+                "GTM Things advanced terminal is unavailable in the compatibility test runtime");
+        ItemStack advanced = new ItemStack(advancedItem);
+
+        List<Ingredient> ingredients = recipe.getIngredients();
+        helper.assertTrue(ingredients.size() == 9,
+                "Ultimate terminal recipe does not occupy all nine slots");
+        assertExactTerminalIngredient(helper, ingredients.get(0), screw, 0);
+        helper.assertTrue(ingredients.get(1).test(new ItemStack(Items.GLASS_PANE)),
+                "Ultimate terminal slot 1 does not accept the glass pane tag");
+        assertExactTerminalIngredient(helper, ingredients.get(2), screw, 2);
+        assertExactTerminalIngredient(helper, ingredients.get(3), plate, 3);
+        assertExactTerminalIngredient(helper, ingredients.get(4), advanced, 4);
+        assertExactTerminalIngredient(helper, ingredients.get(5), plate, 5);
+        assertExactTerminalIngredient(helper, ingredients.get(6), plate, 6);
+        assertExactTerminalIngredient(helper, ingredients.get(7), wire, 7);
+        assertExactTerminalIngredient(helper, ingredients.get(8), plate, 8);
+
+        ItemStack result = recipe.getResultItem(helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(GSEBlocks.ULTIMATE_TERMINAL.get()) && result.getCount() == 1,
+                "Ultimate terminal recipe does not produce exactly one ultimate terminal");
+    }
+
+    private static void assertExactTerminalIngredient(GameTestHelper helper, Ingredient ingredient,
+                                                       ItemStack expected, int slot) {
+        ItemStack[] candidates = ingredient.getItems();
+        helper.assertTrue(candidates.length == 1 && candidates[0].is(expected.getItem())
+                        && ingredient.test(expected),
+                "Ultimate terminal slot " + slot + " does not require exactly "
+                        + ForgeRegistries.ITEMS.getKey(expected.getItem()));
     }
 
     private static void assertExactIngredient(GameTestHelper helper, Ingredient ingredient,

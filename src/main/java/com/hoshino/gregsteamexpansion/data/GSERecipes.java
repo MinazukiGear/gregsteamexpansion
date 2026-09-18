@@ -37,6 +37,7 @@ public final class GSERecipes {
 
     public static void init(Consumer<FinishedRecipe> provider) {
         addCraftingStationRecipes(provider);
+        addUltimateTerminalRecipe(provider);
 
         VanillaRecipeHelper.addShapedRecipe(
                 provider,
@@ -92,6 +93,80 @@ public final class GSERecipes {
         addLargeSteamOrePlantRecipe(provider);
         addLargeSteamFluidDrillRecipe(provider);
         addElectricOreCrusherRecipes(provider);
+    }
+
+    /**
+     * GTM Things advanced-terminal layout with the book upgraded to the
+     * advanced terminal itself and every steel part changed to Electrum.
+     * Resource IDs are serialized directly so datagen remains safe when the
+     * optional mods are not on a production installation.
+     */
+    private static void addUltimateTerminalRecipe(Consumer<FinishedRecipe> provider) {
+        ItemStack electrumScrew = ChemicalHelper.get(TagPrefix.screw, GTMaterials.Electrum);
+        ItemStack electrumPlate = ChemicalHelper.get(TagPrefix.plate, GTMaterials.Electrum);
+        ItemStack tinWire = ChemicalHelper.get(TagPrefix.wireGtSingle, GTMaterials.Tin);
+        provider.accept(new FinishedRecipe() {
+            @Override
+            public void serializeRecipeData(com.google.gson.JsonObject json) {
+                com.google.gson.JsonArray conditions = new com.google.gson.JsonArray();
+                for (String modId : java.util.List.of("ae2", "gtmthings")) {
+                    com.google.gson.JsonObject condition = new com.google.gson.JsonObject();
+                    condition.addProperty("type", "forge:mod_loaded");
+                    condition.addProperty("modid", modId);
+                    conditions.add(condition);
+                }
+                json.add("conditions", conditions);
+                json.addProperty("category", "misc");
+                com.google.gson.JsonArray pattern = new com.google.gson.JsonArray();
+                pattern.add("SGS");
+                pattern.add("PAP");
+                pattern.add("PWP");
+                json.add("pattern", pattern);
+                com.google.gson.JsonObject key = new com.google.gson.JsonObject();
+                key.add("S", itemIngredient(electrumScrew));
+                com.google.gson.JsonObject glass = new com.google.gson.JsonObject();
+                glass.addProperty("tag", net.minecraftforge.common.Tags.Items.GLASS_PANES.location().toString());
+                key.add("G", glass);
+                key.add("P", itemIngredient(electrumPlate));
+                com.google.gson.JsonObject advanced = new com.google.gson.JsonObject();
+                advanced.addProperty("item", "gtmthings:advanced_terminal");
+                key.add("A", advanced);
+                key.add("W", itemIngredient(tinWire));
+                json.add("key", key);
+                com.google.gson.JsonObject result = new com.google.gson.JsonObject();
+                result.addProperty("item", GregSteamExpansion.id("ultimate_terminal").toString());
+                json.add("result", result);
+            }
+
+            private com.google.gson.JsonObject itemIngredient(ItemStack stack) {
+                com.google.gson.JsonObject ingredient = new com.google.gson.JsonObject();
+                ingredient.addProperty("item", net.minecraftforge.registries.ForgeRegistries.ITEMS
+                        .getKey(stack.getItem()).toString());
+                return ingredient;
+            }
+
+            @Override
+            public ResourceLocation getId() {
+                return GregSteamExpansion.id("shaped/ultimate_terminal");
+            }
+
+            @Override
+            public net.minecraft.world.item.crafting.RecipeSerializer<?> getType() {
+                return net.minecraft.world.item.crafting.RecipeSerializer.SHAPED_RECIPE;
+            }
+
+            @Override
+            @Nullable
+            public com.google.gson.JsonObject serializeAdvancement() {
+                return null;
+            }
+
+            @Override
+            @Nullable
+            public ResourceLocation getAdvancementId() {
+                return null;
+            }
+        });
     }
 
     // ------------------------------------------------------------------

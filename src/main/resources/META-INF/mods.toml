@@ -32,3 +32,20 @@ mandatory=true
 versionRange="${gtceu_version_range}"
 ordering="AFTER"
 side="BOTH"
+
+# Optional together: the Ultimate Terminal is registered for save stability,
+# but its recipe, creative entry and behaviour are enabled only when both mods
+# are present.
+[[dependencies.${mod_id}]]
+modId="ae2"
+mandatory=false
+versionRange="[15.4.2,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="gtmthings"
+mandatory=false
+versionRange="[1.6.0,)"
+ordering="AFTER"
+side="BOTH"

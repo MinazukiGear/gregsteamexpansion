@@ -26,11 +26,16 @@ public final class GSEClientSetup {
 
     public static void init(FMLClientSetupEvent event) {
         event.enqueueWork(() ->
-                MenuScreens.register(GSEMenuTypes.CRAFTING_STATION.get(), CraftingStationScreen::new));
+                {
+                    MenuScreens.register(GSEMenuTypes.CRAFTING_STATION.get(), CraftingStationScreen::new);
+                    MenuScreens.register(GSEMenuTypes.ULTIMATE_TERMINAL.get(), UltimateTerminalScreen::new);
+                });
         IEventBus forgeBus = net.minecraftforge.common.MinecraftForge.EVENT_BUS;
         forgeBus.addListener(GSEClientSetup::onClientLoggingIn);
         forgeBus.addListener(GSEClientSetup::onClientLoggingOut);
         forgeBus.addListener(StructureErrorHighlight::onRenderLevelStage);
+        forgeBus.addListener(UltimateTerminalHologramRenderer::onRenderLevelStage);
+        forgeBus.addListener(UltimateTerminalClientState::onClientTick);
     }
 
     /**
@@ -45,5 +50,6 @@ public final class GSEClientSetup {
     private static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         GSEDifficultyState.clearClientTierSynced();
         StructureErrorHighlight.clear();
+        UltimateTerminalClientState.clear();
     }
 }

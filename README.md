@@ -22,6 +22,7 @@
 - **大型蒸汽高炉**（G1，旗舰）：运行 `primitive_blast_furnace` 全类型的原始高炉上位多方块。`13×13` 底、`15` 高的三段收分巨塔，主体以高炉砖（`gtceu:firebricks`，与原始高炉同款材质）砌成，辅以 121 格焦炭砖炉床与工业蒸汽机械方块骨架；并行 `96`（全模组最高）、`0.4×` 耗时，满载吞吐为原始高炉的 `240×`。满载需 `19,200 mB/t` 蒸汽（恰 16 个供给仓）与全部 8 个鼓风口的鼓风空气（4 mB/t/并行；蒸汽进气室必需化，家族首个必需进气室机型）——极高造价与极大的结构换取极高效率。
 - **锻铁大宗配方注入**（随 G1 落地）：向 `primitive_blast_furnace` 类型 add-only 注入 3 条"铁粉 + 燃料粉 → 锻铁"配方，原始高炉同步可用，补足上游仅有铁粒零散路线（铁粒烧锻铁粒为上游既有 `gtceu:wrought_iron_nugget`，本模组不重复添加）的锻铁产能缺口。
 - **锅炉房**（青铜/钢/钛/钨钢四档，S2）：仅协同燃烧的产汽终端，蒸汽进气室硬性前置（助燃空气 50/100/200/400 mB/t 逐档递增），产汽逐档上位于同档大型锅炉；液体燃料白名单由数据包加载时注入，Easy 档产汽 2×。
+- **终极终端**：在同时安装 AE2 与 GTM Things 时启用的高级结构工程终端。可为最多 16 个同维度 GTCEu/GSE 多方块控制器建立持久任务，按结构图案补建、修复或安全拆除终端亲自放置的普通结构方块；材料先从玩家物品栏、再从已绑定的 AE2 无线终端网络原子预留，服务器默认每刻最多处理 32 个方块。
 - **大型蒸汽采矿厂 / 大型蒸汽流体钻井**（F1/F2 旗舰）：纯虚空生产机器——采矿厂 4 工位每 200 tick 按权重抽取粗矿 ×8/抽（满速 12,000 mB/t），流体钻井 2 泵位抽主世界油类流体 2,000 mB/抽（满速 6,000 mB/t）；产出倍率 Easy 4× / Normal 2× / Expert 1×；配置开关与可覆盖权重表见 `machines.large_steam_ore_plant.*` / `machines.large_steam_fluid_drill.*`（重启生效，禁用时机器不可运行）。
 - **全局工作强度机制**：Easy / Normal / Expert 三档存档级难度，影响产量、预热成本、蒸汽消耗等数值。
 
@@ -41,14 +42,14 @@
 | GregTech CEu Modern | 7.5.3（必需前置） |
 | Gradle | 8.8（项目 Wrapper） |
 
-EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 AE2 和 AE2 的前置 GuideME）等仅作为开发客户端测试工具由 Gradle 运行时加载，不是本模组前置，也不会打包进发布 JAR。
+EMI、Jade、精妙背包/存储、Modern UI 等仅作为开发客户端测试工具由 Gradle 运行时加载，不会打包进发布 JAR。AE2 与 GTM Things 是可选依赖：不安装时其余 GSE 内容正常加载，但终极终端不会出现在创造标签中、配方也不会加载；两者同时安装后该功能启用。
 
 ## 开始开发
 
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（144 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（146 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -78,6 +79,7 @@ EMI、Jade、精妙背包/存储、Modern UI、GTM Things（连同其必需的 A
 | `GSEAutomationInterfaceTests` | 蒸汽破碎机、处理机、化学浸洗机、离心机及两类焦炉的创造/ME/样板总成输入输出接口兼容（6 个） |
 | `GSESteamEngineTestSupport` | 运行态测试共享夹具：真实结构成型、蒸汽/输出操作、输入总线、状态保存、批次边界、GUI/Jade 和反射适配 |
 | `GSEStructureDiagnosticsTests` | 缺块/数量/一致性诊断、候选去重截断、哨兵状态安全、NBT 传输及成型后清除（7 个） |
+| `GSETerminalTests` | 终极终端配置 NBT 往返，以及全息蓝图缺失、满足、冲突状态分类（2 个） |
 | `GSEStructureTestUtils` | 结构辅助：用机器注册的 `MultiblockShapeInfo` 反铺方块，再用图案校验 |
 
 > `src/test` 为空目录，本项目**不使用 JUnit**；`build` 任务中的 `-x test` 是 Forge MDK 模板遗留，

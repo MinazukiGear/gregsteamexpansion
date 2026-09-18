@@ -30,6 +30,55 @@ public final class GSELang {
         add("item.gregsteamexpansion.bronze_component", "Bronze Component");
         add("gregsteamexpansion.bronze_component.tooltip",
                 "A standardized load-bearing component for assembling large steam machinery.");
+        add("item.gregsteamexpansion.ultimate_terminal", "Ultimate Terminal");
+        add("gregsteamexpansion.ultimate_terminal.tooltip.1",
+                "Plans, queues, repairs and safely dismantles GTCEu multiblocks.");
+        add("gregsteamexpansion.ultimate_terminal.tooltip.2",
+                "Use on a controller to add it; sneak-use to remove it; use in air to configure.");
+        add("gregsteamexpansion.ultimate_terminal.dependencies_missing",
+                "Requires both AE2 and GTM Things");
+        add("gregsteamexpansion.ultimate_terminal.target_added", "Controller added to the project");
+        add("gregsteamexpansion.ultimate_terminal.target_removed", "Controller removed from the project");
+        add("gregsteamexpansion.ultimate_terminal.target_unchanged", "The project target list was not changed");
+        add("gregsteamexpansion.ultimate_terminal.materials_missing", "Project materials are incomplete");
+        add("gregsteamexpansion.ultimate_terminal.job_failed", "Terminal job failed: %s");
+        add("gregsteamexpansion.ultimate_terminal.job_complete", "Terminal job completed");
+        add("gregsteamexpansion.ultimate_terminal.start", "Start queue");
+        add("gregsteamexpansion.ultimate_terminal.clear", "Clear targets");
+        add("gregsteamexpansion.ultimate_terminal.collect", "Collect returns");
+        add("gregsteamexpansion.ultimate_terminal.mode.build", "Mode: Build");
+        add("gregsteamexpansion.ultimate_terminal.mode.repair", "Mode: Repair");
+        add("gregsteamexpansion.ultimate_terminal.mode.upgrade", "Mode: Upgrade");
+        add("gregsteamexpansion.ultimate_terminal.mode.dismantle", "Mode: Safe dismantle");
+        add("gregsteamexpansion.ultimate_terminal.hatches", "Build parts: %s");
+        add("gregsteamexpansion.ultimate_terminal.ae", "Use AE: %s");
+        add("gregsteamexpansion.ultimate_terminal.targets", "Targets: %s / %s");
+        add("gregsteamexpansion.ultimate_terminal.repeat", "Repeat: %s");
+        add("gregsteamexpansion.ultimate_terminal.coil", "Coil tier: %s");
+        add("gregsteamexpansion.ultimate_terminal.status", "Status: %s");
+        add("gregsteamexpansion.ultimate_terminal.progress", "Progress: %s / %s");
+        add("gregsteamexpansion.ultimate_terminal.pending", "Pending: %s");
+        add("gregsteamexpansion.ultimate_terminal.tab.targets", "Targets");
+        add("gregsteamexpansion.ultimate_terminal.tab.preview", "Preview");
+        add("gregsteamexpansion.ultimate_terminal.tab.materials", "Materials");
+        add("gregsteamexpansion.ultimate_terminal.tab.parts", "Parts");
+        add("gregsteamexpansion.ultimate_terminal.refresh", "Refresh");
+        add("gregsteamexpansion.ultimate_terminal.profile.override", "Profile: Target override");
+        add("gregsteamexpansion.ultimate_terminal.profile.template", "Profile: Machine template");
+        add("gregsteamexpansion.ultimate_terminal.display.differences", "Display: Differences");
+        add("gregsteamexpansion.ultimate_terminal.display.full", "Display: Full structure");
+        add("gregsteamexpansion.ultimate_terminal.display.layer", "Display: Single layer");
+        add("gregsteamexpansion.ultimate_terminal.materials.batch", "Materials: Entire batch");
+        add("gregsteamexpansion.ultimate_terminal.materials.target", "Materials: Selected target");
+        add("gregsteamexpansion.ultimate_terminal.materials.legend", "Required / Inventory / AE / Missing");
+        add("gregsteamexpansion.ultimate_terminal.parts.legend", "Target / Present / Legal positions");
+        add("gregsteamexpansion.ultimate_terminal.layer", "Layer Y: %s");
+        add("gregsteamexpansion.ultimate_terminal.summary", "Cells: %s  Missing: %s  Conflicts: %s");
+        add("gregsteamexpansion.ultimate_terminal.state.idle", "Idle");
+        add("gregsteamexpansion.ultimate_terminal.state.running", "Running");
+        add("gregsteamexpansion.ultimate_terminal.state.paused", "Paused");
+        add("gregsteamexpansion.ultimate_terminal.state.failed", "Failed");
+        add("gregsteamexpansion.ultimate_terminal.state.complete", "Complete");
 
         // EMI power display (miscellaneous.md EMI 功耗显示): combined body line
         // with the actual EU/t plus the amperage and tier the upstream view

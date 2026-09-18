@@ -1,6 +1,10 @@
 Greg Steam Expansion - Asset License
 Copyright (C) 2026 Hoshino
 
+Third-party exception: textures/item/ultimate_terminal.png is a color-only
+adaptation of the GTM Things Advanced Terminal texture by liansishen and is
+licensed under GNU LGPL v3.0, not CC-BY-NC-SA-4.0. See CREDITS.txt.
+
 All artwork in this mod - image files under
 src/main/resources/assets/gregsteamexpansion/textures/ and any other
 image or sound assets - is licensed under the Creative Commons
@@ -448,4 +452,3 @@ the avoidance of doubt, this paragraph does not form part of the
 public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
-

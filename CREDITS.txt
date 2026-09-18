@@ -1,4 +1,13 @@
+Ultimate Terminal texture
+-------------------------
+The Ultimate Terminal texture is a color-only adaptation of the GTM Things
+1.6.0 Advanced Terminal texture by liansishen. The original and this adapted
+texture are distributed under GNU LGPL v3.0. Shape, alpha mask and animation
+layout are unchanged; colored pixels were remapped to an electrum-gold hue.
+https://www.curseforge.com/minecraft/mc-mods/gtmthings
+
 Minecraft Forge: Credits/Thank You
+----------------------------------
 
 Forge is a set of tools and modifications to the Minecraft base game code to assist 
 mod developers in creating new and exciting content. It has been in development for 
@@ -62,4 +71,3 @@ with credit to it's authors.
 
 Forge Mod Loader downloads components from the Minecraft Coder Pack
 (http://mcp.ocean-labs.de/index.php/Main_Page) with kind permission from the MCP team.
-

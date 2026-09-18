@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.registry;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.menu.CraftingStationMenu;
+import com.hoshino.gregsteamexpansion.menu.UltimateTerminalMenu;
 
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.common.extensions.IForgeMenuType;
@@ -16,6 +17,11 @@ public final class GSEMenuTypes {
     public static final RegistryObject<MenuType<CraftingStationMenu>> CRAFTING_STATION =
             MENU_TYPES.register("crafting_station",
                     () -> IForgeMenuType.create(CraftingStationMenu::fromNetwork));
+
+    public static final RegistryObject<MenuType<UltimateTerminalMenu>> ULTIMATE_TERMINAL =
+            MENU_TYPES.register("ultimate_terminal",
+                    () -> IForgeMenuType.create((id, inventory, ignored) ->
+                            new UltimateTerminalMenu(id, inventory)));
 
     private GSEMenuTypes() {}
 }

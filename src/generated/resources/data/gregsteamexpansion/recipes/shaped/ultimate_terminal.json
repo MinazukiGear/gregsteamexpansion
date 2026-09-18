@@ -1,0 +1,39 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "conditions": [
+    {
+      "type": "forge:mod_loaded",
+      "modid": "ae2"
+    },
+    {
+      "type": "forge:mod_loaded",
+      "modid": "gtmthings"
+    }
+  ],
+  "key": {
+    "A": {
+      "item": "gtmthings:advanced_terminal"
+    },
+    "G": {
+      "tag": "forge:glass_panes"
+    },
+    "P": {
+      "item": "gtceu:electrum_plate"
+    },
+    "S": {
+      "item": "gtceu:electrum_screw"
+    },
+    "W": {
+      "item": "gtceu:tin_single_wire"
+    }
+  },
+  "pattern": [
+    "SGS",
+    "PAP",
+    "PWP"
+  ],
+  "result": {
+    "item": "gregsteamexpansion:ultimate_terminal"
+  }
+}

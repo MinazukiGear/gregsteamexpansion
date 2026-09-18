@@ -21,6 +21,8 @@ public final class GSEItemModels {
 
         provider.withExistingParent("bronze_component", "minecraft:item/generated")
                 .texture("layer0", modLoc("item/bronze_component"));
+        provider.withExistingParent("ultimate_terminal", "minecraft:item/generated")
+                .texture("layer0", modLoc("item/ultimate_terminal"));
     }
 
     private static ResourceLocation modLoc(String path) {

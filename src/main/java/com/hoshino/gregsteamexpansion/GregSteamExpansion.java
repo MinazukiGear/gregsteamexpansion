@@ -15,6 +15,10 @@ import com.hoshino.gregsteamexpansion.data.GSERecipes;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyCondition;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyMessages;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalConfig;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalEvents;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalMessages;
+import com.hoshino.gregsteamexpansion.terminal.TerminalCompatibility;
 import com.hoshino.gregsteamexpansion.registry.GSEBlockEntityTypes;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
@@ -69,6 +73,8 @@ public final class GregSteamExpansion {
         modEventBus.addListener(this::commonSetup);
 
         context.registerConfig(ModConfig.Type.COMMON, GSEDifficultyConfig.SPEC);
+        context.registerConfig(ModConfig.Type.COMMON, UltimateTerminalConfig.SPEC,
+                "gregsteamexpansion-terminal.toml");
         // The mod is required on both sides (mods.toml displayTest MATCH_VERSION),
         // so the common constructor must stay server-safe: the client setup
         // listener and config screen only wire up on the client dist because
@@ -82,10 +88,12 @@ public final class GregSteamExpansion {
         modEventBus.addListener(GSEDifficultyConfig::onConfigLoading);
         modEventBus.addListener(GSEDifficultyConfig::onConfigReloading);
         GSEDifficultyMessages.register();
+        UltimateTerminalMessages.register();
         CraftingHelper.register(GSEDifficultyCondition.Serializer.INSTANCE);
 
         // 结构诊断调试指令 /gse structure (structure-diagnostics.md 通道 T6)。
         MinecraftForge.EVENT_BUS.addListener(GSECommands::onRegisterCommands);
+        MinecraftForge.EVENT_BUS.addListener(UltimateTerminalEvents::onServerTick);
     }
 
     public static net.minecraft.resources.ResourceLocation id(String path) {
@@ -112,6 +120,9 @@ public final class GregSteamExpansion {
         }
         if (event.getTabKey() == GTCreativeModeTabs.ITEM.getKey()) {
             event.accept(GSEBlocks.BRONZE_COMPONENT.get());
+            if (TerminalCompatibility.isAvailable()) {
+                event.accept(GSEBlocks.ULTIMATE_TERMINAL.get());
+            }
         }
     }
 

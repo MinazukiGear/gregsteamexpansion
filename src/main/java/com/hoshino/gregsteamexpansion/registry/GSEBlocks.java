@@ -6,6 +6,7 @@ import com.hoshino.gregsteamexpansion.block.CraftingStationSlabBlock;
 import com.hoshino.gregsteamexpansion.block.CraftingStationSlabItem;
 import com.hoshino.gregsteamexpansion.item.GSETooltipBlockItem;
 import com.hoshino.gregsteamexpansion.item.GSETooltipItem;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalItem;
 
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -81,6 +82,10 @@ public final class GSEBlocks {
     public static final RegistryObject<Item> BRONZE_COMPONENT = ITEMS.register("bronze_component",
             () -> new GSETooltipItem(new Item.Properties(),
                     "gregsteamexpansion.bronze_component.tooltip"));
+
+    /** Save-stable registration; visibility and behaviour are compatibility-gated. */
+    public static final RegistryObject<Item> ULTIMATE_TERMINAL = ITEMS.register("ultimate_terminal",
+            () -> new UltimateTerminalItem(new Item.Properties().stacksTo(1)));
 
     private GSEBlocks() {}
 }

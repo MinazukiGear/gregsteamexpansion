@@ -222,6 +222,9 @@ dependencies {
     // mounting also keeps ForgeGradle's generated IntelliJ launch classpath from
     // silently omitting saved-world block registries.
     runtimeOnly(fg.deobf("curse.maven:applied-energistics-2-223794:${ae2_file_id}")) { transitive = false }
+    // Compile against AE2 only inside the isolated terminal compatibility
+    // package. The published addon keeps AE2 optional.
+    compileOnly(fg.deobf("curse.maven:applied-energistics-2-223794:${ae2_file_id}")) { transitive = false }
     runtimeOnly(fg.deobf("curse.maven:guideme-1173950:${guideme_file_id}")) { transitive = false }
     runtimeOnly(fg.deobf("curse.maven:gtmthings-1104310:${gtmthings_file_id}")) { transitive = false }
 }
