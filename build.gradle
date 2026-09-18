@@ -227,6 +227,22 @@ dependencies {
     compileOnly(fg.deobf("curse.maven:applied-energistics-2-223794:${ae2_file_id}")) { transitive = false }
     runtimeOnly(fg.deobf("curse.maven:guideme-1173950:${guideme_file_id}")) { transitive = false }
     runtimeOnly(fg.deobf("curse.maven:gtmthings-1104310:${gtmthings_file_id}")) { transitive = false }
+
+    // ExtendedAE-Plus (EAEP) is mounted only in the development client for
+    // interoperability checks. CurseMaven does not resolve mod relations, so
+    // include its complete required chain explicitly. AE2 and GuideME are
+    // already present above for GTM Things.
+    if (mountClientDevAids) {
+        runtimeOnly(fg.deobf("curse.maven:glodium-957920:${glodium_file_id}")) {
+            transitive = false
+        }
+        runtimeOnly(fg.deobf("curse.maven:ex-pattern-provider-892005:${extendedae_file_id}")) {
+            transitive = false
+        }
+        runtimeOnly(fg.deobf("curse.maven:extendedae-plus-1337639:${extendedae_plus_file_id}")) {
+            transitive = false
+        }
+    }
 }
 
 tasks.named('processResources', ProcessResources).configure {

@@ -42,7 +42,7 @@
 | GregTech CEu Modern | 7.5.3（必需前置） |
 | Gradle | 8.8（项目 Wrapper） |
 
-EMI、Jade、精妙背包/存储、Modern UI 等仅作为开发客户端测试工具由 Gradle 运行时加载，不会打包进发布 JAR。AE2 与 GTM Things 是可选依赖：不安装时其余 GSE 内容正常加载，但终极终端不会出现在创造标签中、配方也不会加载；两者同时安装后该功能启用。
+EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 ExtendedAE、Glodium 和 GuideME）等仅作为开发客户端测试工具由 Gradle 运行时加载，不会打包进发布 JAR。AE2 与 GTM Things 仍是可选依赖：不安装时其余 GSE 内容正常加载，但终极终端不会出现在创造标签中、配方也不会加载；两者同时安装后该功能启用。
 
 ## 开始开发
 
