@@ -61,6 +61,7 @@ public final class GSELang {
         add("gregsteamexpansion.ultimate_terminal.tab.targets", "Targets");
         add("gregsteamexpansion.ultimate_terminal.tab.preview", "Preview");
         add("gregsteamexpansion.ultimate_terminal.tab.materials", "Materials");
+        add("gregsteamexpansion.ultimate_terminal.tab.channels", "Channels");
         add("gregsteamexpansion.ultimate_terminal.tab.parts", "Parts");
         add("gregsteamexpansion.ultimate_terminal.refresh", "Refresh");
         add("gregsteamexpansion.ultimate_terminal.profile.override", "Profile: Target override");
@@ -72,6 +73,11 @@ public final class GSELang {
         add("gregsteamexpansion.ultimate_terminal.materials.target", "Materials: Selected target");
         add("gregsteamexpansion.ultimate_terminal.materials.legend", "Required / Inventory / AE / Missing");
         add("gregsteamexpansion.ultimate_terminal.parts.legend", "Target / Present / Legal positions");
+        add("gregsteamexpansion.ultimate_terminal.channel.auto", "Automatic");
+        add("gregsteamexpansion.ultimate_terminal.channel.structure_size", "Structure size");
+        add("gregsteamexpansion.ultimate_terminal.channel.coil", "Coil block");
+        add("gregsteamexpansion.ultimate_terminal.channels.empty", "No selectable channels for this structure");
+        add("gregsteamexpansion.ultimate_terminal.channels.legend", "Select structure size and preferred blocks directly");
         add("gregsteamexpansion.ultimate_terminal.layer", "Layer Y: %s");
         add("gregsteamexpansion.ultimate_terminal.summary", "Cells: %s  Missing: %s  Conflicts: %s");
         add("gregsteamexpansion.ultimate_terminal.state.idle", "Idle");
@@ -785,7 +791,7 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.14",
                 "Steam consumed by preheating and processing never produces condensate, pollutants or other fluid/item byproducts.");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.15",
-                "The existing GTCEu terminal auto-builds a fixed 15×15×6 structure; the GTM Things advanced terminal can set the repeatable middle layers to 3–15 for a total height of 6–18, while the width stays fixed at 15.");
+                "The GTCEu terminal builds fixed 15×15×6, and the GTM Things advanced terminal varies only height; the GSE Ultimate Terminal selects 7×7, 11×11 or 15×15 plus height, and always omits hatches.");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.tooltip.details.16",
                 "Pausing, steam shortage, exhaust obstruction, output blockage, temporary structure loss and chunk reloads all keep started batches; recovery never re-consumes inputs or re-rolls products.");
         add("gregsteamexpansion.machine.large_heat_storage_steam_furnace.mode.furnace", "Recipe mode: Furnace");

@@ -27,7 +27,7 @@ import java.util.function.Supplier;
 
 /** Authenticated terminal preview/configuration protocol with bounded snapshot payloads. */
 public final class UltimateTerminalMessages {
-    private static final String PROTOCOL = "1";
+    private static final String PROTOCOL = "3";
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             GregSteamExpansion.id("ultimate_terminal"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
@@ -42,6 +42,8 @@ public final class UltimateTerminalMessages {
                 SelectTargetPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, PartPacket.class, PartPacket::encode, PartPacket::decode,
                 PartPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(id++, ChannelPacket.class, ChannelPacket::encode, ChannelPacket::decode,
+                ChannelPacket::handle, Optional.of(NetworkDirection.PLAY_TO_SERVER));
         CHANNEL.registerMessage(id++, FullPacket.class, FullPacket::encode, FullPacket::decode,
                 FullPacket::handle, Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         CHANNEL.registerMessage(id, DeltaPacket.class, DeltaPacket::encode, DeltaPacket::decode,
@@ -58,6 +60,10 @@ public final class UltimateTerminalMessages {
 
     public static void changePartFromClient(int containerId, ResourceLocation blockId, int delta) {
         CHANNEL.sendToServer(new PartPacket(containerId, blockId, Integer.signum(delta)));
+    }
+
+    public static void selectChannelFromClient(int containerId, String channelId, int selection) {
+        CHANNEL.sendToServer(new ChannelPacket(containerId, channelId, selection));
     }
 
     public static void forceFull(ServerPlayer player) {
@@ -86,7 +92,7 @@ public final class UltimateTerminalMessages {
                 next = new UltimateTerminalSnapshot(session.snapshot.revision() + 1, next.targets(),
                         next.selectedTarget(), next.dimension(), next.controller(), next.cells(),
                         next.selectedMaterials(), next.batchMaterials(), next.candidates(),
-                        next.targetOverride(), next.error());
+                        next.channels(), next.structure(), next.targetOverride(), next.error());
                 session.snapshot = next;
                 CHANNEL.sendTo(new FullPacket(next), player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
                 continue;
@@ -100,12 +106,15 @@ public final class UltimateTerminalMessages {
             boolean summaryChanged = !sameMaterials(next.selectedMaterials(), session.snapshot.selectedMaterials())
                     || !sameMaterials(next.batchMaterials(), session.snapshot.batchMaterials())
                     || !sameCandidates(next.candidates(), session.snapshot.candidates())
+                    || !next.channels().equals(session.snapshot.channels())
+                    || !next.structure().equals(session.snapshot.structure())
                     || next.targetOverride() != session.snapshot.targetOverride()
                     || !next.error().equals(session.snapshot.error());
             if (!changes.isEmpty() || summaryChanged) {
                 session.snapshot = next;
                 CHANNEL.sendTo(new DeltaPacket(next.revision(), changes, next.selectedMaterials(),
-                                next.batchMaterials(), next.candidates(), next.targetOverride(), next.error()),
+                                next.batchMaterials(), next.candidates(), next.channels(), next.structure(),
+                                next.targetOverride(), next.error()),
                         player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
             }
         }
@@ -180,6 +189,8 @@ public final class UltimateTerminalMessages {
         writeMaterials(buf, value.selectedMaterials());
         writeMaterials(buf, value.batchMaterials());
         writeCandidates(buf, value.candidates());
+        writeChannels(buf, value.channels());
+        writeStructure(buf, value.structure());
         buf.writeBoolean(value.targetOverride());
         buf.writeUtf(value.error(), 256);
     }
@@ -199,7 +210,7 @@ public final class UltimateTerminalMessages {
                 buf.readBlockPos(), buf.readItem(), status(buf.readUnsignedByte())));
         return new UltimateTerminalSnapshot(revision, List.copyOf(targets), selected, dimension, controller,
                 List.copyOf(cells), readMaterials(buf), readMaterials(buf), readCandidates(buf),
-                buf.readBoolean(), buf.readUtf(256));
+                readChannels(buf), readStructure(buf), buf.readBoolean(), buf.readUtf(256));
     }
 
     private static void writeMaterials(FriendlyByteBuf buf, List<UltimateTerminalSnapshot.MaterialInfo> values) {
@@ -237,6 +248,46 @@ public final class UltimateTerminalMessages {
         for (int i = 0; i < size; i++) values.add(new UltimateTerminalSnapshot.CandidateInfo(
                 buf.readItem(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readBoolean()));
         return List.copyOf(values);
+    }
+
+    private static void writeChannels(FriendlyByteBuf buf, List<UltimateTerminalSnapshot.ChannelInfo> values) {
+        buf.writeVarInt(values.size());
+        for (var value : values) {
+            buf.writeUtf(value.id(), 32);
+            buf.writeVarInt(value.selected());
+            buf.writeVarInt(value.options().size());
+            for (ItemStack option : value.options()) buf.writeItem(option);
+        }
+    }
+
+    private static List<UltimateTerminalSnapshot.ChannelInfo> readChannels(FriendlyByteBuf buf) {
+        int size = bounded(buf.readVarInt(), UltimateTerminalSnapshot.MAX_CHANNELS);
+        List<UltimateTerminalSnapshot.ChannelInfo> values = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            String id = buf.readUtf(32);
+            int selected = buf.readVarInt();
+            int optionCount = bounded(buf.readVarInt(), UltimateTerminalConfig.MAX_CHANNEL_OPTIONS);
+            List<ItemStack> options = new ArrayList<>(optionCount);
+            for (int j = 0; j < optionCount; j++) options.add(buf.readItem());
+            values.add(new UltimateTerminalSnapshot.ChannelInfo(id,
+                    Math.max(0, Math.min(selected, optionCount)), List.copyOf(options)));
+        }
+        return List.copyOf(values);
+    }
+
+    private static void writeStructure(FriendlyByteBuf buf, UltimateTerminalSnapshot.StructureInfo value) {
+        buf.writeVarInt(value.selected());
+        buf.writeVarInt(value.options().size());
+        for (String option : value.options()) buf.writeUtf(option, 32);
+    }
+
+    private static UltimateTerminalSnapshot.StructureInfo readStructure(FriendlyByteBuf buf) {
+        int selected = buf.readVarInt();
+        int size = bounded(buf.readVarInt(), 32);
+        List<String> options = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) options.add(buf.readUtf(32));
+        return new UltimateTerminalSnapshot.StructureInfo(Math.max(0, Math.min(selected, size)),
+                List.copyOf(options));
     }
 
     private static int bounded(int value, int maximum) {
@@ -309,6 +360,28 @@ public final class UltimateTerminalMessages {
         }
     }
 
+    public record ChannelPacket(int containerId, String channelId, int selection) {
+        static void encode(ChannelPacket packet, FriendlyByteBuf buf) {
+            buf.writeVarInt(packet.containerId); buf.writeUtf(packet.channelId, 32); buf.writeVarInt(packet.selection);
+        }
+        static ChannelPacket decode(FriendlyByteBuf buf) {
+            return new ChannelPacket(buf.readVarInt(), buf.readUtf(32), buf.readVarInt());
+        }
+        static void handle(ChannelPacket packet, Supplier<NetworkEvent.Context> supplier) {
+            NetworkEvent.Context context = supplier.get();
+            ServerPlayer sender = context.getSender();
+            if (sender != null) context.enqueueWork(() -> {
+                if (validMenu(sender, packet.containerId) && packet.selection >= 0
+                        && packet.selection <= UltimateTerminalConfig.MAX_CHANNEL_OPTIONS) {
+                    UltimateTerminalWorldData.get(sender.server)
+                            .setChannel(sender, packet.channelId, packet.selection);
+                    forceFull(sender);
+                }
+            });
+            context.setPacketHandled(true);
+        }
+    }
+
     public record FullPacket(UltimateTerminalSnapshot snapshot) {
         static void encode(FullPacket packet, FriendlyByteBuf buf) { writeSnapshot(buf, packet.snapshot); }
         static FullPacket decode(FriendlyByteBuf buf) { return new FullPacket(readSnapshot(buf)); }
@@ -326,6 +399,8 @@ public final class UltimateTerminalMessages {
                               List<UltimateTerminalSnapshot.MaterialInfo> selectedMaterials,
                               List<UltimateTerminalSnapshot.MaterialInfo> batchMaterials,
                               List<UltimateTerminalSnapshot.CandidateInfo> candidates,
+                              List<UltimateTerminalSnapshot.ChannelInfo> channels,
+                              UltimateTerminalSnapshot.StructureInfo structure,
                               boolean targetOverride, String error) {
         static void encode(DeltaPacket packet, FriendlyByteBuf buf) {
             buf.writeVarInt(packet.revision);
@@ -336,6 +411,8 @@ public final class UltimateTerminalMessages {
             writeMaterials(buf, packet.selectedMaterials);
             writeMaterials(buf, packet.batchMaterials);
             writeCandidates(buf, packet.candidates);
+            writeChannels(buf, packet.channels);
+            writeStructure(buf, packet.structure);
             buf.writeBoolean(packet.targetOverride);
             buf.writeUtf(packet.error, 256);
         }
@@ -345,7 +422,8 @@ public final class UltimateTerminalMessages {
             List<CellDelta> changes = new ArrayList<>(size);
             for (int i = 0; i < size; i++) changes.add(new CellDelta(buf.readVarInt(), status(buf.readUnsignedByte())));
             return new DeltaPacket(revision, List.copyOf(changes), readMaterials(buf), readMaterials(buf),
-                    readCandidates(buf), buf.readBoolean(), buf.readUtf(256));
+                    readCandidates(buf), readChannels(buf), readStructure(buf),
+                    buf.readBoolean(), buf.readUtf(256));
         }
         static void handle(DeltaPacket packet, Supplier<NetworkEvent.Context> supplier) {
             NetworkEvent.Context context = supplier.get();

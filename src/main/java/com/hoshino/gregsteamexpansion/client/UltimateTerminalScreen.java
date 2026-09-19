@@ -5,6 +5,7 @@ import com.hoshino.gregsteamexpansion.terminal.UltimateStructurePlanner;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalMessages;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalMode;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalSnapshot;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalStructureVariants;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalWorldData;
 
 import net.minecraft.client.gui.GuiGraphics;
@@ -14,23 +15,26 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-/** Four-page engineering console for targets, hologram controls, materials and legal part choices. */
+/** Engineering console for targets, hologram controls, materials, channels and legal part choices. */
 public final class UltimateTerminalScreen extends AbstractContainerScreen<UltimateTerminalMenu> {
-    private enum Page { TARGETS, PREVIEW, MATERIALS, PARTS }
+    private enum Page { TARGETS, PREVIEW, MATERIALS, CHANNELS, PARTS }
 
     private Page page = Page.TARGETS;
     private int targetPage;
     private int partPage;
+    private int channelPage;
     private int materialPage;
+    private @Nullable String openDropdown;
+    private int dropdownPage;
     private @Nullable UltimateTerminalSnapshot lastSnapshot;
     private Button modeButton;
-    private Button hatchButton;
     private Button aeButton;
     private Button overrideButton;
     private Button displayButton;
@@ -52,7 +56,6 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
     private void rebuildPage() {
         clearWidgets();
         modeButton = null;
-        hatchButton = null;
         aeButton = null;
         overrideButton = null;
         displayButton = null;
@@ -61,10 +64,11 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
         int y = topPos + 25;
         for (Page candidate : Page.values()) {
             Page selectedPage = candidate;
-            addRenderableWidget(localButton(x + candidate.ordinal() * 80, y, 76,
+            addRenderableWidget(localButton(x + candidate.ordinal() * 64, y, 60,
                     Component.translatable("gregsteamexpansion.ultimate_terminal.tab."
                             + candidate.name().toLowerCase()), () -> {
                         page = selectedPage;
+                        openDropdown = null;
                         rebuildPage();
                     }));
         }
@@ -72,6 +76,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             case TARGETS -> buildTargets();
             case PREVIEW -> buildPreview();
             case MATERIALS -> buildMaterials();
+            case CHANNELS -> buildChannels();
             case PARTS -> buildParts();
         }
         lastSnapshot = UltimateTerminalClientState.snapshot();
@@ -114,21 +119,18 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
                 Component.translatable("gregsteamexpansion.ultimate_terminal.start")));
         addRenderableWidget(menuButton(x, y + 28, 28, UltimateTerminalMenu.BUTTON_REPEAT_DOWN, Component.literal("-")));
         addRenderableWidget(menuButton(x + 122, y + 28, 28, UltimateTerminalMenu.BUTTON_REPEAT_UP, Component.literal("+")));
-        addRenderableWidget(menuButton(x + 158, y + 28, 28, UltimateTerminalMenu.BUTTON_COIL_DOWN, Component.literal("-")));
-        addRenderableWidget(menuButton(x + 280, y + 28, 28, UltimateTerminalMenu.BUTTON_COIL_UP, Component.literal("+")));
-        hatchButton = addRenderableWidget(menuButton(x, y + 56, 150, UltimateTerminalMenu.BUTTON_HATCHES, Component.empty()));
-        aeButton = addRenderableWidget(menuButton(x + 158, y + 56, 150, UltimateTerminalMenu.BUTTON_AE, Component.empty()));
-        overrideButton = addRenderableWidget(menuButton(x, y + 84, 150, UltimateTerminalMenu.BUTTON_OVERRIDE, Component.empty()));
-        displayButton = addRenderableWidget(localButton(x + 158, y + 84, 150, Component.empty(), () -> {
+        aeButton = addRenderableWidget(menuButton(x + 158, y + 28, 150, UltimateTerminalMenu.BUTTON_AE, Component.empty()));
+        overrideButton = addRenderableWidget(menuButton(x, y + 56, 150, UltimateTerminalMenu.BUTTON_OVERRIDE, Component.empty()));
+        displayButton = addRenderableWidget(localButton(x + 158, y + 56, 150, Component.empty(), () -> {
             UltimateTerminalClientState.cycleDisplayMode(); refreshLabels();
         }));
-        addRenderableWidget(localButton(x, y + 112, 28, Component.literal("-"), () -> {
+        addRenderableWidget(localButton(x, y + 84, 28, Component.literal("-"), () -> {
             UltimateTerminalClientState.changeLayer(-1); refreshLabels();
         }));
-        addRenderableWidget(localButton(x + 122, y + 112, 28, Component.literal("+"), () -> {
+        addRenderableWidget(localButton(x + 122, y + 84, 28, Component.literal("+"), () -> {
             UltimateTerminalClientState.changeLayer(1); refreshLabels();
         }));
-        addRenderableWidget(localButton(x + 158, y + 112, 150,
+        addRenderableWidget(localButton(x + 158, y + 84, 150,
                 Component.translatable("gregsteamexpansion.ultimate_terminal.refresh"),
                 () -> UltimateTerminalMessages.requestFromClient(menu.containerId)));
         addRenderableWidget(menuButton(x, topPos + 202, 150, UltimateTerminalMenu.BUTTON_COLLECT,
@@ -168,12 +170,14 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
         if (snapshot == null) return;
         List<UltimateTerminalSnapshot.CandidateInfo> configurable = snapshot.candidates().stream()
                 .filter(UltimateTerminalSnapshot.CandidateInfo::configurable).toList();
-        partPage = Math.min(partPage, Math.max(0, (configurable.size() - 1) / 6));
+        int totalRows = configurable.size();
+        partPage = Math.min(partPage, Math.max(0, (totalRows - 1) / 6));
         int start = partPage * 6;
-        for (int row = 0; row < 6 && start + row < configurable.size(); row++) {
-            var candidate = configurable.get(start + row);
-            ResourceLocation id = blockId(candidate);
+        for (int row = 0; row < 6 && start + row < totalRows; row++) {
+            int index = start + row;
             int rowY = y + 30 + row * 23;
+            var candidate = configurable.get(index);
+            ResourceLocation id = blockId(candidate);
             Button down = localButton(x + 242, rowY, 28, Component.literal("-"), () -> {
                 if (id != null) UltimateTerminalMessages.changePartFromClient(menu.containerId, id, -1);
             });
@@ -184,6 +188,95 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             up.active = candidate.requested() < candidate.maximum();
             addRenderableWidget(down);
             addRenderableWidget(up);
+        }
+    }
+
+    private void buildChannels() {
+        UltimateTerminalSnapshot snapshot = UltimateTerminalClientState.snapshot();
+        if (snapshot == null) return;
+        int x = leftPos + 14;
+        int y = topPos + 55;
+        int structureRows = snapshot.structure().options().isEmpty() ? 0 : 1;
+        int totalRows = structureRows + snapshot.channels().size();
+        channelPage = Math.min(channelPage, Math.max(0, (totalRows - 1) / 6));
+        int start = channelPage * 6;
+        for (int row = 0; row < 6 && start + row < totalRows; row++) {
+            int index = start + row;
+            if (index < structureRows) {
+                var structure = snapshot.structure();
+                Component selected = structure.selected() > 0 && structure.selected() <= structure.options().size()
+                        ? Component.literal(structure.options().get(structure.selected() - 1)) : Component.empty();
+                addRenderableWidget(dropdownButton(x + 132, y + row * 23, 176,
+                        UltimateTerminalStructureVariants.CHANNEL_ID, selected));
+            } else {
+                var channel = snapshot.channels().get(index - structureRows);
+                ItemStack selected = channel.selected() > 0 && channel.selected() <= channel.options().size()
+                        ? channel.options().get(channel.selected() - 1) : ItemStack.EMPTY;
+                addRenderableWidget(dropdownButton(x + 132, y + row * 23, 176, channel.id(), selected.isEmpty()
+                        ? Component.translatable("gregsteamexpansion.ultimate_terminal.channel.auto")
+                        : selected.getHoverName()));
+            }
+        }
+        addRenderableWidget(localButton(x + 230, topPos + 202, 34, Component.literal("<"), () -> {
+            channelPage = Math.max(0, channelPage - 1); rebuildPage();
+        }));
+        addRenderableWidget(localButton(x + 274, topPos + 202, 34, Component.literal(">"), () -> {
+            channelPage++; rebuildPage();
+        }));
+        buildOpenDropdown(snapshot, x);
+    }
+
+    private Button dropdownButton(int x, int y, int width, String id, Component value) {
+        return localButton(x, y, width, Component.literal("▼ ").append(value), () -> {
+            openDropdown = id.equals(openDropdown) ? null : id;
+            dropdownPage = 0;
+            rebuildPage();
+        });
+    }
+
+    private void buildOpenDropdown(UltimateTerminalSnapshot snapshot, int x) {
+        if (openDropdown == null) return;
+        List<Component> options;
+        int firstSelection;
+        if (openDropdown.equals(UltimateTerminalStructureVariants.CHANNEL_ID)) {
+            options = snapshot.structure().options().stream()
+                    .map(value -> (Component) Component.literal(value)).toList();
+            firstSelection = 1;
+        } else {
+            var channel = snapshot.channels().stream().filter(value -> value.id().equals(openDropdown))
+                    .findFirst().orElse(null);
+            if (channel == null) {
+                openDropdown = null;
+                return;
+            }
+            java.util.ArrayList<Component> values = new java.util.ArrayList<>();
+            values.add(Component.translatable("gregsteamexpansion.ultimate_terminal.channel.auto"));
+            channel.options().forEach(stack -> values.add(stack.getHoverName()));
+            options = List.copyOf(values);
+            firstSelection = 0;
+        }
+        int pageSize = 5;
+        int pages = Math.max(1, (options.size() - 1) / pageSize + 1);
+        dropdownPage = Math.min(dropdownPage, pages - 1);
+        int start = dropdownPage * pageSize;
+        int popupX = x + 96;
+        int popupY = topPos + 55;
+        for (int row = 0; row < pageSize && start + row < options.size(); row++) {
+            int optionIndex = start + row;
+            int selection = firstSelection + optionIndex;
+            addRenderableWidget(localButton(popupX, popupY + row * 22, 212, options.get(optionIndex), () -> {
+                UltimateTerminalMessages.selectChannelFromClient(menu.containerId, openDropdown, selection);
+                openDropdown = null;
+                rebuildPage();
+            }));
+        }
+        if (pages > 1) {
+            addRenderableWidget(localButton(popupX, popupY + 112, 103, Component.literal("<"), () -> {
+                dropdownPage = Math.max(0, dropdownPage - 1); rebuildPage();
+            }));
+            addRenderableWidget(localButton(popupX + 109, popupY + 112, 103, Component.literal(">"), () -> {
+                dropdownPage = Math.min(pages - 1, dropdownPage + 1); rebuildPage();
+            }));
         }
     }
 
@@ -214,8 +307,6 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             modeButton.setMessage(Component.translatable("gregsteamexpansion.ultimate_terminal.mode."
                     + UltimateTerminalMode.values()[modeId].name().toLowerCase()));
         }
-        if (hatchButton != null) hatchButton.setMessage(Component.translatable(
-                "gregsteamexpansion.ultimate_terminal.hatches", onOff(menu.buildHatches())));
         if (aeButton != null) aeButton.setMessage(Component.translatable(
                 "gregsteamexpansion.ultimate_terminal.ae", onOff(menu.useAE())));
         if (overrideButton != null) overrideButton.setMessage(Component.translatable(
@@ -256,6 +347,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             case TARGETS -> renderTargetDetails(graphics, snapshot);
             case PREVIEW -> renderPreviewDetails(graphics, snapshot);
             case MATERIALS -> renderMaterials(graphics, snapshot);
+            case CHANNELS -> renderChannels(graphics, snapshot);
             case PARTS -> renderParts(graphics, snapshot);
         }
         int state = Math.max(0, Math.min(UltimateTerminalWorldData.JobState.values().length - 1, menu.state()));
@@ -276,10 +368,8 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
     private void renderPreviewDetails(GuiGraphics graphics, @Nullable UltimateTerminalSnapshot snapshot) {
         graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.repeat",
                 menu.repeatCount()), 48, 89, 0xFFD6D6D6, false);
-        graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.coil",
-                menu.coilTier()), 206, 89, 0xFFD6D6D6, false);
         graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.layer",
-                UltimateTerminalClientState.layer()), 48, 173, 0xFFD6D6D6, false);
+                UltimateTerminalClientState.layer()), 48, 145, 0xFFD6D6D6, false);
         if (snapshot != null) {
             long missing = snapshot.cells().stream().filter(cell -> cell.status() == UltimateStructurePlanner.CellStatus.MISSING).count();
             long conflict = snapshot.cells().stream().filter(cell -> cell.status() == UltimateStructurePlanner.CellStatus.CONFLICT).count();
@@ -312,15 +402,46 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
         if (snapshot == null) return;
         var parts = snapshot.candidates().stream().filter(UltimateTerminalSnapshot.CandidateInfo::configurable).toList();
         int start = partPage * 6;
-        for (int row = 0; row < 6 && start + row < parts.size(); row++) {
-            var part = parts.get(start + row);
+        int totalRows = parts.size();
+        for (int row = 0; row < 6 && start + row < totalRows; row++) {
+            int index = start + row;
             int y = 88 + row * 23;
+            var part = parts.get(index);
             graphics.renderItem(part.stack(), 14, y - 5);
             graphics.drawString(font, part.stack().getHoverName(), 35, y, 0xFFD6D6D6, false);
             graphics.drawString(font, Component.literal(part.requested() + " / " + part.present()
                     + " / " + part.maximum()), 180, y, 0xFFAAAAAA, false);
         }
         graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.parts.legend"),
+                14, 216, 0xFF888888, false);
+    }
+
+    private void renderChannels(GuiGraphics graphics, @Nullable UltimateTerminalSnapshot snapshot) {
+        if (snapshot == null) return;
+        int structureRows = snapshot.structure().options().isEmpty() ? 0 : 1;
+        int totalRows = structureRows + snapshot.channels().size();
+        int start = channelPage * 6;
+        for (int row = 0; row < 6 && start + row < totalRows; row++) {
+            int index = start + row;
+            if (index < structureRows) {
+                graphics.drawString(font,
+                        Component.translatable("gregsteamexpansion.ultimate_terminal.channel.structure_size"),
+                        14, 60 + row * 23, 0xFF55FFFF, false);
+            } else {
+                var channel = snapshot.channels().get(index - structureRows);
+                ItemStack selected = channel.selected() > 0 && channel.selected() <= channel.options().size()
+                        ? channel.options().get(channel.selected() - 1) : ItemStack.EMPTY;
+                if (!selected.isEmpty()) graphics.renderItem(selected, 106, 55 + row * 23);
+                Component name = channel.id().equals("coil")
+                        ? Component.translatable("gregsteamexpansion.ultimate_terminal.channel.coil")
+                        : Component.literal(channel.id());
+                graphics.drawString(font, name, 14, 60 + row * 23, 0xFF55FFFF, false);
+            }
+        }
+        if (totalRows == 0) graphics.drawString(font,
+                Component.translatable("gregsteamexpansion.ultimate_terminal.channels.empty"),
+                14, 60, 0xFFAAAAAA, false);
+        graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.channels.legend"),
                 14, 216, 0xFF888888, false);
     }
 }

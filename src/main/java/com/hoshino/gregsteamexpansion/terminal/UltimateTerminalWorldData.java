@@ -397,18 +397,7 @@ public final class UltimateTerminalWorldData extends SavedData {
             return UltimateStructurePlanner.plan(level, target.pos(), profile,
                     project.mode == UltimateTerminalMode.UPGRADE);
         }
-        List<UltimateStructurePlanner.Cell> cells = new ArrayList<>();
-        for (OwnedBlock owned : project.ownedPositions.getOrDefault(target.key(), List.of())) {
-            BlockPos pos = BlockPos.of(owned.pos());
-            ItemStack expected = ItemStack.EMPTY;
-            ResourceLocation blockId = ResourceLocation.tryParse(owned.blockId());
-            var block = blockId == null ? null : ForgeRegistries.BLOCKS.getValue(blockId);
-            if (block != null) expected = block.asItem().getDefaultInstance();
-            UltimateStructurePlanner.CellStatus status = level.hasChunkAt(pos)
-                    ? UltimateStructurePlanner.CellStatus.REMOVE : UltimateStructurePlanner.CellStatus.UNLOADED;
-            cells.add(new UltimateStructurePlanner.Cell(pos, expected, status));
-        }
-        return new UltimateStructurePlanner.Plan(List.of(), List.copyOf(cells), List.of(), null);
+        return UltimateStructurePlanner.planDismantle(level, target.pos(), profile);
     }
 
     private static List<ItemStack> requirements(UltimateStructurePlanner.Plan plan) {
@@ -465,8 +454,6 @@ public final class UltimateTerminalWorldData extends SavedData {
     public int mode(UUID owner) { return project(owner).mode.ordinal(); }
     public int selectedTarget(UUID owner) { return project(owner).selectedTarget; }
     public int repeatCount(ServerPlayer player) { return selectedProfile(player, false).repeatCount(); }
-    public int coilTier(ServerPlayer player) { return selectedProfile(player, false).coilTier(); }
-    public boolean buildHatches(ServerPlayer player) { return selectedProfile(player, false).buildHatches(); }
     public boolean targetOverride(ServerPlayer player) {
         Project project = project(player.getUUID());
         Target target = selectedTarget(project);
@@ -494,11 +481,24 @@ public final class UltimateTerminalWorldData extends SavedData {
         selectedProfile(player, true).changeRepeats(delta);
         setDirty();
     }
-    public void changeCoilTier(ServerPlayer player, int delta) {
-        selectedProfile(player, true).changeCoilTier(delta);
+    public void setChannel(ServerPlayer player, String channelId, int selection) {
+        boolean structureSize = channelId.equals(UltimateTerminalStructureVariants.CHANNEL_ID);
+        if (!structureSize && !channelId.equals("coil") && UltimateTerminalConfig.channel(channelId) == null) return;
+        Project project = project(player.getUUID());
+        Target target = selectedTarget(project);
+        if (target == null) return;
+        ServerLevel level = player.server.getLevel(target.dimension());
+        if (level == null || !level.hasChunkAt(target.pos())) return;
+        TerminalBuildProfile profile = profileFor(player.server, project, target, true);
+        UltimateStructurePlanner.Plan plan = UltimateStructurePlanner.plan(level, target.pos(), profile,
+                project.mode == UltimateTerminalMode.UPGRADE);
+        int maximum = structureSize ? plan.structure().options().size()
+                : plan.channels().stream().filter(choice -> choice.id().equals(channelId))
+                        .mapToInt(choice -> choice.options().size()).findFirst().orElse(0);
+        if (maximum <= 0) return;
+        profile.setChannel(channelId, selection, maximum);
         setDirty();
     }
-    public void toggleHatches(ServerPlayer player) { selectedProfile(player, true).toggleHatches(); setDirty(); }
     public void toggleAE(UUID owner) { Project project = project(owner); project.useAE = !project.useAE; setDirty(); }
     public void selectTarget(ServerPlayer player, int index) {
         Project project = project(player.getUUID());
@@ -557,18 +557,14 @@ public final class UltimateTerminalWorldData extends SavedData {
         if (project.mode == UltimateTerminalMode.DISMANTLE) {
             for (Target target : project.targets) {
                 ServerLevel level = player.server.getLevel(target.dimension());
-                if (level == null) return false;
-                List<UltimateStructurePlanner.Placement> removals = new ArrayList<>();
-                for (OwnedBlock owned : project.ownedPositions.getOrDefault(target.key(), List.of())) {
-                    BlockPos pos = BlockPos.of(owned.pos());
-                    if (!level.hasChunkAt(pos)) return false;
-                    if (pos.equals(target.pos()) || level.getBlockEntity(pos) != null || level.isEmptyBlock(pos)) continue;
-                    ResourceLocation currentId = ForgeRegistries.BLOCKS.getKey(level.getBlockState(pos).getBlock());
-                    if (currentId == null || !currentId.toString().equals(owned.blockId())) continue;
-                    ItemStack stack = level.getBlockState(pos).getBlock().asItem().getDefaultInstance();
-                    if (!stack.isEmpty()) removals.add(new UltimateStructurePlanner.Placement(pos, stack));
+                if (level == null || !level.hasChunkAt(target.pos())) return false;
+                UltimateStructurePlanner.Plan plan = UltimateStructurePlanner.planDismantle(level, target.pos(),
+                        profileFor(player.server, project, target, false));
+                if (!plan.valid()) {
+                    player.displayClientMessage(Component.literal(plan.error()), false);
+                    return false;
                 }
-                works.add(new TargetWork(target, removals));
+                works.add(new TargetWork(target, plan.placements()));
             }
             project.job = new Job(project.mode, works, new ArrayList<>());
         } else {
@@ -637,7 +633,7 @@ public final class UltimateTerminalWorldData extends SavedData {
                 setDirty();
             }
             if (job.state == JobState.RUNNING && work.cursor >= work.operations.size()) {
-                if (job.mode != UltimateTerminalMode.DISMANTLE && !validate(level, work.target.pos())) {
+                if (job.mode != UltimateTerminalMode.DISMANTLE && !validateOperations(level, work)) {
                     failCurrent(player, project, job, work, "structure_invalid");
                 } else {
                     if (job.mode == UltimateTerminalMode.DISMANTLE) {
@@ -706,9 +702,11 @@ public final class UltimateTerminalWorldData extends SavedData {
         return true;
     }
 
-    private static boolean validate(ServerLevel level, BlockPos pos) {
-        if (!(MetaMachine.getMachine(level, pos) instanceof IMultiController controller)) return false;
-        return controller.getPattern().checkPatternAt(controller.getMultiblockState(), false);
+    private static boolean validateOperations(ServerLevel level, TargetWork work) {
+        for (var operation : work.operations) {
+            if (level.getBlockState(operation.pos()).getBlock().asItem() != operation.stack().getItem()) return false;
+        }
+        return true;
     }
 
     private void failCurrent(ServerPlayer player, Project project, Job job, TargetWork work, String reason) {

@@ -19,9 +19,6 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
     public static final int BUTTON_MODE = 2;
     public static final int BUTTON_REPEAT_DOWN = 3;
     public static final int BUTTON_REPEAT_UP = 4;
-    public static final int BUTTON_COIL_DOWN = 5;
-    public static final int BUTTON_COIL_UP = 6;
-    public static final int BUTTON_HATCHES = 7;
     public static final int BUTTON_AE = 8;
     public static final int BUTTON_COLLECT = 9;
     public static final int BUTTON_OVERRIDE = 10;
@@ -30,11 +27,9 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
     private int targetCount;
     private int mode;
     private int repeatCount;
-    private int coilTier;
     private int state;
     private int progress;
     private int total;
-    private int buildHatches;
     private int useAE;
     private int pending;
     private int selectedTarget;
@@ -53,8 +48,6 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
         track(7);
         track(8);
         track(9);
-        track(10);
-        track(11);
     }
 
     private void track(int index) {
@@ -67,15 +60,13 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
                         case 0 -> data.targetCount(player.getUUID());
                         case 1 -> data.mode(player.getUUID());
                         case 2 -> data.repeatCount(serverPlayer);
-                        case 3 -> data.coilTier(serverPlayer);
-                        case 4 -> data.state(player.getUUID()).ordinal();
-                        case 5 -> data.progress(player.getUUID());
-                        case 6 -> data.total(player.getUUID());
-                        case 7 -> data.buildHatches(serverPlayer) ? 1 : 0;
-                        case 8 -> data.useAE(player.getUUID()) ? 1 : 0;
-                        case 9 -> data.pendingCount(player.getUUID());
-                        case 10 -> data.selectedTarget(player.getUUID());
-                        case 11 -> data.targetOverride(serverPlayer) ? 1 : 0;
+                        case 3 -> data.state(player.getUUID()).ordinal();
+                        case 4 -> data.progress(player.getUUID());
+                        case 5 -> data.total(player.getUUID());
+                        case 6 -> data.useAE(player.getUUID()) ? 1 : 0;
+                        case 7 -> data.pendingCount(player.getUUID());
+                        case 8 -> data.selectedTarget(player.getUUID());
+                        case 9 -> data.targetOverride(serverPlayer) ? 1 : 0;
                         default -> 0;
                     };
                 }
@@ -94,15 +85,13 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
             case 0 -> targetCount;
             case 1 -> mode;
             case 2 -> repeatCount;
-            case 3 -> coilTier;
-            case 4 -> state;
-            case 5 -> progress;
-            case 6 -> total;
-            case 7 -> buildHatches;
-            case 8 -> useAE;
-            case 9 -> pending;
-            case 10 -> selectedTarget;
-            case 11 -> targetOverride;
+            case 3 -> state;
+            case 4 -> progress;
+            case 5 -> total;
+            case 6 -> useAE;
+            case 7 -> pending;
+            case 8 -> selectedTarget;
+            case 9 -> targetOverride;
             default -> 0;
         };
     }
@@ -112,15 +101,13 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
             case 0 -> targetCount = value;
             case 1 -> mode = value;
             case 2 -> repeatCount = value;
-            case 3 -> coilTier = value;
-            case 4 -> state = value;
-            case 5 -> progress = value;
-            case 6 -> total = value;
-            case 7 -> buildHatches = value;
-            case 8 -> useAE = value;
-            case 9 -> pending = value;
-            case 10 -> selectedTarget = value;
-            case 11 -> targetOverride = value;
+            case 3 -> state = value;
+            case 4 -> progress = value;
+            case 5 -> total = value;
+            case 6 -> useAE = value;
+            case 7 -> pending = value;
+            case 8 -> selectedTarget = value;
+            case 9 -> targetOverride = value;
             default -> { }
         }
     }
@@ -135,9 +122,6 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
             case BUTTON_MODE -> data.cycleMode(player.getUUID());
             case BUTTON_REPEAT_DOWN -> data.changeRepeats(serverPlayer, -1);
             case BUTTON_REPEAT_UP -> data.changeRepeats(serverPlayer, 1);
-            case BUTTON_COIL_DOWN -> data.changeCoilTier(serverPlayer, -1);
-            case BUTTON_COIL_UP -> data.changeCoilTier(serverPlayer, 1);
-            case BUTTON_HATCHES -> data.toggleHatches(serverPlayer);
             case BUTTON_AE -> data.toggleAE(player.getUUID());
             case BUTTON_COLLECT -> data.collectPending(serverPlayer);
             case BUTTON_OVERRIDE -> data.toggleTargetOverride(serverPlayer);
@@ -164,11 +148,9 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
     public int targetCount() { return targetCount; }
     public int mode() { return mode; }
     public int repeatCount() { return repeatCount; }
-    public int coilTier() { return coilTier; }
     public int state() { return state; }
     public int progress() { return progress; }
     public int total() { return total; }
-    public boolean buildHatches() { return buildHatches != 0; }
     public boolean useAE() { return useAE != 0; }
     public int pending() { return pending; }
     public int selectedTarget() { return selectedTarget; }

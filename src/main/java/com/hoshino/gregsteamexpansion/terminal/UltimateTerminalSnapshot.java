@@ -17,12 +17,15 @@ public record UltimateTerminalSnapshot(
         List<MaterialInfo> selectedMaterials,
         List<MaterialInfo> batchMaterials,
         List<CandidateInfo> candidates,
+        List<ChannelInfo> channels,
+        StructureInfo structure,
         boolean targetOverride,
         String error) {
 
     public static final int MAX_CELLS = 8192;
     public static final int MAX_CANDIDATES = 256;
     public static final int MAX_MATERIALS = 256;
+    public static final int MAX_CHANNELS = UltimateTerminalConfig.MAX_SELECTION_CHANNELS;
 
     public record TargetInfo(ResourceLocation dimension, BlockPos pos, String name) {}
     public record CellInfo(BlockPos pos, ItemStack expected, UltimateStructurePlanner.CellStatus status) {}
@@ -31,12 +34,17 @@ public record UltimateTerminalSnapshot(
     }
     public record CandidateInfo(ItemStack stack, int requested, int present, int maximum,
                                 boolean configurable) {}
+    public record ChannelInfo(String id, int selected, List<ItemStack> options) {}
+    public record StructureInfo(int selected, List<String> options) {
+        public static StructureInfo empty() { return new StructureInfo(0, List.of()); }
+    }
 
     public static UltimateTerminalSnapshot from(UltimateTerminalWorldData.PreviewData preview, int revision) {
         if (preview.targets().isEmpty()) {
             return new UltimateTerminalSnapshot(revision, List.of(), 0,
                     ResourceLocation.fromNamespaceAndPath("minecraft", "overworld"), BlockPos.ZERO,
-                    List.of(), List.of(), List.of(), List.of(), false, preview.error());
+                    List.of(), List.of(), List.of(), List.of(), List.of(), StructureInfo.empty(),
+                    false, preview.error());
         }
         var target = preview.targets().get(Math.max(0,
                 Math.min(preview.selectedTarget(), preview.targets().size() - 1)));
@@ -57,8 +65,15 @@ public record UltimateTerminalSnapshot(
                 .map(value -> new CandidateInfo(value.stack().copyWithCount(1), value.requested(),
                         value.present(), value.maximum(), value.configurable()))
                 .toList();
+        List<ChannelInfo> channels = preview.plan().channels().stream().limit(MAX_CHANNELS)
+                .map(value -> new ChannelInfo(value.id(), value.selected(), value.options().stream()
+                        .limit(UltimateTerminalConfig.MAX_CHANNEL_OPTIONS)
+                        .map(stack -> stack.copyWithCount(1)).toList()))
+                .toList();
+        StructureInfo structure = new StructureInfo(preview.plan().structure().selected(),
+                preview.plan().structure().options());
         return new UltimateTerminalSnapshot(revision, targets, preview.selectedTarget(), target.dimension(),
                 target.pos(), cells, selectedMaterials, batchMaterials, candidates,
-                preview.targetOverride(), preview.error() == null ? "" : preview.error());
+                channels, structure, preview.targetOverride(), preview.error() == null ? "" : preview.error());
     }
 }

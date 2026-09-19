@@ -35,6 +35,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceThermalL
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 import com.hoshino.gregsteamexpansion.registry.GSEFurnacePatterns;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalStructureVariants;
 
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
@@ -87,7 +88,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMachine
-        implements IControllable, IRecipeCapabilityHolder, IUIMachine {
+        implements IControllable, IRecipeCapabilityHolder, IUIMachine, UltimateTerminalStructureVariants {
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(
             LargeHeatStorageSteamFurnaceMachine.class, MultiblockControllerMachine.MANAGED_FIELD_HOLDER);
@@ -268,8 +269,9 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
     /**
      * The GTCEu terminal auto-builds a fixed 15×15×6 structure and the GTM
      * Things advanced terminal stretches the same pattern's repeatable middle
-     * aisles (3–15, total height 6–18), so the largest width is the canonical
-     * pattern; 7/11 stay manual-build only
+     * aisles (3–15, total height 6–18), so the largest width remains the
+     * canonical pattern. The GSE Ultimate Terminal obtains all three widths
+     * through {@link UltimateTerminalStructureVariants}
      * (large-heat-storage-steam-furnace.md 结构预览与终端自动搭建).
      */
     @Override
@@ -288,6 +290,13 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
             return cachedPatterns[i];
         }
         throw new IllegalArgumentException("Unsupported furnace width " + width);
+    }
+
+    @Override
+    public List<Variant> terminalStructureVariants() {
+        return java.util.Arrays.stream(GSEFurnacePatterns.WIDTHS)
+                .mapToObj(width -> new Variant(width + "×" + width, patternFor(width)))
+                .toList();
     }
 
     @Override

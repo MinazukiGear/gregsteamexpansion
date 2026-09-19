@@ -17,6 +17,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.electric.MultiblockTankMa
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamTankValvePartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSESteamTankPatterns;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalStructureVariants;
 
 import com.lowdragmc.lowdraglib.gui.widget.ImageWidget;
 import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
@@ -39,7 +40,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /** Variable-size, steam-only multiblock storage controller. */
-public class LargeSteamTankMachine extends MultiblockTankMachine implements IDropSaveMachine {
+public class LargeSteamTankMachine extends MultiblockTankMachine
+        implements IDropSaveMachine, UltimateTerminalStructureVariants {
 
     public static final int CAPACITY_PER_OUTER_BLOCK_MB = 64_000;
     public static final int MAX_CAPACITY_MB = capacityFor(9, 8);
@@ -126,6 +128,13 @@ public class LargeSteamTankMachine extends MultiblockTankMachine implements IDro
             cachedPatterns[index] = GSESteamTankPatterns.create(getDefinition(), GSESteamTankPatterns.WIDTHS[index]);
         }
         return cachedPatterns[index];
+    }
+
+    @Override
+    public List<Variant> terminalStructureVariants() {
+        return java.util.Arrays.stream(GSESteamTankPatterns.WIDTHS)
+                .mapToObj(width -> new Variant(width + "×" + width, patternForWidth(width)))
+                .toList();
     }
 
     @Override

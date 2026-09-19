@@ -8,7 +8,6 @@ import com.gregtechceu.gtceu.api.pattern.predicates.SimplePredicate;
 import com.gregtechceu.gtceu.api.pattern.util.RelativeDirection;
 import com.gregtechceu.gtceu.api.block.MetaMachineBlock;
 import com.gregtechceu.gtceu.common.block.CoilBlock;
-import com.lowdragmc.lowdraglib.utils.BlockInfo;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -70,14 +69,21 @@ public final class UltimateStructurePlanner {
     public record CandidateChoice(ItemStack stack, int requested, int present, int maximum,
                                   boolean configurable) {}
 
+    public record ChannelChoice(String id, int selected, List<ItemStack> options) {}
+
+    public record StructureChoice(int selected, List<String> options) {
+        static StructureChoice empty() { return new StructureChoice(0, List.of()); }
+    }
+
     public record Plan(List<Placement> placements, List<Cell> cells,
-                       List<CandidateChoice> candidates, String error) {
+                       List<CandidateChoice> candidates, List<ChannelChoice> channels,
+                       StructureChoice structure, String error) {
         public boolean valid() {
             return error == null;
         }
 
         static Plan failed(String error) {
-            return new Plan(List.of(), List.of(), List.of(), error);
+            return new Plan(List.of(), List.of(), List.of(), List.of(), StructureChoice.empty(), error);
         }
     }
 
@@ -88,13 +94,51 @@ public final class UltimateStructurePlanner {
     }
 
     public static Plan plan(ServerLevel level, BlockPos controllerPos,
-                            TerminalBuildProfile profile, boolean upgrade) {
+                             TerminalBuildProfile profile, boolean upgrade) {
+        return plan(level, controllerPos, profile, upgrade, null, null);
+    }
+
+    public static Plan planDismantle(ServerLevel level, BlockPos controllerPos,
+                                     TerminalBuildProfile profile) {
+        MetaMachine machine = MetaMachine.getMachine(level, controllerPos);
+        if (!(machine instanceof IMultiController controller)) return Plan.failed("not_controller");
+        PatternSelection formed = formedPattern(controller);
+        Plan current;
+        if (formed == null) {
+            // A partially built or damaged structure has no formed-pattern state. In that case the
+            // terminal's selected size/repetition profile is the blueprint, and only cells which
+            // still contain a legal candidate are eligible for removal.
+            current = plan(level, controllerPos, profile, false, null, null);
+        } else {
+            int[] repetitions = formed.pattern().getFormedRepetitionCount().clone();
+            current = plan(level, controllerPos, profile, false, repetitions, formed);
+        }
+        if (current.cells().isEmpty() && current.error() != null) return current;
+        List<Placement> removals = new ArrayList<>();
+        List<Cell> cells = new ArrayList<>();
+        for (Cell cell : current.cells()) {
+            if (cell.status() != CellStatus.SATISFIED || cell.pos().equals(controllerPos)
+                    || level.getBlockEntity(cell.pos()) != null || level.isEmptyBlock(cell.pos())) continue;
+            ItemStack stack = level.getBlockState(cell.pos()).getBlock().asItem().getDefaultInstance();
+            if (stack.isEmpty()) continue;
+            removals.add(new Placement(cell.pos(), stack.copyWithCount(1)));
+            cells.add(new Cell(cell.pos(), stack.copyWithCount(1), CellStatus.REMOVE));
+        }
+        return new Plan(List.copyOf(removals), List.copyOf(cells), List.of(), current.channels(),
+                current.structure(), null);
+    }
+
+    private static Plan plan(ServerLevel level, BlockPos controllerPos,
+                             TerminalBuildProfile profile, boolean upgrade, int[] formedRepetitions,
+                             PatternSelection forcedPattern) {
         MetaMachine machine = MetaMachine.getMachine(level, controllerPos);
         if (!(machine instanceof IMultiController controller)) {
             return Plan.failed("not_controller");
         }
         try {
-            BlockPattern pattern = controller.getPattern();
+            PatternSelection selectedPattern = forcedPattern == null
+                    ? selectedPattern(controller, profile) : forcedPattern;
+            BlockPattern pattern = selectedPattern.pattern();
             TraceabilityPredicate[][][] matches =
                     (TraceabilityPredicate[][][]) BLOCK_MATCHES.get(pattern);
             int[] center = (int[]) CENTER_OFFSET.get(pattern);
@@ -113,8 +157,11 @@ public final class UltimateStructurePlanner {
             for (int aisle = 0; aisle < matches.length; aisle++) {
                 int min = pattern.aisleRepetitions[aisle][0];
                 int max = pattern.aisleRepetitions[aisle][1];
-                int repetitions = min == max ? min : Math.max(min,
-                        Math.min(max, profile.repeatCount() > 0 ? profile.repeatCount() : min));
+                int formed = formedRepetitions != null && aisle < formedRepetitions.length
+                        ? formedRepetitions[aisle] : 0;
+                int repetitions = formed > 0 ? Math.max(min, Math.min(max, formed))
+                        : min == max ? min : Math.max(min,
+                                Math.min(max, profile.repeatCount() > 0 ? profile.repeatCount() : min));
                 for (int repetition = 0; repetition < repetitions; repetition++, z++) {
                     Map<SimplePredicate, Integer> layer = new IdentityHashMap<>();
                     for (int yIndex = 0, y = -center[1]; yIndex < matches[aisle].length; yIndex++, y++) {
@@ -129,11 +176,14 @@ public final class UltimateStructurePlanner {
                             collectCandidateStats(predicate, candidateStats);
                             Candidate existing = level.hasChunkAt(pos)
                                     ? matchingCandidate(level, pos, predicate) : null;
-                            Candidate desiredCoil = profile.coilTier() > 0
-                                    ? closestCoil(predicate, profile.coilTier()) : null;
+                            Candidate desiredCoil = selectedCoil(predicate, profile);
+                            ChannelMatch desiredChannel = closestChannel(predicate, profile);
                             boolean replaceCoil = existing != null && desiredCoil != null && upgrade
                                     && existing.stack().getItem() != desiredCoil.stack().getItem();
-                            if (existing != null && !replaceCoil) {
+                            boolean replaceChannel = existing != null && desiredChannel != null && upgrade
+                                    && existing.stack().getItem() != desiredChannel.candidate().stack().getItem()
+                                    && channelContains(desiredChannel.id(), existing.stack());
+                            if (existing != null && !replaceCoil && !replaceChannel) {
                                 increment(global, existing.predicate);
                                 increment(layer, existing.predicate);
                                 consumeRequest(remainingRequests, existing.stack());
@@ -142,10 +192,12 @@ public final class UltimateStructurePlanner {
                                         CellStatus.SATISFIED));
                                 continue;
                             }
-                            Candidate selected = replaceCoil ? desiredCoil : selectCandidate(predicate, global, layer,
-                                    profile.coilTier(), profile.buildHatches(), remainingRequests);
+                            Candidate selected = replaceCoil ? desiredCoil
+                                    : replaceChannel ? desiredChannel.candidate()
+                                    : selectCandidate(predicate, global, layer, profile, remainingRequests);
                             if (selected == null || selected.stack.isEmpty()
                                     || !(selected.stack.getItem() instanceof BlockItem)) {
+                                if (hasOnlyMachineCandidates(predicate)) continue;
                                 if (firstError == null) firstError = "no_candidate@" + pos.toShortString();
                                 continue;
                             }
@@ -202,10 +254,42 @@ public final class UltimateStructurePlanner {
                             entry.getValue().maximum, entry.getValue().configurable))
                     .sorted(Comparator.comparing(choice -> ForgeRegistries.ITEMS.getKey(choice.stack().getItem()).toString()))
                     .toList();
-            return new Plan(List.copyOf(placements), List.copyOf(cells), candidates, firstError);
+            return new Plan(List.copyOf(placements), List.copyOf(cells), candidates,
+                    channelChoices(profile, candidateStats), selectedPattern.choice(), firstError);
         } catch (ReflectiveOperationException | RuntimeException exception) {
             return Plan.failed("pattern_error:" + exception.getClass().getSimpleName());
         }
+    }
+
+    private static PatternSelection selectedPattern(IMultiController controller, TerminalBuildProfile profile) {
+        if (controller instanceof UltimateTerminalStructureVariants provider) {
+            List<UltimateTerminalStructureVariants.Variant> variants = provider.terminalStructureVariants();
+            if (!variants.isEmpty()) {
+                int configured = profile.channelSelection(UltimateTerminalStructureVariants.CHANNEL_ID);
+                int index = configured <= 0 ? variants.size() - 1 : Math.min(configured, variants.size()) - 1;
+                return new PatternSelection(variants.get(index).pattern(),
+                        new StructureChoice(index + 1, variants.stream()
+                                .map(UltimateTerminalStructureVariants.Variant::label).toList()));
+            }
+        }
+        return new PatternSelection(controller.getPattern(), StructureChoice.empty());
+    }
+
+    private static PatternSelection formedPattern(IMultiController controller) {
+        if (controller instanceof UltimateTerminalStructureVariants provider) {
+            List<UltimateTerminalStructureVariants.Variant> variants = provider.terminalStructureVariants();
+            for (int i = 0; i < variants.size(); i++) {
+                var variant = variants.get(i);
+                if (variant.pattern().checkPatternAt(controller.getMultiblockState(), false)) {
+                    return new PatternSelection(variant.pattern(), new StructureChoice(i + 1,
+                            variants.stream().map(UltimateTerminalStructureVariants.Variant::label).toList()));
+                }
+            }
+            return null;
+        }
+        BlockPattern pattern = controller.getPattern();
+        return pattern.checkPatternAt(controller.getMultiblockState(), false)
+                ? new PatternSelection(pattern, StructureChoice.empty()) : null;
     }
 
     private static Candidate matchingCandidate(ServerLevel level, BlockPos pos,
@@ -222,27 +306,26 @@ public final class UltimateStructurePlanner {
     }
 
     private static Candidate selectCandidate(TraceabilityPredicate predicate,
-                                             Map<SimplePredicate, Integer> global,
-                                             Map<SimplePredicate, Integer> layer,
-                                             int coilTier, boolean buildHatches,
-                                             Map<ResourceLocation, Integer> remainingRequests) {
+                                              Map<SimplePredicate, Integer> global,
+                                              Map<SimplePredicate, Integer> layer,
+                                              TerminalBuildProfile profile,
+                                              Map<ResourceLocation, Integer> remainingRequests) {
         for (SimplePredicate simple : predicate.limited) {
             if (simple.minLayerCount > 0 && layer.getOrDefault(simple, 0) < simple.minLayerCount) {
-                Candidate candidate = first(simple, coilTier, buildHatches);
+                Candidate candidate = first(simple, profile);
                 if (candidate != null) return candidate;
             }
         }
         for (SimplePredicate simple : predicate.limited) {
             if (simple.minCount > 0 && global.getOrDefault(simple, 0) < simple.minCount) {
-                Candidate candidate = first(simple, coilTier, buildHatches);
+                Candidate candidate = first(simple, profile);
                 if (candidate != null) return candidate;
             }
         }
-        Candidate requested = requestedCandidate(predicate, global, layer, coilTier,
-                buildHatches, remainingRequests);
+        Candidate requested = requestedCandidate(predicate, global, layer, profile, remainingRequests);
         if (requested != null) return requested;
         for (SimplePredicate simple : predicate.common) {
-            Candidate candidate = first(simple, coilTier, buildHatches);
+            Candidate candidate = first(simple, profile);
             if (candidate != null) return candidate;
         }
         for (SimplePredicate simple : predicate.limited) {
@@ -250,7 +333,7 @@ public final class UltimateStructurePlanner {
             int layerCount = layer.getOrDefault(simple, 0);
             if ((simple.maxCount < 0 || globalCount < simple.maxCount)
                     && (simple.maxLayerCount < 0 || layerCount < simple.maxLayerCount)) {
-                Candidate candidate = first(simple, coilTier, buildHatches);
+                Candidate candidate = first(simple, profile);
                 if (candidate != null) return candidate;
             }
         }
@@ -258,15 +341,15 @@ public final class UltimateStructurePlanner {
     }
 
     private static Candidate requestedCandidate(TraceabilityPredicate predicate,
-                                                Map<SimplePredicate, Integer> global,
-                                                Map<SimplePredicate, Integer> layer,
-                                                int coilTier, boolean buildHatches,
-                                                Map<ResourceLocation, Integer> remainingRequests) {
+                                                 Map<SimplePredicate, Integer> global,
+                                                 Map<SimplePredicate, Integer> layer,
+                                                 TerminalBuildProfile profile,
+                                                 Map<ResourceLocation, Integer> remainingRequests) {
         for (ResourceLocation requestedId : remainingRequests.keySet()) {
             if (remainingRequests.getOrDefault(requestedId, 0) <= 0) continue;
             for (SimplePredicate simple : combined(predicate)) {
                 if (!withinMaximum(simple, global, layer)) continue;
-                for (ItemStack stack : candidates(simple, coilTier, buildHatches)) {
+                for (ItemStack stack : candidates(simple, profile)) {
                     ResourceLocation blockId = blockId(stack);
                     if (requestedId.equals(blockId)) return new Candidate(stack, simple);
                 }
@@ -281,46 +364,63 @@ public final class UltimateStructurePlanner {
                 && (simple.maxLayerCount < 0 || layer.getOrDefault(simple, 0) < simple.maxLayerCount);
     }
 
-    private static Candidate first(SimplePredicate predicate, int coilTier, boolean buildHatches) {
-        List<ItemStack> candidates = candidates(predicate, coilTier, buildHatches);
+    private static Candidate first(SimplePredicate predicate, TerminalBuildProfile profile) {
+        List<ItemStack> candidates = candidates(predicate, profile);
         return candidates.isEmpty() ? null : new Candidate(candidates.get(0), predicate);
     }
 
-    private static List<ItemStack> candidates(SimplePredicate predicate, int coilTier, boolean buildHatches) {
+    private static List<ItemStack> candidates(SimplePredicate predicate, TerminalBuildProfile profile) {
         List<ItemStack> stacks = new ArrayList<>();
-        ItemStack selectedCoil = ItemStack.EMPTY;
+        List<ItemStack> raw = rawCandidates(predicate).stream()
+                .filter(stack -> !(((BlockItem) stack.getItem()).getBlock() instanceof MetaMachineBlock))
+                .toList();
+        ItemStack selectedCoil = preferredCoilStack(raw, profile);
+        if (!selectedCoil.isEmpty()) return List.of(selectedCoil);
+        ItemStack selectedChannel = preferredChannelStack(raw, profile);
+        if (!selectedChannel.isEmpty()) return List.of(selectedChannel);
+        ItemStack legacySelectedCoil = ItemStack.EMPTY;
         int selectedDistance = Integer.MAX_VALUE;
-        for (ItemStack stack : rawCandidates(predicate)) {
+        for (ItemStack stack : raw) {
             Block block = ((BlockItem) stack.getItem()).getBlock();
-            if (!buildHatches && block instanceof MetaMachineBlock) continue;
-            if (block instanceof CoilBlock coil && coilTier > 0) {
-                int distance = Math.abs((coil.coilType.getTier() + 1) - coilTier);
+            if (block instanceof CoilBlock coil && profile.coilTier() > 0) {
+                int distance = Math.abs((coil.coilType.getTier() + 1) - profile.coilTier());
                 if (distance < selectedDistance) {
                     selectedDistance = distance;
-                    selectedCoil = stack;
+                    legacySelectedCoil = stack;
                 }
             } else {
                 stacks.add(stack);
             }
         }
-        if (!selectedCoil.isEmpty()) return List.of(selectedCoil);
+        if (!legacySelectedCoil.isEmpty()) return List.of(legacySelectedCoil);
         return stacks;
     }
 
     private static List<ItemStack> rawCandidates(SimplePredicate predicate) {
-        if (predicate.candidates == null) return List.of();
-        BlockInfo[] infos = predicate.candidates.get();
-        if (infos == null) return List.of();
         LinkedHashMap<ResourceLocation, ItemStack> stacks = new LinkedHashMap<>();
-        for (BlockInfo info : infos) {
-            Block block = info.getBlockState().getBlock();
-            ItemStack stack = info.getItemStackForm();
+        // Use GTCEu's public candidate API instead of reading its supplier field directly. Besides
+        // insulating the terminal from GTCEu internals, this lets addon predicates customize or
+        // override candidate resolution and still participate in terminal planning.
+        for (ItemStack stack : predicate.getCandidates()) {
+            if (!(stack.getItem() instanceof BlockItem blockItem)) continue;
+            Block block = blockItem.getBlock();
             ResourceLocation id = ForgeRegistries.BLOCKS.getKey(block);
-            if (block != Blocks.AIR && id != null && !stack.isEmpty() && stack.getItem() instanceof BlockItem) {
+            if (block != Blocks.AIR && id != null && !stack.isEmpty()) {
                 stacks.putIfAbsent(id, stack.copyWithCount(1));
             }
         }
         return List.copyOf(stacks.values());
+    }
+
+    private static boolean hasOnlyMachineCandidates(TraceabilityPredicate predicate) {
+        boolean found = false;
+        for (SimplePredicate simple : combined(predicate)) {
+            for (ItemStack stack : rawCandidates(simple)) {
+                found = true;
+                if (!(((BlockItem) stack.getItem()).getBlock() instanceof MetaMachineBlock)) return false;
+            }
+        }
+        return found;
     }
 
     private static Candidate closestCoil(TraceabilityPredicate predicate, int coilTier) {
@@ -341,12 +441,146 @@ public final class UltimateStructurePlanner {
         return best;
     }
 
+    private static Candidate selectedCoil(TraceabilityPredicate predicate, TerminalBuildProfile profile) {
+        int selected = profile.channelSelection("coil");
+        if (selected <= 0) {
+            return profile.coilTier() > 0 ? closestCoil(predicate, profile.coilTier()) : null;
+        }
+        List<Candidate> coils = new ArrayList<>();
+        for (SimplePredicate simple : combined(predicate)) {
+            for (ItemStack stack : rawCandidates(simple)) {
+                if (((BlockItem) stack.getItem()).getBlock() instanceof CoilBlock) {
+                    coils.add(new Candidate(stack, simple));
+                }
+            }
+        }
+        coils.sort(Comparator.comparingInt(candidate ->
+                ((CoilBlock) ((BlockItem) candidate.stack().getItem()).getBlock()).coilType.getTier()));
+        return coils.isEmpty() ? null : coils.get(Math.min(selected, coils.size()) - 1);
+    }
+
+    private static ItemStack preferredCoilStack(List<ItemStack> candidates, TerminalBuildProfile profile) {
+        int selected = profile.channelSelection("coil");
+        if (selected <= 0) return ItemStack.EMPTY;
+        List<ItemStack> coils = candidates.stream()
+                .filter(stack -> ((BlockItem) stack.getItem()).getBlock() instanceof CoilBlock)
+                .sorted(Comparator.comparingInt(stack ->
+                        ((CoilBlock) ((BlockItem) stack.getItem()).getBlock()).coilType.getTier()))
+                .toList();
+        return coils.isEmpty() ? ItemStack.EMPTY : coils.get(Math.min(selected, coils.size()) - 1);
+    }
+
+    private static ChannelMatch closestChannel(TraceabilityPredicate predicate, TerminalBuildProfile profile) {
+        for (UltimateTerminalConfig.SelectionChannel channel : UltimateTerminalConfig.selectionChannels()) {
+            int selected = profile.channelSelection(channel.id());
+            if (selected <= 0) continue;
+            List<ItemStack> options = resolvedOptions(channel);
+            if (options.isEmpty()) continue;
+            int requested = Math.min(selected, options.size()) - 1;
+            Candidate best = null;
+            int distance = Integer.MAX_VALUE;
+            for (SimplePredicate simple : combined(predicate)) {
+                for (ItemStack stack : rawCandidates(simple)) {
+                    int index = optionIndex(options, stack);
+                    if (index >= 0 && Math.abs(index - requested) < distance) {
+                        best = new Candidate(stack, simple);
+                        distance = Math.abs(index - requested);
+                    }
+                }
+            }
+            if (best != null) return new ChannelMatch(channel.id(), best);
+        }
+        return null;
+    }
+
+    private static ItemStack preferredChannelStack(List<ItemStack> candidates, TerminalBuildProfile profile) {
+        for (UltimateTerminalConfig.SelectionChannel channel : UltimateTerminalConfig.selectionChannels()) {
+            int selected = profile.channelSelection(channel.id());
+            if (selected <= 0) continue;
+            List<ItemStack> options = resolvedOptions(channel);
+            if (options.isEmpty()) continue;
+            int requested = Math.min(selected, options.size()) - 1;
+            ItemStack best = ItemStack.EMPTY;
+            int distance = Integer.MAX_VALUE;
+            for (ItemStack candidate : candidates) {
+                int index = optionIndex(options, candidate);
+                if (index >= 0 && Math.abs(index - requested) < distance) {
+                    best = candidate;
+                    distance = Math.abs(index - requested);
+                }
+            }
+            if (!best.isEmpty()) return best;
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static boolean channelContains(String channelId, ItemStack stack) {
+        if (channelId.equals("coil")) {
+            return stack.getItem() instanceof BlockItem item && item.getBlock() instanceof CoilBlock;
+        }
+        UltimateTerminalConfig.SelectionChannel channel = UltimateTerminalConfig.channel(channelId);
+        return channel != null && optionIndex(resolvedOptions(channel), stack) >= 0;
+    }
+
+    private static List<ChannelChoice> channelChoices(TerminalBuildProfile profile,
+                                                       Map<ResourceLocation, CandidateAccumulator> stats) {
+        List<ChannelChoice> choices = new ArrayList<>();
+        List<ItemStack> coils = stats.values().stream().map(value -> value.stack)
+                .filter(stack -> stack.getItem() instanceof BlockItem item && item.getBlock() instanceof CoilBlock)
+                .sorted(Comparator.comparingInt(stack ->
+                        ((CoilBlock) ((BlockItem) stack.getItem()).getBlock()).coilType.getTier()))
+                .map(stack -> stack.copyWithCount(1)).toList();
+        if (coils.size() >= 2) {
+            int selected = profile.channelSelection("coil");
+            if (selected <= 0 && profile.coilTier() > 0) {
+                int bestDistance = Integer.MAX_VALUE;
+                for (int i = 0; i < coils.size(); i++) {
+                    int tier = ((CoilBlock) ((BlockItem) coils.get(i).getItem()).getBlock()).coilType.getTier() + 1;
+                    int distance = Math.abs(tier - profile.coilTier());
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        selected = i + 1;
+                    }
+                }
+            }
+            choices.add(new ChannelChoice("coil", Math.min(selected, coils.size()), coils));
+        }
+        for (UltimateTerminalConfig.SelectionChannel channel : UltimateTerminalConfig.selectionChannels()) {
+            List<ItemStack> options = resolvedOptions(channel);
+            long applicable = options.stream().map(UltimateStructurePlanner::blockId)
+                    .filter(java.util.Objects::nonNull).filter(stats::containsKey).count();
+            if (applicable < 2) continue;
+            choices.add(new ChannelChoice(channel.id(),
+                    Math.min(profile.channelSelection(channel.id()), options.size()), options));
+        }
+        return List.copyOf(choices);
+    }
+
+    private static List<ItemStack> resolvedOptions(UltimateTerminalConfig.SelectionChannel channel) {
+        List<ItemStack> options = new ArrayList<>();
+        for (ResourceLocation id : channel.blocks()) {
+            Block block = ForgeRegistries.BLOCKS.getValue(id);
+            if (block == null || block instanceof MetaMachineBlock) continue;
+            ItemStack stack = block.asItem().getDefaultInstance();
+            if (!stack.isEmpty() && stack.getItem() instanceof BlockItem) options.add(stack.copyWithCount(1));
+        }
+        return List.copyOf(options);
+    }
+
+    private static int optionIndex(List<ItemStack> options, ItemStack stack) {
+        for (int i = 0; i < options.size(); i++) {
+            if (options.get(i).getItem() == stack.getItem()) return i;
+        }
+        return -1;
+    }
+
     private static void collectCandidateStats(TraceabilityPredicate predicate,
                                               Map<ResourceLocation, CandidateAccumulator> stats) {
         Set<ResourceLocation> cellCandidates = new HashSet<>();
         Map<ResourceLocation, ItemStack> stacks = new HashMap<>();
         for (SimplePredicate simple : combined(predicate)) {
             for (ItemStack stack : rawCandidates(simple)) {
+                if (((BlockItem) stack.getItem()).getBlock() instanceof MetaMachineBlock) continue;
                 ResourceLocation id = blockId(stack);
                 if (id != null) {
                     cellCandidates.add(id);
@@ -390,6 +624,10 @@ public final class UltimateStructurePlanner {
     }
 
     private record Candidate(ItemStack stack, SimplePredicate predicate) {}
+
+    private record ChannelMatch(String id, Candidate candidate) {}
+
+    private record PatternSelection(BlockPattern pattern, StructureChoice choice) {}
 
     private static final class CandidateAccumulator {
         final ItemStack stack;
