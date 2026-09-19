@@ -1,5 +1,6 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
+import com.mojang.authlib.GameProfile;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
@@ -25,6 +26,8 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+
+import java.util.UUID;
 
 /** Regression coverage for the Ultimate Terminal profile and hologram blueprint model. */
 @GameTestHolder(GregSteamExpansion.MOD_ID)
@@ -228,6 +231,45 @@ public final class GSETerminalTests {
                         value.stack().getItem() instanceof net.minecraft.world.item.BlockItem item
                                 && item.getBlock() instanceof com.gregtechceu.gtceu.api.block.MetaMachineBlock),
                 "No-hatch mode planned a machine part block");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void creativePlayerBuildsWithoutInventoryOrAeMaterials(GameTestHelper helper) {
+        GSEStructureTestUtils.placeMachine(helper, GSEMachines.STEAM_CRUSHER, CONTROLLER);
+        BlockPos controllerPos = helper.absolutePos(CONTROLLER);
+        UltimateStructurePlanner.Plan plan = UltimateStructurePlanner.plan(
+                helper.getLevel(), controllerPos, new TerminalBuildProfile(), false);
+        helper.assertTrue(plan.valid() && !plan.placements().isEmpty(),
+                "Creative-material fixture did not produce a buildable terminal plan: " + plan.error());
+
+        var player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
+                UUID.fromString("4959907e-f7ba-4597-a069-0e11c21bcbd4"), "[GSE creative terminal]"));
+        player.getAbilities().instabuild = true;
+        player.getInventory().clearContent();
+        UltimateTerminalWorldData data = UltimateTerminalWorldData.get(helper.getLevel().getServer());
+        helper.assertTrue(data.addTarget(player, helper.getLevel().dimension(), controllerPos),
+                "Creative player could not add the terminal target");
+        var preview = data.preview(player);
+        helper.assertTrue(preview.unlimitedMaterials()
+                        && preview.selectedMaterials().stream().allMatch(material ->
+                                material.inventory() == 0 && material.network() == 0),
+                "Creative terminal preview still depended on inventory or AE material counts");
+        helper.assertTrue(data.start(player),
+                "Creative player with an empty inventory could not start the terminal build");
+
+        for (int i = 0; i < 64 && data.state(player.getUUID()) !=
+                UltimateTerminalWorldData.JobState.COMPLETE; i++) {
+            data.tickPlayer(player, 256);
+        }
+        helper.assertTrue(data.state(player.getUUID()) == UltimateTerminalWorldData.JobState.COMPLETE,
+                "Creative terminal build did not complete without escrowed materials");
+        helper.assertTrue(plan.placements().stream().allMatch(placement ->
+                        helper.getLevel().getBlockState(placement.pos()).getBlock().asItem()
+                                == placement.stack().getItem()),
+                "Creative terminal build did not place every planned block");
+        helper.assertTrue(player.getInventory().isEmpty() && data.pendingCount(player.getUUID()) == 0,
+                "Creative terminal build consumed or generated inventory materials");
         helper.succeed();
     }
 }

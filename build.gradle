@@ -195,10 +195,11 @@ dependencies {
         runtimeOnly(fg.deobf("curse.maven:modern-ui-352491:${modernui_file_id}")) { transitive = false }
     }
 
-    // FTB Chunks is mounted in the development client so chunk claiming and
-    // force-loading can be exercised in integrated test worlds. CurseMaven
-    // does not resolve its required mod relations, so mount the exact Forge
-    // 1.20.1 Architectury, FTB Library and FTB Teams prerequisites explicitly.
+    // The FTB test-client suite supplies sidebar utilities, trash inventory,
+    // chunk claiming/force-loading and vein mining in integrated test worlds.
+    // CurseMaven does not resolve required mod relations, so mount the exact
+    // Forge 1.20.1 Architectury, FTB Library and FTB Teams prerequisites
+    // explicitly. These are development aids and are not published dependencies.
     if (mountClientDevAids) {
         runtimeOnly(fg.deobf("curse.maven:architectury-api-419699:${architectury_file_id}")) {
             transitive = false
@@ -210,6 +211,12 @@ dependencies {
             transitive = false
         }
         runtimeOnly(fg.deobf("curse.maven:ftb-chunks-forge-314906:${ftb_chunks_file_id}")) {
+            transitive = false
+        }
+        runtimeOnly(fg.deobf("curse.maven:ftb-essentials-410811:${ftb_essentials_file_id}")) {
+            transitive = false
+        }
+        runtimeOnly(fg.deobf("curse.maven:ftb-ultimine-forge-386134:${ftb_ultimine_file_id}")) {
             transitive = false
         }
     }

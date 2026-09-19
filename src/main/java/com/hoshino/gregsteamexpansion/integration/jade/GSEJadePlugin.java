@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.integration.jade;
 import com.gregtechceu.gtceu.api.block.MetaMachineBlock;
 import com.gregtechceu.gtceu.api.blockentity.MetaMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
+import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.client.StructureErrorHighlight;
@@ -34,6 +35,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 
 import net.minecraftforge.registries.ForgeRegistries;
@@ -49,7 +52,13 @@ import snownee.jade.api.IWailaCommonRegistration;
 import snownee.jade.api.IWailaPlugin;
 import snownee.jade.api.WailaPlugin;
 import snownee.jade.api.config.IPluginConfig;
+import snownee.jade.api.fluid.JadeFluidObject;
 import snownee.jade.api.ui.BoxStyle;
+import snownee.jade.api.view.ClientViewGroup;
+import snownee.jade.api.view.FluidView;
+import snownee.jade.api.view.IClientExtensionProvider;
+import snownee.jade.api.view.IServerExtensionProvider;
+import snownee.jade.api.view.ViewGroup;
 
 import java.util.List;
 
@@ -98,6 +107,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockDataProvider(LargeCokeOvenHatchProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(StructureDiagnosticsProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(SteamTankProvider.INSTANCE, MetaMachineBlockEntity.class);
+        registration.registerFluidStorage(SteamTankFluidProvider.INSTANCE, MetaMachineBlockEntity.class);
     }
 
     @Override
@@ -114,6 +124,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
         registration.registerBlockComponent(LargeCokeOvenHatchProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(StructureDiagnosticsProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(SteamTankProvider.INSTANCE, MetaMachineBlock.class);
+        registration.registerFluidStorageClient(SteamTankFluidProvider.INSTANCE);
         registration.registerBlockComponent(OwnedBrickProvider.INSTANCE,
                 com.gregtechceu.gtceu.common.data.GTBlocks.CASING_COKE_BRICKS.get().getClass());
         registration.addTooltipCollectedCallback(TooltipDeduplication.INSTANCE);
@@ -181,10 +192,6 @@ public final class GSEJadePlugin implements IWailaPlugin {
             } else if (machine instanceof LargeCokeOvenHatchPartMachine) {
                 removeNativeStorageDuplicates(tooltip, LARGE_COKE_OVEN_HATCH_ITEM_SUMMARY,
                         LARGE_COKE_OVEN_HATCH_FLUID_SUMMARY);
-            } else if (machine instanceof SteamTankValvePartMachine &&
-                    contributed(tooltip, SteamTankProvider.UID) &&
-                    contributed(tooltip, Identifiers.UNIVERSAL_FLUID_STORAGE)) {
-                tooltip.remove(Identifiers.UNIVERSAL_FLUID_STORAGE);
             }
         }
 
@@ -1147,6 +1154,45 @@ public final class GSEJadePlugin implements IWailaPlugin {
      * {@code MultiblockState} 永远是初始态, 直接读拿不到任何原因。诊断以
      * ItemStack/坐标的形式序列化, 方块名由客户端按本地语言渲染 (设计文档 R6)。
      */
+    /**
+     * Supplies the controller's internal steam store to Jade's standard fluid-view renderer.
+     * The controller intentionally exposes no Forge fluid capability, so this display-only
+     * provider does not make it available to pipes or other automation. Valves continue to use
+     * GTCEu's normal capability-backed fluid provider.
+     */
+    private enum SteamTankFluidProvider implements
+            IServerExtensionProvider<MetaMachineBlockEntity, CompoundTag>,
+            IClientExtensionProvider<CompoundTag, FluidView> {
+        INSTANCE;
+
+        private static final ResourceLocation UID = GregSteamExpansion.id("large_steam_tank_storage");
+
+        @Override
+        public List<ClientViewGroup<FluidView>> getClientGroups(
+                Accessor<?> accessor, List<ViewGroup<CompoundTag>> groups) {
+            return ClientViewGroup.map(groups, FluidView::readDefault, null);
+        }
+
+        @Override
+        public List<ViewGroup<CompoundTag>> getGroups(ServerPlayer player, ServerLevel level,
+                                                       MetaMachineBlockEntity blockEntity,
+                                                       boolean showDetails) {
+            if (!(blockEntity.getMetaMachine() instanceof LargeSteamTankMachine tank)
+                    || !tank.isFormed() || tank.getFormedCapacity() <= 0) {
+                return List.of();
+            }
+            CompoundTag fluid = FluidView.writeDefault(
+                    JadeFluidObject.of(GTMaterials.Steam.getFluid(), tank.getStoredAmount()),
+                    tank.getFormedCapacity());
+            return List.of(new ViewGroup<>(List.of(fluid)));
+        }
+
+        @Override
+        public ResourceLocation getUid() {
+            return UID;
+        }
+    }
+
     private enum SteamTankProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
         INSTANCE;
 
@@ -1176,8 +1222,6 @@ public final class GSEJadePlugin implements IWailaPlugin {
             data.putBoolean("outputMode", outputMode);
             data.putBoolean("formed", tank != null && tank.isFormed());
             if (tank != null) {
-                data.putInt("amount", tank.getStoredAmount());
-                data.putInt("capacity", tank.getFormedCapacity());
                 data.putInt("width", tank.getFormedWidth());
                 data.putInt("height", tank.getFormedHeight());
                 data.putInt("valves", tank.getValveCount());
@@ -1200,9 +1244,6 @@ public final class GSEJadePlugin implements IWailaPlugin {
                 tooltip.add(Component.translatable("gregsteamexpansion.jade.large_steam_tank.unformed"));
                 return;
             }
-            tooltip.add(Component.translatable("gregsteamexpansion.jade.large_steam_tank.storage",
-                    FormattingUtil.formatNumbers(data.getInt("amount")),
-                    FormattingUtil.formatNumbers(data.getInt("capacity"))));
             tooltip.add(Component.translatable("gregsteamexpansion.jade.large_steam_tank.structure",
                     data.getInt("width"), data.getInt("width"), data.getInt("height"), data.getInt("valves")));
             if (data.getBoolean("overCapacity")) {

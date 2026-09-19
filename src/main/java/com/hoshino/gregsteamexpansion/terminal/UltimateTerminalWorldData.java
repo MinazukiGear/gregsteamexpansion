@@ -40,7 +40,7 @@ import java.util.UUID;
 /** Persistent owner projects, transaction escrow and rate-limited construction jobs. */
 public final class UltimateTerminalWorldData extends SavedData {
     private static final String DATA_NAME = "gregsteamexpansion_ultimate_terminal";
-    private static final int DATA_VERSION = 3;
+    private static final int DATA_VERSION = 4;
     public static final int MAX_TARGETS = 16;
 
     public enum JobState {
@@ -169,7 +169,7 @@ public final class UltimateTerminalWorldData extends SavedData {
                               List<MaterialView> selectedMaterials,
                               List<MaterialView> batchMaterials,
                               TerminalBuildProfile profile, boolean targetOverride,
-                              String error) {}
+                              boolean unlimitedMaterials, String error) {}
 
     private record OwnedBlock(long pos, String blockId) {
         CompoundTag save() {
@@ -235,6 +235,7 @@ public final class UltimateTerminalWorldData extends SavedData {
         final UltimateTerminalMode mode;
         final List<TargetWork> targets;
         final List<ItemStack> escrow;
+        final boolean unlimitedMaterials;
         final List<ItemStack> recovered = new ArrayList<>();
         JobState state = JobState.RUNNING;
         int targetIndex;
@@ -242,10 +243,12 @@ public final class UltimateTerminalWorldData extends SavedData {
         int totalOperations;
         String failure = "";
 
-        Job(UltimateTerminalMode mode, List<TargetWork> targets, List<ItemStack> escrow) {
+        Job(UltimateTerminalMode mode, List<TargetWork> targets, List<ItemStack> escrow,
+            boolean unlimitedMaterials) {
             this.mode = mode;
             this.targets = targets;
             this.escrow = escrow;
+            this.unlimitedMaterials = unlimitedMaterials;
             this.totalOperations = targets.stream().mapToInt(work -> work.operations.size()).sum();
         }
 
@@ -257,6 +260,7 @@ public final class UltimateTerminalWorldData extends SavedData {
             tag.putInt("completedOperations", completedOperations);
             tag.putInt("totalOperations", totalOperations);
             tag.putString("failure", failure);
+            tag.putBoolean("unlimitedMaterials", unlimitedMaterials);
             ListTag targetList = new ListTag();
             targets.forEach(target -> targetList.add(target.save()));
             tag.put("targets", targetList);
@@ -272,7 +276,8 @@ public final class UltimateTerminalWorldData extends SavedData {
             int modeId = tag.getInt("mode");
             UltimateTerminalMode mode = modeId >= 0 && modeId < UltimateTerminalMode.values().length
                     ? UltimateTerminalMode.values()[modeId] : UltimateTerminalMode.BUILD;
-            Job job = new Job(mode, targets, loadStacks(tag.getList("escrow", Tag.TAG_COMPOUND)));
+            Job job = new Job(mode, targets, loadStacks(tag.getList("escrow", Tag.TAG_COMPOUND)),
+                    tag.getBoolean("unlimitedMaterials"));
             int stateId = tag.getInt("state");
             if (stateId >= 0 && stateId < JobState.values().length) job.state = JobState.values()[stateId];
             job.targetIndex = tag.getInt("targetIndex");
@@ -368,7 +373,7 @@ public final class UltimateTerminalWorldData extends SavedData {
         if (selected == null) {
             return new PreviewData(List.copyOf(targets), 0,
                     UltimateStructurePlanner.Plan.failed("no_target"), List.of(), List.of(),
-                    project.defaultProfile.copy(), false, "no_target");
+                    project.defaultProfile.copy(), false, hasUnlimitedMaterials(player), "no_target");
         }
         TerminalBuildProfile profile = profileFor(player.server, project, selected, false);
         UltimateStructurePlanner.Plan selectedPlan = planForPreview(player.server, project, selected, profile);
@@ -384,7 +389,7 @@ public final class UltimateTerminalWorldData extends SavedData {
         return new PreviewData(List.copyOf(targets), project.selectedTarget, selectedPlan,
                 materialViews(player, selectedRequirements, project.useAE),
                 materialViews(player, batchRequirements, project.useAE), profile.copy(),
-                project.overrides.containsKey(selected.key()), selectedPlan.error());
+                project.overrides.containsKey(selected.key()), hasUnlimitedMaterials(player), selectedPlan.error());
     }
 
     private UltimateStructurePlanner.Plan planForPreview(MinecraftServer server, Project project,
@@ -409,9 +414,11 @@ public final class UltimateTerminalWorldData extends SavedData {
     private static List<MaterialView> materialViews(ServerPlayer player, List<ItemStack> requirements,
                                                     boolean useAE) {
         List<MaterialView> views = new ArrayList<>();
+        boolean unlimitedMaterials = hasUnlimitedMaterials(player);
         for (ItemStack requirement : requirements) {
-            long inventory = countInventory(player, requirement);
-            long network = useAE ? UltimateTerminalAECompat.available(player, requirement) : 0;
+            long inventory = unlimitedMaterials ? 0 : countInventory(player, requirement);
+            long network = !unlimitedMaterials && useAE
+                    ? UltimateTerminalAECompat.available(player, requirement) : 0;
             views.add(new MaterialView(requirement.copy(), requirement.getCount(), inventory, network));
         }
         views.sort(java.util.Comparator
@@ -566,7 +573,7 @@ public final class UltimateTerminalWorldData extends SavedData {
                 }
                 works.add(new TargetWork(target, plan.placements()));
             }
-            project.job = new Job(project.mode, works, new ArrayList<>());
+            project.job = new Job(project.mode, works, new ArrayList<>(), false);
         } else {
             for (Target target : project.targets) {
                 ServerLevel level = player.server.getLevel(target.dimension());
@@ -582,16 +589,22 @@ public final class UltimateTerminalWorldData extends SavedData {
                 works.add(new TargetWork(target, plan.placements()));
                 for (var placement : plan.placements()) mergeRequirement(requirements, placement.stack(), 1);
             }
-            List<ItemStack> escrow = reserve(player, requirements, project.useAE);
+            boolean unlimitedMaterials = hasUnlimitedMaterials(player);
+            List<ItemStack> escrow = unlimitedMaterials
+                    ? new ArrayList<>() : reserve(player, requirements, project.useAE);
             if (escrow == null) {
                 player.displayClientMessage(Component.translatable(
                         "gregsteamexpansion.ultimate_terminal.materials_missing"), false);
                 return false;
             }
-            project.job = new Job(project.mode, works, escrow);
+            project.job = new Job(project.mode, works, escrow, unlimitedMaterials);
         }
         setDirty();
         return true;
+    }
+
+    private static boolean hasUnlimitedMaterials(ServerPlayer player) {
+        return player.getAbilities().instabuild;
     }
 
     public int tick(MinecraftServer server, int budget) {
@@ -603,56 +616,71 @@ public final class UltimateTerminalWorldData extends SavedData {
             Project project = entry.getValue();
             Job job = project.job;
             if (job == null || (job.state != JobState.RUNNING && job.state != JobState.PAUSED)) continue;
-            if (player == null || job.targetIndex >= job.targets.size()) {
-                if (player == null) job.state = JobState.PAUSED;
-                continue;
-            }
-            TargetWork work = job.targets.get(job.targetIndex);
-            ServerLevel level = server.getLevel(work.target.dimension());
-            if (level == null || player.level() != level || !level.hasChunkAt(work.target.pos())) {
+            if (player == null) {
                 job.state = JobState.PAUSED;
                 continue;
             }
-            job.state = JobState.RUNNING;
-            while (used < budget && work.cursor < work.operations.size()) {
-                if (!level.hasChunkAt(work.operations.get(work.cursor).pos())) {
-                    job.state = JobState.PAUSED;
-                    setDirty();
-                    break;
-                }
-                boolean success = job.mode == UltimateTerminalMode.DISMANTLE
-                        ? removeOne(level, job, work)
-                        : placeOne(level, player, job, work);
-                if (!success) {
-                    failCurrent(player, project, job, work, "operation_failed");
-                    break;
-                }
-                work.cursor++;
-                job.completedOperations++;
-                used++;
+            used += tickProject(server, player, project, budget - used);
+        }
+        return used;
+    }
+
+    public int tickPlayer(ServerPlayer player, int budget) {
+        if (budget <= 0) return 0;
+        Project project = projects.get(player.getUUID());
+        return project == null ? 0 : tickProject(player.server, player, project, budget);
+    }
+
+    private int tickProject(MinecraftServer server, ServerPlayer player, Project project, int budget) {
+        Job job = project.job;
+        if (job == null || (job.state != JobState.RUNNING && job.state != JobState.PAUSED)
+                || job.targetIndex >= job.targets.size()) return 0;
+        TargetWork work = job.targets.get(job.targetIndex);
+        ServerLevel level = server.getLevel(work.target.dimension());
+        if (level == null || player.level() != level || !level.hasChunkAt(work.target.pos())) {
+            job.state = JobState.PAUSED;
+            return 0;
+        }
+        job.state = JobState.RUNNING;
+        int used = 0;
+        while (used < budget && work.cursor < work.operations.size()) {
+            if (!level.hasChunkAt(work.operations.get(work.cursor).pos())) {
+                job.state = JobState.PAUSED;
                 setDirty();
+                break;
             }
-            if (job.state == JobState.RUNNING && work.cursor >= work.operations.size()) {
-                if (job.mode != UltimateTerminalMode.DISMANTLE && !validateOperations(level, work)) {
-                    failCurrent(player, project, job, work, "structure_invalid");
+            boolean success = job.mode == UltimateTerminalMode.DISMANTLE
+                    ? removeOne(level, job, work)
+                    : placeOne(level, player, job, work);
+            if (!success) {
+                failCurrent(player, project, job, work, "operation_failed");
+                break;
+            }
+            work.cursor++;
+            job.completedOperations++;
+            used++;
+            setDirty();
+        }
+        if (job.state == JobState.RUNNING && work.cursor >= work.operations.size()) {
+            if (job.mode != UltimateTerminalMode.DISMANTLE && !validateOperations(level, work)) {
+                failCurrent(player, project, job, work, "structure_invalid");
+            } else {
+                if (job.mode == UltimateTerminalMode.DISMANTLE) {
+                    project.ownedPositions.remove(work.target.key());
                 } else {
-                    if (job.mode == UltimateTerminalMode.DISMANTLE) {
-                        project.ownedPositions.remove(work.target.key());
-                    } else {
-                        List<OwnedBlock> owned = project.ownedPositions.computeIfAbsent(
-                                work.target.key(), ignored -> new ArrayList<>());
-                        for (long encoded : work.changed) {
-                            ResourceLocation blockId = ForgeRegistries.BLOCKS.getKey(
-                                    level.getBlockState(BlockPos.of(encoded)).getBlock());
-                            if (blockId == null) continue;
-                            owned.removeIf(block -> block.pos() == encoded);
-                            owned.add(new OwnedBlock(encoded, blockId.toString()));
-                        }
+                    List<OwnedBlock> owned = project.ownedPositions.computeIfAbsent(
+                            work.target.key(), ignored -> new ArrayList<>());
+                    for (long encoded : work.changed) {
+                        ResourceLocation blockId = ForgeRegistries.BLOCKS.getKey(
+                                level.getBlockState(BlockPos.of(encoded)).getBlock());
+                        if (blockId == null) continue;
+                        owned.removeIf(block -> block.pos() == encoded);
+                        owned.add(new OwnedBlock(encoded, blockId.toString()));
                     }
-                    job.targetIndex++;
-                    if (job.targetIndex >= job.targets.size()) finish(player, project, job);
-                    setDirty();
                 }
+                job.targetIndex++;
+                if (job.targetIndex >= job.targets.size()) finish(player, project, job);
+                setDirty();
             }
         }
         return used;
@@ -672,7 +700,7 @@ public final class UltimateTerminalWorldData extends SavedData {
         }
         ItemStack placing = operation.stack().copyWithCount(1);
         if (!(placing.getItem() instanceof BlockItem blockItem)) return false;
-        if (!consume(job.escrow, operation.stack())) return false;
+        if (!job.unlimitedMaterials && !consume(job.escrow, operation.stack())) return false;
         if (replacing) level.setBlockAndUpdate(operation.pos(), Blocks.AIR.defaultBlockState());
         BlockPlaceContext context = new BlockPlaceContext(level, player, InteractionHand.MAIN_HAND, placing,
                 new BlockHitResult(Vec3.atCenterOf(operation.pos()), net.minecraft.core.Direction.UP,
@@ -682,10 +710,12 @@ public final class UltimateTerminalWorldData extends SavedData {
             if (replacing && operation.replaced().getItem() instanceof BlockItem oldBlock) {
                 level.setBlockAndUpdate(operation.pos(), oldBlock.getBlock().defaultBlockState());
             }
-            addSplit(job.escrow, operation.stack().copyWithCount(1));
+            if (!job.unlimitedMaterials) addSplit(job.escrow, operation.stack().copyWithCount(1));
             return false;
         }
-        if (replacing) addSplit(job.recovered, operation.replaced().copyWithCount(1));
+        if (replacing && !job.unlimitedMaterials) {
+            addSplit(job.recovered, operation.replaced().copyWithCount(1));
+        }
         work.changed.add(operation.pos().asLong());
         return true;
     }
@@ -722,7 +752,7 @@ public final class UltimateTerminalWorldData extends SavedData {
                         level.setBlockAndUpdate(operation.pos(), Blocks.AIR.defaultBlockState());
                     }
                 }
-                addSplit(job.escrow, operation.stack().copyWithCount(1));
+                if (!job.unlimitedMaterials) addSplit(job.escrow, operation.stack().copyWithCount(1));
             }
         }
         job.state = JobState.FAILED;

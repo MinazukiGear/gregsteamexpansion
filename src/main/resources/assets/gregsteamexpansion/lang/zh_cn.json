@@ -49,7 +49,7 @@
   "gregsteamexpansion.ultimate_terminal.tab.preview": "预览",
   "gregsteamexpansion.ultimate_terminal.tab.materials": "材料",
   "gregsteamexpansion.ultimate_terminal.tab.channels": "信道",
-  "gregsteamexpansion.ultimate_terminal.tab.parts": "部件",
+  "gregsteamexpansion.ultimate_terminal.tab.quotas": "方块配额",
   "gregsteamexpansion.ultimate_terminal.refresh": "刷新",
   "gregsteamexpansion.ultimate_terminal.profile.override": "配置：当前目标覆盖",
   "gregsteamexpansion.ultimate_terminal.profile.template": "配置：机器类型模板",
@@ -59,7 +59,10 @@
   "gregsteamexpansion.ultimate_terminal.materials.batch": "材料：整个批次",
   "gregsteamexpansion.ultimate_terminal.materials.target": "材料：当前目标",
   "gregsteamexpansion.ultimate_terminal.materials.legend": "需求 / 背包 / AE / 缺少",
-  "gregsteamexpansion.ultimate_terminal.parts.legend": "目标数量 / 已存在 / 合法位置",
+  "gregsteamexpansion.ultimate_terminal.materials.unlimited": "%s / 无限",
+  "gregsteamexpansion.ultimate_terminal.materials.creative_legend": "需求 / 创造模式无限材料",
+  "gregsteamexpansion.ultimate_terminal.quotas.legend": "目标配额 / 已存在 / 候选位置",
+  "gregsteamexpansion.ultimate_terminal.quotas.empty": "此结构没有可互换的普通方块",
   "gregsteamexpansion.ultimate_terminal.channel.auto": "自动",
   "gregsteamexpansion.ultimate_terminal.channel.structure_size": "结构尺寸",
   "gregsteamexpansion.ultimate_terminal.channel.coil": "线圈方块",
@@ -759,8 +762,8 @@
   "gregsteamexpansion.jade.large_steam_tank.input": "输入",
   "gregsteamexpansion.jade.large_steam_tank.output": "输出",
   "gregsteamexpansion.jade.large_steam_tank.unformed": "储罐结构未成型",
-  "gregsteamexpansion.jade.large_steam_tank.storage": "蒸汽：%s / %s mB",
   "gregsteamexpansion.jade.large_steam_tank.structure": "结构：%s×%s×%s；%s 个阀门",
   "gregsteamexpansion.jade.large_steam_tank.over_capacity": "存量超过当前容量——仅允许输出",
-  "config.jade.plugin_gregsteamexpansion.large_steam_tank_info": "大型蒸汽储罐信息"
+  "config.jade.plugin_gregsteamexpansion.large_steam_tank_info": "大型蒸汽储罐信息",
+  "config.jade.plugin_gregsteamexpansion.large_steam_tank_storage": "大型蒸汽储罐储量条"
 }

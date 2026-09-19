@@ -52,7 +52,8 @@ public final class UltimateTerminalClientState {
         snapshot = new UltimateTerminalSnapshot(current.revision(), current.targets(), current.selectedTarget(),
                 current.dimension(), current.controller(), java.util.List.copyOf(cells),
                 packet.selectedMaterials(), packet.batchMaterials(), packet.candidates(),
-                packet.channels(), packet.structure(), packet.targetOverride(), packet.error());
+                packet.channels(), packet.structure(), packet.targetOverride(), packet.unlimitedMaterials(),
+                packet.error());
     }
 
     public static @Nullable UltimateTerminalSnapshot snapshot() { return snapshot; }

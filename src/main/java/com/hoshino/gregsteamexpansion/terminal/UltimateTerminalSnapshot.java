@@ -20,6 +20,7 @@ public record UltimateTerminalSnapshot(
         List<ChannelInfo> channels,
         StructureInfo structure,
         boolean targetOverride,
+        boolean unlimitedMaterials,
         String error) {
 
     public static final int MAX_CELLS = 8192;
@@ -44,7 +45,7 @@ public record UltimateTerminalSnapshot(
             return new UltimateTerminalSnapshot(revision, List.of(), 0,
                     ResourceLocation.fromNamespaceAndPath("minecraft", "overworld"), BlockPos.ZERO,
                     List.of(), List.of(), List.of(), List.of(), List.of(), StructureInfo.empty(),
-                    false, preview.error());
+                    false, preview.unlimitedMaterials(), preview.error());
         }
         var target = preview.targets().get(Math.max(0,
                 Math.min(preview.selectedTarget(), preview.targets().size() - 1)));
@@ -74,6 +75,7 @@ public record UltimateTerminalSnapshot(
                 preview.plan().structure().options());
         return new UltimateTerminalSnapshot(revision, targets, preview.selectedTarget(), target.dimension(),
                 target.pos(), cells, selectedMaterials, batchMaterials, candidates,
-                channels, structure, preview.targetOverride(), preview.error() == null ? "" : preview.error());
+                channels, structure, preview.targetOverride(), preview.unlimitedMaterials(),
+                preview.error() == null ? "" : preview.error());
     }
 }

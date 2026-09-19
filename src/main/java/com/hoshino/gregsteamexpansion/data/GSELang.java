@@ -62,7 +62,7 @@ public final class GSELang {
         add("gregsteamexpansion.ultimate_terminal.tab.preview", "Preview");
         add("gregsteamexpansion.ultimate_terminal.tab.materials", "Materials");
         add("gregsteamexpansion.ultimate_terminal.tab.channels", "Channels");
-        add("gregsteamexpansion.ultimate_terminal.tab.parts", "Parts");
+        add("gregsteamexpansion.ultimate_terminal.tab.quotas", "Quotas");
         add("gregsteamexpansion.ultimate_terminal.refresh", "Refresh");
         add("gregsteamexpansion.ultimate_terminal.profile.override", "Profile: Target override");
         add("gregsteamexpansion.ultimate_terminal.profile.template", "Profile: Machine template");
@@ -72,7 +72,12 @@ public final class GSELang {
         add("gregsteamexpansion.ultimate_terminal.materials.batch", "Materials: Entire batch");
         add("gregsteamexpansion.ultimate_terminal.materials.target", "Materials: Selected target");
         add("gregsteamexpansion.ultimate_terminal.materials.legend", "Required / Inventory / AE / Missing");
-        add("gregsteamexpansion.ultimate_terminal.parts.legend", "Target / Present / Legal positions");
+        add("gregsteamexpansion.ultimate_terminal.materials.unlimited", "%s / Unlimited");
+        add("gregsteamexpansion.ultimate_terminal.materials.creative_legend",
+                "Required / Creative unlimited materials");
+        add("gregsteamexpansion.ultimate_terminal.quotas.legend", "Target quota / Present / Candidate positions");
+        add("gregsteamexpansion.ultimate_terminal.quotas.empty",
+                "This structure has no interchangeable ordinary blocks");
         add("gregsteamexpansion.ultimate_terminal.channel.auto", "Automatic");
         add("gregsteamexpansion.ultimate_terminal.channel.structure_size", "Structure size");
         add("gregsteamexpansion.ultimate_terminal.channel.coil", "Coil block");
@@ -113,10 +118,10 @@ public final class GSELang {
         add("gregsteamexpansion.jade.large_steam_tank.input", "Input");
         add("gregsteamexpansion.jade.large_steam_tank.output", "Output");
         add("gregsteamexpansion.jade.large_steam_tank.unformed", "Tank structure is not formed");
-        add("gregsteamexpansion.jade.large_steam_tank.storage", "Steam: %s / %s mB");
         add("gregsteamexpansion.jade.large_steam_tank.structure", "Structure: %s×%s×%s; %s valves");
         add("gregsteamexpansion.jade.large_steam_tank.over_capacity", "Stored steam exceeds current capacity — output only");
         add("config.jade.plugin_gregsteamexpansion.large_steam_tank_info", "Large Steam Tank Information");
+        add("config.jade.plugin_gregsteamexpansion.large_steam_tank_storage", "Large Steam Tank Storage Bar");
 
         // Ore Crushing recipe type / viewer category name (ore-crushing.md).
         add("gregsteamexpansion.ore_crushing", "Ore Crushing");

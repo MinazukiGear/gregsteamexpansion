@@ -22,13 +22,13 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-/** Engineering console for targets, hologram controls, materials, channels and legal part choices. */
+/** Engineering console for targets, hologram controls, materials, channels and block quotas. */
 public final class UltimateTerminalScreen extends AbstractContainerScreen<UltimateTerminalMenu> {
-    private enum Page { TARGETS, PREVIEW, MATERIALS, CHANNELS, PARTS }
+    private enum Page { TARGETS, PREVIEW, MATERIALS, CHANNELS, QUOTAS }
 
     private Page page = Page.TARGETS;
     private int targetPage;
-    private int partPage;
+    private int quotaPage;
     private int channelPage;
     private int materialPage;
     private @Nullable String openDropdown;
@@ -77,7 +77,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             case PREVIEW -> buildPreview();
             case MATERIALS -> buildMaterials();
             case CHANNELS -> buildChannels();
-            case PARTS -> buildParts();
+            case QUOTAS -> buildQuotas();
         }
         lastSnapshot = UltimateTerminalClientState.snapshot();
         refreshLabels();
@@ -156,23 +156,23 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
         }));
     }
 
-    private void buildParts() {
+    private void buildQuotas() {
         UltimateTerminalSnapshot snapshot = UltimateTerminalClientState.snapshot();
         int x = leftPos + 14;
         int y = topPos + 55;
         overrideButton = addRenderableWidget(menuButton(x, y, 190, UltimateTerminalMenu.BUTTON_OVERRIDE, Component.empty()));
         addRenderableWidget(localButton(x + 210, y, 46, Component.literal("<"), () -> {
-            partPage = Math.max(0, partPage - 1); rebuildPage();
+            quotaPage = Math.max(0, quotaPage - 1); rebuildPage();
         }));
         addRenderableWidget(localButton(x + 262, y, 46, Component.literal(">"), () -> {
-            partPage++; rebuildPage();
+            quotaPage++; rebuildPage();
         }));
         if (snapshot == null) return;
         List<UltimateTerminalSnapshot.CandidateInfo> configurable = snapshot.candidates().stream()
                 .filter(UltimateTerminalSnapshot.CandidateInfo::configurable).toList();
         int totalRows = configurable.size();
-        partPage = Math.min(partPage, Math.max(0, (totalRows - 1) / 6));
-        int start = partPage * 6;
+        quotaPage = Math.min(quotaPage, Math.max(0, (totalRows - 1) / 6));
+        int start = quotaPage * 6;
         for (int row = 0; row < 6 && start + row < totalRows; row++) {
             int index = start + row;
             int rowY = y + 30 + row * 23;
@@ -348,13 +348,13 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             case PREVIEW -> renderPreviewDetails(graphics, snapshot);
             case MATERIALS -> renderMaterials(graphics, snapshot);
             case CHANNELS -> renderChannels(graphics, snapshot);
-            case PARTS -> renderParts(graphics, snapshot);
+            case QUOTAS -> renderQuotas(graphics, snapshot);
         }
         int state = Math.max(0, Math.min(UltimateTerminalWorldData.JobState.values().length - 1, menu.state()));
-        graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.status",
+        Component status = Component.translatable("gregsteamexpansion.ultimate_terminal.status",
                 Component.translatable("gregsteamexpansion.ultimate_terminal.state."
-                        + UltimateTerminalWorldData.JobState.values()[state].name().toLowerCase())),
-                220, 216, 0xFFAAAAAA, false);
+                        + UltimateTerminalWorldData.JobState.values()[state].name().toLowerCase()));
+        graphics.drawString(font, status, imageWidth - 12 - font.width(status), 10, 0xFFAAAAAA, false);
     }
 
     private void renderTargetDetails(GuiGraphics graphics, @Nullable UltimateTerminalSnapshot snapshot) {
@@ -390,19 +390,29 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             int y = 84 + row * 20;
             graphics.renderItem(material.stack(), 14, y - 5);
             graphics.drawString(font, material.stack().getHoverName(), 35, y, 0xFFD6D6D6, false);
-            graphics.drawString(font, Component.literal(material.required() + " / " + material.inventory()
-                    + " / " + material.network() + " / " + material.missing()), 208, y,
-                    material.missing() > 0 ? 0xFFFF5555 : 0xFF55FF55, false);
+            Component availability = snapshot.unlimitedMaterials()
+                    ? Component.translatable("gregsteamexpansion.ultimate_terminal.materials.unlimited",
+                            material.required())
+                    : Component.literal(material.required() + " / " + material.inventory()
+                            + " / " + material.network() + " / " + material.missing());
+            graphics.drawString(font, availability, 208, y,
+                    snapshot.unlimitedMaterials() || material.missing() == 0 ? 0xFF55FF55 : 0xFFFF5555, false);
         }
-        graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.materials.legend"),
+        String legend = snapshot.unlimitedMaterials()
+                ? "gregsteamexpansion.ultimate_terminal.materials.creative_legend"
+                : "gregsteamexpansion.ultimate_terminal.materials.legend";
+        graphics.drawString(font, Component.translatable(legend),
                 14, 202, 0xFF888888, false);
     }
 
-    private void renderParts(GuiGraphics graphics, @Nullable UltimateTerminalSnapshot snapshot) {
+    private void renderQuotas(GuiGraphics graphics, @Nullable UltimateTerminalSnapshot snapshot) {
         if (snapshot == null) return;
         var parts = snapshot.candidates().stream().filter(UltimateTerminalSnapshot.CandidateInfo::configurable).toList();
-        int start = partPage * 6;
+        int start = quotaPage * 6;
         int totalRows = parts.size();
+        if (totalRows == 0) graphics.drawString(font,
+                Component.translatable("gregsteamexpansion.ultimate_terminal.quotas.empty"),
+                14, 88, 0xFFAAAAAA, false);
         for (int row = 0; row < 6 && start + row < totalRows; row++) {
             int index = start + row;
             int y = 88 + row * 23;
@@ -412,7 +422,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             graphics.drawString(font, Component.literal(part.requested() + " / " + part.present()
                     + " / " + part.maximum()), 180, y, 0xFFAAAAAA, false);
         }
-        graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.parts.legend"),
+        graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.quotas.legend"),
                 14, 216, 0xFF888888, false);
     }
 

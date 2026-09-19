@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.machine.multiblock.PendingOutputBuffer;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.cokeoven.GSECokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
@@ -10,10 +11,13 @@ import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.machines.GTMultiMachines;
+import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -48,6 +52,32 @@ public final class GSEAutomationInterfaceTests {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void smallCentrifugeAcceptsAutomationItemInterfaces(GameTestHelper h) {
         assertAutomationItemInterfaces(h, GSEMachines.STEAM_CENTRIFUGE);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 100)
+    public static void meExportBufferWakesAfterPendingOutputInsertion(GameTestHelper h) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        h.setBlock(pos, requiredBlock(h, "gtmthings:me_export_buffer").defaultBlockState());
+        h.runAfterDelay(1, () -> {
+            MetaMachine machine = MetaMachine.getMachine(h.getLevel(), h.absolutePos(pos));
+            h.assertTrue(machine instanceof ItemBusPartMachine,
+                    "GTM Things ME output assembly is not an item output bus");
+            ItemBusPartMachine bus = (ItemBusPartMachine) machine;
+            h.assertTrue(get(bus, "inventorySubs") != null,
+                    "ME output assembly did not install its inventory-change listener");
+
+            // No cable is needed for this regression: force the cached online
+            // state so a received item must create its auto-I/O subscription.
+            set(bus, "isOnline", true);
+            List<ItemStack> pending = new ArrayList<>();
+            pending.add(new ItemStack(Items.IRON_INGOT));
+            PendingOutputBuffer buffer = new PendingOutputBuffer(pending);
+            h.assertTrue(buffer.deliverItems(List.of(bus)),
+                    "Pending output was not accepted by the ME output assembly");
+            h.assertTrue(get(bus, "autoIOSubs") != null,
+                    "ME output assembly retained products without waking its AE export tick");
+            h.succeed();
+        });
     }
 
     private static void assertAutomationItemInterfaces(GameTestHelper h,

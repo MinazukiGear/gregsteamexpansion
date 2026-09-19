@@ -254,6 +254,7 @@ public final class PendingOutputBuffer {
         if (stack.isEmpty()) {
             return stack;
         }
+        int originalCount = stack.getCount();
         ItemStack remaining = stack;
         for (int slot = 0; slot < inventory.getSlots() && !remaining.isEmpty(); slot++) {
             ItemStack current = inventory.getStackInSlot(slot);
@@ -265,6 +266,16 @@ public final class PendingOutputBuffer {
             if (inventory.getStackInSlot(slot).isEmpty()) {
                 remaining = inventory.insertItemInternal(slot, remaining, simulate);
             }
+        }
+        // GTM Things' ME output assembly mutates its KeyStorage from the
+        // low-level item delegate without firing NotifiableItemStackHandler's
+        // listener. Our controller-owned pending buffer deliberately inserts
+        // through that low-level path, so wake the part after a real accepted
+        // insert. Ordinary GTCEu handlers already notify while inserting; the
+        // extra final notification is idempotent and keeps third-party output
+        // handlers from silently retaining products with no auto-I/O tick.
+        if (!simulate && remaining.getCount() < originalCount) {
+            inventory.onContentsChanged();
         }
         return remaining;
     }
