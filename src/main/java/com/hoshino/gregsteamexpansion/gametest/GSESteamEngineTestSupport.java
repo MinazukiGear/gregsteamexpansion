@@ -503,16 +503,21 @@ final class GSESteamEngineTestSupport {
     }
 
     static Object jadeProvider(String simpleName) {
-        try {
-            Class<?> providerType = Class.forName(GSEJadePlugin.class.getName() + "$" + simpleName);
-            Object[] constants = providerType.getEnumConstants();
-            if (constants == null || constants.length != 1) {
-                throw new AssertionError("Jade provider enum is missing: " + simpleName);
+        String packageName = GSEJadePlugin.class.getPackageName();
+        for (String holder : List.of("GSEJadeProviders", "SteamMachineJadeProviders",
+                "CokeOvenJadeProviders", "UtilityJadeProviders")) {
+            try {
+                Class<?> providerType = Class.forName(packageName + "." + holder + "$" + simpleName);
+                Object[] constants = providerType.getEnumConstants();
+                if (constants == null || constants.length != 1) {
+                    throw new AssertionError("Jade provider enum is invalid: " + simpleName);
+                }
+                return constants[0];
+            } catch (ClassNotFoundException ignored) {
+                // Search the next feature-specific provider holder.
             }
-            return constants[0];
-        } catch (ClassNotFoundException e) {
-            throw new AssertionError("Jade provider class is missing: " + simpleName, e);
         }
+        throw new AssertionError("Jade provider class is missing: " + simpleName);
     }
 
     static BlockAccessor jadeAccessor(MetaMachine machine, CompoundTag serverData) {

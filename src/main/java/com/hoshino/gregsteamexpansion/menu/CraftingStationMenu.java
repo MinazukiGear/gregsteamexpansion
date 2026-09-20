@@ -1,38 +1,23 @@
 package com.hoshino.gregsteamexpansion.menu;
 
-import com.gregtechceu.gtceu.api.item.IGTTool;
-import com.gregtechceu.gtceu.api.item.tool.ToolHelper;
 import com.hoshino.gregsteamexpansion.blockentity.CraftingStationBlockEntity;
 import com.hoshino.gregsteamexpansion.registry.GSEMenuTypes;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.NonNullList;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.player.StackedContents;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
-import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.common.ForgeHooks;
-import net.minecraftforge.event.ForgeEventFactory;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.SlotItemHandler;
 import net.minecraftforge.items.wrapper.EmptyHandler;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -98,16 +83,17 @@ public class CraftingStationMenu extends AbstractContainerMenu {
         }
     };
 
-    private final GridView gridView = new GridView();
+    private final CraftingStationCrafting crafting;
     private boolean matchDirty = true;
 
     @Nullable
-    private MatchResult currentMatch;
+    private CraftingStationCrafting.Match currentMatch;
 
     public CraftingStationMenu(int windowId, Inventory playerInventory, CraftingStationBlockEntity station) {
         super(GSEMenuTypes.CRAFTING_STATION.get(), windowId);
         this.station = station;
         this.playerInventory = playerInventory;
+        this.crafting = new CraftingStationCrafting(station, () -> matchDirty = true);
         Level level = station.getLevel();
         boolean serverSide = level != null && !level.isClientSide;
         if (serverSide) {
@@ -258,72 +244,13 @@ public class CraftingStationMenu extends AbstractContainerMenu {
     }
 
     private void recomputePreview(Level level) {
-        currentMatch = findMatch(level);
+        currentMatch = crafting.findMatch(level);
         ItemStack preview = ItemStack.EMPTY;
         if (currentMatch != null) {
-            preview = currentMatch.recipe().assemble(gridView, level.registryAccess());
+            preview = crafting.assemble(currentMatch, level);
         }
         resultContainer.setItem(0, preview);
     }
-
-    /**
-     * Matches the grid as-is first; when it fails, tries supplying a single
-     * empty cell from the tool slots (one cell per craft, crafting-station.md
-     * 4.2). The first tool slot holding a viable item wins.
-     */
-    @Nullable
-    private MatchResult findMatch(Level level) {
-        var recipes = level.getRecipeManager();
-        var matched = recipes.getRecipeFor(RecipeType.CRAFTING, gridView, level).orElse(null);
-        if (matched != null) {
-            return new MatchResult(matched, -1, -1);
-        }
-        List<Integer> emptyCells = new ArrayList<>();
-        for (int i = 0; i < GRID_SLOTS; i++) {
-            if (station.getGrid().getStackInSlot(i).isEmpty()) {
-                emptyCells.add(i);
-            }
-        }
-        if (emptyCells.isEmpty()) {
-            return null;
-        }
-        Set<Item> triedItems = new HashSet<>();
-        for (int toolSlot = 0; toolSlot < TOOL_SLOTS; toolSlot++) {
-            ItemStack tool = station.getTools().getStackInSlot(toolSlot);
-            if (tool.isEmpty() || !tool.isDamageableItem() || !triedItems.add(tool.getItem())) {
-                continue;
-            }
-            for (int cell : emptyCells) {
-                var view = new AugmentedView(cell, tool);
-                var candidate = recipes.getRecipeFor(RecipeType.CRAFTING, view, level).orElse(null);
-                if (candidate != null) {
-                    return new MatchResult(candidate, cell, toolSlot);
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Re-verifies that the locked shift-craft recipe still matches the grid
-     * (with the same tool-slot supply). A shift operation must never switch
-     * to a different recipe mid-way (crafting-station.md 4.4).
-     */
-    private boolean stillMatches(MatchResult operation, Level level) {
-        if (operation.recipe().matches(gridView, level)) {
-            return true;
-        }
-        if (operation.virtualCell() >= 0 && operation.toolSlot() >= 0) {
-            ItemStack tool = station.getTools().getStackInSlot(operation.toolSlot());
-            if (!tool.isEmpty()) {
-                return operation.recipe()
-                        .matches(new AugmentedView(operation.virtualCell(), tool), level);
-            }
-        }
-        return false;
-    }
-
-    private record MatchResult(CraftingRecipe recipe, int virtualCell, int toolSlot) {}
 
     // ------------------------------------------------------------------
     // Crafting transaction (crafting-station.md 4.1 - 4.5)
@@ -341,121 +268,8 @@ public class CraftingStationMenu extends AbstractContainerMenu {
         if (currentMatch == null) {
             return;
         }
-        commitMatch(level, player, currentMatch);
+        crafting.commit(level, player, currentMatch, activeSourceHandler());
         recomputePreview(level);
-    }
-
-    @Nullable
-    private ItemStack commitMatch(Level level, Player player, MatchResult match) {
-        CraftingRecipe recipe = match.recipe();
-        ItemStack result = recipe.assemble(gridView, level.registryAccess());
-        if (result.isEmpty()) {
-            return null;
-        }
-
-        result.onCraftedBy(level, player, result.getCount());
-        ForgeEventFactory.firePlayerCraftingEvent(player, result, gridView);
-
-        IItemHandler source = activeSourceHandler();
-
-        // Remaining (container) items per cell; GT tools yield a damaged copy here.
-        ForgeHooks.setCraftingPlayer(player);
-        NonNullList<ItemStack> remainders;
-        try {
-            remainders = recipe.getRemainingItems(gridView);
-        } finally {
-            ForgeHooks.setCraftingPlayer(null);
-        }
-
-        ItemStack[] originals = new ItemStack[GRID_SLOTS];
-        for (int i = 0; i < GRID_SLOTS; i++) {
-            originals[i] = station.getGrid().getStackInSlot(i).copy();
-        }
-
-        // Consume exactly one item per occupied pattern cell.
-        for (int i = 0; i < GRID_SLOTS; i++) {
-            if (!station.getGrid().getStackInSlot(i).isEmpty()) {
-                station.getGrid().extractItem(i, 1, false);
-            }
-        }
-
-        // Auto-supplied tool: damage the borrowed tool in its tool slot.
-        if (match.toolSlot() >= 0) {
-            damageToolSlot(match.toolSlot(), player);
-        }
-
-        // Route remainders: the pattern's own tool (a GT saw damaged by the
-        // craft) keeps its cell — compare by item, since the damaged copy
-        // carries extra NBT and would otherwise be classified as a leftover
-        // and ejected from the grid. True leftovers (an empty bucket) go back
-        // to the source container, then the player inventory, then drop
-        // (crafting-station.md 4.3).
-        for (int i = 0; i < GRID_SLOTS; i++) {
-            ItemStack remainder = remainders.get(i);
-            if (remainder == null || remainder.isEmpty()) {
-                continue;
-            }
-            ItemStack cell = station.getGrid().getStackInSlot(i);
-            if (cell.isEmpty() && originals[i].getItem() == remainder.getItem()) {
-                station.getGrid().setStackInSlot(i, remainder);
-            } else if (!cell.isEmpty() && cell.getItem() == remainder.getItem()) {
-                remainder.grow(cell.getCount());
-                station.getGrid().setStackInSlot(i, remainder);
-            } else {
-                routeRemainder(remainder, source, player);
-            }
-        }
-
-        // Pattern maintenance: top consumed-and-now-empty cells back up to one.
-        if (source != null) {
-            for (int i = 0; i < GRID_SLOTS; i++) {
-                if (originals[i].isEmpty() || !station.getGrid().getStackInSlot(i).isEmpty()) {
-                    continue;
-                }
-                refillFromSource(i, originals[i], source, player);
-            }
-        }
-        return result;
-    }
-
-    private void damageToolSlot(int slot, Player player) {
-        ItemStack tool = station.getTools().getStackInSlot(slot);
-        if (tool.isEmpty()) {
-            return;
-        }
-        ToolHelper.damageItemWhenCrafting(tool, player);
-        if (tool.isEmpty() && tool.getItem() instanceof IGTTool gtTool) {
-            station.getTools().setStackInSlot(slot, gtTool.getToolStats().getBrokenStack());
-        }
-    }
-
-    private void refillFromSource(int cell, ItemStack original, IItemHandler source, Player player) {
-        for (int slot = 0; slot < source.getSlots(); slot++) {
-            ItemStack candidate = source.getStackInSlot(slot);
-            if (candidate.isEmpty() || !ItemStack.isSameItemSameTags(candidate, original)) {
-                continue;
-            }
-            ItemStack took = source.extractItem(slot, 1, false);
-            if (took.isEmpty()) {
-                continue;
-            }
-            ItemStack leftover = station.getGrid().insertItem(cell, took, false);
-            if (!leftover.isEmpty()) {
-                routeRemainder(leftover, source, player);
-            }
-            return;
-        }
-    }
-
-    private void routeRemainder(ItemStack stack, @Nullable IItemHandler source, Player player) {
-        if (source != null) {
-            for (int slot = 0; slot < source.getSlots() && !stack.isEmpty(); slot++) {
-                stack = source.insertItem(slot, stack, false);
-            }
-        }
-        if (!stack.isEmpty() && !player.getInventory().add(stack)) {
-            player.drop(stack, false);
-        }
     }
 
     @Nullable
@@ -464,21 +278,6 @@ public class CraftingStationMenu extends AbstractContainerMenu {
             return delegating.getDelegate();
         }
         return null;
-    }
-
-    private static boolean fitsIntoInventory(ItemStack result, Player player) {
-        int remaining = result.getCount();
-        var items = player.getInventory().items;
-        for (int i = 0; i < items.size() && remaining > 0; i++) {
-            ItemStack slotStack = items.get(i);
-            if (slotStack.isEmpty()) {
-                remaining -= Math.min(remaining, result.getMaxStackSize());
-            } else if (ItemStack.isSameItemSameTags(slotStack, result) && slotStack.isStackable()) {
-                remaining -= Math.min(remaining,
-                        Math.min(result.getMaxStackSize(), slotStack.getMaxStackSize()) - slotStack.getCount());
-            }
-        }
-        return remaining <= 0;
     }
 
     // ------------------------------------------------------------------
@@ -504,20 +303,20 @@ public class CraftingStationMenu extends AbstractContainerMenu {
             // Lock the shift operation onto the currently previewed recipe:
             // it is repeated while it keeps matching, and the loop never
             // re-matches a different recipe (crafting-station.md 4.4).
-            MatchResult operation = currentMatch;
+            CraftingStationCrafting.Match operation = currentMatch;
             if (operation == null) {
                 return ItemStack.EMPTY;
             }
             int crafted = 0;
             while (crafted < MAX_SHIFT_CRAFTS) {
-                if (!stillMatches(operation, level)) {
+                if (!crafting.stillMatches(operation, level)) {
                     break;
                 }
-                ItemStack result = operation.recipe().assemble(gridView, level.registryAccess());
-                if (result.isEmpty() || !fitsIntoInventory(result, player)) {
+                ItemStack result = crafting.assemble(operation, level);
+                if (result.isEmpty() || !CraftingStationCrafting.fitsIntoInventory(result, player)) {
                     break;
                 }
-                ItemStack produced = commitMatch(level, player, operation);
+                ItemStack produced = crafting.commit(level, player, operation, activeSourceHandler());
                 if (produced == null || produced.isEmpty()) {
                     break;
                 }
@@ -574,114 +373,6 @@ public class CraftingStationMenu extends AbstractContainerMenu {
         super.removed(player);
         if (player.level() != null && !player.level().isClientSide) {
             station.stopViewing(player);
-        }
-    }
-
-    // ------------------------------------------------------------------
-    // Crafting container views
-    // ------------------------------------------------------------------
-
-    private class GridView implements CraftingContainer {
-        @Override
-        public int getContainerSize() {
-            return GRID_SLOTS;
-        }
-
-        @Override
-        public boolean isEmpty() {
-            for (int i = 0; i < GRID_SLOTS; i++) {
-                if (!station.getGrid().getStackInSlot(i).isEmpty()) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public ItemStack getItem(int slot) {
-            return station.getGrid().getStackInSlot(slot);
-        }
-
-        @Override
-        public ItemStack removeItem(int slot, int count) {
-            return station.getGrid().extractItem(slot, count, false);
-        }
-
-        @Override
-        public ItemStack removeItemNoUpdate(int slot) {
-            ItemStack stack = station.getGrid().getStackInSlot(slot);
-            station.getGrid().setStackInSlot(slot, ItemStack.EMPTY);
-            return stack;
-        }
-
-        @Override
-        public void setItem(int slot, ItemStack stack) {
-            station.getGrid().setStackInSlot(slot, stack);
-        }
-
-        @Override
-        public void setChanged() {
-            matchDirty = true;
-        }
-
-        @Override
-        public boolean stillValid(Player player) {
-            return station.canPlayerUse(player);
-        }
-
-        @Override
-        public void clearContent() {
-            for (int i = 0; i < GRID_SLOTS; i++) {
-                station.getGrid().setStackInSlot(i, ItemStack.EMPTY);
-            }
-        }
-
-        @Override
-        public int getWidth() {
-            return 3;
-        }
-
-        @Override
-        public int getHeight() {
-            return 3;
-        }
-
-        @Override
-        public List<ItemStack> getItems() {
-            List<ItemStack> items = new ArrayList<>(GRID_SLOTS);
-            for (int i = 0; i < GRID_SLOTS; i++) {
-                items.add(getItem(i));
-            }
-            return items;
-        }
-
-        @Override
-        public void fillStackedContents(StackedContents contents) {
-            for (int i = 0; i < GRID_SLOTS; i++) {
-                contents.accountSimpleStack(getItem(i));
-            }
-        }
-    }
-
-    /**
-     * Read-only matching view with one empty grid cell virtually filled by a
-     * tool from the tool slots.
-     */
-    private class AugmentedView extends GridView {
-        private final int substitutedCell;
-        private final ItemStack tool;
-
-        private AugmentedView(int substitutedCell, ItemStack tool) {
-            this.substitutedCell = substitutedCell;
-            this.tool = tool;
-        }
-
-        @Override
-        public ItemStack getItem(int slot) {
-            if (slot == substitutedCell && station.getGrid().getStackInSlot(slot).isEmpty()) {
-                return tool;
-            }
-            return station.getGrid().getStackInSlot(slot);
         }
     }
 

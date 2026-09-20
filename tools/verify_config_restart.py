@@ -14,18 +14,21 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "run" / "config" / "gregsteamexpansion-common.toml"
 PROFILE_DEFAULTS = {
     "EASY": (
-        (2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 0.0, 0, 0, 0, 2.0, 4, 100, 7),
+        (2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 0.0, 0, 0, 0, 2.0, 4, 100, 7,
+         75, 65, 55, 45, 144, 576, 1440),
         (False, False, False, False, False),
         (False,) * 19,
     ),
     "NORMAL": (
-        (1, 5.0, 1, 100, 5, 100, 1.5, 2.0, 24.0, 10, 25, 50, 1.0, 2, 50, 3),
+        (1, 5.0, 1, 100, 5, 100, 1.5, 2.0, 24.0, 10, 25, 50, 1.0, 2, 50, 3,
+         80, 70, 60, 50, 192, 768, 1920),
         (False, False, False, False, False),
         (True, True, False, False, False, True, False, False, False, True,
          True, True, False, True, True, False, True, False, False),
     ),
     "EXPERT": (
-        (1, 2.0, 1, 220, 10, 100, 1.0, 1.5, 8.0, 15, 40, 75, 1.0, 1, 25, 1),
+        (1, 2.0, 1, 220, 10, 100, 1.0, 1.5, 8.0, 15, 40, 75, 1.0, 1, 25, 1,
+         90, 80, 70, 60, 288, 1152, 2880),
         (True, True, True, True, True),
         (True,) * 19,
     ),
@@ -47,6 +50,13 @@ PROFILE_NUMBER_KEYS = (
     "voidProducerOutputMultiplier",
     "circuitAssemblerBonusChancePercent",
     "circuitAssemblerBonusMultiplier",
+    "blastFurnaceNoviceDurationPercent",
+    "blastFurnaceFamiliarDurationPercent",
+    "blastFurnaceSkilledDurationPercent",
+    "blastFurnaceMasteredDurationPercent",
+    "blastFurnaceFamiliarOperations",
+    "blastFurnaceSkilledOperations",
+    "blastFurnaceMasteredOperations",
 )
 GSE_RECIPE_KEYS = (
     "hardBronzeComponentRecipes",
@@ -90,6 +100,7 @@ PHASES = (
         "profile_void_output": 5,
         "profile_circuit_bonus_chance": 100,
         "profile_circuit_bonus_multiplier": 7,
+        "profile_blast_values": (76, 66, 56, 46, 145, 577, 1441),
         "profile_harder_rods": True,
         "profile_hard_bronze_component": True,
     },
@@ -106,6 +117,7 @@ PHASES = (
         "profile_void_output": 3,
         "profile_circuit_bonus_chance": 50,
         "profile_circuit_bonus_multiplier": 3,
+        "profile_blast_values": (81, 71, 61, 51, 193, 769, 1921),
         "profile_harder_rods": False,
         "profile_hard_bronze_component": True,
     },
@@ -122,6 +134,7 @@ PHASES = (
         "profile_void_output": 2,
         "profile_circuit_bonus_chance": 25,
         "profile_circuit_bonus_multiplier": 1,
+        "profile_blast_values": (91, 81, 71, 61, 289, 1153, 2881),
         "profile_harder_rods": False,
         "profile_hard_bronze_component": False,
     },
@@ -157,6 +170,8 @@ def profile_lines(phase: dict[str, object], difficulty: str) -> list[str]:
         number_values["voidProducerOutputMultiplier"] = phase["profile_void_output"]
         number_values["circuitAssemblerBonusChancePercent"] = phase["profile_circuit_bonus_chance"]
         number_values["circuitAssemblerBonusMultiplier"] = phase["profile_circuit_bonus_multiplier"]
+        for key, value in zip(PROFILE_NUMBER_KEYS[16:23], phase["profile_blast_values"], strict=True):
+            number_values[key] = value
         gse_values["hardBronzeComponentRecipes"] = phase["profile_hard_bronze_component"]
         gtceu_values["harderRods"] = phase["profile_harder_rods"]
 
@@ -222,6 +237,8 @@ def run_phase(phase: dict[str, object], command: list[str]) -> None:
     environment["GSE_EXPECTED_PROFILE_CIRCUIT_BONUS_MULTIPLIER"] = str(
         phase["profile_circuit_bonus_multiplier"]
     )
+    for key, value in zip(PROFILE_NUMBER_KEYS[16:23], phase["profile_blast_values"], strict=True):
+        environment[f"GSE_EXPECTED_PROFILE_{key.upper()}"] = str(value)
     environment["GSE_EXPECTED_PROFILE_HARDER_RODS"] = str(phase["profile_harder_rods"]).lower()
     environment["GSE_EXPECTED_PROFILE_HARD_BRONZE_COMPONENT"] = str(
         phase["profile_hard_bronze_component"]

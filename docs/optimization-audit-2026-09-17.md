@@ -55,7 +55,25 @@
 
 `CraftingStationMenu` 现在由 `GridView` 提供唯一的 `CraftingContainer` 基础实现，`AugmentedView` 只覆写虚拟工具格的 `getItem()`。基础视图的物品列表与堆叠统计统一经由虚方法读取，使工具槽补位仍能被配方完整观察，并删除了约 60 行重复代理代码。
 
-新增真实方块实体与菜单 GameTest，同时验证格内工具匹配、工具槽虚拟补位，以及虚拟匹配不会写入真实合成格。下一步可在这层保护下评估把单次合成事务从菜单类分离；该路径仍涉及物品扣取、余料回流与 Shift 连续合成，应继续分步实施。
+新增真实方块实体与菜单 GameTest，同时验证格内工具匹配、工具槽虚拟补位，以及虚拟匹配不会写入真实合成格。
+
+## 已实施：拆分合成站事务
+
+新增包内 `CraftingStationCrafting`，集中负责配方匹配、虚拟工具格、合成提交、工具损耗、相邻来源补料和余料回流；`CraftingStationMenu` 只保留槽位布局、来源分页、同步和 Shift 连续合成循环。Shift 操作仍锁定首次匹配的配方，单次提交仍按“扣取—余料—补料”顺序执行。
+
+新增事务级 GameTest，覆盖工具槽虚拟补位与损耗、相邻箱子连续补料、格内工具余料留槽，以及不完整配方不得暴露旧预览或修改输入。
+
+## 已实施：按功能域拆分 Jade provider
+
+`GSEJadePlugin` 现在只保留 Jade 入口和注册委托。蒸汽处理机、焦炉、公用设备 provider 分别迁入 `SteamMachineJadeProviders`、`CokeOvenJadeProviders` 与 `UtilityJadeProviders`，注册及 tooltip 去重留在 `GSEJadeProviders`，共享的蒸汽机器快照与条形渲染器收敛到 `SteamMachineJadeSupport`。
+
+provider UID、NBT 字段名、注册目标和 tooltip 行顺序保持不变；语言键校验已扩展为识别按功能域拆分后的包内 provider holder，运行测试中的 Jade provider 查找也同步覆盖这些 holder。
+
+## 已实施：拆分锅炉房热状态与水垢公式
+
+新增纯逻辑类 `BoilerRoomThermalLogic`，集中负责温度计时推进、除垢倒计时与阶段扣减、报废冷却、水垢产汽损失及等效满载寿命增量。`BoilerRoomMachine` 继续持有原有持久化字段，并只负责采集机器输入、扣取空气、应用结果及触发警告/报废等世界副作用，因此 NBT 布局保持不变。
+
+锅炉房 GameTest 新增纯状态边界断言，固定升温 cadence、除垢最后一 tick 和单阶段水垢扣减行为。
 
 ## 已实施：拆分生存获取测试
 

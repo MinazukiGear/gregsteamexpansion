@@ -19,7 +19,6 @@ import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
-import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyProfile;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.CoFiringPowderFuel;
@@ -99,7 +98,6 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     public static final double SCALE_STAGE_SIZE = 0.25;
     private static final double SCALE_WARNING_THRESHOLD = 0.75;
     private static final double SCALE_SCRAP_THRESHOLD = 1.0;
-    private static final double TICKS_PER_HOUR = 72_000.0;
     private static final String ITEM_SCALE_KEY = "GSEBoilerWaterScale";
 
     /** Tier constants (P1#6/P2#10): max temperature / heat / cooldown / no-powder cooldown / air, by tier index 0-3. */
@@ -270,28 +268,22 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     /** Exact per-tick output before the five-tick water conversion batch. */
     public static long calculateSteamOutputPerTick(int temperature, int throttle, Difficulty difficulty) {
-        return calculateSteamOutputPerTick(temperature, throttle,
-                (float) GSEDifficultyProfile.defaults(difficulty).boilerRoomSteamOutputMultiplier());
+        return BoilerRoomThermalLogic.steamOutputPerTick(temperature, throttle, difficulty);
     }
 
     /** Same formula with an explicit multiplier, allowing disabled difficulty to use neutral x1. */
     public static long calculateSteamOutputPerTick(int temperature, int throttle, float difficultyMultiplier) {
-        return Math.round(temperature * (double) throttle / 20.0
-                * CO_FIRING_MULTIPLIER * difficultyMultiplier);
+        return BoilerRoomThermalLogic.steamOutputPerTick(temperature, throttle, difficultyMultiplier);
     }
 
     public static long applyWaterScaleLoss(long cleanOutput, int lossPercent) {
-        return Math.round(cleanOutput * Math.max(0, 100 - lossPercent) / 100.0);
+        return BoilerRoomThermalLogic.applyScaleLoss(cleanOutput, lossPercent);
     }
 
     /** Converts a production cycle into equivalent-full-load lifetime progress. */
     public static double calculateWaterScaleIncrement(long cleanOutput, long maximumCleanOutput,
                                                        int cycleTicks, double failureHours) {
-        if (cleanOutput <= 0 || maximumCleanOutput <= 0 || cycleTicks <= 0 || failureHours <= 0.0) {
-            return 0.0;
-        }
-        double load = Math.min(1.0, cleanOutput / (double) maximumCleanOutput);
-        return cycleTicks * load / (failureHours * TICKS_PER_HOUR);
+        return BoilerRoomThermalLogic.scaleIncrement(cleanOutput, maximumCleanOutput, cycleTicks, failureHours);
     }
 
     public static int getStoredWaterScalePercent(ItemStack stack) {
@@ -565,56 +557,37 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             return;
         }
 
-        if (isDescaling()) {
+        boolean working = recipeLogic.isWorking();
+        boolean thermalHold = isDescaling() || scrappedByScale;
+        var result = BoilerRoomThermalLogic.advance(
+                new BoilerRoomThermalLogic.ThermalState(roomTemperature, heatCounter, coolCounter,
+                        descalingTicksRemaining, descalingTicksTotal, waterScaleProgress),
+                new BoilerRoomThermalLogic.TickInput(
+                        working, !working || thermalHold || consumeAir(),
+                        !working && !thermalHold && isMissingPowder(), scrappedByScale,
+                        getMaxTemperature(), heatIntervalTicks, cooldownIntervalTicks,
+                        noPowderCooldownIntervalTicks));
+        applyThermalState(result.state());
+        if (result.markDirty()) markDirty();
+        if (result.suppressSteamGeneration()) {
             cycleSteamGenerated = 0;
-            if (roomTemperature > 0 && ++coolCounter >= cooldownIntervalTicks) {
-                coolCounter = 0;
-                roomTemperature--;
-            }
-            descalingTicksRemaining--;
-            if (descalingTicksRemaining <= 0) {
-                descalingTicksRemaining = 0;
-                descalingTicksTotal = 0;
-                waterScaleProgress = Math.max(0.0, waterScaleProgress - SCALE_STAGE_SIZE);
-                markDirty();
-            } else if (descalingTicksRemaining % 20 == 0) {
-                markDirty();
-            }
             updateRoomTemperatureSubscription();
             return;
-        }
-
-        if (scrappedByScale) {
-            cycleSteamGenerated = 0;
-            if (roomTemperature > 0 && ++coolCounter >= cooldownIntervalTicks) {
-                coolCounter = 0;
-                roomTemperature--;
-            }
-            updateRoomTemperatureSubscription();
-            return;
-        }
-
-        if (recipeLogic.isWorking()) {
-            if (consumeAir() && ++heatCounter >= heatIntervalTicks) {
-                heatCounter = 0;
-                if (roomTemperature < getMaxTemperature()) {
-                    roomTemperature++;
-                }
-            }
-        } else {
-            int interval = isMissingPowder() ? noPowderCooldownIntervalTicks : cooldownIntervalTicks;
-            if (++coolCounter >= interval) {
-                coolCounter = 0;
-                if (roomTemperature > 0) {
-                    roomTemperature--;
-                }
-            }
         }
 
         if (isFormed() && getOffsetTimer() % TICKS_PER_STEAM_GENERATION == 0) {
             generateSteamCycle();
         }
         updateRoomTemperatureSubscription();
+    }
+
+    private void applyThermalState(BoilerRoomThermalLogic.ThermalState state) {
+        roomTemperature = state.temperature();
+        heatCounter = state.heatCounter();
+        coolCounter = state.coolCounter();
+        descalingTicksRemaining = state.descalingTicksRemaining();
+        descalingTicksTotal = state.descalingTicksTotal();
+        waterScaleProgress = state.scaleProgress();
     }
 
     private boolean isStructureTemporarilyUnavailable() {
@@ -725,15 +698,11 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
                 TICKS_PER_STEAM_GENERATION, failureHours);
         if (increment <= 0.0) return;
 
-        double previous = waterScaleProgress;
-        waterScaleProgress = Math.min(SCALE_SCRAP_THRESHOLD,
-                waterScaleProgress + increment);
-        if (previous < SCALE_WARNING_THRESHOLD && waterScaleProgress >= SCALE_WARNING_THRESHOLD) {
-            sendScaleWarning();
-        }
-        if (waterScaleProgress >= SCALE_SCRAP_THRESHOLD) {
-            scrapByWaterScale();
-        }
+        var update = BoilerRoomThermalLogic.addScale(
+                waterScaleProgress, increment, SCALE_WARNING_THRESHOLD, SCALE_SCRAP_THRESHOLD);
+        waterScaleProgress = update.progress();
+        if (update.warningCrossed()) sendScaleWarning();
+        if (update.scrapped()) scrapByWaterScale();
         markDirty();
     }
 

@@ -343,11 +343,12 @@ def checkLanguageKeys = tasks.register('checkLanguageKeys') {
         }
 
         def registrationPattern = java.util.regex.Pattern.compile(
-                'registration\\.register\\w+\\(\\s*(\\w+)\\.INSTANCE')
+                'registration\\.register\\w+\\(\\s*(?:\\w+\\.)*(\\w+)\\.INSTANCE')
         def providerTypePattern = java.util.regex.Pattern.compile(
-                'private\\s+(?:enum|static\\s+(?:final\\s+)?class)\\s+(\\w+)')
+                '(?:(?:private|public|protected)\\s+)?' +
+                        '(?:enum|static\\s+(?:final\\s+)?class)\\s+(\\w+)')
         def uidPattern = java.util.regex.Pattern.compile(
-                'private\\s+static\\s+final\\s+ResourceLocation\\s+UID\\s*=\\s*' +
+                '(?:(?:private|public|protected)\\s+)?static\\s+final\\s+ResourceLocation\\s+UID\\s*=\\s*' +
                         'GregSteamExpansion\\.id\\("([^"]+)"\\);')
         def registeredProviders = new TreeSet<String>()
         def providerUids = [:]

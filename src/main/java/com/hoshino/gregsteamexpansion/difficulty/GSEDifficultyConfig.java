@@ -269,10 +269,10 @@ public final class GSEDifficultyConfig {
                 "Ignored when an external pack authority such as GTSF Core is installed.",
                 "These settings are intended for modpack authors; clients and servers must use",
                 "the same selected profile. Most multipliers are ignored while difficultyEnabled=false;",
-                "the circuit-assembler specialization uses the Normal profile as its baseline.",
+                "the circuit-assembler specialization and blast-furnace proficiency use the Normal profile as their baseline.",
                 "三档难度的独立平衡参数，仅在启动时读取，适合整合包作者覆盖。联机双方所选档位",
-                "的全部参数必须一致；difficultyEnabled=false 时多数倍率不生效，电路组装机专精",
-                "按 Normal 档基线运行。安装 GTSF Core 等整合包难度权威时，本节无效。")
+                "的全部参数必须一致；difficultyEnabled=false 时多数倍率不生效，电路组装机专精与",
+                "高炉熟练度按 Normal 档基线运行。安装 GTSF Core 等整合包难度权威时，本节无效。")
                 .push("difficultyProfiles");
         for (Difficulty difficulty : Difficulty.values()) {
             values.put(difficulty, defineProfile(difficulty, GSEDifficultyProfile.defaults(difficulty)));
@@ -326,6 +326,27 @@ public final class GSEDifficultyConfig {
                                 "专精成功时追加的目标电路倍率（1-15，仅整数）；7 表示额外追加 7 倍。")
                         .defineInRange("circuitAssemblerBonusMultiplier",
                                 defaults.circuitAssemblerBonusMultiplier(), 1, 15),
+                BUILDER.comment("Large Steam Blast Furnace novice recipe duration (percent of base).")
+                        .defineInRange("blastFurnaceNoviceDurationPercent",
+                                defaults.blastFurnaceNoviceDurationPercent(), 1, 1000),
+                BUILDER.comment("Large Steam Blast Furnace familiar recipe duration (percent of base).")
+                        .defineInRange("blastFurnaceFamiliarDurationPercent",
+                                defaults.blastFurnaceFamiliarDurationPercent(), 1, 1000),
+                BUILDER.comment("Large Steam Blast Furnace skilled recipe duration (percent of base).")
+                        .defineInRange("blastFurnaceSkilledDurationPercent",
+                                defaults.blastFurnaceSkilledDurationPercent(), 1, 1000),
+                BUILDER.comment("Large Steam Blast Furnace mastered recipe duration (percent of base).")
+                        .defineInRange("blastFurnaceMasteredDurationPercent",
+                                defaults.blastFurnaceMasteredDurationPercent(), 1, 1000),
+                BUILDER.comment("Completed same-recipe operations required to become familiar.")
+                        .defineInRange("blastFurnaceFamiliarOperations",
+                                defaults.blastFurnaceFamiliarOperations(), 1, 10_000_000),
+                BUILDER.comment("Completed same-recipe operations required to become skilled.")
+                        .defineInRange("blastFurnaceSkilledOperations",
+                                defaults.blastFurnaceSkilledOperations(), 1, 10_000_000),
+                BUILDER.comment("Completed same-recipe operations required to become mastered.")
+                        .defineInRange("blastFurnaceMasteredOperations",
+                                defaults.blastFurnaceMasteredOperations(), 1, 10_000_000),
                 defineGseRecipeBoolean("hardBronzeComponentRecipes", defaults.hardBronzeComponentRecipes()),
                 defineGseRecipeBoolean("harderSteamGrindingBlockRecipes", defaults.harderSteamGrindingBlockRecipes()),
                 defineGseRecipeBoolean("hardSteamAssemblyBlockRecipes", defaults.hardSteamAssemblyBlockRecipes()),
@@ -395,6 +416,13 @@ public final class GSEDifficultyConfig {
                                  ForgeConfigSpec.IntValue voidProducerOutputMultiplier,
                                  ForgeConfigSpec.IntValue circuitAssemblerBonusChancePercent,
                                  ForgeConfigSpec.IntValue circuitAssemblerBonusMultiplier,
+                                 ForgeConfigSpec.IntValue blastFurnaceNoviceDurationPercent,
+                                 ForgeConfigSpec.IntValue blastFurnaceFamiliarDurationPercent,
+                                 ForgeConfigSpec.IntValue blastFurnaceSkilledDurationPercent,
+                                 ForgeConfigSpec.IntValue blastFurnaceMasteredDurationPercent,
+                                 ForgeConfigSpec.IntValue blastFurnaceFamiliarOperations,
+                                 ForgeConfigSpec.IntValue blastFurnaceSkilledOperations,
+                                 ForgeConfigSpec.IntValue blastFurnaceMasteredOperations,
                                  ForgeConfigSpec.BooleanValue hardBronzeComponentRecipes,
                                  ForgeConfigSpec.BooleanValue harderSteamGrindingBlockRecipes,
                                  ForgeConfigSpec.BooleanValue hardSteamAssemblyBlockRecipes,
@@ -427,6 +455,22 @@ public final class GSEDifficultyConfig {
             if (stage1 > stage2 || stage2 > stage3) {
                 throw new IllegalStateException("Boiler-room water-scale losses must be nondecreasing for the selected profile");
             }
+            int noviceDuration = blastFurnaceNoviceDurationPercent.get();
+            int familiarDuration = blastFurnaceFamiliarDurationPercent.get();
+            int skilledDuration = blastFurnaceSkilledDurationPercent.get();
+            int masteredDuration = blastFurnaceMasteredDurationPercent.get();
+            if (noviceDuration < familiarDuration || familiarDuration < skilledDuration ||
+                    skilledDuration < masteredDuration) {
+                throw new IllegalStateException(
+                        "Blast-furnace proficiency duration percentages must be nonincreasing");
+            }
+            int familiarOperations = blastFurnaceFamiliarOperations.get();
+            int skilledOperations = blastFurnaceSkilledOperations.get();
+            int masteredOperations = blastFurnaceMasteredOperations.get();
+            if (familiarOperations >= skilledOperations || skilledOperations >= masteredOperations) {
+                throw new IllegalStateException(
+                        "Blast-furnace proficiency operation thresholds must be strictly increasing");
+            }
             return new GSEDifficultyProfile(
                     gtceuCasingsPerCraft.get(), steamOutputMultiplier.get(), singleblockSteamCacheMultiplier.get(),
                     preheatCostPercent.get(), preheatIntervalTicks.get(), processingSteamPercent.get(),
@@ -434,6 +478,8 @@ public final class GSEDifficultyConfig {
                     boilerRoomScaleFailureHours.get(), stage1, stage2, stage3,
                     assemblerOutputMultiplier.get(), voidProducerOutputMultiplier.get(),
                     circuitAssemblerBonusChancePercent.get(), circuitAssemblerBonusMultiplier.get(),
+                    noviceDuration, familiarDuration, skilledDuration, masteredDuration,
+                    familiarOperations, skilledOperations, masteredOperations,
                     hardBronzeComponentRecipes.get(), harderSteamGrindingBlockRecipes.get(),
                     hardSteamAssemblyBlockRecipes.get(), hardSteamCircuitAssemblyBlockRecipes.get(),
                     hardSteamMixingBlockRecipes.get(),

@@ -1,6 +1,8 @@
 package com.hoshino.gregsteamexpansion.registry;
 
 import com.gregtechceu.gtceu.utils.GTUtil;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyProfile;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeSteamSupplyHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
@@ -36,8 +38,10 @@ final class GSEMachineTooltips {
             tooltip(standard("large_steam_ore_washer", true));
     static final BiConsumer<ItemStack, List<Component>> LARGE_STEAM_MIXER =
             tooltip(standard("large_steam_mixer", true));
+    private static final TooltipProfile LARGE_STEAM_BLAST_FURNACE_BASE =
+            standard("large_steam_blast_furnace", true);
     static final BiConsumer<ItemStack, List<Component>> LARGE_STEAM_BLAST_FURNACE =
-            tooltip(standard("large_steam_blast_furnace", true));
+            GSEMachineTooltips::appendBlastFurnaceTooltip;
     static final BiConsumer<ItemStack, List<Component>> LARGE_STEAM_MACERATOR =
             tooltip(standard("large_steam_macerator", true));
     static final BiConsumer<ItemStack, List<Component>> LARGE_STEAM_THERMAL_CENTRIFUGE =
@@ -149,6 +153,23 @@ final class GSEMachineTooltips {
                 tooltip.add(row.component());
             }
         }
+    }
+
+    private static void appendBlastFurnaceTooltip(ItemStack stack, List<Component> tooltip) {
+        boolean expanded = GTUtil.isShiftDown();
+        append(LARGE_STEAM_BLAST_FURNACE_BASE, expanded, tooltip);
+        if (!expanded) return;
+        GSEDifficultyProfile profile = GSEDifficultyState.currentProfile(true);
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.proficiency_config",
+                aquaText(profile.blastFurnaceNoviceDurationPercent() + "%"),
+                aquaText(profile.blastFurnaceFamiliarDurationPercent() + "%"),
+                aquaText(profile.blastFurnaceSkilledDurationPercent() + "%"),
+                aquaText(profile.blastFurnaceMasteredDurationPercent() + "%"),
+                aquaText(String.valueOf(profile.blastFurnaceFamiliarOperations())),
+                aquaText(String.valueOf(profile.blastFurnaceSkilledOperations())),
+                aquaText(String.valueOf(profile.blastFurnaceMasteredOperations())))
+                .withStyle(ChatFormatting.AQUA));
     }
 
     private static TooltipProfile standard(String machine, boolean warningAtSix) {

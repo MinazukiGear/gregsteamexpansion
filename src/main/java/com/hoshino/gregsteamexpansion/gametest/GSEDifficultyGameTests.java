@@ -51,6 +51,28 @@ public final class GSEDifficultyGameTests {
                         && expertDefaults.boilerRoomScaleLossStage2Percent() == 40
                         && expertDefaults.boilerRoomScaleLossStage3Percent() == 75,
                 "Boiler-room water-scale defaults do not match the approved profile");
+        helper.assertTrue(easyDefaults.blastFurnaceNoviceDurationPercent() == 75
+                        && easyDefaults.blastFurnaceFamiliarDurationPercent() == 65
+                        && easyDefaults.blastFurnaceSkilledDurationPercent() == 55
+                        && easyDefaults.blastFurnaceMasteredDurationPercent() == 45
+                        && easyDefaults.blastFurnaceFamiliarOperations() == 144
+                        && easyDefaults.blastFurnaceSkilledOperations() == 576
+                        && easyDefaults.blastFurnaceMasteredOperations() == 1440
+                        && normalDefaults.blastFurnaceNoviceDurationPercent() == 80
+                        && normalDefaults.blastFurnaceFamiliarDurationPercent() == 70
+                        && normalDefaults.blastFurnaceSkilledDurationPercent() == 60
+                        && normalDefaults.blastFurnaceMasteredDurationPercent() == 50
+                        && normalDefaults.blastFurnaceFamiliarOperations() == 192
+                        && normalDefaults.blastFurnaceSkilledOperations() == 768
+                        && normalDefaults.blastFurnaceMasteredOperations() == 1920
+                        && expertDefaults.blastFurnaceNoviceDurationPercent() == 90
+                        && expertDefaults.blastFurnaceFamiliarDurationPercent() == 80
+                        && expertDefaults.blastFurnaceSkilledDurationPercent() == 70
+                        && expertDefaults.blastFurnaceMasteredDurationPercent() == 60
+                        && expertDefaults.blastFurnaceFamiliarOperations() == 288
+                        && expertDefaults.blastFurnaceSkilledOperations() == 1152
+                        && expertDefaults.blastFurnaceMasteredOperations() == 2880,
+                "Blast-furnace proficiency defaults do not match the approved profiles");
         if (!enabled) {
             helper.assertTrue(difficulty == Difficulty.NORMAL,
                     "Disabled difficulty must resolve to the recipe baseline Normal tier");
@@ -69,6 +91,10 @@ public final class GSEDifficultyGameTests {
             helper.assertTrue(GSEDifficultyState.circuitAssemblerBonusChancePercent(false) == 50
                             && GSEDifficultyState.circuitAssemblerBonusMultiplier(false) == 3,
                     "Disabled difficulty did not use the Normal circuit-specialization baseline");
+            helper.assertTrue(GSEDifficultyState.blastFurnaceDurationPercent(false, 0) == 80
+                            && GSEDifficultyState.blastFurnaceDurationPercent(false, 3) == 50
+                            && GSEDifficultyState.blastFurnaceRequiredOperations(false, 3) == 1920,
+                    "Disabled difficulty did not use the Normal blast-furnace proficiency baseline");
             helper.assertTrue(GSEDifficultyState.preheatCostPercent(false) == 100
                             && GSEDifficultyState.processingSteamPercent(false) == 100,
                     "Disabled difficulty applied a furnace consumption multiplier");
@@ -129,6 +155,21 @@ public final class GSEDifficultyGameTests {
                         && GSEDifficultyState.circuitAssemblerBonusMultiplier(false)
                         == profile.circuitAssemblerBonusMultiplier(),
                 "Circuit-specialization settings do not match the configured profile");
+        helper.assertTrue(GSEDifficultyState.blastFurnaceDurationPercent(false, 0)
+                        == profile.blastFurnaceNoviceDurationPercent()
+                        && GSEDifficultyState.blastFurnaceDurationPercent(false, 1)
+                        == profile.blastFurnaceFamiliarDurationPercent()
+                        && GSEDifficultyState.blastFurnaceDurationPercent(false, 2)
+                        == profile.blastFurnaceSkilledDurationPercent()
+                        && GSEDifficultyState.blastFurnaceDurationPercent(false, 3)
+                        == profile.blastFurnaceMasteredDurationPercent()
+                        && GSEDifficultyState.blastFurnaceRequiredOperations(false, 1)
+                        == profile.blastFurnaceFamiliarOperations()
+                        && GSEDifficultyState.blastFurnaceRequiredOperations(false, 2)
+                        == profile.blastFurnaceSkilledOperations()
+                        && GSEDifficultyState.blastFurnaceRequiredOperations(false, 3)
+                        == profile.blastFurnaceMasteredOperations(),
+                "Blast-furnace proficiency settings do not match the configured profile");
         assertExpectedRestartConfig(helper, difficulty);
         helper.succeed();
     }
@@ -164,6 +205,20 @@ public final class GSEDifficultyGameTests {
                 System.getenv("GSE_EXPECTED_PROFILE_CIRCUIT_BONUS_CHANCE"));
         assertExpectedInt(helper, "profile circuit bonus multiplier", profile.circuitAssemblerBonusMultiplier(),
                 System.getenv("GSE_EXPECTED_PROFILE_CIRCUIT_BONUS_MULTIPLIER"));
+        assertExpectedInt(helper, "profile blast novice duration", profile.blastFurnaceNoviceDurationPercent(),
+                System.getenv("GSE_EXPECTED_PROFILE_BLASTFURNACENOVICEDURATIONPERCENT"));
+        assertExpectedInt(helper, "profile blast familiar duration", profile.blastFurnaceFamiliarDurationPercent(),
+                System.getenv("GSE_EXPECTED_PROFILE_BLASTFURNACEFAMILIARDURATIONPERCENT"));
+        assertExpectedInt(helper, "profile blast skilled duration", profile.blastFurnaceSkilledDurationPercent(),
+                System.getenv("GSE_EXPECTED_PROFILE_BLASTFURNACESKILLEDDURATIONPERCENT"));
+        assertExpectedInt(helper, "profile blast mastered duration", profile.blastFurnaceMasteredDurationPercent(),
+                System.getenv("GSE_EXPECTED_PROFILE_BLASTFURNACEMASTEREDDURATIONPERCENT"));
+        assertExpectedInt(helper, "profile blast familiar operations", profile.blastFurnaceFamiliarOperations(),
+                System.getenv("GSE_EXPECTED_PROFILE_BLASTFURNACEFAMILIAROPERATIONS"));
+        assertExpectedInt(helper, "profile blast skilled operations", profile.blastFurnaceSkilledOperations(),
+                System.getenv("GSE_EXPECTED_PROFILE_BLASTFURNACESKILLEDOPERATIONS"));
+        assertExpectedInt(helper, "profile blast mastered operations", profile.blastFurnaceMasteredOperations(),
+                System.getenv("GSE_EXPECTED_PROFILE_BLASTFURNACEMASTEREDOPERATIONS"));
         assertExpectedBoolean(helper, "profile harderRods", profile.harderRods(),
                 System.getenv("GSE_EXPECTED_PROFILE_HARDER_RODS"));
         assertExpectedBoolean(helper, "profile hardBronzeComponentRecipes",

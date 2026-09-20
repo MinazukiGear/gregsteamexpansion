@@ -456,9 +456,9 @@ public final class GSELang {
         // 大型蒸汽高炉 / Large Steam Blast Furnace (large-steam-blast-furnace.md,
         // 2026-09-09 裁定: 极高造价与极大的结构换取极高效率).
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.0",
-                "A pure-steam MEGASTRUCTURE blast furnace running ALL gtceu:primitive_blast_furnace recipes (iron dust + fuel \u2192 wrought iron, iron or wrought iron + fuel \u2192 steel) at up to 96 parallel operations \u2014 240\u00d7 the primitive blast furnace's throughput.");
+                "A pure-steam MEGASTRUCTURE blast furnace running ALL gtceu:primitive_blast_furnace recipes at up to 96 parallel operations; consecutive production of one recipe builds proficiency.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.1",
-                "Colossal three-stage tapered tower, 13\u00d713 at the base and 15 tall, walled in ~370 blast bricks; each recipe takes 0.4\u00d7 its base duration with a flat 200 mB of steam per tick per parallel plus scaling tuyere air.");
+                "Colossal three-stage tapered tower, 13\u00d713 at the base and 15 tall; recipe duration depends on proficiency while steam remains 200 mB/t per parallel plus scaling tuyere air.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.summary.2",
                 "Hold Shift for the full structure and operating rules.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle",
@@ -472,7 +472,7 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle2",
                 "Processing & Steam");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.3",
-                "Runs every gtceu:primitive_blast_furnace recipe (steel from iron or wrought iron plus coal, charcoal or coke; wrought iron comes from iron dust + fuel here, on top of the upstream iron nugget smelting route); one recipe per batch, up to 96 parallel, duration = base \u00d7 0.4 (rounded up) \u2014 240\u00d7 the primitive blast furnace's throughput.");
+                "Runs every gtceu:primitive_blast_furnace recipe, one recipe per batch at up to 96 parallel. Consecutive completed operations of the exact same recipe advance Novice, Familiar, Skilled and Mastered duration tiers; a different recipe starts again at Novice.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.4",
                 "The recipe type carries no EU/t: steam is a flat 200 mB/t per parallel \u2014 19,200 mB/t at full load, requiring 16 ordinary supply hatches (1,200 mB/t each) or 4 large supply hatches (4,800 mB/t each). Every consuming tick also draws blast air at 4 mB/t per parallel (384 mB/t full load) across the tuyeres; each intake collects 50 mB/t, so sustained full load needs ALL 8 tuyeres. An air or steam shortfall rolls the batch back to 1 tick and the status shows blast air shortage when air runs out.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.5",
@@ -482,11 +482,26 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.subtitle3",
                 "Control & Status");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.7",
-                "The last successful recipe is preferred; active pause freezes progress; loss of steam, blast air or structure rolls an active batch back to 1 tick.");
+                "Proficiency has no idle decay. Pause, steam or air shortage, temporary structure loss and reload preserve it; starting another recipe resets it. A threshold crossed by a completed batch applies to the next batch.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.8",
-                "Removing the controller drops only pending outputs and loses the recipe preference; the controller holds no internal item storage.");
+                "Removing the controller drops only pending outputs and loses recipe preference and proficiency; the controller item does not carry production experience.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.9",
-                "All three difficulty tiers behave identically.");
+                "The four duration percentages and three operation thresholds come from the selected startup difficulty profile; lower proficiency increases total steam and blast-air cost because their per-tick rates stay fixed.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.proficiency_config",
+                "Current profile: durations %s / %s / %s / %s of base; Familiar / Skilled / Mastered at %s / %s / %s completed operations.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.label", "Proficiency");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.level.0", "Novice");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.level.1", "Familiar");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.level.2", "Skilled");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.level.3", "Mastered");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.recipe", "Tracked recipe: %s");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.none", "None");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.duration",
+                "Current duration: %s%% of base");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.next",
+                "Next tier at %s completed operations");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.mastered",
+                "Maximum proficiency reached");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.low_blast",
                 "Blast Air Shortage");
         add("gregsteamexpansion.multiblock.auxiliary_shortfall",

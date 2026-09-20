@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
@@ -16,6 +17,7 @@ import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.RecipeCapability;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
+import com.gregtechceu.gtceu.api.machine.feature.IDropSaveMachine;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
@@ -123,9 +125,10 @@ public final class GSEBlastFurnaceTests {
                     "Advanced exhaust hatch changed the selected parallel");
             eq(h, machine.getBatchSteamPerTick(), 268,
                     "50% throttle did not reduce the advanced exhaust demand from 536 to 268 mB/t");
-            eq(h, machine.getBatchDuration(), 480,
+            int unthrottledDuration = noviceDuration(recipe);
+            eq(h, machine.getBatchDuration(), unthrottledDuration * 2,
                     "50% throttle did not double the advanced exhaust batch duration");
-            eq(h, number(machine, "batchTotalSteamMb"), 128_640,
+            eq(h, number(machine, "batchTotalSteamMb"), 536L * unthrottledDuration,
                     "Throttle changed the advanced exhaust batch's total steam consumption");
         });
     }
@@ -161,7 +164,9 @@ public final class GSEBlastFurnaceTests {
                     "Controller GUI status row diverged from the dedicated blast-air text");
             h.assertTrue(labelText(ui.getFlatWidgetCollection(), 104, 32).equals("4 / 96"),
                     "Controller GUI did not expose locked parallel as 4 / 96");
-            String intakeText = labelText(ui.getFlatWidgetCollection(), 104, 62);
+            h.assertTrue(!labelText(ui.getFlatWidgetCollection(), 104, 42).isBlank(),
+                    "Controller GUI omitted the proficiency row");
+            String intakeText = labelText(ui.getFlatWidgetCollection(), 104, 72);
             h.assertTrue(intakeText.equals(call(machine, "intakeText")),
                     "Controller GUI intake row diverged from the intake snapshot");
             h.assertTrue(!intakeText.equals("—"), "Controller GUI omitted its required intake row");
@@ -541,6 +546,143 @@ public final class GSEBlastFurnaceTests {
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceProficiencyLocksNextBatchAndResetsOnRecipeChange(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            ItemBusPartMachine input = inputBus(machine);
+            GTRecipe first = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("blast_proficiency_first"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE))
+                    .outputItems(new ItemStack(Items.IRON_INGOT))
+                    .duration(100).buildRawRecipe();
+            GTRecipe second = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("blast_proficiency_second"))
+                    .inputItems(new ItemStack(Items.DIRT))
+                    .outputItems(new ItemStack(Items.GOLD_INGOT))
+                    .duration(100).buildRawRecipe();
+
+            int familiar = GSEDifficultyState.blastFurnaceRequiredOperations(false, 1);
+            set(machine, "proficiencyRecipeId", first.getId().toString());
+            set(machine, "proficiencyOperations", familiar - 1);
+            fillOutputs(machine, false);
+            fillSteam(machine, 32_000);
+            GSESteamEngineTestSupport.<SteamAirIntakeHatchPartMachine>list(machine, "airIntakeHatches").get(0)
+                    .tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(64_000));
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", first),
+                    "Blast furnace rejected the threshold-crossing proficiency batch");
+            eq(h, machine.getBatchDuration(), durationAt(first, 0),
+                    "Threshold-crossing batch did not retain its novice duration");
+            set(machine, "batchProgress", machine.getBatchDuration() - 1);
+            call(machine, "runBatchTick");
+            eq(h, machine.getProficiencyOperations(), familiar,
+                    "Completed parallel operation did not cross the familiar threshold");
+            eq(h, machine.getProficiencyLevel(), 1,
+                    "Completed batch did not advance proficiency for the next batch");
+
+            fillOutputs(machine, false);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", first),
+                    "Blast furnace rejected the familiar proficiency batch");
+            eq(h, machine.getBatchDuration(), durationAt(first, 1),
+                    "Next same-recipe batch did not use familiar duration");
+            clearActiveProcessorBatch(machine);
+
+            set(machine, "proficiencyOperations",
+                    GSEDifficultyState.blastFurnaceRequiredOperations(false, 3));
+            fillOutputs(machine, false);
+            clearInventory(input);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", first),
+                    "Blast furnace rejected the mastered proficiency batch");
+            eq(h, machine.getBatchDuration(), durationAt(first, 3),
+                    "Mastered same-recipe batch used the wrong duration");
+            clearActiveProcessorBatch(machine);
+
+            fillOutputs(machine, false);
+            clearInventory(input);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.DIRT));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", second),
+                    "Blast furnace rejected a recipe-switch batch");
+            eq(h, machine.getBatchDuration(), durationAt(second, 0),
+                    "Different recipe did not restart at novice duration");
+            eq(h, machine.getProficiencyOperations(), 0,
+                    "Different recipe did not clear completed proficiency operations");
+            h.assertTrue(machine.getProficiencyRecipeId().equals(second.getId().toString()),
+                    "Different recipe did not replace the tracked proficiency recipe id");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void blastFurnaceProficiencyPersistsWithoutChangingJade(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            String recipeId = GregSteamExpansion.id("persisted_proficiency").toString();
+            set(machine, "proficiencyRecipeId", recipeId);
+            set(machine, "proficiencyOperations",
+                    GSEDifficultyState.blastFurnaceRequiredOperations(false, 2));
+            CompoundTag saved = saveState(h, machine);
+            set(machine, "proficiencyRecipeId", "");
+            set(machine, "proficiencyOperations", 0);
+            loadState(h, machine, saved);
+            h.assertTrue(machine.getProficiencyRecipeId().equals(recipeId),
+                    "Blast-furnace proficiency recipe did not survive NBT reload");
+            eq(h, machine.getProficiencyLevel(), 2,
+                    "Blast-furnace proficiency level did not survive NBT reload");
+            h.assertTrue(!(machine instanceof IDropSaveMachine),
+                    "Blast-furnace controller unexpectedly saves proficiency into its dropped item");
+
+            var ui = machine.createUI(FakePlayerFactory.getMinecraft(h.getLevel()));
+            h.assertTrue(labelText(ui.getFlatWidgetCollection(), 104, 42).contains("("),
+                    "Controller GUI did not add the proficiency row after parallel");
+
+            CompoundTag serverData = new CompoundTag();
+            BlockAccessor accessor = jadeAccessor(machine, serverData);
+            @SuppressWarnings("unchecked")
+            IServerDataProvider<BlockAccessor> provider =
+                    (IServerDataProvider<BlockAccessor>) jadeProvider("ProcessorProvider");
+            provider.appendServerData(serverData, accessor);
+            CompoundTag data = serverData.getCompound("GregSteamExpansionProcessor");
+            h.assertTrue(!data.contains("proficiencyRecipeId") && !data.contains("proficiencyOperations"),
+                    "Processor Jade protocol unexpectedly exposed blast-furnace proficiency");
+
+            machine.onMachineRemoved();
+            h.assertTrue(machine.getProficiencyRecipeId().isEmpty()
+                            && machine.getProficiencyOperations() == 0,
+                    "Controller removal did not reset blast-furnace proficiency");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void legacyBlastBatchKeepsLockedDurationAndSeedsProficiency(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            GTRecipe legacyRecipe = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("legacy_blast_proficiency_seed"))
+                    .outputItems(new ItemStack(Items.IRON_INGOT))
+                    .duration(500).buildRawRecipe();
+
+            // A pre-migration active batch has its old locked duration but no
+            // proficiency fields. Reloading must not recalculate that duration.
+            seedBatch(machine, legacyRecipe, 2);
+            set(machine, "batchDurationTicks", 200);
+            set(machine, "proficiencyRecipeId", "");
+            set(machine, "proficiencyOperations", 0);
+            CompoundTag saved = saveState(h, machine);
+            clearProcessorState(machine);
+            loadState(h, machine, saved);
+            eq(h, machine.getBatchDuration(), 200,
+                    "Legacy active batch did not preserve its locked pre-migration duration");
+
+            call(machine, "completeBatch");
+            h.assertTrue(machine.getProficiencyRecipeId().equals(legacyRecipe.getId().toString()),
+                    "Legacy batch completion did not seed the tracked recipe id");
+            eq(h, machine.getProficiencyOperations(), 2,
+                    "Legacy batch completion did not credit its completed parallel operations");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnacePrefersLastRecipeAfterReload(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -835,7 +977,8 @@ public final class GSEBlastFurnaceTests {
         h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
                 "Large steam blast furnace did not start its 96-parallel real recipe");
         eq(h, machine.getBatchParallel(), 96, "Blast furnace did not lock its maximum parallel");
-        eq(h, machine.getBatchDuration(), 240, "Full-load recipe did not apply 0.4x duration");
+        eq(h, machine.getBatchDuration(), noviceDuration(recipe),
+                "Full-load recipe did not apply novice proficiency duration");
         eq(h, machine.getBatchSteamPerTick(), 19_200,
                 "Full-load recipe locked the wrong steam demand");
         for (int slot = 0; slot < 4; slot++) {
@@ -873,15 +1016,17 @@ public final class GSEBlastFurnaceTests {
         h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
                 "Large steam blast furnace did not start " + recipe.getId());
         eq(h, machine.getBatchParallel(), 4, "Blast recipe did not lock four parallels");
-        eq(h, machine.getBatchDuration(), 240, "Blast recipe did not apply its 0.4x duration");
+        int duration = noviceDuration(recipe);
+        eq(h, machine.getBatchDuration(), duration,
+                "Blast recipe did not apply its novice proficiency duration");
         eq(h, machine.getBatchSteamPerTick(), 800, "Blast recipe locked the wrong steam demand");
         h.assertTrue(input.getInventory().getStackInSlot(0).isEmpty()
                         && input.getInventory().getStackInSlot(1).isEmpty(),
                 "Blast recipe did not consume both inputs atomically at batch start");
 
-        for (int tick = 1; tick <= 240; tick++) {
+        for (int tick = 1; tick <= duration; tick++) {
             call(machine, "runBatchTick");
-            if (tick < 240) {
+            if (tick < duration) {
                 eq(h, machine.getBatchProgress(), tick,
                         "Blast recipe did not advance exactly once on supplied tick " + tick);
                 h.assertTrue(!machine.getBatchRecipeId().isEmpty(),
@@ -892,10 +1037,19 @@ public final class GSEBlastFurnaceTests {
                 "Blast recipe did not complete after its locked duration");
         eq(h, outputCount(machine, expectedOutput), 4,
                 "Blast recipe did not deliver its guaranteed parallel output");
-        eq(h, steamBefore - steam(machine), 192_000,
+        eq(h, steamBefore - steam(machine), 800L * duration,
                 "Blast recipe consumed the wrong total steam");
-        eq(h, airBefore - air(machine), 3_840,
+        eq(h, airBefore - air(machine), 16L * duration,
                 "Blast recipe consumed the wrong total blast air");
+    }
+
+    private static int noviceDuration(GTRecipe recipe) {
+        return durationAt(recipe, 0);
+    }
+
+    private static int durationAt(GTRecipe recipe, int level) {
+        int percent = GSEDifficultyState.blastFurnaceDurationPercent(false, level);
+        return Math.max(1, (recipe.duration * percent + 99) / 100);
     }
 
     private static long air(Object m) {

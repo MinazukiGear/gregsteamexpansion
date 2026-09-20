@@ -139,6 +139,28 @@ public final class GSEDifficultyState {
         return currentProfile(remote).circuitAssemblerBonusMultiplier();
     }
 
+    /** Selected-profile duration percentage for blast-furnace proficiency level 0-3. */
+    public static int blastFurnaceDurationPercent(boolean remote, int level) {
+        GSEDifficultyProfile profile = currentProfile(remote);
+        return switch (level) {
+            case 1 -> profile.blastFurnaceFamiliarDurationPercent();
+            case 2 -> profile.blastFurnaceSkilledDurationPercent();
+            case 3 -> profile.blastFurnaceMasteredDurationPercent();
+            default -> profile.blastFurnaceNoviceDurationPercent();
+        };
+    }
+
+    /** Selected-profile completed-operation threshold for proficiency level 1-3. */
+    public static int blastFurnaceRequiredOperations(boolean remote, int level) {
+        GSEDifficultyProfile profile = currentProfile(remote);
+        return switch (level) {
+            case 1 -> profile.blastFurnaceFamiliarOperations();
+            case 2 -> profile.blastFurnaceSkilledOperations();
+            case 3 -> profile.blastFurnaceMasteredOperations();
+            default -> 0;
+        };
+    }
+
     /**
      * Effective casing/block recipe output. When difficulty is disabled GSE
      * follows GTCEu's untouched setting instead of imposing a profile value.

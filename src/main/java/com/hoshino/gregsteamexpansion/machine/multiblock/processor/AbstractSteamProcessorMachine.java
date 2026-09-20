@@ -47,6 +47,7 @@ import com.hoshino.gregsteamexpansion.recipe.RecipeCacheLifecycle;
 import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 import com.hoshino.gregsteamexpansion.registry.GSEPatternBufferCompat;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
+import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.ISubscription;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
@@ -1107,6 +1108,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         List<ItemStack> scaledProduced = scaleByMultiplier(produced, batchOutputMultiplier);
         pendingBuffer.addMergedItems(scaledProduced);
         pendingBuffer.addMergedFluids(producedFluids);
+        onBatchCompleted(batchRecipe, batchParallel);
 
         hasBatch = false;
         batchRecipe = null;
@@ -1124,6 +1126,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
      * newly accepted batch. The default processor family has no extra state.
      */
     protected void onBatchStarted(GTRecipe recipe, int parallel) {}
+
+    /** Called exactly once after a completed batch has been committed to the pending buffer. */
+    protected void onBatchCompleted(GTRecipe recipe, int parallel) {}
 
     /**
      * Extra per-operation item outputs used by the startup worst-case fit
@@ -1382,6 +1387,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "progress", this::progressText, ChatFormatting.WHITE);
         y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "parallel",
                 () -> (hasBatch ? batchParallel + " / " : "— / ") + maximumParallel(), ChatFormatting.WHITE);
+        y = appendAdditionalInfoRows(scroll, y);
         y = SteamProcessorUI.infoRow(scroll, y, UI_PREFIX + "steam",
                 () -> SteamProcessorUI.steamStorage(isFormed(), getSteamTotalStored(), getSteamTotalCapacity()),
                 ChatFormatting.WHITE);
@@ -1402,6 +1408,11 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight, this::hasLargeSteamSupplyHatch,
                 this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
         return ui;
+    }
+
+    /** Controller-specific rows inserted after the common parallel readout. */
+    protected int appendAdditionalInfoRows(DraggableScrollableWidgetGroup scroll, int y) {
+        return y;
     }
 
     /** `45.0%（135 / 300 tick）`; completed-but-undelivered stays at 100%. */

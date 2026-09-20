@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomThermalLogic;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerScaleStage;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
@@ -426,6 +427,24 @@ public final class GSEBoilerRoomTests {
                                     && BoilerRoomMachine.calculateWaterScaleIncrement(
                                             10_000, 10_000, 5, 0.0) == 0.0,
                             "Equivalent-full-load scale lifetime arithmetic is incorrect");
+
+                    var thermal = new BoilerRoomThermalLogic.ThermalState(100, 0, 0, 0, 0, 0.62);
+                    var heating = new BoilerRoomThermalLogic.TickInput(
+                            true, true, false, false, 800, 2, 30, 15);
+                    thermal = BoilerRoomThermalLogic.advance(thermal, heating).state();
+                    h.assertTrue(thermal.temperature() == 100 && thermal.heatCounter() == 1,
+                            "Pure boiler thermal logic heated before its cadence elapsed");
+                    thermal = BoilerRoomThermalLogic.advance(thermal, heating).state();
+                    h.assertTrue(thermal.temperature() == 101 && thermal.heatCounter() == 0,
+                            "Pure boiler thermal logic did not heat on its cadence boundary");
+                    var descaling = BoilerRoomThermalLogic.advance(
+                            new BoilerRoomThermalLogic.ThermalState(20, 0, 0, 1, 200, 0.62),
+                            new BoilerRoomThermalLogic.TickInput(
+                                    false, true, false, false, 800, 20, 30, 15));
+                    h.assertTrue(descaling.suppressSteamGeneration()
+                                    && descaling.state().descalingTicksRemaining() == 0
+                                    && Math.abs(descaling.state().scaleProgress() - 0.37) < 1.0e-9,
+                            "Pure boiler thermal logic changed the one-stage descaling boundary");
 
                     var loadedRecipe = h.getLevel().getRecipeManager()
                             .byKey(GregSteamExpansion.id("mixer/diluted_hydrochloric_acid"))

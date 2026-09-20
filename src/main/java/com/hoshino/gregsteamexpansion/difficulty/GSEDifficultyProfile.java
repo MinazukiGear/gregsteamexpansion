@@ -29,6 +29,13 @@ public record GSEDifficultyProfile(
                                    int voidProducerOutputMultiplier,
                                    int circuitAssemblerBonusChancePercent,
                                    int circuitAssemblerBonusMultiplier,
+                                   int blastFurnaceNoviceDurationPercent,
+                                   int blastFurnaceFamiliarDurationPercent,
+                                   int blastFurnaceSkilledDurationPercent,
+                                   int blastFurnaceMasteredDurationPercent,
+                                   int blastFurnaceFamiliarOperations,
+                                   int blastFurnaceSkilledOperations,
+                                   int blastFurnaceMasteredOperations,
                                    boolean hardBronzeComponentRecipes,
                                    boolean harderSteamGrindingBlockRecipes,
                                    boolean hardSteamAssemblyBlockRecipes,
@@ -59,18 +66,21 @@ public record GSEDifficultyProfile(
             case EASY -> new GSEDifficultyProfile(
                     2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 0.0, 0, 0, 0, 2.0, 4,
                     100, 7,
+                    75, 65, 55, 45, 144, 576, 1440,
                     false, false, false, false, false,
                     false, false, false, false, false, false, false, false, false,
                     false, false, false, false, false, false, false, false, false, false);
             case NORMAL -> new GSEDifficultyProfile(
                     1, 5.0, 1, 100, 5, 100, 1.5, 2.0, 24.0, 10, 25, 50, 1.0, 2,
                     50, 3,
+                    80, 70, 60, 50, 192, 768, 1920,
                     false, false, false, false, false,
                     true, true, false, false, false, true, false, false, false,
                     true, true, true, false, true, true, false, true, false, false);
             case EXPERT -> new GSEDifficultyProfile(
                     1, 2.0, 1, 220, 10, 100, 1.0, 1.5, 8.0, 15, 40, 75, 1.0, 1,
                     25, 1,
+                    90, 80, 70, 60, 288, 1152, 2880,
                     true, true, true, true, true,
                     true, true, true, true, true, true, true, true, true,
                     true, true, true, true, true, true, true, true, true, true);
@@ -112,6 +122,10 @@ public record GSEDifficultyProfile(
                 + boilerRoomScaleLossStage3Percent + "|"
                 + Double.toHexString(assemblerOutputMultiplier) + "|" + voidProducerOutputMultiplier + "|"
                 + circuitAssemblerBonusChancePercent + "|" + circuitAssemblerBonusMultiplier + "|"
+                + blastFurnaceNoviceDurationPercent + "|" + blastFurnaceFamiliarDurationPercent + "|"
+                + blastFurnaceSkilledDurationPercent + "|" + blastFurnaceMasteredDurationPercent + "|"
+                + blastFurnaceFamiliarOperations + "|" + blastFurnaceSkilledOperations + "|"
+                + blastFurnaceMasteredOperations + "|"
                 + hardBronzeComponentRecipes + "|" + harderSteamGrindingBlockRecipes + "|"
                 + hardSteamAssemblyBlockRecipes + "|" + hardSteamCircuitAssemblyBlockRecipes + "|"
                 + hardSteamMixingBlockRecipes + "|"
