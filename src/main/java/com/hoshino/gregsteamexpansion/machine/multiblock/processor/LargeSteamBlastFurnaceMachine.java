@@ -5,9 +5,11 @@ import com.gregtechceu.gtceu.api.pattern.BlockPattern;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
+import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
+import com.hoshino.gregsteamexpansion.machine.multiblock.SteamThrottle;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
 import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
@@ -17,6 +19,7 @@ import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import java.util.List;
@@ -63,6 +66,11 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     public static final long STEAM_PER_TICK_PER_PARALLEL_MB = 200;
     /** Blast air per consuming tick per parallel (鼓风随并行缩放, 满载 384 mB/t). */
     public static final long BLAST_AIR_PER_PARALLEL_MB = 4;
+    /** Hot-blast batches keep 85% of the already-finalized normal steam total. */
+    public static final int HOT_BLAST_STEAM_PERCENT = 85;
+    /** Two compact checkerwork towers store at most 100 million mB-equivalent heat. */
+    public static final long HOT_BLAST_HEAT_CAPACITY = 100_000_000L;
+    private static final long MODULE_VALIDATION_INTERVAL_TICKS = 20L;
 
     /** Exact recipe id whose consecutive completed operations are tracked. */
     @Persisted
@@ -72,6 +80,49 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     @Persisted
     @DescSynced
     private int proficiencyOperations;
+
+    /** Heat is controller-owned but only usable while the ordinary-block module validates. */
+    @Persisted
+    @DescSynced
+    private long hotBlastHeat;
+    /** Whether the current batch locked the 15% hot-blast steam reduction. */
+    @Persisted
+    @DescSynced
+    private boolean batchHotBlast;
+    /** Cold batches only recover heat when the module was valid at batch start. */
+    @Persisted
+    private boolean batchHotBlastModuleParticipating;
+    /** Exact heat delta spread over successful work ticks. */
+    @Persisted
+    private long batchHotBlastHeatTotal;
+    @Persisted
+    private long batchHotBlastHeatPerTick;
+    /** Ordinary locked economics retained for a hot-batch module failure. */
+    @Persisted
+    private long batchNormalSteamTotalMb;
+    @Persisted
+    private long batchNormalSteamPerTickMb;
+    /** Synced ordinal of {@link HotBlastStatus}; geometry itself remains server-authoritative. */
+    @DescSynced
+    private int hotBlastStatus;
+
+    private long lastHotBlastValidationTick = Long.MIN_VALUE;
+    private boolean hotBlastValidatedThisSession;
+    private boolean skipBatchTickAfterHotBlastFailure;
+
+    private enum HotBlastStatus {
+        MISSING("missing"),
+        INVALID("invalid"),
+        UNLOADED("unloaded"),
+        CONFLICT("conflict"),
+        VALID("ready");
+
+        private final String key;
+
+        HotBlastStatus(String key) {
+            this.key = key;
+        }
+    }
 
     public LargeSteamBlastFurnaceMachine(IMachineBlockEntity holder) {
         super(holder);
@@ -201,8 +252,30 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     protected int appendAdditionalInfoRows(DraggableScrollableWidgetGroup scroll, int y) {
-        return SteamProcessorUI.tooltipRow(scroll, y, PROFICIENCY_UI_PREFIX + "label",
+        y = SteamProcessorUI.tooltipRow(scroll, y, PROFICIENCY_UI_PREFIX + "label",
                 this::proficiencyText, this::proficiencyTooltips);
+        y = SteamProcessorUI.infoRow(scroll, y,
+                "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.label",
+                this::hotBlastStatusText, net.minecraft.ChatFormatting.WHITE);
+        return SteamProcessorUI.infoRow(scroll, y,
+                "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.heat.label",
+                () -> FormattingUtil.formatNumbers(boundedHotBlastHeat()) + " / "
+                        + FormattingUtil.formatNumbers(HOT_BLAST_HEAT_CAPACITY) + " mB",
+                net.minecraft.ChatFormatting.WHITE);
+    }
+
+    private String hotBlastStatusText() {
+        String suffix;
+        if (batchHotBlast && hasActiveBatch()) {
+            suffix = "hot";
+        } else if (batchHotBlastModuleParticipating && hasActiveBatch()) {
+            suffix = "charging";
+        } else {
+            suffix = currentHotBlastStatus().key;
+        }
+        return Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status." + suffix)
+                .getString();
     }
 
     private String proficiencyText() {
@@ -237,6 +310,10 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         // copied into the dropped item or carried to a replacement block.
         proficiencyRecipeId = "";
         proficiencyOperations = 0;
+        hotBlastHeat = 0;
+        if (getLevel() instanceof ServerLevel level) {
+            BlastFurnaceHotBlastWorldData.getOrCreate(level).release(getPos());
+        }
         super.onMachineRemoved();
     }
 
@@ -245,6 +322,206 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         // 议题 5: 配方无 EU, 蒸汽按固定马力费计收 (与 EU 脱钩);
         // 满载 96 并行 = 19,200 mB/t: 16 个普通仓或 4 个大型仓.
         return STEAM_PER_TICK_PER_PARALLEL_MB * parallel;
+    }
+
+    @Override
+    public void onStructureFormed() {
+        super.onStructureFormed();
+        refreshHotBlastModule(true);
+    }
+
+    @Override
+    protected void onProcessorServerTick() {
+        refreshHotBlastModule(false);
+    }
+
+    @Override
+    protected SteamThrottle.LockedEconomics adjustLockedSteamEconomics(
+            GTRecipe recipe, int parallel, SteamThrottle.LockedEconomics normal) {
+        // The processor refreshes the optional structure before recipe search each server tick.
+        // Keep candidate economics pure because parallel fitting may evaluate this hook repeatedly.
+        if (currentHotBlastStatus() != HotBlastStatus.VALID) {
+            return normal;
+        }
+        long hotTotal = percentCeil(normal.totalSteamMb(), HOT_BLAST_STEAM_PERCENT);
+        long heatCost = Math.max(0, normal.totalSteamMb() - hotTotal);
+        if (heatCost <= 0 || boundedHotBlastHeat() < heatCost) {
+            return normal;
+        }
+        return SteamThrottle.spread(hotTotal, normal.durationTicks(), normal.throttlePercent());
+    }
+
+    @Override
+    protected void onBatchEconomicsLocked(GTRecipe recipe, int parallel,
+                                          SteamThrottle.LockedEconomics normal,
+                                          SteamThrottle.LockedEconomics selected) {
+        batchNormalSteamTotalMb = normal.totalSteamMb();
+        batchNormalSteamPerTickMb = normal.steamPerTickMb();
+        long hotTotal = percentCeil(normal.totalSteamMb(), HOT_BLAST_STEAM_PERCENT);
+        batchHotBlastHeatTotal = Math.max(0, normal.totalSteamMb() - hotTotal);
+        batchHotBlastHeatPerTick = SteamThrottle.spread(batchHotBlastHeatTotal,
+                normal.durationTicks(), normal.throttlePercent()).steamPerTickMb();
+        batchHotBlast = selected.totalSteamMb() < normal.totalSteamMb();
+        batchHotBlastModuleParticipating = currentHotBlastStatus() == HotBlastStatus.VALID;
+    }
+
+    @Override
+    protected boolean beforeBatchTick(GTRecipe recipe, int parallel, int progress) {
+        if (skipBatchTickAfterHotBlastFailure) {
+            skipBatchTickAfterHotBlastFailure = false;
+            return false;
+        }
+        if (batchHotBlast && currentHotBlastStatus() == HotBlastStatus.UNLOADED
+                && !hotBlastValidatedThisSession) {
+            // A freshly loaded controller waits for all detached-module chunks before using
+            // persisted heat. A normal save/restart therefore does not masquerade as damage.
+            return false;
+        }
+        if (batchHotBlast && batchHotBlastHeatForProgress(progress) > boundedHotBlastHeat()) {
+            downgradeHotBlastBatch();
+            skipBatchTickAfterHotBlastFailure = false;
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    protected void onBatchTickConsumed(GTRecipe recipe, int parallel, int previousProgress,
+                                       long steamConsumedMb) {
+        if (!batchHotBlastModuleParticipating || currentHotBlastStatus() != HotBlastStatus.VALID) {
+            return;
+        }
+        long heat = batchHotBlastHeatForProgress(previousProgress);
+        if (heat <= 0) {
+            return;
+        }
+        if (batchHotBlast) {
+            hotBlastHeat = Math.max(0, boundedHotBlastHeat() - heat);
+        } else {
+            hotBlastHeat = Math.min(HOT_BLAST_HEAT_CAPACITY, boundedHotBlastHeat() + heat);
+        }
+    }
+
+    @Override
+    protected void onBatchCleared() {
+        batchHotBlast = false;
+        batchHotBlastModuleParticipating = false;
+        batchHotBlastHeatTotal = 0;
+        batchHotBlastHeatPerTick = 0;
+        batchNormalSteamTotalMb = 0;
+        batchNormalSteamPerTickMb = 0;
+        skipBatchTickAfterHotBlastFailure = false;
+    }
+
+    private boolean refreshHotBlastModule(boolean force) {
+        if (!(getLevel() instanceof ServerLevel level)) {
+            return currentHotBlastStatus() == HotBlastStatus.VALID;
+        }
+        long now = level.getGameTime();
+        if (lastHotBlastValidationTick == now ||
+                (!force && lastHotBlastValidationTick != Long.MIN_VALUE
+                        && now - lastHotBlastValidationTick < MODULE_VALIDATION_INTERVAL_TICKS)) {
+            return currentHotBlastStatus() == HotBlastStatus.VALID;
+        }
+        lastHotBlastValidationTick = now;
+
+        BlastFurnaceHotBlastModule.Result geometry = BlastFurnaceHotBlastModule.validate(
+                level, getPos(), getFrontFacing());
+        BlastFurnaceHotBlastWorldData data = BlastFurnaceHotBlastWorldData.getOrCreate(level);
+        if (geometry == BlastFurnaceHotBlastModule.Result.VALID) {
+            var result = data.claim(BlastFurnaceHotBlastWorldData.claimFor(getPos(), getFrontFacing()));
+            if (result.success()) {
+                setHotBlastStatus(HotBlastStatus.VALID);
+                hotBlastValidatedThisSession = true;
+                hotBlastHeat = boundedHotBlastHeat();
+                return true;
+            }
+            data.release(getPos());
+            invalidateHotBlastModule(HotBlastStatus.CONFLICT);
+            hotBlastValidatedThisSession = true;
+            return false;
+        }
+
+        data.release(getPos());
+        if (geometry == BlastFurnaceHotBlastModule.Result.UNLOADED) {
+            if (hotBlastValidatedThisSession) {
+                invalidateHotBlastModule(HotBlastStatus.UNLOADED);
+            } else {
+                setHotBlastStatus(HotBlastStatus.UNLOADED);
+            }
+            return false;
+        }
+
+        hotBlastValidatedThisSession = true;
+        invalidateHotBlastModule(geometry == BlastFurnaceHotBlastModule.Result.MISSING
+                ? HotBlastStatus.MISSING : HotBlastStatus.INVALID);
+        return false;
+    }
+
+    private void invalidateHotBlastModule(HotBlastStatus status) {
+        hotBlastHeat = 0;
+        setHotBlastStatus(status);
+        batchHotBlastModuleParticipating = false;
+        if (batchHotBlast && hasActiveBatch()) {
+            downgradeHotBlastBatch();
+        }
+    }
+
+    private void downgradeHotBlastBatch() {
+        SteamThrottle.LockedEconomics normal = new SteamThrottle.LockedEconomics(
+                getCurrentBatchSteamThrottlePercent(), getBatchDuration(),
+                Math.max(0, batchNormalSteamPerTickMb), Math.max(0, batchNormalSteamTotalMb));
+        replaceCurrentBatchSteamEconomics(normal);
+        rollbackCurrentBatchToOneTick();
+        batchHotBlast = false;
+        batchHotBlastModuleParticipating = false;
+        batchHotBlastHeatTotal = 0;
+        batchHotBlastHeatPerTick = 0;
+        skipBatchTickAfterHotBlastFailure = true;
+    }
+
+    private long batchHotBlastHeatForProgress(int progress) {
+        if (batchHotBlastHeatTotal <= 0 || batchHotBlastHeatPerTick <= 0) {
+            return 0;
+        }
+        return new SteamThrottle.LockedEconomics(getCurrentBatchSteamThrottlePercent(),
+                getBatchDuration(), batchHotBlastHeatPerTick,
+                batchHotBlastHeatTotal).steamForProgress(progress);
+    }
+
+    private long boundedHotBlastHeat() {
+        return Math.max(0, Math.min(HOT_BLAST_HEAT_CAPACITY, hotBlastHeat));
+    }
+
+    private static long percentCeil(long value, int percent) {
+        if (value <= 0) {
+            return 0;
+        }
+        long hundreds = value / 100;
+        long remainder = value % 100;
+        return hundreds * percent + (remainder * percent + 99) / 100;
+    }
+
+    private HotBlastStatus currentHotBlastStatus() {
+        HotBlastStatus[] values = HotBlastStatus.values();
+        return hotBlastStatus >= 0 && hotBlastStatus < values.length
+                ? values[hotBlastStatus] : HotBlastStatus.MISSING;
+    }
+
+    private void setHotBlastStatus(HotBlastStatus status) {
+        hotBlastStatus = status.ordinal();
+    }
+
+    public long getHotBlastHeat() {
+        return boundedHotBlastHeat();
+    }
+
+    public boolean isCurrentBatchHotBlast() {
+        return hasActiveBatch() && batchHotBlast;
+    }
+
+    public String getHotBlastModuleStatusId() {
+        return currentHotBlastStatus().key;
     }
 
     @Override

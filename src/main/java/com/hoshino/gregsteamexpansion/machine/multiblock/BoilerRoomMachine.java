@@ -16,13 +16,16 @@ import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.ingredient.FluidIngredient;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
+import com.gregtechceu.gtceu.common.data.GTItems;
 import com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine;
 import com.gregtechceu.gtceu.config.ConfigHolder;
+import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.CoFiringPowderFuel;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
+import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
@@ -56,6 +59,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -99,6 +103,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     private static final double SCALE_WARNING_THRESHOLD = 0.75;
     private static final double SCALE_SCRAP_THRESHOLD = 1.0;
     private static final String ITEM_SCALE_KEY = "GSEBoilerWaterScale";
+    private static final long WATER_SOFTENER_VALIDATION_INTERVAL_TICKS = 20L;
 
     /** Tier constants (P1#6/P2#10): max temperature / heat / cooldown / no-powder cooldown / air, by tier index 0-3. */
     public static final int BRONZE_TIER = 0;
@@ -110,11 +115,28 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     public static final int[] COOL_INTERVALS = {30, 20, 15, 10};
     public static final int[] NO_POWDER_COOL_INTERVALS = {15, 10, 6, 4};
     public static final int[] AIR_PER_TICK = {50, 100, 200, 400};
+    public static final int[] WATER_SOFTENER_REDUCTION_PERCENT = {40, 55, 70, 85};
+    public static final int[] WATER_SOFTENER_RESIN_TICKS = {3_600, 2_400, 1_800, 1_200};
+
+    private enum WaterSoftenerStatus {
+        MISSING("missing"),
+        INVALID("invalid"),
+        UNLOADED("unloaded"),
+        CONFLICT("conflict"),
+        VALID("ready");
+
+        private final String key;
+
+        WaterSoftenerStatus(String key) {
+            this.key = key;
+        }
+    }
 
     //////////////////////////////////////
     // ***** Tier configuration ******//
     //////////////////////////////////////
 
+    private final int tierIndex;
     private final int heatIntervalTicks;
     private final int cooldownIntervalTicks;
     private final int noPowderCooldownIntervalTicks;
@@ -147,6 +169,9 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     private int descalingTicksRemaining;
     @Persisted
     private int descalingTicksTotal;
+    /** Exact throttle-percent ticks already dissolved into the connected softener. */
+    @Persisted
+    private long waterSoftenerDoseUnits;
 
     //////////////////////////////////////
     // ***** Runtime state ******//
@@ -154,8 +179,16 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     @Nullable
     private TickableSubscription roomTemperatureSubs;
+    @Nullable
+    private TickableSubscription waterSoftenerSubs;
     private int heatCounter;
     private int coolCounter;
+    private int waterSoftenerStatus;
+    private long lastWaterSoftenerValidationTick = Long.MIN_VALUE;
+    private boolean waterSoftenerValidatedThisSession;
+    private boolean waterSoftenerAppliedLastCycle;
+    @Nullable
+    private GTRecipe waterSoftenerTransactionRecipe;
     /** Collected on formation: the roof-strip air intakes. */
     private final List<SteamAirIntakeHatchPartMachine> airIntakes = new ArrayList<>();
 
@@ -165,6 +198,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
      */
     public BoilerRoomMachine(IMachineBlockEntity holder, int tierIndex) {
         super(holder, MAX_TEMPERATURES[tierIndex], 1);
+        this.tierIndex = tierIndex;
         this.heatIntervalTicks = HEAT_INTERVALS[tierIndex];
         this.cooldownIntervalTicks = COOL_INTERVALS[tierIndex];
         this.noPowderCooldownIntervalTicks = NO_POWDER_COOL_INTERVALS[tierIndex];
@@ -205,6 +239,10 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     public int getAirConsumptionPerTick() {
         return airConsumptionPerTick;
+    }
+
+    public int getTierIndex() {
+        return tierIndex;
     }
 
     public int getRoomTemperature() {
@@ -266,6 +304,40 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
                 && GSEDifficultyState.boilerRoomScaleFailureHours(isRemote()) > 0.0;
     }
 
+    public int getWaterSoftenerReductionPercent() {
+        return WATER_SOFTENER_REDUCTION_PERCENT[tierIndex];
+    }
+
+    public long getWaterSoftenerDoseUnits() {
+        return Math.max(0, waterSoftenerDoseUnits);
+    }
+
+    public long getWaterSoftenerRemainingTicksAtCurrentThrottle() {
+        return getWaterSoftenerDoseUnits() / Math.max(1, getThrottle());
+    }
+
+    public String getWaterSoftenerStatusId() {
+        return currentWaterSoftenerStatus().key;
+    }
+
+    public boolean isWaterSoftenerAppliedLastCycle() {
+        return waterSoftenerAppliedLastCycle;
+    }
+
+    public static long waterSoftenerDoseUnitsPerResin(int tierIndex) {
+        return (long) WATER_SOFTENER_RESIN_TICKS[tierIndex] * 100L;
+    }
+
+    public static long waterSoftenerCycleCost(int throttlePercent, int cycleTicks) {
+        return (long) Math.max(0, throttlePercent) * Math.max(0, cycleTicks);
+    }
+
+    public static double applyWaterSoftenerReduction(double scaleIncrement, int reductionPercent) {
+        if (scaleIncrement <= 0.0) return 0.0;
+        int boundedReduction = Math.max(0, Math.min(100, reductionPercent));
+        return scaleIncrement * (100 - boundedReduction) / 100.0;
+    }
+
     /** Exact per-tick output before the five-tick water conversion batch. */
     public static long calculateSteamOutputPerTick(int temperature, int throttle, Difficulty difficulty) {
         return BoilerRoomThermalLogic.steamOutputPerTick(temperature, throttle, difficulty);
@@ -300,6 +372,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     public void onStructureFormed() {
         super.onStructureFormed();
         collectBoilerParts();
+        refreshWaterSoftener(true);
     }
 
     @Override
@@ -315,6 +388,146 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
                 airIntakes.add(intake);
             }
         }
+    }
+
+    //////////////////////////////////////
+    // ***** Left water softener ******//
+    //////////////////////////////////////
+
+    private void updateWaterSoftenerSubscription() {
+        waterSoftenerSubs = subscribeServerTick(waterSoftenerSubs, () -> refreshWaterSoftener(false));
+    }
+
+    private boolean refreshWaterSoftener(boolean force) {
+        if (!(getLevel() instanceof ServerLevel level)) {
+            return currentWaterSoftenerStatus() == WaterSoftenerStatus.VALID;
+        }
+        long now = level.getGameTime();
+        if (!force && lastWaterSoftenerValidationTick != Long.MIN_VALUE
+                && now - lastWaterSoftenerValidationTick < WATER_SOFTENER_VALIDATION_INTERVAL_TICKS) {
+            return currentWaterSoftenerStatus() == WaterSoftenerStatus.VALID;
+        }
+        lastWaterSoftenerValidationTick = now;
+
+        var geometry = BoilerRoomWaterSoftenerModule.validate(level, getPos(), getFrontFacing(), tierIndex);
+        var data = BoilerRoomModuleWorldData.getOrCreate(level);
+        if (geometry == BoilerRoomWaterSoftenerModule.Result.VALID) {
+            var claim = data.claim(BoilerRoomModuleWorldData.waterSoftenerClaim(getPos(), getFrontFacing()));
+            if (claim.success()) {
+                setWaterSoftenerStatus(WaterSoftenerStatus.VALID);
+                waterSoftenerValidatedThisSession = true;
+                return true;
+            }
+            data.release(getPos(), BoilerRoomWaterSoftenerModule.MODULE_ID);
+            waterSoftenerValidatedThisSession = true;
+            invalidateWaterSoftener(WaterSoftenerStatus.CONFLICT);
+            return false;
+        }
+
+        if (geometry == BoilerRoomWaterSoftenerModule.Result.UNLOADED) {
+            if (waterSoftenerValidatedThisSession) {
+                data.release(getPos(), BoilerRoomWaterSoftenerModule.MODULE_ID);
+                invalidateWaterSoftener(WaterSoftenerStatus.UNLOADED);
+            } else {
+                setWaterSoftenerStatus(WaterSoftenerStatus.UNLOADED);
+                waterSoftenerAppliedLastCycle = false;
+            }
+            return false;
+        }
+
+        data.release(getPos(), BoilerRoomWaterSoftenerModule.MODULE_ID);
+        waterSoftenerValidatedThisSession = true;
+        invalidateWaterSoftener(geometry == BoilerRoomWaterSoftenerModule.Result.MISSING
+                ? WaterSoftenerStatus.MISSING : WaterSoftenerStatus.INVALID);
+        return false;
+    }
+
+    private void invalidateWaterSoftener(WaterSoftenerStatus status) {
+        boolean changed = waterSoftenerDoseUnits != 0;
+        waterSoftenerDoseUnits = 0;
+        waterSoftenerAppliedLastCycle = false;
+        setWaterSoftenerStatus(status);
+        if (changed) {
+            markDirty();
+        }
+    }
+
+    private WaterSoftenerStatus currentWaterSoftenerStatus() {
+        WaterSoftenerStatus[] values = WaterSoftenerStatus.values();
+        return waterSoftenerStatus >= 0 && waterSoftenerStatus < values.length
+                ? values[waterSoftenerStatus] : WaterSoftenerStatus.MISSING;
+    }
+
+    private void setWaterSoftenerStatus(WaterSoftenerStatus status) {
+        waterSoftenerStatus = status.ordinal();
+    }
+
+    private static boolean isStickyResin(ItemStack stack) {
+        return !stack.isEmpty() && stack.is(GTItems.STICKY_RESIN.asStack().getItem());
+    }
+
+    private boolean hasStickyResin() {
+        for (IRecipeHandler<?> handler : getPowderInputs()) {
+            for (Object content : handler.getContents()) {
+                if (content instanceof ItemStack stack && isStickyResin(stack)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Draw one resin only after a complete steam cycle proves that scale would be added. */
+    @SuppressWarnings("unchecked")
+    private boolean extractOneStickyResin() {
+        Ingredient one = Ingredient.of(GTItems.STICKY_RESIN.asStack());
+        for (IRecipeHandler<?> handler : getPowderInputs()) {
+            boolean present = false;
+            for (Object content : handler.getContents()) {
+                if (content instanceof ItemStack stack && isStickyResin(stack)) {
+                    present = true;
+                    break;
+                }
+            }
+            if (!present) continue;
+            List<Ingredient> left = (List<Ingredient>) handler.handleRecipe(
+                    IO.IN, waterSoftenerTransactionRecipe(), List.of(one), false);
+            if (left == null || left.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private GTRecipe waterSoftenerTransactionRecipe() {
+        if (waterSoftenerTransactionRecipe == null) {
+            waterSoftenerTransactionRecipe = GSERecipeTypes.BOILER_ROOM_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("water_softener_transaction"))
+                    .duration(1)
+                    .buildRawRecipe();
+        }
+        return waterSoftenerTransactionRecipe;
+    }
+
+    private boolean consumeWaterSoftenerDoseForCycle() {
+        waterSoftenerAppliedLastCycle = false;
+        if (!isWaterScaleEffective() || !refreshWaterSoftener(true)) {
+            return false;
+        }
+        long cost = waterSoftenerCycleCost(getThrottle(), TICKS_PER_STEAM_GENERATION);
+        if (cost <= 0) {
+            return false;
+        }
+        if (waterSoftenerDoseUnits < cost && extractOneStickyResin()) {
+            waterSoftenerDoseUnits += waterSoftenerDoseUnitsPerResin(tierIndex);
+        }
+        if (waterSoftenerDoseUnits < cost) {
+            return false;
+        }
+        waterSoftenerDoseUnits -= cost;
+        waterSoftenerAppliedLastCycle = true;
+        markDirty();
+        return true;
     }
 
     //////////////////////////////////////
@@ -507,6 +720,10 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             roomTemperatureSubs.unsubscribe();
             roomTemperatureSubs = null;
         }
+        if (waterSoftenerSubs != null) {
+            waterSoftenerSubs.unsubscribe();
+            waterSoftenerSubs = null;
+        }
         super.onUnload();
     }
 
@@ -515,7 +732,11 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         super.onLoad();
         // 区块重载后按持久化温度恢复产汽订阅 (parent keys on its own field).
         if (getLevel() instanceof ServerLevel serverLevel) {
-            serverLevel.getServer().tell(new TickTask(0, this::updateRoomTemperatureSubscription));
+            serverLevel.getServer().tell(new TickTask(0, () -> {
+                updateRoomTemperatureSubscription();
+                updateWaterSoftenerSubscription();
+                refreshWaterSoftener(true);
+            }));
         }
     }
 
@@ -638,6 +859,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
      * parent's water-to-steam ratio; dry burn explodes at strength 2 (P1#7).
      */
     private void generateSteamCycle() {
+        waterSoftenerAppliedLastCycle = false;
         if (roomTemperature < 100) {
             cycleSteamGenerated = 0;
             return;
@@ -690,6 +912,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     private void accumulateWaterScale(long cleanSteamPerTick) {
+        waterSoftenerAppliedLastCycle = false;
         if (!isWaterScaleEffective() || scrappedByScale || isDescaling() || cleanSteamPerTick <= 0) return;
         double failureHours = GSEDifficultyState.boilerRoomScaleFailureHours(isRemote());
         long maximumCleanOutput = calculateSteamOutputPerTick(getMaxTemperature(), 100,
@@ -697,6 +920,9 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         double increment = calculateWaterScaleIncrement(cleanSteamPerTick, maximumCleanOutput,
                 TICKS_PER_STEAM_GENERATION, failureHours);
         if (increment <= 0.0) return;
+        if (consumeWaterSoftenerDoseForCycle()) {
+            increment = applyWaterSoftenerReduction(increment, getWaterSoftenerReductionPercent());
+        }
 
         var update = BoilerRoomThermalLogic.addScale(
                 waterScaleProgress, increment, SCALE_WARNING_THRESHOLD, SCALE_SCRAP_THRESHOLD);
@@ -776,6 +1002,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             // requirement must also be visible on the unformed screen.
             textList.add(Component.translatable("gregsteamexpansion.machine.boiler_room.status.no_air_intake")
                     .withStyle(ChatFormatting.GRAY));
+            addWaterSoftenerDisplayText(textList);
             return;
         }
         {
@@ -806,6 +1033,8 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
                     textList.add(ComponentPanelWidget.withButton(descale, "descale"));
                 }
             }
+
+            addWaterSoftenerDisplayText(textList);
 
             var throttleText = Component.translatable("gtceu.multiblock.large_boiler.throttle",
                     ChatFormatting.AQUA.toString() + getThrottle() + "%")
@@ -854,6 +1083,59 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         } else {
             super.handleDisplayClick(componentData, clickData);
         }
+    }
+
+    private void addWaterSoftenerDisplayText(List<Component> textList) {
+        if (!isWaterScaleEffective()) {
+            textList.add(Component.translatable(
+                    "gregsteamexpansion.machine.boiler_room.water_softener.not_needed")
+                    .withStyle(ChatFormatting.GRAY));
+            return;
+        }
+
+        WaterSoftenerStatus status = currentWaterSoftenerStatus();
+        if (status != WaterSoftenerStatus.VALID) {
+            ChatFormatting color = switch (status) {
+                case INVALID, CONFLICT -> ChatFormatting.RED;
+                case UNLOADED -> ChatFormatting.YELLOW;
+                default -> ChatFormatting.GRAY;
+            };
+            textList.add(Component.translatable(
+                    "gregsteamexpansion.machine.boiler_room.water_softener." + status.key)
+                    .withStyle(color));
+            return;
+        }
+
+        long cycleCost = waterSoftenerCycleCost(getThrottle(), TICKS_PER_STEAM_GENERATION);
+        if (waterSoftenerDoseUnits < cycleCost && isFormed() && !hasStickyResin()) {
+            textList.add(Component.translatable(
+                    "gregsteamexpansion.machine.boiler_room.water_softener.bypass")
+                    .withStyle(ChatFormatting.YELLOW));
+            return;
+        }
+        if (waterSoftenerDoseUnits < cycleCost) {
+            textList.add(Component.translatable(
+                    "gregsteamexpansion.machine.boiler_room.water_softener.ready_empty",
+                    getWaterSoftenerReductionPercent()).withStyle(ChatFormatting.GRAY));
+            return;
+        }
+
+        String key = waterSoftenerAppliedLastCycle
+                ? "gregsteamexpansion.machine.boiler_room.water_softener.softening"
+                : "gregsteamexpansion.machine.boiler_room.water_softener.ready";
+        textList.add(Component.translatable(key, getWaterSoftenerReductionPercent(),
+                formatWaterSoftenerTime(getWaterSoftenerRemainingTicksAtCurrentThrottle()))
+                .withStyle(waterSoftenerAppliedLastCycle ? ChatFormatting.AQUA : ChatFormatting.GRAY));
+    }
+
+    private static String formatWaterSoftenerTime(long ticks) {
+        long seconds = Math.max(0, ticks) / 20;
+        long hours = seconds / 3_600;
+        long minutes = seconds % 3_600 / 60;
+        long remainingSeconds = seconds % 60;
+        return hours > 0
+                ? String.format(Locale.ROOT, "%d:%02d:%02d", hours, minutes, remainingSeconds)
+                : String.format(Locale.ROOT, "%d:%02d", minutes, remainingSeconds);
     }
 
     @Override
@@ -917,6 +1199,8 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         scrappedByScale = false;
         descalingTicksRemaining = 0;
         descalingTicksTotal = 0;
+        waterSoftenerDoseUnits = 0;
+        waterSoftenerAppliedLastCycle = false;
     }
 
     @Override
@@ -926,6 +1210,9 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     @Override
     public void onMachineRemoved() {
+        if (getLevel() instanceof ServerLevel level) {
+            BoilerRoomModuleWorldData.getOrCreate(level).releaseAll(getPos());
+        }
         burningPowder = ItemStack.EMPTY;
         powderBurnRemaining = 0;
         powderBurnTotal = 0;
@@ -933,6 +1220,8 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         cycleSteamGenerated = 0;
         descalingTicksRemaining = 0;
         descalingTicksTotal = 0;
+        waterSoftenerDoseUnits = 0;
+        waterSoftenerAppliedLastCycle = false;
         airIntakes.clear();
     }
 }

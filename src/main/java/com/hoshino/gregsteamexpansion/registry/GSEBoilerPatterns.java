@@ -124,6 +124,17 @@ public final class GSEBoilerPatterns {
      * top, rows back -> front, chars west -> east).
      */
     public static MultiblockShapeInfo shapeInfo(MultiblockMachineDefinition definition, TierBlocks tier) {
+        return shapeInfo(definition, tier, false);
+    }
+
+    /** Representative boiler room with its optional fixed left-side 3x7x3 water softener. */
+    public static MultiblockShapeInfo shapeInfoWithWaterSoftener(
+            MultiblockMachineDefinition definition, TierBlocks tier) {
+        return shapeInfo(definition, tier, true);
+    }
+
+    private static MultiblockShapeInfo shapeInfo(MultiblockMachineDefinition definition, TierBlocks tier,
+                                                  boolean includeWaterSoftener) {
         String[] fireboxRingWithHatches = FIREBOX_RING_LAYER.clone();
         fireboxRingWithHatches[10] = "CFFJLCC";
         // Minimal representative: one intake in the centre, casing in the
@@ -139,7 +150,10 @@ public final class GSEBoilerPatterns {
                 PLAIN_RING_LAYER.clone(),
                 roofWithIntake,
         };
-        return GSEPatternLayouts.shape(layers)
+        if (includeWaterSoftener) {
+            layers = addLeftWaterSoftener(layers);
+        }
+        var builder = GSEPatternLayouts.shape(layers)
                 .where('C', tier.casing().get())
                 .where('X', tier.firebox().get())
                 .where('P', tier.pipe().get())
@@ -157,7 +171,32 @@ public final class GSEBoilerPatterns {
                 .where('S', definition, Direction.NORTH)
                 .where('F', GTMachines.FLUID_IMPORT_HATCH[1], Direction.NORTH)
                 .where('J', GTMachines.ITEM_IMPORT_BUS[1], Direction.NORTH)
-                .where('L', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH)
-                .build();
+                .where('L', GTMachines.FLUID_EXPORT_HATCH[1], Direction.NORTH);
+        if (includeWaterSoftener) {
+            builder.where('G', Blocks.GLASS);
+        }
+        return builder.build();
+    }
+
+    private static String[][] addLeftWaterSoftener(String[][] mainLayers) {
+        String[][] combined = new String[mainLayers.length][mainLayers[0].length];
+        for (int layer = 0; layer < mainLayers.length; layer++) {
+            for (int depth = 0; depth < mainLayers[layer].length; depth++) {
+                String prefix = "   ";
+                if (depth >= 2 && depth <= 8) {
+                    if (layer == 0 || layer == 2) {
+                        prefix = "CCC";
+                    } else if (layer == 1) {
+                        prefix = switch (depth - 2) {
+                            case 0, 6 -> "CCC";
+                            case 3 -> "GPP";
+                            default -> "GPC";
+                        };
+                    }
+                }
+                combined[layer][depth] = prefix + mainLayers[layer][depth];
+            }
+        }
+        return combined;
     }
 }

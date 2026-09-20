@@ -474,7 +474,9 @@ public final class GSEMachines {
             .model(steamMultiblockModel(
                     GregSteamExpansion.gtceuId("block/multiblock/primitive_blast_furnace")))
             .pattern(GSEProcessorPatterns::createBlastFurnace)
-            .shapeInfos(definition -> List.of(GSEProcessorPatterns.blastFurnaceShapeInfo(definition)))
+            .shapeInfos(definition -> List.of(
+                    GSEProcessorPatterns.blastFurnaceShapeInfo(definition),
+                    GSEProcessorPatterns.blastFurnaceHotBlastShapeInfo(definition)))
             .langValue("Large Steam Blast Furnace")
             .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_BLAST_FURNACE)
             .allowCoverOnFront(false)
@@ -664,7 +666,9 @@ public final class GSEMachines {
                                 ? firebox.get().defaultBlockState()
                                 : casing.get().defaultBlockState())
                 .pattern(definition -> GSEBoilerPatterns.createPattern(definition, tierBlocks))
-                .shapeInfos(definition -> List.of(GSEBoilerPatterns.shapeInfo(definition, tierBlocks)))
+                .shapeInfos(definition -> List.of(
+                        GSEBoilerPatterns.shapeInfo(definition, tierBlocks),
+                        GSEBoilerPatterns.shapeInfoWithWaterSoftener(definition, tierBlocks)))
                 .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
                 .model(GTMachineModels.createWorkableCasingMachineModel(hullTexture,
                         com.gregtechceu.gtceu.GTCEu.id("block/multiblock/generator/large_" + name + "_boiler"))
@@ -682,6 +686,9 @@ public final class GSEMachines {
                                 easyOutput, normalOutput, expertOutput),
                         Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.air_intake"),
                         Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.water_scale"),
+                        Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.water_softener",
+                                BoilerRoomMachine.WATER_SOFTENER_REDUCTION_PERCENT[tierIndex],
+                                BoilerRoomMachine.WATER_SOFTENER_RESIN_TICKS[tierIndex]),
                         Component.translatable("gtceu.multiblock.large_boiler.explosion_tooltip")
                                 .withStyle(ChatFormatting.DARK_RED))
                 .tooltipBuilder((stack, tooltip) -> {

@@ -3,7 +3,9 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomModuleWorldData;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomThermalLogic;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomWaterSoftenerModule;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerScaleStage;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
@@ -16,6 +18,7 @@ import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
+import com.gregtechceu.gtceu.common.data.GTItems;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine;
@@ -51,6 +54,145 @@ import java.util.ArrayList;
 @PrefixGameTestTemplate(false)
 public final class GSEBoilerRoomTests {
     private GSEBoilerRoomTests() {}
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void bronzeWaterSoftenerStructure(GameTestHelper helper) {
+        waterSoftenerStructure(helper, GSEMachines.BOILER_ROOM_BRONZE,
+                BoilerRoomMachine.BRONZE_TIER, true);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void steelWaterSoftenerStructure(GameTestHelper helper) {
+        waterSoftenerStructure(helper, GSEMachines.BOILER_ROOM_STEEL,
+                BoilerRoomMachine.STEEL_TIER, false);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void titaniumWaterSoftenerStructure(GameTestHelper helper) {
+        waterSoftenerStructure(helper, GSEMachines.BOILER_ROOM_TITANIUM,
+                BoilerRoomMachine.TITANIUM_TIER, false);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void tungstensteelWaterSoftenerStructure(GameTestHelper helper) {
+        waterSoftenerStructure(helper, GSEMachines.BOILER_ROOM_TUNGSTENSTEEL,
+                BoilerRoomMachine.TUNGSTENSTEEL_TIER, false);
+    }
+
+    private static void waterSoftenerStructure(GameTestHelper h, MultiblockMachineDefinition definition,
+                                                int tier, boolean exerciseRuntime) {
+        h.assertTrue(definition.getMatchingShapes().size() == 2,
+                "Boiler room must expose base and water-softener previews");
+        var m = (BoilerRoomMachine) GSEStructureTestUtils.placeShape(h, definition,
+                definition.getMatchingShapes().get(0));
+        h.assertTrue(m != null, "Combined preview controller missing");
+        BoilerRoomWaterSoftenerModule.place(h.getLevel(), m.getPos(), m.getFrontFacing(), tier);
+        var bounds = BoilerRoomWaterSoftenerModule.bounds(m.getPos(), m.getFrontFacing());
+        var casing = h.getLevel().getBlockState(bounds[0]).getBlock();
+        var pipe = h.getLevel().getBlockState(
+                BoilerRoomWaterSoftenerModule.anchor(m.getPos(), m.getFrontFacing())).getBlock();
+        var baseShape = definition.getMatchingShapes().get(0);
+        var combinedShape = definition.getMatchingShapes().get(1);
+        h.assertTrue(countBlocks(combinedShape, casing) - countBlocks(baseShape, casing) == 52
+                        && countBlocks(combinedShape, pipe) - countBlocks(baseShape, pipe) == 6
+                        && countBlocks(combinedShape, Blocks.GLASS) - countBlocks(baseShape, Blocks.GLASS) == 5,
+                "Combined preview does not contain the exact 52 casing / 6 pipe / 5 glass module");
+        h.startSequence()
+                .thenWaitUntil(() -> h.assertTrue(m.isFormed(), "Combined boiler room did not form"))
+                .thenWaitUntil(() -> h.assertTrue(m.getWaterSoftenerStatusId().equals("ready"),
+                        "Tier " + tier + " softener did not validate; status="
+                                + m.getWaterSoftenerStatusId()))
+                .thenExecute(() -> {
+                    h.assertTrue(BoilerRoomWaterSoftenerModule.validate(
+                                    h.getLevel(), m.getPos(), m.getFrontFacing(), tier)
+                                    == BoilerRoomWaterSoftenerModule.Result.VALID,
+                            "Combined preview does not match the runtime softener geometry");
+                    if (!exerciseRuntime) return;
+
+                    var claims = BoilerRoomModuleWorldData.getOrCreate(h.getLevel());
+                    var overlap = claims.claim(BoilerRoomModuleWorldData.waterSoftenerClaim(
+                            m.getPos().relative(m.getFrontFacing().getClockWise()), m.getFrontFacing()));
+                    h.assertTrue(!overlap.success(),
+                            "A second controller claimed an overlapping boiler module box");
+
+                    var itemInput = m.getParts().stream().filter(ItemBusPartMachine.class::isInstance)
+                            .map(ItemBusPartMachine.class::cast)
+                            .filter(part -> part.getInventory().getHandlerIO() !=
+                                    com.gregtechceu.gtceu.api.capability.recipe.IO.OUT)
+                            .findFirst().orElseThrow();
+                    h.assertTrue(itemInput.getInventory().insertItemInternal(
+                                    0, GTItems.STICKY_RESIN.asStack(), false).isEmpty(),
+                            "Item input bus rejected Sticky Resin");
+                    h.assertTrue((boolean) call(m, "consumeWaterSoftenerDoseForCycle"),
+                            "Valid softener did not dose a successful scale-bearing cycle");
+                    long expected = BoilerRoomMachine.waterSoftenerDoseUnitsPerResin(tier)
+                            - BoilerRoomMachine.waterSoftenerCycleCost(m.getThrottle(), 5);
+                    h.assertTrue(m.getWaterSoftenerDoseUnits() == expected,
+                            "Softener consumed the wrong exact dose units");
+
+                    long shortDose = BoilerRoomMachine.waterSoftenerCycleCost(m.getThrottle(), 5) - 1;
+                    setLong(m, "waterSoftenerDoseUnits", shortDose);
+                    h.assertTrue(!(boolean) call(m, "consumeWaterSoftenerDoseForCycle")
+                                    && m.getWaterSoftenerDoseUnits() == shortDose,
+                            "Insufficient dose partially softened a cycle or discarded its remainder");
+
+                    setLong(m, "waterSoftenerDoseUnits", 12_345L);
+                    m.getMultiblockState().error = MultiblockState.UNLOAD_ERROR;
+                    h.assertTrue((boolean) call(m, "refreshWaterSoftener", true)
+                                    && m.getWaterSoftenerDoseUnits() == 12_345L,
+                            "Main-structure invalidity cleared an intact softener charge");
+                    m.getMultiblockState().error = null;
+
+                    CompoundTag itemTag = new CompoundTag();
+                    m.saveToItem(itemTag);
+                    m.loadFromItem(itemTag);
+                    h.assertTrue(m.getWaterSoftenerDoseUnits() == 0,
+                            "Controller item incorrectly inherited dissolved resin charge");
+
+                    setLong(m, "waterSoftenerDoseUnits", 12_345L);
+                    h.getLevel().setBlockAndUpdate(
+                            BoilerRoomWaterSoftenerModule.anchor(m.getPos(), m.getFrontFacing()),
+                            Blocks.AIR.defaultBlockState());
+                    h.assertTrue(!(boolean) call(m, "refreshWaterSoftener", true)
+                                    && m.getWaterSoftenerDoseUnits() == 0
+                                    && m.getWaterSoftenerStatusId().equals("invalid"),
+                            "Damaged softener retained its charge or valid status");
+                })
+                .thenSucceed();
+    }
+
+    private static int countBlocks(com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo shape,
+                                   net.minecraft.world.level.block.Block block) {
+        int count = 0;
+        for (var plane : shape.getBlocks()) {
+            for (var row : plane) {
+                for (var info : row) {
+                    if (info != null && info.getBlockState().is(block)) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
+    }
+
+    @GameTest(template = "empty_32x32x32")
+    public static void waterSoftenerArithmetic(GameTestHelper h) {
+        long[] ticks = {3_600, 2_400, 1_800, 1_200};
+        int[] reductions = {40, 55, 70, 85};
+        for (int tier = 0; tier < 4; tier++) {
+            h.assertTrue(BoilerRoomMachine.waterSoftenerDoseUnitsPerResin(tier) == ticks[tier] * 100,
+                    "Tier " + tier + " resin duration is incorrect");
+            h.assertTrue(Math.abs(BoilerRoomMachine.applyWaterSoftenerReduction(1.0, reductions[tier])
+                            - (100 - reductions[tier]) / 100.0) < 1.0e-12,
+                    "Tier " + tier + " scale reduction is incorrect");
+        }
+        h.assertTrue(BoilerRoomMachine.waterSoftenerCycleCost(25, 5) == 125
+                        && BoilerRoomMachine.waterSoftenerCycleCost(50, 5) == 250
+                        && BoilerRoomMachine.waterSoftenerCycleCost(100, 5) == 500,
+                "Throttle-scaled five-tick dose costs are incorrect");
+        h.succeed();
+    }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void bronzeIntakePlacement(GameTestHelper helper) {
@@ -537,6 +679,30 @@ public final class GSEBoilerRoomTests {
             field.setBoolean(m, value);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Cannot seed boiler fixture field " + name, e);
+        }
+    }
+
+    private static void setLong(BoilerRoomMachine m, String name, long value) {
+        try {
+            var field = BoilerRoomMachine.class.getDeclaredField(name);
+            field.setAccessible(true);
+            field.setLong(m, value);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Cannot seed boiler fixture field " + name, e);
+        }
+    }
+
+    private static Object call(BoilerRoomMachine m, String name, Object... args) {
+        try {
+            Class<?>[] types = new Class<?>[args.length];
+            for (int i = 0; i < args.length; i++) {
+                types[i] = args[i] instanceof Boolean ? boolean.class : args[i].getClass();
+            }
+            var method = BoilerRoomMachine.class.getDeclaredMethod(name, types);
+            method.setAccessible(true);
+            return method.invoke(m, args);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Cannot invoke boiler fixture method " + name, e);
         }
     }
 

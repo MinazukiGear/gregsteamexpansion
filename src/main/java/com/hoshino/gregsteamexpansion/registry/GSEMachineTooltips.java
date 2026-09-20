@@ -170,6 +170,15 @@ final class GSEMachineTooltips {
                 aquaText(String.valueOf(profile.blastFurnaceSkilledOperations())),
                 aquaText(String.valueOf(profile.blastFurnaceMasteredOperations())))
                 .withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.hot_blast.structure")
+                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.hot_blast.cycle")
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.hot_blast.failure")
+                .withStyle(ChatFormatting.YELLOW));
     }
 
     private static TooltipProfile standard(String machine, boolean warningAtSix) {

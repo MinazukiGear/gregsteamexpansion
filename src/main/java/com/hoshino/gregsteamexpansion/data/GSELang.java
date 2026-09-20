@@ -489,6 +489,12 @@ public final class GSELang {
                 "The four duration percentages and three operation thresholds come from the selected startup difficulty profile; lower proficiency increases total steam and blast-air cost because their per-tick rates stay fixed.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.details.proficiency_config",
                 "Current profile: durations %s / %s / %s / %s of base; Familiar / Skilled / Mastered at %s / %s / %s completed operations.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.hot_blast.structure",
+                "Optional dedicated module: a controller-less 7x5x9 twin hot-blast stove bank built directly behind the furnace from ordinary casings and bricks. It cannot be shared by two furnaces.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.hot_blast.cycle",
+                "Cold batches recover 15% of their finalized steam total as heat. Once stored heat can cover a complete batch, that batch consumes the heat and uses 15% less steam; duration, parallel and blast air are unchanged.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.hot_blast.failure",
+                "Breaking or separately unloading the module clears all heat. A hot batch falls back to 1 tick and resumes with its ordinary locked steam economics; rebuilding only affects later batches.");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.label", "Proficiency");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.level.0", "Novice");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.level.1", "Familiar");
@@ -502,6 +508,15 @@ public final class GSELang {
                 "Next tier at %s completed operations");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.proficiency.mastered",
                 "Maximum proficiency reached");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.label", "Hot-Blast Stoves");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.heat.label", "Stored Heat");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.missing", "Not Installed");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.invalid", "Invalid Structure");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.unloaded", "Module Unloaded");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.conflict", "Claimed by Another Furnace");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.ready", "Ready");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.charging", "Recovering Heat");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.hot", "Hot Blast (-15% Steam)");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.low_blast",
                 "Blast Air Shortage");
         add("gregsteamexpansion.multiblock.auxiliary_shortfall",
@@ -1050,6 +1065,8 @@ public final class GSELang {
                 "Top centre strip (11 blocks): tier casing or 1-11 Steam Air Intake Hatches only; no other hatches on this strip.");
         add("gregsteamexpansion.machine.boiler_room.tooltip.water_scale",
                 "Water scale: Easy never builds up; Normal/Expert scrap the controller after 24/8 equivalent full-load hours. Descaling while stopped and below 100°C removes one 25% band per cycle.");
+        add("gregsteamexpansion.machine.boiler_room.tooltip.water_softener",
+                "Optional left-side water softener: Sticky Resin reduces new scale by %s%%; one resin supplies %s equivalent ticks at 100%% throttle.");
         add("gregsteamexpansion.machine.boiler_room.tooltip.stored_scale",
                 "Retained water scale: %s%%");
         add("gregsteamexpansion.machine.boiler_room.status.no_air_intake",
@@ -1071,6 +1088,24 @@ public final class GSELang {
                 "Controller permanently scrapped by severe water scale");
         add("gregsteamexpansion.machine.boiler_room.water_scale.warning",
                 "DANGER: %s at %s [%s, %s, %s] reached severe water scale; steam output is reduced by %s%% and the next stage permanently scraps the controller.");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.missing",
+                "Water softener: not installed on the left side");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.invalid",
+                "Water softener: invalid or wrong-tier structure; resin charge cleared");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.unloaded",
+                "Water softener: module area unloaded; effect disabled");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.conflict",
+                "Water softener: module space belongs to another controller");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.not_needed",
+                "Water softener: softening not required by the current difficulty");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.ready_empty",
+                "Water softener ready: %s%% less new scale; resin will be dosed on demand");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.ready",
+                "Water softener ready: %s%% less new scale, %s remaining at current throttle");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.softening",
+                "Water softener active: %s%% less new scale, %s remaining at current throttle");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.bypass",
+                "Water softener bypass: missing Sticky Resin");
         add("config.jade.plugin_gregsteamexpansion.boiler_room_water_scale",
                 "Boiler Room Water Scale");
         add("gregsteamexpansion.jade.boiler_room.water_scale", "Water scale: %s%% (-%s%% steam)");

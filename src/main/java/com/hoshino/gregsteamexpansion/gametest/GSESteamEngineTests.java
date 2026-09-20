@@ -2,6 +2,8 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.AbstractSteamProcessorMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastModule;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamBlastFurnaceMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
@@ -14,6 +16,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachin
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -44,6 +47,8 @@ import static com.hoshino.gregsteamexpansion.gametest.GSESteamEngineTestSupport.
 public final class GSESteamEngineTests {
 
     private static final ChunkPos PROCESSOR_RELOAD_CHUNK = new ChunkPos(256, 256);
+    private static final ChunkPos HOT_BLAST_RESTART_CHUNK = new ChunkPos(260, 260);
+    private static final long HOT_BLAST_RESTART_HEAT = 12_345_678L;
 
     private GSESteamEngineTests() {}
 
@@ -124,8 +129,10 @@ public final class GSESteamEngineTests {
         if (restartPhase != null && !restartPhase.isBlank()) {
             if (restartPhase.equals("seed")) {
                 seedProcessorReloadFixture(h, reloadLevel, chunkPos, controllerPos);
+                seedHotBlastRestartFixture(h, reloadLevel);
                 reloadLevel.getChunkSource().save(true);
                 reloadLevel.setChunkForced(chunkPos.x, chunkPos.z, false);
+                forceHotBlastRestartChunks(reloadLevel, false);
                 h.succeed();
                 return;
             }
@@ -138,8 +145,10 @@ public final class GSESteamEngineTests {
                             "Restart fixture controller was not restored from disk");
                     assertProcessorReloadState(h, (MultiblockControllerMachine) loaded,
                             "Server restart");
+                    assertHotBlastRestartFixture(h, reloadLevel);
                 } finally {
                     cleanupProcessorReloadFixture(reloadLevel, chunkPos, controllerPos);
+                    cleanupHotBlastRestartFixture(reloadLevel);
                 }
                 h.succeed();
                 return;
@@ -458,6 +467,84 @@ public final class GSESteamEngineTests {
         level.getChunkAt(controllerPos).setUnsaved(true);
         level.getChunkSource().save(true);
         level.setChunkForced(chunkPos.x, chunkPos.z, false);
+    }
+
+    private static void seedHotBlastRestartFixture(GameTestHelper h, ServerLevel level) {
+        BlockPos controllerPos = hotBlastRestartControllerPos();
+        forceHotBlastRestartChunks(level, true);
+        clearHotBlastRestartBlocks(level);
+        level.setBlockAndUpdate(controllerPos,
+                GSEMachines.LARGE_STEAM_BLAST_FURNACE.getBlock().defaultBlockState());
+        MetaMachine placed = MetaMachine.getMachine(level, controllerPos);
+        h.assertTrue(placed instanceof LargeSteamBlastFurnaceMachine,
+                "Hot-blast restart fixture controller did not instantiate");
+        LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) placed;
+        BlastFurnaceHotBlastModule.place(level, controllerPos, Direction.NORTH);
+        set(machine, "lastHotBlastValidationTick", Long.MIN_VALUE);
+        h.assertTrue((boolean) call(machine, "refreshHotBlastModule", true),
+                "Hot-blast restart fixture module did not validate before save");
+        set(machine, "hotBlastHeat", HOT_BLAST_RESTART_HEAT);
+
+        BlockEntity blockEntity = level.getBlockEntity(controllerPos);
+        h.assertTrue(blockEntity != null, "Hot-blast restart fixture has no controller block entity");
+        blockEntity.setChanged();
+        level.getChunkAt(controllerPos).setUnsaved(true);
+    }
+
+    private static void assertHotBlastRestartFixture(GameTestHelper h, ServerLevel level) {
+        BlockPos controllerPos = hotBlastRestartControllerPos();
+        forceHotBlastRestartChunks(level, true);
+        MetaMachine loaded = MetaMachine.getMachine(level, controllerPos);
+        h.assertTrue(loaded instanceof LargeSteamBlastFurnaceMachine,
+                "Hot-blast controller was not restored after server restart");
+        LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) loaded;
+        h.assertTrue(BlastFurnaceHotBlastModule.validate(level, controllerPos, Direction.NORTH)
+                        == BlastFurnaceHotBlastModule.Result.VALID,
+                "Hot-blast ordinary-block module did not survive server restart");
+        eq(h, machine.getHotBlastHeat(), HOT_BLAST_RESTART_HEAT,
+                "Hot-blast heat did not survive server restart");
+        set(machine, "lastHotBlastValidationTick", Long.MIN_VALUE);
+        h.assertTrue((boolean) call(machine, "refreshHotBlastModule", true),
+                "Restored hot-blast module failed ownership validation");
+        eq(h, machine.getHotBlastHeat(), HOT_BLAST_RESTART_HEAT,
+                "Module revalidation changed restored hot-blast heat");
+    }
+
+    private static void cleanupHotBlastRestartFixture(ServerLevel level) {
+        clearHotBlastRestartBlocks(level);
+        level.getChunkSource().save(true);
+        forceHotBlastRestartChunks(level, false);
+    }
+
+    private static void clearHotBlastRestartBlocks(ServerLevel level) {
+        BlockPos controllerPos = hotBlastRestartControllerPos();
+        level.setBlockAndUpdate(controllerPos, Blocks.AIR.defaultBlockState());
+        BlockPos[] bounds = BlastFurnaceHotBlastModule.bounds(controllerPos, Direction.NORTH);
+        for (BlockPos pos : BlockPos.betweenClosed(bounds[0], bounds[1])) {
+            level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+        }
+    }
+
+    private static void forceHotBlastRestartChunks(ServerLevel level, boolean forced) {
+        BlockPos controllerPos = hotBlastRestartControllerPos();
+        BlockPos[] bounds = BlastFurnaceHotBlastModule.bounds(controllerPos, Direction.NORTH);
+        int minX = Math.min(HOT_BLAST_RESTART_CHUNK.x, new ChunkPos(bounds[0]).x);
+        int maxX = Math.max(HOT_BLAST_RESTART_CHUNK.x, new ChunkPos(bounds[1]).x);
+        int minZ = Math.min(HOT_BLAST_RESTART_CHUNK.z, new ChunkPos(bounds[0]).z);
+        int maxZ = Math.max(HOT_BLAST_RESTART_CHUNK.z, new ChunkPos(bounds[1]).z);
+        for (int chunkX = minX; chunkX <= maxX; chunkX++) {
+            for (int chunkZ = minZ; chunkZ <= maxZ; chunkZ++) {
+                level.setChunkForced(chunkX, chunkZ, forced);
+                if (forced) {
+                    level.getChunk(chunkX, chunkZ);
+                }
+            }
+        }
+    }
+
+    private static BlockPos hotBlastRestartControllerPos() {
+        return new BlockPos(HOT_BLAST_RESTART_CHUNK.getMiddleBlockX(), 80,
+                HOT_BLAST_RESTART_CHUNK.getMiddleBlockZ());
     }
 
     private static long fluidOutputAmount(Object m, FluidStack expected) {

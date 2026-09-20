@@ -5,6 +5,8 @@ import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastModule;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastWorldData;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamBlastFurnaceMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
@@ -66,6 +68,106 @@ import static com.hoshino.gregsteamexpansion.gametest.GSESteamEngineTestSupport.
 @PrefixGameTestTemplate(false)
 public final class GSEBlastFurnaceTests {
     private GSEBlastFurnaceTests() {}
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 400)
+    public static void hotBlastModuleCyclesHeatAndFallsBackOnDamage(GameTestHelper h) {
+        var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
+        var controller = GSEStructureTestUtils.placeShape(h, definition,
+                definition.getMatchingShapes().get(0), new BlockPos(16, 16, 8), Direction.NORTH);
+        h.assertTrue(controller instanceof LargeSteamBlastFurnaceMachine,
+                "Missing hot-blast furnace fixture controller");
+        if (!(controller instanceof LargeSteamBlastFurnaceMachine machine)) {
+            return;
+        }
+
+        h.startSequence()
+                .thenWaitUntil(() -> h.assertTrue(machine.isFormed(),
+                        "Hot-blast furnace fixture did not form"))
+                .thenExecute(() -> {
+                    BlastFurnaceHotBlastModule.place(h.getLevel(), machine.getPos(), machine.getFrontFacing());
+                    set(machine, "lastHotBlastValidationTick", Long.MIN_VALUE);
+                    h.assertTrue((boolean) call(machine, "refreshHotBlastModule", true),
+                            "Complete twin-tower module did not validate");
+                    h.assertTrue(machine.getHotBlastModuleStatusId().equals("ready"),
+                            "Complete module exposed the wrong status");
+
+                    var claims = BlastFurnaceHotBlastWorldData.getOrCreate(h.getLevel());
+                    var overlap = claims.claim(BlastFurnaceHotBlastWorldData.claimFor(
+                            machine.getPos().east(), machine.getFrontFacing()));
+                    h.assertTrue(!overlap.success(),
+                            "A second controller claimed an overlapping hot-blast module");
+
+                    GTRecipe recipe = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                            .recipeBuilder(GregSteamExpansion.id("hot_blast_cycle_probe"))
+                            .inputItems(new ItemStack(Items.COBBLESTONE))
+                            .outputItems(new ItemStack(Items.IRON_INGOT))
+                            .duration(100).buildRawRecipe();
+                    ItemBusPartMachine input = inputBus(machine);
+                    fillOutputs(machine, false);
+                    fillSteam(machine, 32_000);
+                    for (SteamAirIntakeHatchPartMachine intake :
+                            GSESteamEngineTestSupport.<SteamAirIntakeHatchPartMachine>list(
+                                    machine, "airIntakeHatches")) {
+                        intake.tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(64_000));
+                    }
+
+                    set(machine, "hotBlastHeat", 0L);
+                    input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+                    h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                            "Cold module batch did not start");
+                    h.assertTrue(!machine.isCurrentBatchHotBlast(),
+                            "Empty module incorrectly started in hot-blast mode");
+                    eq(h, machine.getBatchSteamPerTick(), 200,
+                            "Cold module batch changed normal steam demand");
+                    call(machine, "runBatchTick");
+                    eq(h, machine.getHotBlastHeat(), 30,
+                            "Cold module tick did not recover exactly 15% heat");
+
+                    clearActiveProcessorBatch(machine);
+                    call(machine, "onBatchCleared");
+                    set(machine, "hotBlastHeat", LargeSteamBlastFurnaceMachine.HOT_BLAST_HEAT_CAPACITY);
+                    fillOutputs(machine, false);
+                    input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE));
+                    h.assertTrue((boolean) call(machine, "tryStartRecipe", recipe),
+                            "Charged module batch did not start");
+                    h.assertTrue(machine.isCurrentBatchHotBlast(),
+                            "Charged module did not lock hot-blast mode");
+                    eq(h, machine.getBatchSteamPerTick(), 170,
+                            "Hot-blast module did not reduce finalized steam demand by 15%");
+
+                    set(machine, "batchProgress", 7);
+                    BlockPos broken = BlastFurnaceHotBlastModule.anchor(
+                            machine.getPos(), machine.getFrontFacing());
+                    h.getLevel().setBlockAndUpdate(broken, Blocks.AIR.defaultBlockState());
+                    set(machine, "lastHotBlastValidationTick", Long.MIN_VALUE);
+                    long steamBefore = steam(machine);
+                    tick(machine);
+                    eq(h, machine.getHotBlastHeat(), 0,
+                            "Damaged module retained stored heat");
+                    eq(h, machine.getBatchProgress(), 1,
+                            "Damaged hot-blast batch did not roll back to one tick");
+                    eq(h, machine.getBatchSteamPerTick(), 200,
+                            "Damaged hot-blast batch did not restore normal steam demand");
+                    eq(h, steam(machine), steamBefore,
+                            "Module failure consumed steam on the fallback tick");
+                    h.assertTrue(!machine.isCurrentBatchHotBlast(),
+                            "Damaged module left the current batch hot");
+
+                    BlastFurnaceHotBlastModule.place(h.getLevel(), machine.getPos(), machine.getFrontFacing());
+                    set(machine, "lastHotBlastValidationTick", Long.MIN_VALUE);
+                    call(machine, "refreshHotBlastModule", true);
+                    h.assertTrue(!machine.isCurrentBatchHotBlast(),
+                            "Rebuilt module re-enabled hot mode for an already downgraded batch");
+
+                    set(machine, "hotBlastHeat", 12_345L);
+                    CompoundTag saved = saveState(h, machine);
+                    set(machine, "hotBlastHeat", 0L);
+                    loadState(h, machine, saved);
+                    eq(h, machine.getHotBlastHeat(), 12_345,
+                            "Complete module heat did not survive controller NBT reload");
+                })
+                .thenSucceed();
+    }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastAirAndSteamAreAtomic(GameTestHelper h) {
@@ -166,7 +268,7 @@ public final class GSEBlastFurnaceTests {
                     "Controller GUI did not expose locked parallel as 4 / 96");
             h.assertTrue(!labelText(ui.getFlatWidgetCollection(), 104, 42).isBlank(),
                     "Controller GUI omitted the proficiency row");
-            String intakeText = labelText(ui.getFlatWidgetCollection(), 104, 72);
+            String intakeText = labelText(ui.getFlatWidgetCollection(), 104, 92);
             h.assertTrue(intakeText.equals(call(machine, "intakeText")),
                     "Controller GUI intake row diverged from the intake snapshot");
             h.assertTrue(!intakeText.equals("—"), "Controller GUI omitted its required intake row");

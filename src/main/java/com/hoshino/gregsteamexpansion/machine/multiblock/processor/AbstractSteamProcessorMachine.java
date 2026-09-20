@@ -453,6 +453,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         }
         refreshRecipeCache();
         batchState.beginTick();
+        onProcessorServerTick();
 
         // 待输出优先送出 (also while paused: delivering is not recipe work).
         if (isFormed() && pendingBuffer.hasAny() && !deliverPendingOutputs()) {
@@ -507,11 +508,17 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 return;
             }
         }
+        if (!beforeBatchTick(batchRecipe, batchParallel, batchProgress)) {
+            updateWorkingAppearance();
+            return;
+        }
+        int previousProgress = batchProgress;
+        long steamDemand = batchSteamDemandForProgress();
         BatchStateMachine.TickResult tick = batchState.runTick(
                 batchProgress,
                 batchDurationTicks,
                 () -> drawAuxiliaryInputs(batchAuxiliaryDemandForProgress(), true),
-                () -> drawSteam(batchSteamDemandForProgress()),
+                () -> drawSteam(steamDemand),
                 () -> drawAuxiliaryInputs(batchAuxiliaryDemandForProgress(), false));
         batchProgress = tick.progress();
         if (!tick.consumed()) {
@@ -528,6 +535,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             exhaustFeedbackTimer = exhaustHatch.advanceFeedbackCycle(exhaustFeedbackTimer);
             exhaustDamageTimer = exhaustHatch.advanceDamageCycle(exhaustDamageTimer);
         }
+        onBatchTickConsumed(batchRecipe, batchParallel, previousProgress, steamDemand);
         if (tick.completed()) {
             completeBatch();
         }
@@ -882,7 +890,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchParallel = parallel;
         batchProgress = 0;
         LargeSteamOverclock.LockedEconomics economics = lockedEconomics.overclock();
-        SteamThrottle.LockedEconomics throttled = lockedEconomics.throttled();
+        SteamThrottle.LockedEconomics throttled = lockedEconomics.selected();
         batchLargeSteamOverclock = economics.active();
         batchSteamThrottlePercent = throttled.throttlePercent();
         batchDurationTicks = throttled.durationTicks();
@@ -895,6 +903,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchAuxiliaryPerTickMb = auxiliary.steamPerTickMb();
         batchOutputMultiplier = batchOutputMultiplier();
         batchInputDisplay = firstInputDisplay(recipe);
+        onBatchEconomicsLocked(recipe, parallel, lockedEconomics.normal(), throttled);
         onBatchStarted(recipe, parallel);
         GregSteamExpansion.LOGGER.debug(
                 "Steam processor at {} started batch {} with parallel {} ({} ticks, {} mB total, {} mB/t)",
@@ -908,7 +917,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return candidate;
         }
         return SteamThrottle.largestSupportedCount(candidate, steamBudget.inputLimitMb(),
-                parallel -> lockBatchEconomics(recipe, eu, parallel).throttled().steamPerTickMb());
+                parallel -> lockBatchEconomics(recipe, eu, parallel).selected().steamPerTickMb());
     }
 
     private LockedBatchEconomics lockBatchEconomics(GTRecipe recipe, long eu, int parallel) {
@@ -917,13 +926,19 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 partCollector.modifySteamConsumption(batchSteamPerTickMb(recipe, eu, parallel)),
                 largeSteamOverclockEnabled,
                 hasLargeSteamSupplyHatch());
-        SteamThrottle.LockedEconomics throttled = SteamThrottle.lock(
+        SteamThrottle.LockedEconomics normal = SteamThrottle.lock(
                 overclock.durationTicks(), overclock.steamPerTickMb(), steamThrottlePercent);
-        return new LockedBatchEconomics(overclock, throttled);
+        SteamThrottle.LockedEconomics selected = adjustLockedSteamEconomics(recipe, parallel, normal);
+        if (selected.durationTicks() != normal.durationTicks() ||
+                selected.throttlePercent() != normal.throttlePercent()) {
+            throw new IllegalStateException("Steam economics adjustment may only change steam demand");
+        }
+        return new LockedBatchEconomics(overclock, normal, selected);
     }
 
     private record LockedBatchEconomics(LargeSteamOverclock.LockedEconomics overclock,
-                                        SteamThrottle.LockedEconomics throttled) {}
+                                        SteamThrottle.LockedEconomics normal,
+                                        SteamThrottle.LockedEconomics selected) {}
 
     /** First sized item input of the recipe, for the GUI display. */
     private static ItemStack firstInputDisplay(GTRecipe recipe) {
@@ -1129,6 +1144,37 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     /** Called exactly once after a completed batch has been committed to the pending buffer. */
     protected void onBatchCompleted(GTRecipe recipe, int parallel) {}
+
+    /** Server-tick extension point for controller-specific structures or cached state. */
+    protected void onProcessorServerTick() {}
+
+    /**
+     * Allows a controller to reduce the already-finalized steam total without changing the
+     * locked duration or throttle. The hook is pure: recipe search may call it repeatedly while
+     * lowering a candidate parallel, and only {@link #onBatchEconomicsLocked} commits state.
+     */
+    protected SteamThrottle.LockedEconomics adjustLockedSteamEconomics(
+            GTRecipe recipe, int parallel, SteamThrottle.LockedEconomics normal) {
+        return normal;
+    }
+
+    /** Receives the normal and selected economics exactly once after recipe inputs are consumed. */
+    protected void onBatchEconomicsLocked(GTRecipe recipe, int parallel,
+                                          SteamThrottle.LockedEconomics normal,
+                                          SteamThrottle.LockedEconomics selected) {}
+
+    /**
+     * Called before an active batch attempts its auxiliary/steam transaction. Returning false
+     * skips the complete transaction for this tick; controller-specific code may first replace
+     * the locked steam economics and roll progress back through the protected helpers below.
+     */
+    protected boolean beforeBatchTick(GTRecipe recipe, int parallel, int progress) {
+        return true;
+    }
+
+    /** Called after one tick atomically consumed steam and auxiliary inputs. */
+    protected void onBatchTickConsumed(GTRecipe recipe, int parallel, int previousProgress,
+                                       long steamConsumedMb) {}
 
     /**
      * Extra per-operation item outputs used by the startup worst-case fit
@@ -1474,6 +1520,27 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     public int getBatchParallel() {
         return batchParallel;
+    }
+
+    protected final boolean hasActiveBatch() {
+        return hasBatch;
+    }
+
+    /** Replaces only the current batch's steam schedule; duration and every other lock stay fixed. */
+    protected final void replaceCurrentBatchSteamEconomics(SteamThrottle.LockedEconomics economics) {
+        if (!hasBatch || economics.durationTicks() != batchDurationTicks) {
+            return;
+        }
+        batchSteamThrottlePercent = economics.throttlePercent();
+        batchSteamPerTickMb = economics.steamPerTickMb();
+        batchTotalSteamMb = economics.totalSteamMb();
+    }
+
+    /** Applies the processor family's resource-shortage rollback without invalidating the body. */
+    protected final void rollbackCurrentBatchToOneTick() {
+        if (hasBatch) {
+            batchProgress = batchState.invalidate(batchProgress, true);
+        }
     }
 
     public long getBatchSteamPerTick() {

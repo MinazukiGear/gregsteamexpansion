@@ -49,7 +49,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（159 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（166 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -67,7 +67,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 | `GSECraftingStationTests` | 合成站工具补位与损耗、相邻来源补料、Shift 连续合成、余料留槽和失败回滚 |
 | `GSEAcquisitionTests` | 已实现内容的获取配方清单、原料标签解析与内部依赖无环检查，以及大型蒸汽高炉精确升级配方 |
 | `GSESteamHatchTests` | 蒸汽供汽/流体/进气仓能力、专用蒸汽源声明、大型供汽仓超频经济、流体仓互换回滚、覆盖板状态与旧蒸汽仓方块/物品迁移 |
-| `GSEStructureFormationTests` | 30 个结构成型契约：预览形状逐坐标与数量、水平朝向、共用墙体、仓室位置/数量及非法接口边界 |
+| `GSEStructureFormationTests` | 31 个结构成型契约：预览形状逐坐标与数量、水平朝向、共用墙体、仓室位置/数量、热风炉组合预览及非法接口边界 |
 | `GSEBoilerRoomTests` | 四档进气条带位置/数量、非法仓室拒绝、多进气室汇总供气与不足不扣、仪表同步、状态提示、原生/GTM Things 物品输入、完整燃料启动链，以及水垢阈值/累计/酸洗/NBT/报废与稀盐酸配方 |
 | `GSESteamTankTests` | 大型蒸汽储罐可变尺寸/容量、共享存量与标准蒸汽过滤、阀门主动输入/输出及 ME 接口类相邻流体库存兼容（3 个） |
 | `GSEDifficultyGameTests` | 启动档位、可配置难度参数、GTCEu 配方映射、旗舰机器开关和权重表 |
@@ -77,7 +77,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 | `GSEAssemblerTests` | 大型蒸汽组装机与电路组装机的槽位等级、并行/经济阶梯、状态边界、物品—焊料原子扣取及电路专精增产（8 个） |
 | `GSEVoidProducerTests` | 蒸汽虚空生产机的状态边界、控制器持久化、待输出恢复及大型供汽仓超频锁定（4 个） |
 | `GSEFurnaceTests` | 大型蓄热蒸汽熔炉的热状态、控制器持久化、待输出结算、大型供汽仓超频锁定、输出并行容量及独立输入仓轮询（6 个） |
-| `GSEBlastFurnaceTests` | 大型蒸汽高炉的风汽原子扣取、GUI/Jade、排气与缺汽状态、待输出持久化、三重并行限制、配方偏好、炼钢闭环、96 并行满载边界，以及熟练度门槛/重置/迁移（15 个） |
+| `GSEBlastFurnaceTests` | 大型蒸汽高炉的风汽原子扣取、GUI/Jade、排气与缺汽状态、待输出持久化、三重并行限制、配方偏好、炼钢闭环、96 并行满载边界、熟练度与双塔热风炉循环（16 个） |
 | `GSEAutomationInterfaceTests` | 蒸汽破碎机、处理机、化学浸洗机、离心机及两类焦炉的创造/ME/样板总成输入输出接口兼容，以及 ME 输出总成的自动输出唤醒（7 个） |
 | `GSESteamEngineTestSupport` | 运行态测试共享夹具：真实结构成型、蒸汽/输出操作、输入总线、状态保存、批次边界、GUI/Jade 和反射适配 |
 | `GSEStructureDiagnosticsTests` | 缺块/数量/一致性诊断、候选去重截断、哨兵状态安全、NBT 传输及成型后清除（7 个） |

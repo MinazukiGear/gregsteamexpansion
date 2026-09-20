@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastModule;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
@@ -128,6 +129,28 @@ public final class GSEStructureFormationTests {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
     public static void largeSteamBlastFurnaceFormsFromShape(GameTestHelper helper) {
         GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_STEAM_BLAST_FURNACE);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamBlastFurnaceHotBlastPreviewMatchesModule(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
+        helper.assertTrue(definition.getMatchingShapes().size() == 2,
+                "Blast furnace must expose base and hot-blast previews");
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(1),
+                new BlockPos(16, 16, 8), Direction.NORTH);
+        helper.assertTrue(machine != null, "Missing hot-blast preview controller");
+        if (machine == null) {
+            return;
+        }
+        helper.assertTrue(BlastFurnaceHotBlastModule.validate(
+                        helper.getLevel(), machine.getPos(), machine.getFrontFacing())
+                        == BlastFurnaceHotBlastModule.Result.VALID,
+                "Combined preview does not match the runtime module validator");
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
+                        "Combined hot-blast preview did not preserve base formation"))
+                .thenSucceed();
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)

@@ -531,6 +531,58 @@ public final class GSEProcessorPatterns {
                 .build();
     }
 
+    /** Optional full preview with the controller-owned 7×5×9 twin hot-blast stove bank. */
+    public static MultiblockShapeInfo blastFurnaceHotBlastShapeInfo(MultiblockMachineDefinition definition) {
+        return GSEPatternLayouts.shape(blastFurnaceHotBlastLayers())
+                .where('I', industrialSteamCasing())
+                .where('H', blastBricks())
+                .where('K', cokeBricksCasing())
+                .where('B', GTBlocks.FIREBOX_BRONZE.get())
+                .where('A', Blocks.AIR)
+                .where('C', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .where('F', GSEMachines.STEAM_AIR_INTAKE_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] blastFurnaceHotBlastLayers() {
+        String[][] body = blastFurnaceLayers();
+        String[][] combined = new String[body.length][];
+        for (int y = 0; y < body.length; y++) {
+            String[] layer = new String[18];
+            String[] moduleRows = hotBlastModuleRows(y);
+            System.arraycopy(moduleRows, 0, layer, 0, moduleRows.length);
+            System.arraycopy(body[y], 0, layer, moduleRows.length, body[y].length);
+            combined[y] = layer;
+        }
+        return combined;
+    }
+
+    /** Rows are far-rear to near-body, matching the existing back-to-front shape convention. */
+    private static String[] hotBlastModuleRows(int y) {
+        String blank = "             ";
+        if (y == 0) {
+            return new String[] { "   BBB BBB   ", "   BBB BBB   ", "   BBB BBB   ", blank, blank };
+        }
+        if (y == 1) {
+            return new String[] { "   HHH HHH   ", "   HKH HKH   ", "   HIH HIH   ",
+                    "    IIIII    ", "      I      " };
+        }
+        if (y >= 2 && y <= 6) {
+            return new String[] { "   HHH HHH   ", "   HKH HKH   ", "   HHH HHH   ", blank, blank };
+        }
+        if (y == 7) {
+            return new String[] { "   HHH HHH   ", "   HAH HAH   ", "   HHH HHH   ", blank, blank };
+        }
+        if (y == 8) {
+            return new String[] { "   III III   ", "   III III   ", "   III III   ", blank, blank };
+        }
+        return new String[] { blank, blank, blank, blank, blank };
+    }
+
     private static String[][] blastFurnaceLayers() {
         // layer 2 (tuyere deck): bus/exhaust set on the front wall, tuyeres west
         String[] tuyereDeck = BLAST_TUYERE_LAYER.clone();
