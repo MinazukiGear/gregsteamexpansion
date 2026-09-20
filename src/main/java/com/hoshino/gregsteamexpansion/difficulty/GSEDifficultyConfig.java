@@ -24,8 +24,10 @@ public final class GSEDifficultyConfig {
                     "          settings and boiler values untouched.",
                     "  true  = the selected difficulty applies to GSE and the documented GTCEu",
                     "          difficulty integration. A full restart is required after changing it.",
+                    "  Ignored when an external pack authority such as GTSF Core is installed.",
                     "  是否在进程启动时启用 GSE 难度系统（默认关闭）。关闭时，本模组内部使用",
-                    "  Normal 基线，且不改写 GTCEu 的难度配置与锅炉数值；修改后须完整重启。")
+                    "  Normal 基线，且不改写 GTCEu 的难度配置与锅炉数值；修改后须完整重启。",
+                    "  安装 GTSF Core 等整合包难度权威时，此项无效。")
             .define("difficultyEnabled", false);
     private static final ForgeConfigSpec.EnumValue<Difficulty> DIFFICULTY = BUILDER
             .comment(
@@ -35,9 +37,11 @@ public final class GSEDifficultyConfig {
                     "  and GTCEu recipe difficulty switches before recipes load. In-game edits require a client restart;",
                     "  dedicated-server edits require a server restart. Multiplayer clients",
                     "  must start with the same tier and selected profile values as the server.",
+                    "  Ignored when an external pack authority such as GTSF Core is installed.",
                     "  difficultyEnabled=true 时，工作强度在进程启动时确定，并在配方加载前",
                     "  同时控制本模组机制与 GTCEu 配方难度开关。游戏内修改后须重启客户端；专用服务端修改后须",
-                    "  重启服务端。联机客户端的启动档位及该档参数必须与服务端一致。")
+                    "  重启服务端。联机客户端的启动档位及该档参数必须与服务端一致。",
+                    "  安装 GTSF Core 等整合包难度权威时，此项无效。")
             .defineEnum("difficulty", Difficulty.NORMAL);
     private static final ForgeConfigSpec.BooleanValue DIFFICULTY_SETUP_COMPLETED = BUILDER
             .comment(
@@ -89,6 +93,16 @@ public final class GSEDifficultyConfig {
                     "  留空或含非法条目时回退内置默认表；修改后必须完整重启才会生效。")
             .defineListAllowEmpty("machines.large_steam_fluid_drill.weights",
                     java.util.List.of(), entry -> entry instanceof String);
+    private static final ForgeConfigSpec.BooleanValue BOILER_ROOM_WATER_SCALE_ENABLED = BUILDER
+            .comment("Enables boiler-room water scale. Captured at startup; scrapped controllers stay scrapped.",
+                    "启用锅炉房水垢；启动时读取，已报废控制器不会因关闭配置而恢复。")
+            .define("machines.boiler_room.waterScale.enabled", true);
+    private static final ForgeConfigSpec.IntValue BOILER_ROOM_DESCALING_ACID_MB = BUILDER
+            .comment("Diluted hydrochloric acid consumed by one 25-point descaling cycle (mB).")
+            .defineInRange("machines.boiler_room.waterScale.descalingAcidMb", 8000, 1, 1_000_000);
+    private static final ForgeConfigSpec.IntValue BOILER_ROOM_DESCALING_DURATION_TICKS = BUILDER
+            .comment("Loaded server ticks required by one descaling cycle.")
+            .defineInRange("machines.boiler_room.waterScale.descalingDurationTicks", 3200, 1, 1_440_000);
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
@@ -102,6 +116,9 @@ public final class GSEDifficultyConfig {
     private static volatile boolean capturedFluidDrillEnabled = true;
     private static volatile java.util.List<String> capturedOrePlantWeights = java.util.List.of();
     private static volatile java.util.List<String> capturedFluidDrillWeights = java.util.List.of();
+    private static volatile boolean capturedBoilerRoomWaterScaleEnabled = true;
+    private static volatile int capturedBoilerRoomDescalingAcidMb = 8000;
+    private static volatile int capturedBoilerRoomDescalingDurationTicks = 3200;
 
     private GSEDifficultyConfig() {}
 
@@ -123,6 +140,35 @@ public final class GSEDifficultyConfig {
     /** Weight-table entries captured at process startup and parsed by the machine on first use. */
     public static java.util.List<? extends String> fluidDrillWeightEntries() {
         return capturedFluidDrillWeights;
+    }
+
+    public static boolean boilerRoomWaterScaleEnabled() {
+        return capturedBoilerRoomWaterScaleEnabled;
+    }
+
+    public static int boilerRoomDescalingAcidMb() {
+        return capturedBoilerRoomDescalingAcidMb;
+    }
+
+    public static int boilerRoomDescalingDurationTicks() {
+        return capturedBoilerRoomDescalingDurationTicks;
+    }
+
+    /** Includes global boiler-scale settings in the multiplayer startup identity. */
+    public static String configurationFingerprint(Difficulty difficulty) {
+        return configurationFingerprint(capturedProfile(difficulty));
+    }
+
+    /** Includes GSE-owned global settings in the effective profile's multiplayer identity. */
+    public static String configurationFingerprint(GSEDifficultyProfile profile) {
+        String value = profile.fingerprint() + "|" + capturedBoilerRoomWaterScaleEnabled + "|"
+                + capturedBoilerRoomDescalingAcidMb + "|" + capturedBoilerRoomDescalingDurationTicks;
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is required by the Java runtime", exception);
+        }
     }
 
     /** The process-wide tier captured during the initial config load. */
@@ -156,11 +202,16 @@ public final class GSEDifficultyConfig {
             capturedFluidDrillEnabled = FLUID_DRILL_ENABLED.get();
             capturedOrePlantWeights = java.util.List.copyOf(ORE_PLANT_WEIGHTS.get());
             capturedFluidDrillWeights = java.util.List.copyOf(FLUID_DRILL_WEIGHTS.get());
-            GSEDifficultyState.initializeAtStartup(
+            capturedBoilerRoomWaterScaleEnabled = BOILER_ROOM_WATER_SCALE_ENABLED.get();
+            capturedBoilerRoomDescalingAcidMb = BOILER_ROOM_DESCALING_ACID_MB.get();
+            capturedBoilerRoomDescalingDurationTicks = BOILER_ROOM_DESCALING_DURATION_TICKS.get();
+            GSEDifficultyAuthority.resolveStandalone(
                     capturedDifficultyEnabled, capturedDifficulty, capturedProfile(capturedDifficulty));
             GregSteamExpansion.LOGGER.info(
-                    "[Difficulty] Startup integration is {} with tier {}; flagship machines: ore plant {}, fluid drill {}; circuit assembler specialization: {}%, +{}x.",
+                    "[Difficulty] Standalone config captured as {} with tier {}; effective authority {}; flagship machines: ore plant {}, fluid drill {}; circuit assembler specialization: {}%, +{}x.",
                     capturedDifficultyEnabled ? "enabled" : "disabled", capturedDifficulty,
+                    GSEDifficultyAuthority.isExternallyManaged()
+                            ? GSEDifficultyAuthority.externalOwnerModId() : GregSteamExpansion.MOD_ID,
                     capturedOrePlantEnabled, capturedFluidDrillEnabled,
                     GSEDifficultyState.circuitAssemblerBonusChancePercent(false),
                     GSEDifficultyState.circuitAssemblerBonusMultiplier(false));
@@ -169,9 +220,18 @@ public final class GSEDifficultyConfig {
 
     public static void onConfigReloading(ModConfigEvent.Reloading event) {
         if (event.getConfig().getSpec() == SPEC) {
-            GregSteamExpansion.LOGGER.warn(
-                    "[Difficulty] config changed while running (enabled {}, difficulty {}, ore plant {}, fluid drill {}); it is ignored until the next full restart.",
-                    DIFFICULTY_ENABLED.get(), DIFFICULTY.get(), ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
+            if (GSEDifficultyAuthority.isExternallyManaged()) {
+                GregSteamExpansion.LOGGER.warn(
+                        "[Difficulty] GSE difficulty settings changed while {} is authoritative; " +
+                                "difficultyEnabled, difficulty and difficultyProfiles are ignored. " +
+                                "Machine settings still require a full restart (ore plant {}, fluid drill {}).",
+                        GSEDifficultyAuthority.externalOwnerModId(),
+                        ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
+            } else {
+                GregSteamExpansion.LOGGER.warn(
+                        "[Difficulty] config changed while running (enabled {}, difficulty {}, ore plant {}, fluid drill {}); it is ignored until the next full restart.",
+                        DIFFICULTY_ENABLED.get(), DIFFICULTY.get(), ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
+            }
         }
     }
 
@@ -206,12 +266,13 @@ public final class GSEDifficultyConfig {
         EnumMap<Difficulty, ProfileValues> values = new EnumMap<>(Difficulty.class);
         BUILDER.comment(
                 "Per-tier balance profiles. Every value is captured only at startup.",
+                "Ignored when an external pack authority such as GTSF Core is installed.",
                 "These settings are intended for modpack authors; clients and servers must use",
                 "the same selected profile. Most multipliers are ignored while difficultyEnabled=false;",
                 "the circuit-assembler specialization uses the Normal profile as its baseline.",
                 "三档难度的独立平衡参数，仅在启动时读取，适合整合包作者覆盖。联机双方所选档位",
                 "的全部参数必须一致；difficultyEnabled=false 时多数倍率不生效，电路组装机专精",
-                "按 Normal 档基线运行。")
+                "按 Normal 档基线运行。安装 GTSF Core 等整合包难度权威时，本节无效。")
                 .push("difficultyProfiles");
         for (Difficulty difficulty : Difficulty.values()) {
             values.put(difficulty, defineProfile(difficulty, GSEDifficultyProfile.defaults(difficulty)));
@@ -240,6 +301,14 @@ public final class GSEDifficultyConfig {
                         .defineInRange("oreCrushingMultiplier", defaults.oreCrushingMultiplier(), 0.01, 1000.0),
                 BUILDER.comment("Boiler-room co-firing steam output multiplier (0.01-1000).")
                         .defineInRange("boilerRoomSteamOutputMultiplier", defaults.boilerRoomSteamOutputMultiplier(), 0.01, 1000.0),
+                BUILDER.comment("Equivalent full-load hours before the boiler-room controller is scrapped; 0 disables buildup.")
+                        .defineInRange("boilerRoomScaleFailureHours", defaults.boilerRoomScaleFailureHours(), 0.0, 100_000.0),
+                BUILDER.comment("Steam-output loss at 25% water scale (0-99 percent).")
+                        .defineInRange("boilerRoomScaleLossStage1Percent", defaults.boilerRoomScaleLossStage1Percent(), 0, 99),
+                BUILDER.comment("Steam-output loss at 50% water scale (0-99 percent).")
+                        .defineInRange("boilerRoomScaleLossStage2Percent", defaults.boilerRoomScaleLossStage2Percent(), 0, 99),
+                BUILDER.comment("Steam-output loss at 75% water scale (0-99 percent).")
+                        .defineInRange("boilerRoomScaleLossStage3Percent", defaults.boilerRoomScaleLossStage3Percent(), 0, 99),
                 BUILDER.comment("Steam assembler batch item-output multiplier (0.01-1000).")
                         .defineInRange("assemblerOutputMultiplier", defaults.assemblerOutputMultiplier(), 0.01, 1000.0),
                 BUILDER.comment("Ore plant and fluid drill output multiplier (1-1000).")
@@ -318,6 +387,10 @@ public final class GSEDifficultyConfig {
                                  ForgeConfigSpec.IntValue processingSteamPercent,
                                  ForgeConfigSpec.DoubleValue oreCrushingMultiplier,
                                  ForgeConfigSpec.DoubleValue boilerRoomSteamOutputMultiplier,
+                                 ForgeConfigSpec.DoubleValue boilerRoomScaleFailureHours,
+                                 ForgeConfigSpec.IntValue boilerRoomScaleLossStage1Percent,
+                                 ForgeConfigSpec.IntValue boilerRoomScaleLossStage2Percent,
+                                 ForgeConfigSpec.IntValue boilerRoomScaleLossStage3Percent,
                                  ForgeConfigSpec.DoubleValue assemblerOutputMultiplier,
                                  ForgeConfigSpec.IntValue voidProducerOutputMultiplier,
                                  ForgeConfigSpec.IntValue circuitAssemblerBonusChancePercent,
@@ -348,10 +421,17 @@ public final class GSEDifficultyConfig {
                                  ForgeConfigSpec.BooleanValue hardMultiRecipes) {
 
         private GSEDifficultyProfile capture() {
+            int stage1 = boilerRoomScaleLossStage1Percent.get();
+            int stage2 = boilerRoomScaleLossStage2Percent.get();
+            int stage3 = boilerRoomScaleLossStage3Percent.get();
+            if (stage1 > stage2 || stage2 > stage3) {
+                throw new IllegalStateException("Boiler-room water-scale losses must be nondecreasing for the selected profile");
+            }
             return new GSEDifficultyProfile(
                     gtceuCasingsPerCraft.get(), steamOutputMultiplier.get(), singleblockSteamCacheMultiplier.get(),
                     preheatCostPercent.get(), preheatIntervalTicks.get(), processingSteamPercent.get(),
                     oreCrushingMultiplier.get(), boilerRoomSteamOutputMultiplier.get(),
+                    boilerRoomScaleFailureHours.get(), stage1, stage2, stage3,
                     assemblerOutputMultiplier.get(), voidProducerOutputMultiplier.get(),
                     circuitAssemblerBonusChancePercent.get(), circuitAssemblerBonusMultiplier.get(),
                     hardBronzeComponentRecipes.get(), harderSteamGrindingBlockRecipes.get(),

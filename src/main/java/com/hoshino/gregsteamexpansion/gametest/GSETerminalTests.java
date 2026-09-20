@@ -263,6 +263,7 @@ public final class GSETerminalTests {
         player.getAbilities().instabuild = true;
         player.getInventory().clearContent();
         UltimateTerminalWorldData data = UltimateTerminalWorldData.get(helper.getLevel().getServer());
+        data.clear(player.getUUID());
         helper.assertTrue(data.addTarget(player, helper.getLevel().dimension(), controllerPos),
                 "Creative player could not add the terminal target");
         var preview = data.preview(player);
@@ -285,6 +286,7 @@ public final class GSETerminalTests {
                 "Creative terminal build did not place every planned block");
         helper.assertTrue(player.getInventory().isEmpty() && data.pendingCount(player.getUUID()) == 0,
                 "Creative terminal build consumed or generated inventory materials");
+        data.clear(player.getUUID());
         helper.succeed();
     }
 }

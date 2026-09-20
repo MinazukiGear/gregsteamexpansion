@@ -17,7 +17,7 @@ import java.util.function.Supplier;
 
 /** Network validation and display sync for the startup difficulty switch and tier. */
 public final class GSEDifficultyMessages {
-    private static final String PROTOCOL_VERSION = "4";
+    private static final String PROTOCOL_VERSION = "5";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             GregSteamExpansion.id("difficulty"),
             () -> PROTOCOL_VERSION, PROTOCOL_VERSION::equals, PROTOCOL_VERSION::equals);
@@ -44,8 +44,8 @@ public final class GSEDifficultyMessages {
     /** Client side: declares the tier captured when this process started. */
     public static void sendDeclaration() {
         CHANNEL.sendToServer(new DeclareDifficultyPacket(
-                GSEDifficultyConfig.capturedDifficultyEnabled(), GSEDifficultyConfig.capturedDifficulty(),
-                GSEDifficultyConfig.capturedProfile(GSEDifficultyConfig.capturedDifficulty()).fingerprint()));
+                GSEDifficultyState.isEnabled(), GSEDifficultyState.resolved(),
+                GSEDifficultyState.profileFingerprint()));
     }
 
     public record DeclareDifficultyPacket(boolean enabled, @Nullable Difficulty difficulty, String profileFingerprint) {

@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyAuthority;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyProfile;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
@@ -26,8 +27,10 @@ public final class GSEDifficultyGameTests {
         ConfigHolder.RecipeConfigs recipes = ConfigHolder.INSTANCE.recipes;
 
         helper.assertTrue(GSEDifficultyState.isResolved(), "Startup difficulty was not initialized");
-        helper.assertTrue(enabled == GSEDifficultyConfig.capturedDifficultyEnabled(),
-                "Captured difficulty switch and process state differ");
+        if (!GSEDifficultyAuthority.isExternallyManaged()) {
+            helper.assertTrue(enabled == GSEDifficultyConfig.capturedDifficultyEnabled(),
+                    "Captured difficulty switch and process state differ");
+        }
         GSEDifficultyProfile easyDefaults = GSEDifficultyProfile.defaults(Difficulty.EASY);
         GSEDifficultyProfile normalDefaults = GSEDifficultyProfile.defaults(Difficulty.NORMAL);
         GSEDifficultyProfile expertDefaults = GSEDifficultyProfile.defaults(Difficulty.EXPERT);
@@ -38,6 +41,16 @@ public final class GSEDifficultyGameTests {
                         && expertDefaults.circuitAssemblerBonusChancePercent() == 25
                         && expertDefaults.circuitAssemblerBonusMultiplier() == 1,
                 "Circuit-specialization tier defaults are not 100%/+7x, 50%/+3x, 25%/+1x");
+        helper.assertTrue(easyDefaults.boilerRoomScaleFailureHours() == 0.0
+                        && normalDefaults.boilerRoomScaleFailureHours() == 24.0
+                        && expertDefaults.boilerRoomScaleFailureHours() == 8.0
+                        && normalDefaults.boilerRoomScaleLossStage1Percent() == 10
+                        && normalDefaults.boilerRoomScaleLossStage2Percent() == 25
+                        && normalDefaults.boilerRoomScaleLossStage3Percent() == 50
+                        && expertDefaults.boilerRoomScaleLossStage1Percent() == 15
+                        && expertDefaults.boilerRoomScaleLossStage2Percent() == 40
+                        && expertDefaults.boilerRoomScaleLossStage3Percent() == 75,
+                "Boiler-room water-scale defaults do not match the approved profile");
         if (!enabled) {
             helper.assertTrue(difficulty == Difficulty.NORMAL,
                     "Disabled difficulty must resolve to the recipe baseline Normal tier");
@@ -62,9 +75,11 @@ public final class GSEDifficultyGameTests {
             helper.succeed();
             return;
         }
-        helper.assertTrue(difficulty == GSEDifficultyConfig.capturedDifficulty(),
-                "Captured config and enabled process difficulty differ");
-        GSEDifficultyProfile profile = GSEDifficultyConfig.capturedProfile(difficulty);
+        if (!GSEDifficultyAuthority.isExternallyManaged()) {
+            helper.assertTrue(difficulty == GSEDifficultyConfig.capturedDifficulty(),
+                    "Captured config and enabled process difficulty differ");
+        }
+        GSEDifficultyProfile profile = GSEDifficultyState.resolvedProfile();
         assertValue(helper, "disableManualCompression", recipes.disableManualCompression, profile.disableManualCompression());
         assertValue(helper, "harderRods", recipes.harderRods, profile.harderRods());
         assertValue(helper, "harderBrickRecipes", recipes.harderBrickRecipes, profile.harderBrickRecipes());
@@ -88,8 +103,9 @@ public final class GSEDifficultyGameTests {
                 "casingsPerCraft does not match the configured startup profile");
         helper.assertTrue(GSEDifficultyState.recipeCasingsPerCraft() == profile.gtceuCasingsPerCraft(),
                 "GSE block recipe output does not follow gtceuCasingsPerCraft");
-        helper.assertTrue(GSEDifficultyState.profileFingerprint().equals(profile.fingerprint()),
-                "Runtime profile fingerprint does not match the captured config");
+        helper.assertTrue(GSEDifficultyState.profileFingerprint().equals(
+                        GSEDifficultyConfig.configurationFingerprint(profile)),
+                "Runtime profile fingerprint does not match the effective startup profile");
         helper.assertTrue(GSEDifficultyState.steamOutputMultiplier(false) == (float) profile.steamOutputMultiplier(),
                 "Steam-output multiplier does not match the configured profile");
         helper.assertTrue(GSEDifficultyState.singleblockSteamCacheMultiplier(false)
@@ -140,6 +156,8 @@ public final class GSEDifficultyGameTests {
                 System.getenv("GSE_EXPECTED_PROFILE_CASINGS"));
         assertExpectedDouble(helper, "profile steam output", profile.steamOutputMultiplier(),
                 System.getenv("GSE_EXPECTED_PROFILE_STEAM_OUTPUT"));
+        assertExpectedDouble(helper, "profile boiler scale failure hours", profile.boilerRoomScaleFailureHours(),
+                System.getenv("GSE_EXPECTED_PROFILE_SCALE_HOURS"));
         assertExpectedInt(helper, "profile void output", profile.voidProducerOutputMultiplier(),
                 System.getenv("GSE_EXPECTED_PROFILE_VOID_OUTPUT"));
         assertExpectedInt(helper, "profile circuit bonus chance", profile.circuitAssemblerBonusChancePercent(),

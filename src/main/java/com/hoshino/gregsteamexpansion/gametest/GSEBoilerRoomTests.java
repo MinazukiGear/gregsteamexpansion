@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerScaleStage;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
@@ -10,10 +11,12 @@ import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.machine.multiblock.MultiblockControllerMachine;
 import com.gregtechceu.gtceu.api.pattern.MultiblockState;
+import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
+import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
@@ -26,9 +29,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -387,6 +392,81 @@ public final class GSEBoilerRoomTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void waterScaleStagesDescaleAndDrops(GameTestHelper h) {
+        var definition = GSEMachines.BOILER_ROOM_BRONZE;
+        var m = (BoilerRoomMachine) GSEStructureTestUtils.placeShape(h, definition,
+                definition.getMatchingShapes().get(0));
+        h.assertTrue(m != null, "Preview controller missing");
+        h.startSequence().thenWaitUntil(() -> h.assertTrue(m.isFormed(), "Boiler room has not formed"))
+                .thenExecute(() -> {
+                    setDouble(m, "waterScaleProgress", 0.2499);
+                    h.assertTrue(m.getWaterScaleStage() == BoilerScaleStage.CLEAN,
+                            "Sub-25% scale entered stage one early");
+                    setDouble(m, "waterScaleProgress", 0.25);
+                    h.assertTrue(m.getWaterScaleStage() == BoilerScaleStage.STAGE_1,
+                            "25% scale did not enter stage one");
+                    setDouble(m, "waterScaleProgress", 0.50);
+                    h.assertTrue(m.getWaterScaleStage() == BoilerScaleStage.STAGE_2,
+                            "50% scale did not enter stage two");
+                    setDouble(m, "waterScaleProgress", 0.75);
+                    h.assertTrue(m.getWaterScaleStage() == BoilerScaleStage.STAGE_3,
+                            "75% scale did not enter stage three");
+                    h.assertTrue(BoilerRoomMachine.applyWaterScaleLoss(10_000, 10) == 9_000
+                                    && BoilerRoomMachine.applyWaterScaleLoss(10_000, 75) == 2_500,
+                            "Water-scale output loss uses the wrong percentage");
+                    double normalIncrement = BoilerRoomMachine.calculateWaterScaleIncrement(
+                            10_000, 10_000, 5, 24.0);
+                    double expertIncrement = BoilerRoomMachine.calculateWaterScaleIncrement(
+                            10_000, 10_000, 5, 8.0);
+                    h.assertTrue(Math.abs(normalIncrement * (24.0 * 72_000.0 / 5.0) - 1.0) < 1.0e-9
+                                    && Math.abs(expertIncrement * (8.0 * 72_000.0 / 5.0) - 1.0) < 1.0e-9
+                                    && Math.abs(BoilerRoomMachine.calculateWaterScaleIncrement(
+                                            5_000, 10_000, 5, 24.0) - normalIncrement / 2.0) < 1.0e-12
+                                    && BoilerRoomMachine.calculateWaterScaleIncrement(
+                                            10_000, 10_000, 5, 0.0) == 0.0,
+                            "Equivalent-full-load scale lifetime arithmetic is incorrect");
+
+                    var loadedRecipe = h.getLevel().getRecipeManager()
+                            .byKey(GregSteamExpansion.id("mixer/diluted_hydrochloric_acid"))
+                            .orElse(null);
+                    h.assertTrue(loadedRecipe instanceof GTRecipe recipe
+                                    && recipe.recipeType == GTRecipeTypes.MIXER_RECIPES
+                                    && recipe.duration == 200,
+                            "Diluted hydrochloric acid mixer recipe is missing or has the wrong duration/type");
+
+                    setDouble(m, "waterScaleProgress", 0.62);
+                    CompoundTag itemTag = new CompoundTag();
+                    m.saveToItem(itemTag);
+                    setDouble(m, "waterScaleProgress", 0.0);
+                    m.loadFromItem(itemTag);
+                    h.assertTrue(Math.abs(m.getWaterScaleProgress() - 0.62) < 1.0e-9,
+                            "Controller item did not retain water scale");
+
+                    var input = m.getParts().stream().filter(FluidHatchPartMachine.class::isInstance)
+                            .map(FluidHatchPartMachine.class::cast)
+                            .filter(part -> part.tank.getHandlerIO() ==
+                                    com.gregtechceu.gtceu.api.capability.recipe.IO.IN)
+                            .findFirst().orElseThrow();
+                    input.tank.fillInternal(GTMaterials.DilutedHydrochloricAcid.getFluid(8_000),
+                            FluidAction.EXECUTE);
+                    h.assertTrue(m.startDescaling(), "Cooled idle boiler rejected a complete acid charge");
+                    h.assertTrue(input.tank.getFluidInTank(0).isEmpty(),
+                            "Descaling did not consume exactly one 8,000 mB acid charge");
+                    set(m, "descalingTicksRemaining", 1);
+                    updateRoomTemperature(m);
+                    h.assertTrue(!m.isDescaling() && Math.abs(m.getWaterScaleProgress() - 0.37) < 1.0e-9,
+                            "One descaling cycle did not remove exactly 25 percentage points");
+
+                    setBoolean(m, "scrappedByScale", true);
+                    var drops = new ArrayList<ItemStack>();
+                    drops.add(definition.asStack());
+                    m.onDrops(drops);
+                    h.assertTrue(drops.isEmpty() && !m.saveBreak(),
+                            "Scrapped controller still returned a reusable drop");
+                }).thenSucceed();
+    }
+
     private static void assertSynced(GameTestHelper h, ProgressWidget serverGauge, double expected) {
         var buffer = new FriendlyByteBuf(Unpooled.buffer());
         try {
@@ -416,6 +496,26 @@ public final class GSEBoilerRoomTests {
             var field = BoilerRoomMachine.class.getDeclaredField(name);
             field.setAccessible(true);
             field.setInt(m, value);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Cannot seed boiler fixture field " + name, e);
+        }
+    }
+
+    private static void setDouble(BoilerRoomMachine m, String name, double value) {
+        try {
+            var field = BoilerRoomMachine.class.getDeclaredField(name);
+            field.setAccessible(true);
+            field.setDouble(m, value);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Cannot seed boiler fixture field " + name, e);
+        }
+    }
+
+    private static void setBoolean(BoilerRoomMachine m, String name, boolean value) {
+        try {
+            var field = BoilerRoomMachine.class.getDeclaredField(name);
+            field.setAccessible(true);
+            field.setBoolean(m, value);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Cannot seed boiler fixture field " + name, e);
         }

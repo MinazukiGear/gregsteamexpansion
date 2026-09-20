@@ -210,7 +210,7 @@ public final class GSEAssemblerTests {
 
             fillOutputs(machine, true);
             outputs(machine).get(0).getInventory().setStackInSlot(
-                    0, selectedCircuit.copyWithCount(selectedCircuit.getMaxStackSize() - 2));
+                    0, selectedCircuit.copyWithCount(selectedCircuit.getMaxStackSize() - 1));
             h.assertTrue(!(boolean) call(machine, "tryStartRecipe", matching),
                     "Specialization started when only the base output could fit");
             eq(h, inputItemCount(input, Items.COBBLESTONE), 4,

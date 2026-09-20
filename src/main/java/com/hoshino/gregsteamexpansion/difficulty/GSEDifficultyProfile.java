@@ -21,6 +21,10 @@ public record GSEDifficultyProfile(
                                    int processingSteamPercent,
                                    double oreCrushingMultiplier,
                                    double boilerRoomSteamOutputMultiplier,
+                                   double boilerRoomScaleFailureHours,
+                                   int boilerRoomScaleLossStage1Percent,
+                                   int boilerRoomScaleLossStage2Percent,
+                                   int boilerRoomScaleLossStage3Percent,
                                    double assemblerOutputMultiplier,
                                    int voidProducerOutputMultiplier,
                                    int circuitAssemblerBonusChancePercent,
@@ -53,19 +57,19 @@ public record GSEDifficultyProfile(
     public static GSEDifficultyProfile defaults(Difficulty difficulty) {
         return switch (difficulty) {
             case EASY -> new GSEDifficultyProfile(
-                    2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 2.0, 4,
+                    2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 0.0, 0, 0, 0, 2.0, 4,
                     100, 7,
                     false, false, false, false, false,
                     false, false, false, false, false, false, false, false, false,
                     false, false, false, false, false, false, false, false, false, false);
             case NORMAL -> new GSEDifficultyProfile(
-                    1, 5.0, 1, 100, 5, 100, 1.5, 2.0, 1.0, 2,
+                    1, 5.0, 1, 100, 5, 100, 1.5, 2.0, 24.0, 10, 25, 50, 1.0, 2,
                     50, 3,
                     false, false, false, false, false,
                     true, true, false, false, false, true, false, false, false,
                     true, true, true, false, true, true, false, true, false, false);
             case EXPERT -> new GSEDifficultyProfile(
-                    1, 2.0, 1, 220, 10, 100, 1.0, 1.5, 1.0, 1,
+                    1, 2.0, 1, 220, 10, 100, 1.0, 1.5, 8.0, 15, 40, 75, 1.0, 1,
                     25, 1,
                     true, true, true, true, true,
                     true, true, true, true, true, true, true, true, true,
@@ -103,6 +107,9 @@ public record GSEDifficultyProfile(
                 + singleblockSteamCacheMultiplier + "|" + preheatCostPercent + "|" + preheatIntervalTicks + "|"
                 + processingSteamPercent + "|" + Double.toHexString(oreCrushingMultiplier) + "|"
                 + Double.toHexString(boilerRoomSteamOutputMultiplier) + "|"
+                + Double.toHexString(boilerRoomScaleFailureHours) + "|"
+                + boilerRoomScaleLossStage1Percent + "|" + boilerRoomScaleLossStage2Percent + "|"
+                + boilerRoomScaleLossStage3Percent + "|"
                 + Double.toHexString(assemblerOutputMultiplier) + "|" + voidProducerOutputMultiplier + "|"
                 + circuitAssemblerBonusChancePercent + "|" + circuitAssemblerBonusMultiplier + "|"
                 + hardBronzeComponentRecipes + "|" + harderSteamGrindingBlockRecipes + "|"

@@ -681,8 +681,17 @@ public final class GSEMachines {
                         Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.full_output",
                                 easyOutput, normalOutput, expertOutput),
                         Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.air_intake"),
+                        Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.water_scale"),
                         Component.translatable("gtceu.multiblock.large_boiler.explosion_tooltip")
                                 .withStyle(ChatFormatting.DARK_RED))
+                .tooltipBuilder((stack, tooltip) -> {
+                    int storedScale = BoilerRoomMachine.getStoredWaterScalePercent(stack);
+                    if (storedScale > 0) {
+                        tooltip.add(Component.translatable(
+                                "gregsteamexpansion.machine.boiler_room.tooltip.stored_scale", storedScale)
+                                .withStyle(ChatFormatting.YELLOW));
+                    }
+                })
                 .register();
     }
 

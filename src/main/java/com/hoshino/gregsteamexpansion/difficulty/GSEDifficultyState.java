@@ -39,7 +39,10 @@ public final class GSEDifficultyState {
     public static void setClientDifficulty(boolean enabled, Difficulty difficulty) {
         clientEnabled = enabled;
         clientDifficulty = difficulty;
-        clientProfile = GSEDifficultyConfig.capturedProfile(difficulty);
+        // Login validation already proved that both processes use the same
+        // effective profile. Reuse the startup snapshot so an external pack
+        // authority never falls back to GSE's standalone config here.
+        clientProfile = startupProfile;
         clientTierSynced = true;
     }
 
@@ -86,6 +89,20 @@ public final class GSEDifficultyState {
 
     public static float boilerRoomSteamOutputMultiplier(boolean remote) {
         return isEnabled(remote) ? (float) currentProfile(remote).boilerRoomSteamOutputMultiplier() : 1.0F;
+    }
+
+    public static double boilerRoomScaleFailureHours(boolean remote) {
+        return currentProfile(remote).boilerRoomScaleFailureHours();
+    }
+
+    public static int boilerRoomScaleLossPercent(boolean remote, int stage) {
+        GSEDifficultyProfile profile = currentProfile(remote);
+        return switch (stage) {
+            case 1 -> profile.boilerRoomScaleLossStage1Percent();
+            case 2 -> profile.boilerRoomScaleLossStage2Percent();
+            case 3 -> profile.boilerRoomScaleLossStage3Percent();
+            default -> 0;
+        };
     }
 
     public static float oreCrushingMultiplier(boolean remote) {
@@ -135,7 +152,12 @@ public final class GSEDifficultyState {
     }
 
     public static String profileFingerprint() {
-        return startupProfile.fingerprint();
+        return GSEDifficultyConfig.configurationFingerprint(startupProfile);
+    }
+
+    /** The immutable effective startup profile, regardless of who supplied it. */
+    public static GSEDifficultyProfile resolvedProfile() {
+        return startupProfile;
     }
 
     /**

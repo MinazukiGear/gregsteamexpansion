@@ -80,16 +80,14 @@ public class SteamTankValvePartMachine extends MultiblockPartMachine {
     @Override
     public void addedToController(IMultiController controller) {
         super.addedToController(controller);
-        if (controller instanceof LargeSteamTankMachine tank) {
-            tankProxy.setProxy(tank.getTank());
-        }
+        refreshTankProxy();
         autoIOSubscription.updateSubscription();
     }
 
     @Override
     public void removedFromController(IMultiController controller) {
         super.removedFromController(controller);
-        tankProxy.setProxy(null);
+        refreshTankProxy();
         autoIOSubscription.updateSubscription();
     }
 
@@ -127,9 +125,18 @@ public class SteamTankValvePartMachine extends MultiblockPartMachine {
                 .orElse(null);
     }
 
+    private void refreshTankProxy() {
+        LargeSteamTankMachine tank = getLinkedTank();
+        IFluidHandlerModifiable current = tank == null ? null : tank.getTank();
+        if (tankProxy.getProxy() != current) {
+            tankProxy.setProxy(current);
+        }
+    }
+
     @Override
     @Nullable
     public IFluidHandlerModifiable getFluidHandlerCap(@Nullable Direction side, boolean useCoverCapability) {
+        refreshTankProxy();
         if (!isFormed() || tankProxy.getProxy() == null) return null;
         if (side != null && side != getFrontFacing()) return null;
 
@@ -146,6 +153,7 @@ public class SteamTankValvePartMachine extends MultiblockPartMachine {
     }
 
     private boolean shouldAutoIO() {
+        refreshTankProxy();
         return isFormed() && (!outputMode || !tankProxy.isEmpty()) &&
                 GTTransferUtils.hasAdjacentFluidHandler(getLevel(), getPos(), getFrontFacing());
     }

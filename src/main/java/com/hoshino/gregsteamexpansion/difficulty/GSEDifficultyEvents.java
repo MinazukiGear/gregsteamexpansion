@@ -26,7 +26,7 @@ public final class GSEDifficultyEvents {
                     settingName(requiredEnabled, required)));
             return;
         }
-        if (requiredEnabled && !GSEDifficultyState.profileFingerprint().equals(declaredProfileFingerprint)) {
+        if (!GSEDifficultyState.profileFingerprint().equals(declaredProfileFingerprint)) {
             player.connection.disconnect(Component.translatable(
                     "config.gregsteamexpansion.difficulty.profile_mismatch"));
             return;

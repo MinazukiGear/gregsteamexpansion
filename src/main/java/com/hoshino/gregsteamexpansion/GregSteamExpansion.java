@@ -13,6 +13,7 @@ import com.hoshino.gregsteamexpansion.data.GSEItemModels;
 import com.hoshino.gregsteamexpansion.data.GSELoot;
 import com.hoshino.gregsteamexpansion.data.GSERecipes;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyAuthority;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyCondition;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyMessages;
 import com.hoshino.gregsteamexpansion.difficulty.GSERecipeConfigCondition;
@@ -137,6 +138,7 @@ public final class GregSteamExpansion {
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
+        GSEDifficultyAuthority.requireResolved();
         // GTCEu 注册完成后精确替换普通焦炉/焦炉仓的机器工厂、结构图案与预览
         // (coke-ovens.md: 继续使用 gtceu:coke_oven 与 gtceu:coke_oven_hatch 注册身份)。
         event.enqueueWork(com.hoshino.gregsteamexpansion.cokeoven.GSECokeOvenInit::init);

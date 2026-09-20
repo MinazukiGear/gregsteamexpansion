@@ -153,6 +153,7 @@ public final class GSESteamTankTests {
                 helper, GTMachines.FLUID_EXPORT_HATCH[1], sourcePos);
         source.setWorkingEnabled(false);
         source.tank.setFluidInTank(0, GTMaterials.Steam.getFluid(4_000));
+        helper.getLevel().updateNeighborsAt(source.getPos(), source.getBlockState().getBlock());
 
         helper.runAfterDelay(10, () -> {
             helper.assertTrue(tank.getStoredAmount() == 4_000,
@@ -170,6 +171,7 @@ public final class GSESteamTankTests {
                 FluidHatchPartMachine sink = GSEStructureTestUtils.placeMachine(
                         helper, GTMachines.FLUID_IMPORT_HATCH[1], sourcePos);
                 sink.setWorkingEnabled(false);
+                helper.getLevel().updateNeighborsAt(sink.getPos(), sink.getBlockState().getBlock());
                 valve.setOutputMode(true);
                 helper.runAfterDelay(10, () -> {
                     helper.assertTrue(tank.getStoredAmount() == 0,

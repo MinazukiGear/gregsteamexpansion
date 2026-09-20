@@ -9,6 +9,8 @@ import com.gregtechceu.gtceu.api.gui.UITemplate;
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
 import com.gregtechceu.gtceu.api.machine.TickableSubscription;
 import com.gregtechceu.gtceu.api.machine.feature.IMachineLife;
+import com.gregtechceu.gtceu.api.machine.feature.IDropSaveMachine;
+import com.gregtechceu.gtceu.api.machine.feature.IMachineModifyDrops;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiPart;
 import com.gregtechceu.gtceu.api.machine.trait.RecipeLogic;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
@@ -18,6 +20,7 @@ import com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyProfile;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.CoFiringPowderFuel;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
@@ -29,6 +32,7 @@ import com.lowdragmc.lowdraglib.gui.widget.ComponentPanelWidget;
 import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 import com.lowdragmc.lowdraglib.gui.widget.ProgressWidget;
+import com.lowdragmc.lowdraglib.gui.util.ClickData;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 
@@ -40,6 +44,8 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.server.TickTask;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -81,7 +87,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
  */
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLife {
+public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLife, IDropSaveMachine, IMachineModifyDrops {
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(
             BoilerRoomMachine.class, LargeBoilerMachine.MANAGED_FIELD_HOLDER);
@@ -90,6 +96,11 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     public static final double CO_FIRING_MULTIPLIER = 1.5;
     /** 粉料消耗速率: 十分之一 tick / tick (沿用单方块高压口径, P1#8). */
     private static final int TENTHS_PER_POWDER_BURN_TICK = 6;
+    public static final double SCALE_STAGE_SIZE = 0.25;
+    private static final double SCALE_WARNING_THRESHOLD = 0.75;
+    private static final double SCALE_SCRAP_THRESHOLD = 1.0;
+    private static final double TICKS_PER_HOUR = 72_000.0;
+    private static final String ITEM_SCALE_KEY = "GSEBoilerWaterScale";
 
     /** Tier constants (P1#6/P2#10): max temperature / heat / cooldown / no-powder cooldown / air, by tier index 0-3. */
     public static final int BRONZE_TIER = 0;
@@ -129,6 +140,15 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     private int powderBurnTotal;
     @Persisted
     private int powderConsumptionTenths;
+    /** Normalized 0..1 lifetime scale progress; values below 1 remain acid-cleanable. */
+    @Persisted
+    private double waterScaleProgress;
+    @Persisted
+    private boolean scrappedByScale;
+    @Persisted
+    private int descalingTicksRemaining;
+    @Persisted
+    private int descalingTicksTotal;
 
     //////////////////////////////////////
     // ***** Runtime state ******//
@@ -205,6 +225,49 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         return powderBurnRemaining;
     }
 
+    public double getWaterScaleProgress() {
+        return Math.max(0.0, Math.min(1.0, waterScaleProgress));
+    }
+
+    public int getWaterScalePercent() {
+        return (int) Math.floor(getWaterScaleProgress() * 100.0 + 1.0e-9);
+    }
+
+    public BoilerScaleStage getWaterScaleStage() {
+        return BoilerScaleStage.fromProgress(getWaterScaleProgress(), scrappedByScale);
+    }
+
+    public int getWaterScaleLossPercent() {
+        if (!isWaterScaleEffective() || scrappedByScale) return 0;
+        return GSEDifficultyState.boilerRoomScaleLossPercent(isRemote(), getWaterScaleStage().index());
+    }
+
+    public boolean isScrappedByScale() {
+        return scrappedByScale;
+    }
+
+    public boolean isDescaling() {
+        return descalingTicksRemaining > 0;
+    }
+
+    public int getDescalingTicksRemaining() {
+        return descalingTicksRemaining;
+    }
+
+    public int getDescalingTicksTotal() {
+        return descalingTicksTotal;
+    }
+
+    public double getDescalingProgress() {
+        return descalingTicksTotal <= 0 ? 0.0
+                : 1.0 - descalingTicksRemaining / (double) descalingTicksTotal;
+    }
+
+    private boolean isWaterScaleEffective() {
+        return GSEDifficultyConfig.boilerRoomWaterScaleEnabled()
+                && GSEDifficultyState.boilerRoomScaleFailureHours(isRemote()) > 0.0;
+    }
+
     /** Exact per-tick output before the five-tick water conversion batch. */
     public static long calculateSteamOutputPerTick(int temperature, int throttle, Difficulty difficulty) {
         return calculateSteamOutputPerTick(temperature, throttle,
@@ -215,6 +278,26 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     public static long calculateSteamOutputPerTick(int temperature, int throttle, float difficultyMultiplier) {
         return Math.round(temperature * (double) throttle / 20.0
                 * CO_FIRING_MULTIPLIER * difficultyMultiplier);
+    }
+
+    public static long applyWaterScaleLoss(long cleanOutput, int lossPercent) {
+        return Math.round(cleanOutput * Math.max(0, 100 - lossPercent) / 100.0);
+    }
+
+    /** Converts a production cycle into equivalent-full-load lifetime progress. */
+    public static double calculateWaterScaleIncrement(long cleanOutput, long maximumCleanOutput,
+                                                       int cycleTicks, double failureHours) {
+        if (cleanOutput <= 0 || maximumCleanOutput <= 0 || cycleTicks <= 0 || failureHours <= 0.0) {
+            return 0.0;
+        }
+        double load = Math.min(1.0, cleanOutput / (double) maximumCleanOutput);
+        return cycleTicks * load / (failureHours * TICKS_PER_HOUR);
+    }
+
+    public static int getStoredWaterScalePercent(ItemStack stack) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(ITEM_SCALE_KEY, Tag.TAG_DOUBLE)) return 0;
+        return (int) Math.floor(Math.max(0.0, Math.min(1.0, tag.getDouble(ITEM_SCALE_KEY))) * 100.0);
     }
 
     //////////////////////////////////////
@@ -372,11 +455,43 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     /** True while the fuel recipe is paused for missing powder or air. */
     public boolean isCoFiringPaused() {
-        return isMissingPowder() || isAirStarved();
+        return scrappedByScale || isDescaling() || isMissingPowder() || isAirStarved();
+    }
+
+    /** Starts one fixed-cost cycle which removes at most one 25-point scale band. */
+    public boolean startDescaling() {
+        if (isRemote() || !GSEDifficultyConfig.boilerRoomWaterScaleEnabled() || !isFormed()
+                || scrappedByScale || isDescaling() || waterScaleProgress <= 0.0
+                || roomTemperature >= 100 || getRecipeLogic().isWorking()
+                || isStructureTemporarilyUnavailable()) {
+            return false;
+        }
+        int acid = GSEDifficultyConfig.boilerRoomDescalingAcidMb();
+        if (!drainDescalingAcid(acid, true) || !drainDescalingAcid(acid, false)) return false;
+        descalingTicksTotal = GSEDifficultyConfig.boilerRoomDescalingDurationTicks();
+        descalingTicksRemaining = descalingTicksTotal;
+        cycleSteamGenerated = 0;
+        updateRoomTemperatureSubscription();
+        markDirty();
+        return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean drainDescalingAcid(int amount, boolean simulate) {
+        var remaining = List.of(FluidIngredient.of(GTMaterials.DilutedHydrochloricAcid.getFluid(amount)));
+        List<IRecipeHandler<?>> inputTanks = new ArrayList<>();
+        inputTanks.addAll(getCapabilitiesFlat(IO.IN, FluidRecipeCapability.CAP));
+        inputTanks.addAll(getCapabilitiesFlat(IO.BOTH, FluidRecipeCapability.CAP));
+        for (IRecipeHandler<?> tank : inputTanks) {
+            remaining = (List<FluidIngredient>) tank.handleRecipe(IO.IN, null, remaining, simulate);
+            if (remaining == null || remaining.isEmpty()) return true;
+        }
+        return false;
     }
 
     @Override
     public boolean beforeWorking(@Nullable GTRecipe recipe) {
+        if (scrappedByScale || isDescaling()) return false;
         // 开工预检 (P1#8/P2#10): powder buffer refill + intake presence, else waiting.
         return preparePowder(recipe) && hasAirIntake() && super.beforeWorking(recipe);
     }
@@ -413,7 +528,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     protected void updateRoomTemperatureSubscription() {
-        if (roomTemperature > 0) {
+        if (roomTemperature > 0 || isDescaling()) {
             roomTemperatureSubs = subscribeServerTick(roomTemperatureSubs, this::updateRoomTemperature);
         } else if (roomTemperatureSubs != null) {
             roomTemperatureSubs.unsubscribe();
@@ -447,6 +562,35 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         // safe to use yet, even when a chunk loader keeps the whole range loaded.
         if (isStructureTemporarilyUnavailable()) {
             cycleSteamGenerated = 0;
+            return;
+        }
+
+        if (isDescaling()) {
+            cycleSteamGenerated = 0;
+            if (roomTemperature > 0 && ++coolCounter >= cooldownIntervalTicks) {
+                coolCounter = 0;
+                roomTemperature--;
+            }
+            descalingTicksRemaining--;
+            if (descalingTicksRemaining <= 0) {
+                descalingTicksRemaining = 0;
+                descalingTicksTotal = 0;
+                waterScaleProgress = Math.max(0.0, waterScaleProgress - SCALE_STAGE_SIZE);
+                markDirty();
+            } else if (descalingTicksRemaining % 20 == 0) {
+                markDirty();
+            }
+            updateRoomTemperatureSubscription();
+            return;
+        }
+
+        if (scrappedByScale) {
+            cycleSteamGenerated = 0;
+            if (roomTemperature > 0 && ++coolCounter >= cooldownIntervalTicks) {
+                coolCounter = 0;
+                roomTemperature--;
+            }
+            updateRoomTemperatureSubscription();
             return;
         }
 
@@ -525,8 +669,9 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             cycleSteamGenerated = 0;
             return;
         }
-        long steamPerTick = calculateSteamOutputPerTick(
+        long cleanSteamPerTick = calculateSteamOutputPerTick(
                 roomTemperature, getThrottle(), GSEDifficultyState.boilerRoomSteamOutputMultiplier(isRemote()));
+        long steamPerTick = applyWaterScaleLoss(cleanSteamPerTick, getWaterScaleLossPercent());
         if (steamPerTick <= 0) {
             cycleSteamGenerated = 0;
             return;
@@ -566,7 +711,51 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         // 干烧爆炸 (P1#7): inherited strength-2 explosion, no double-blast rule.
         if (drained < waterNeeded) {
             doExplosion(2f);
+        } else if (steamProduced > 0) {
+            accumulateWaterScale(cleanSteamPerTick);
         }
+    }
+
+    private void accumulateWaterScale(long cleanSteamPerTick) {
+        if (!isWaterScaleEffective() || scrappedByScale || isDescaling() || cleanSteamPerTick <= 0) return;
+        double failureHours = GSEDifficultyState.boilerRoomScaleFailureHours(isRemote());
+        long maximumCleanOutput = calculateSteamOutputPerTick(getMaxTemperature(), 100,
+                GSEDifficultyState.boilerRoomSteamOutputMultiplier(isRemote()));
+        double increment = calculateWaterScaleIncrement(cleanSteamPerTick, maximumCleanOutput,
+                TICKS_PER_STEAM_GENERATION, failureHours);
+        if (increment <= 0.0) return;
+
+        double previous = waterScaleProgress;
+        waterScaleProgress = Math.min(SCALE_SCRAP_THRESHOLD,
+                waterScaleProgress + increment);
+        if (previous < SCALE_WARNING_THRESHOLD && waterScaleProgress >= SCALE_WARNING_THRESHOLD) {
+            sendScaleWarning();
+        }
+        if (waterScaleProgress >= SCALE_SCRAP_THRESHOLD) {
+            scrapByWaterScale();
+        }
+        markDirty();
+    }
+
+    private void sendScaleWarning() {
+        if (!(getLevel() instanceof ServerLevel level)) return;
+        Component message = Component.translatable(
+                "gregsteamexpansion.machine.boiler_room.water_scale.warning",
+                getBlockState().getBlock().getName(),
+                level.dimension().location().toString(),
+                getPos().getX(), getPos().getY(), getPos().getZ(),
+                GSEDifficultyState.boilerRoomScaleLossPercent(false, 3)).withStyle(ChatFormatting.RED);
+        BoilerScaleWarning.send(level, getOwnerUUID(), message);
+    }
+
+    private void scrapByWaterScale() {
+        scrappedByScale = true;
+        waterScaleProgress = SCALE_SCRAP_THRESHOLD;
+        descalingTicksRemaining = 0;
+        descalingTicksTotal = 0;
+        cycleSteamGenerated = 0;
+        getRecipeLogic().interruptRecipe();
+        markDirty();
     }
 
     //////////////////////////////////////
@@ -626,6 +815,29 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             textList.add(Component.translatable("gtceu.multiblock.large_boiler.steam_output",
                     cycleSteamGenerated / TICKS_PER_STEAM_GENERATION));
 
+            if (scrappedByScale) {
+                textList.add(Component.translatable(
+                        "gregsteamexpansion.machine.boiler_room.water_scale.scrapped")
+                        .withStyle(ChatFormatting.DARK_RED));
+            } else if (isDescaling()) {
+                textList.add(Component.translatable(
+                        "gregsteamexpansion.machine.boiler_room.water_scale.descaling",
+                        (int) Math.round(getDescalingProgress() * 100.0))
+                        .withStyle(ChatFormatting.AQUA));
+            } else if (GSEDifficultyConfig.boilerRoomWaterScaleEnabled()) {
+                textList.add(Component.translatable(
+                        "gregsteamexpansion.machine.boiler_room.water_scale.level",
+                        getWaterScalePercent(), getWaterScaleLossPercent())
+                        .withStyle(getWaterScaleStage() == BoilerScaleStage.STAGE_3
+                                ? ChatFormatting.RED : ChatFormatting.GRAY));
+                if (waterScaleProgress > 0.0) {
+                    var descale = Component.translatable(
+                            "gregsteamexpansion.machine.boiler_room.water_scale.start",
+                            GSEDifficultyConfig.boilerRoomDescalingAcidMb());
+                    textList.add(ComponentPanelWidget.withButton(descale, "descale"));
+                }
+            }
+
             var throttleText = Component.translatable("gtceu.multiblock.large_boiler.throttle",
                     ChatFormatting.AQUA.toString() + getThrottle() + "%")
                     .withStyle(Style.EMPTY.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
@@ -640,7 +852,9 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             textList.add(buttonText);
 
             // 协同燃烧状态 (P2#10/P3#13): powder progress + air intake hint.
-            if (!hasAirIntake()) {
+            if (scrappedByScale || isDescaling()) {
+                // The dedicated water-scale line above is the authoritative state.
+            } else if (!hasAirIntake()) {
                 textList.add(Component.translatable(
                         "gregsteamexpansion.machine.boiler_room.status.no_air_intake")
                         .withStyle(ChatFormatting.RED));
@@ -665,6 +879,15 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     // no mode button exists (P1#5: co-firing only).
 
     @Override
+    public void handleDisplayClick(String componentData, ClickData clickData) {
+        if ("descale".equals(componentData)) {
+            startDescaling();
+        } else {
+            super.handleDisplayClick(componentData, clickData);
+        }
+    }
+
+    @Override
     public IGuiTexture getScreenTexture() {
         return GuiTextures.DISPLAY_STEAM.get(getMaxTemperature() > 800);
     }
@@ -684,6 +907,15 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
         @Override
         public void handleRecipeWorking() {
+            if (room.scrappedByScale) {
+                setWaiting(Component.translatable("gregsteamexpansion.machine.boiler_room.water_scale.scrapped"));
+                return;
+            }
+            if (room.isDescaling()) {
+                setWaiting(Component.translatable("gregsteamexpansion.machine.boiler_room.water_scale.descaling",
+                        (int) Math.round(room.getDescalingProgress() * 100.0)));
+                return;
+            }
             if (room.isCoFiringPaused()) {
                 setWaiting(Component.translatable(room.isMissingPowder()
                         ? "gregsteamexpansion.machine.boiler_room.status.missing_powder"
@@ -695,12 +927,43 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     @Override
+    public boolean saveBreak() {
+        return !scrappedByScale;
+    }
+
+    @Override
+    public void saveToItem(CompoundTag tag) {
+        IDropSaveMachine.super.saveToItem(tag);
+        if (waterScaleProgress > 0.0) {
+            tag.putDouble(ITEM_SCALE_KEY, getWaterScaleProgress());
+        }
+    }
+
+    @Override
+    public void loadFromItem(CompoundTag tag) {
+        IDropSaveMachine.super.loadFromItem(tag);
+        if (tag.contains(ITEM_SCALE_KEY, Tag.TAG_DOUBLE)) {
+            waterScaleProgress = Math.max(0.0, Math.min(0.999_999, tag.getDouble(ITEM_SCALE_KEY)));
+        }
+        scrappedByScale = false;
+        descalingTicksRemaining = 0;
+        descalingTicksTotal = 0;
+    }
+
+    @Override
+    public void onDrops(List<ItemStack> drops) {
+        if (scrappedByScale) drops.clear();
+    }
+
+    @Override
     public void onMachineRemoved() {
         burningPowder = ItemStack.EMPTY;
         powderBurnRemaining = 0;
         powderBurnTotal = 0;
         powderConsumptionTenths = 0;
         cycleSteamGenerated = 0;
+        descalingTicksRemaining = 0;
+        descalingTicksTotal = 0;
         airIntakes.clear();
     }
 }

@@ -1,17 +1,30 @@
 # 全局工作强度（难度）机制设计
 
-本文档记录 Greg Steam Expansion 的全局“工作强度”机制。该机制的英文名称与代码语义为“难度”（`Difficulty`），用于统一管理本模组的玩法设置，并允许按明确的兼容清单调整部分上游模组设置。
+本文档记录 Greg Steam Expansion 的全局“工作强度”机制。该机制的英文名称与代码语义为“难度”（`Difficulty`），用于统一管理本模组的玩法设置，并允许按明确的兼容清单调整部分上游模组设置。GSE 独立安装时由自身配置持有权威；与 GTSF Core 同装时由包核提供有效档位与完整 profile。
 
 本文档主体只记录已经由用户确认的规则。全局档位、启动期配置与配方联动已实现，入口为 `difficulty/`；后续内容的数值设计与运行核验见文末“尚未处理的问题”，不将待核验状态视为已验收。
 
 ## 设计定位
 
 - 工作强度是整个模组的全局玩法设置，不属于某一台机器、物品、方块或配方的私有选项。
-- 难度系统有独立总开关，默认关闭，使本模组可以加入其他整合包而不接管其 GTCEu 难度配置或套用本模组的难度倍率。
+- GSE 独立安装时难度系统有独立总开关且默认关闭，使本模组可以加入其他整合包而不主动接管其 GTCEu 难度配置。
 - 工作强度影响本模组全部会改变玩法、材料成本、产量、处理速度、能耗、结构能力或兼容行为的设置。
 - 工作强度还可以修改部分上游模组设置；只有在本文档明确列入兼容清单的上游设置才允许被修改，不能按名称模糊匹配或批量覆盖未知配置。
 - 各内容的独立设计文档负责说明“该内容的哪些数值受工作强度影响”；本文档负责定义档位、全局生效规则、设置优先级和跨模组覆盖边界。
 - 当前已有的大型蓄热蒸汽熔炉工作强度方案作为首个基准实现，后续内容在此基础上逐项纳入全局机制。
+
+## GTSF Core 权威接管
+
+- GSE `0.1.0-alpha.6` 提供单一启动期外部难度提供者接口。GTSF Core 在模组构造期注册，
+  并在 `gtsfcore-common.toml` 加载后一次性提交所选档位与完整 `GSEDifficultyProfile`。
+- 外部提供者存在时难度始终启用；GSE 自身的 `difficultyEnabled`、`difficulty`、
+  `difficultySetupCompleted` 与 `difficultyProfiles` 仅作独立安装兼容读取，不参与运行。
+- GSE 首次设置页不再弹出；Mods 配置页保留非难度入口，难度区域只读显示由 GTSF Core 管理
+  以及当前有效档位。
+- 有效档位与 profile 仍通过 GSE 原有网络通道校验和同步。客户端声明取有效启动快照，
+  因而双方 GSE 难度配置可以不同；双方包核档位或有效 profile 不同仍会拒绝连接。
+- 若外部提供者重复注册、未在 common setup 前提交选择，或提交空档位/profile，GSE 明确拒绝启动，
+  不会静默回退自身配置。
 
 ## 术语与命名
 
@@ -42,7 +55,7 @@
 ## 启动期权威性
 
 - 工作强度是进程级启动设置，同一客户端进程或专用服务端进程中的所有世界共享同一个启用状态与档位；存档不再保存或决定档位。
-- 唯一权威来源是 `config/gregsteamexpansion-common.toml`：`difficultyEnabled` 默认为 `false`；`difficulty` 合法值为 `EASY`、`NORMAL`、`EXPERT`，默认 `NORMAL`。
+- 独立安装时唯一权威来源是 `config/gregsteamexpansion-common.toml`：`difficultyEnabled` 默认为 `false`；`difficulty` 合法值为 `EASY`、`NORMAL`、`EXPERT`，默认 `NORMAL`。装有 GTSF Core 时权威改为 `config/gtsfcore-common.toml`。
 - Forge 首次加载本模组配置时捕获开关与档位。开关启用时，立即应用本模组档位和 GTCEu 启动期配方难度预设；开关关闭时，本模组配方选择使用 `Normal` 基线，通用难度倍率为 `1×`，大型蒸汽电路组装机专精使用内置 Normal 参数，并保留 GTCEu 自己或整合包提供的配置值。
 - 客户端第一次安装本模组且 `difficultySetupCompleted=false` 时，在首个标题界面前显示首次设置页。页面默认选择关闭，允许选择是否启用和启用后的档位；保存会写入配置并退出游戏，下一次完整启动后生效。专用服务端无图形界面，直接按默认关闭启动，可编辑配置后重启。
 - 运行中通过 Mods 配置界面或直接编辑文件只修改磁盘配置；文件监视器触发的重载事件仅记录重启提示，不改变本次进程的档位、GTCEu 开关或已加载配方。
@@ -90,8 +103,8 @@
 
 ### 配置、日志与玩家说明
 
-- 配置文件为 `config/gregsteamexpansion-common.toml`：`difficultyEnabled` 控制总开关，`difficulty` 取值 `EASY`、`NORMAL`（默认）、`EXPERT`。游戏内保存后必须完整重启客户端；专用服务端编辑后必须完整重启服务端。
-- 每档参数位于 `difficultyProfiles.easy`、`difficultyProfiles.normal`、`difficultyProfiles.expert`。游戏内页面只修改总开关与当前档位；整合包作者直接编辑 TOML 中的参数表。所有参数与开关、档位一样只在进程启动时捕获，运行中修改不会热更新。
+- 独立配置文件为 `config/gregsteamexpansion-common.toml`：`difficultyEnabled` 控制总开关，`difficulty` 取值 `EASY`、`NORMAL`（默认）、`EXPERT`。游戏内保存后必须完整重启客户端；专用服务端编辑后必须完整重启服务端。
+- 独立态每档参数位于 `difficultyProfiles.easy`、`difficultyProfiles.normal`、`difficultyProfiles.expert`。装有 GTSF Core 时，同结构参数迁至 `gtsfcore-common.toml`，GSE 文件中的对应值无效。所有有效参数只在进程启动时捕获。
 - 首版不提供任何查询或修改档位的命令；档位状态通过服务端日志与配置文件注释说明。
 - 启动日志必须记录已捕获开关与档位；启用时另记录 GTCEu 预设类别与 `casingsPerCraft`，关闭时明确记录未改写 GTCEu。运行中重载配置时输出“本次进程忽略、重启后生效”的警告。
 - 客户端与服务端设置不匹配的断开提示使用本地化键 `config.gregsteamexpansion.difficulty.mismatch`，文本包含两侧启用状态或档位，并说明需要修改本地配置后重启客户端。

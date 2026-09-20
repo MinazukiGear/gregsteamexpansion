@@ -162,6 +162,9 @@ dependencies {
     if (mountClientDevAids) {
         runtimeOnly fg.deobf("dev.emi:emi-forge:${emi_version}")
     }
+    // Optional boiler-room team warnings compile against the API from an isolated
+    // bridge; the published mod still loads without FTB Teams.
+    compileOnly(fg.deobf("curse.maven:ftb-teams-forge-404468:${ftb_teams_file_id}")) { transitive = false }
 
     // Jade is a development runtime aid for inspecting machines in client runs.
     // It remains optional for published builds and is not declared in mods.toml.
@@ -453,7 +456,12 @@ def checkMixinPackageBoundaries = tasks.register('checkMixinPackageBoundaries') 
 
     def compiledMixinPackage = layout.buildDirectory.dir(
             'classes/java/main/com/hoshino/gregsteamexpansion/mixins')
-    inputs.dir(compiledMixinPackage)
+    // A source-only incremental compile may briefly leave this package absent.
+    // Track the class files as an optional collection instead of requiring the
+    // directory itself to exist during Gradle input validation.
+    inputs.files(fileTree(compiledMixinPackage) {
+        include '**/*.class'
+    })
 
     doLast {
         def nestedClasses = fileTree(compiledMixinPackage) {

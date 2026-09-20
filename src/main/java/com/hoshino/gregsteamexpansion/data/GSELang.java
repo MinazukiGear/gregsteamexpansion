@@ -870,15 +870,18 @@ public final class GSELang {
         add("config.gregsteamexpansion.difficulty.invalid", "Invalid");
         add("config.gregsteamexpansion.difficulty.mismatch",
                 "Difficulty setting mismatch: your client uses %s, but the server uses %s. " +
-                        "Match difficultyEnabled and difficulty in config/gregsteamexpansion-common.toml, " +
+                        "Match config/gtsfcore-common.toml when GTSF Core is installed, or " +
+                        "config/gregsteamexpansion-common.toml in standalone GSE, " +
                         "then restart your client before reconnecting.");
         add("config.gregsteamexpansion.difficulty.profile_mismatch",
                 "Difficulty profile mismatch: your selected tier has different configured values from the server. " +
-                        "Use the server's difficultyProfiles settings, then restart your client before reconnecting.");
+                        "Use the server authority's difficultyProfiles settings, then restart your client before reconnecting.");
 
         add("config.gregsteamexpansion.screen.title", "Greg Steam Expansion Config");
         add("config.gregsteamexpansion.screen.difficulty_enabled", "Enable difficulty system");
         add("config.gregsteamexpansion.screen.difficulty", "Work intensity (difficulty)");
+        add("config.gregsteamexpansion.screen.external_authority", "Difficulty is managed by GTSF Core.");
+        add("config.gregsteamexpansion.screen.external_difficulty", "Effective difficulty: %s");
         add("config.gregsteamexpansion.screen.first_setup.title", "Greg Steam Expansion: Initial Setup");
         add("config.gregsteamexpansion.screen.first_setup.description",
                 "Difficulty is off by default; while off, every difficulty multiplier is \u00d71.");
@@ -1030,6 +1033,10 @@ public final class GSELang {
                 "Built-in defaults at full temperature and 100%% throttle: Easy %s / Normal %s / Expert %s mB/t.");
         add("gregsteamexpansion.machine.boiler_room.tooltip.air_intake",
                 "Top centre strip (11 blocks): tier casing or 1-11 Steam Air Intake Hatches only; no other hatches on this strip.");
+        add("gregsteamexpansion.machine.boiler_room.tooltip.water_scale",
+                "Water scale: Easy never builds up; Normal/Expert scrap the controller after 24/8 equivalent full-load hours. Descaling while stopped and below 100°C removes one 25% band per cycle.");
+        add("gregsteamexpansion.machine.boiler_room.tooltip.stored_scale",
+                "Retained water scale: %s%%");
         add("gregsteamexpansion.machine.boiler_room.status.no_air_intake",
                 "Structure requirement: 1-11 Steam Air Intake Hatches anywhere along the 11-block top centre strip; remaining strip blocks must be tier casing.");
         add("gregsteamexpansion.machine.boiler_room.status.air_starved",
@@ -1039,6 +1046,21 @@ public final class GSELang {
         add("gregsteamexpansion.machine.boiler_room.powder_remaining", "Co-firing dust buffer: %s%% remaining");
         add("gregsteamexpansion.machine.boiler_room.status.co_firing",
                 "Co-firing: powder burn buffer %s%%");
+        add("gregsteamexpansion.machine.boiler_room.water_scale.level",
+                "Water scale: %s%% (steam loss %s%%)");
+        add("gregsteamexpansion.machine.boiler_room.water_scale.start",
+                "[Start descaling: %s mB diluted hydrochloric acid]");
+        add("gregsteamexpansion.machine.boiler_room.water_scale.descaling",
+                "Descaling in progress: %s%%");
+        add("gregsteamexpansion.machine.boiler_room.water_scale.scrapped",
+                "Controller permanently scrapped by severe water scale");
+        add("gregsteamexpansion.machine.boiler_room.water_scale.warning",
+                "DANGER: %s at %s [%s, %s, %s] reached severe water scale; steam output is reduced by %s%% and the next stage permanently scraps the controller.");
+        add("config.jade.plugin_gregsteamexpansion.boiler_room_water_scale",
+                "Boiler Room Water Scale");
+        add("gregsteamexpansion.jade.boiler_room.water_scale", "Water scale: %s%% (-%s%% steam)");
+        add("gregsteamexpansion.jade.boiler_room.descaling", "Descaling: %s%%");
+        add("gregsteamexpansion.jade.boiler_room.scrapped", "Controller permanently scrapped");
     }
 
     // ------------------------------------------------------------------

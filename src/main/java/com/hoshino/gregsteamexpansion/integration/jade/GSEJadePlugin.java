@@ -9,6 +9,7 @@ import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.client.StructureErrorHighlight;
 import com.hoshino.gregsteamexpansion.client.cokeoven.OwnedBrickClient;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeSteamTankMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.cokeoven.GSECokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.AbstractSteamCrusherMachine;
@@ -97,6 +98,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
     @Override
     public void register(IWailaCommonRegistration registration) {
         registration.registerBlockDataProvider(MixedFuelBoilerProvider.INSTANCE, MetaMachineBlockEntity.class);
+        registration.registerBlockDataProvider(BoilerRoomScaleProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(FurnaceProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(AirIntakeProvider.INSTANCE, MetaMachineBlockEntity.class);
         registration.registerBlockDataProvider(CrusherProvider.INSTANCE, MetaMachineBlockEntity.class);
@@ -113,6 +115,7 @@ public final class GSEJadePlugin implements IWailaPlugin {
     @Override
     public void registerClient(IWailaClientRegistration registration) {
         registration.registerBlockComponent(MixedFuelBoilerProvider.INSTANCE, MetaMachineBlock.class);
+        registration.registerBlockComponent(BoilerRoomScaleProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(FurnaceProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(AirIntakeProvider.INSTANCE, MetaMachineBlock.class);
         registration.registerBlockComponent(CrusherProvider.INSTANCE, MetaMachineBlock.class);
@@ -1077,6 +1080,47 @@ public final class GSEJadePlugin implements IWailaPlugin {
         private static Component line(String name, Object... arguments) {
             return Component.translatable("gregsteamexpansion.jade.coke_oven_brick." + name, arguments)
                     .withStyle(ChatFormatting.GRAY);
+        }
+
+        @Override
+        public ResourceLocation getUid() {
+            return UID;
+        }
+    }
+
+    private enum BoilerRoomScaleProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
+        INSTANCE;
+
+        private static final ResourceLocation UID = GregSteamExpansion.id("boiler_room_water_scale");
+        private static final String DATA_KEY = "GregSteamExpansionBoilerRoomScale";
+
+        @Override
+        public void appendServerData(CompoundTag serverData, BlockAccessor accessor) {
+            if (!(accessor.getBlockEntity() instanceof MetaMachineBlockEntity blockEntity) ||
+                    !(blockEntity.getMetaMachine() instanceof BoilerRoomMachine boiler)) return;
+            CompoundTag data = new CompoundTag();
+            data.putInt("Scale", boiler.getWaterScalePercent());
+            data.putInt("Loss", boiler.getWaterScaleLossPercent());
+            data.putBoolean("Scrapped", boiler.isScrappedByScale());
+            data.putBoolean("Descaling", boiler.isDescaling());
+            data.putInt("DescaleProgress", (int) Math.round(boiler.getDescalingProgress() * 100.0));
+            serverData.put(DATA_KEY, data);
+        }
+
+        @Override
+        public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
+            if (!accessor.getServerData().contains(DATA_KEY, Tag.TAG_COMPOUND)) return;
+            CompoundTag data = accessor.getServerData().getCompound(DATA_KEY);
+            if (data.getBoolean("Scrapped")) {
+                tooltip.add(Component.translatable("gregsteamexpansion.jade.boiler_room.scrapped")
+                        .withStyle(ChatFormatting.DARK_RED));
+            } else if (data.getBoolean("Descaling")) {
+                tooltip.add(Component.translatable("gregsteamexpansion.jade.boiler_room.descaling",
+                        data.getInt("DescaleProgress")).withStyle(ChatFormatting.AQUA));
+            } else {
+                tooltip.add(Component.translatable("gregsteamexpansion.jade.boiler_room.water_scale",
+                        data.getInt("Scale"), data.getInt("Loss")).withStyle(ChatFormatting.GRAY));
+            }
         }
 
         @Override

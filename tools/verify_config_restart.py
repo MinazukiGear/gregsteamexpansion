@@ -14,18 +14,18 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "run" / "config" / "gregsteamexpansion-common.toml"
 PROFILE_DEFAULTS = {
     "EASY": (
-        (2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 2.0, 4, 100, 7),
+        (2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 0.0, 0, 0, 0, 2.0, 4, 100, 7),
         (False, False, False, False, False),
         (False,) * 19,
     ),
     "NORMAL": (
-        (1, 5.0, 1, 100, 5, 100, 1.5, 2.0, 1.0, 2, 50, 3),
+        (1, 5.0, 1, 100, 5, 100, 1.5, 2.0, 24.0, 10, 25, 50, 1.0, 2, 50, 3),
         (False, False, False, False, False),
         (True, True, False, False, False, True, False, False, False, True,
          True, True, False, True, True, False, True, False, False),
     ),
     "EXPERT": (
-        (1, 2.0, 1, 220, 10, 100, 1.0, 1.5, 1.0, 1, 25, 1),
+        (1, 2.0, 1, 220, 10, 100, 1.0, 1.5, 8.0, 15, 40, 75, 1.0, 1, 25, 1),
         (True, True, True, True, True),
         (True,) * 19,
     ),
@@ -39,6 +39,10 @@ PROFILE_NUMBER_KEYS = (
     "processingSteamPercent",
     "oreCrushingMultiplier",
     "boilerRoomSteamOutputMultiplier",
+    "boilerRoomScaleFailureHours",
+    "boilerRoomScaleLossStage1Percent",
+    "boilerRoomScaleLossStage2Percent",
+    "boilerRoomScaleLossStage3Percent",
     "assemblerOutputMultiplier",
     "voidProducerOutputMultiplier",
     "circuitAssemblerBonusChancePercent",
@@ -82,6 +86,7 @@ PHASES = (
         "fluid_weights": ("minecraft:water|9",),
         "profile_casings": 3,
         "profile_steam_output": 6.25,
+        "profile_scale_hours": 0.0,
         "profile_void_output": 5,
         "profile_circuit_bonus_chance": 100,
         "profile_circuit_bonus_multiplier": 7,
@@ -97,6 +102,7 @@ PHASES = (
         "fluid_weights": (),
         "profile_casings": 2,
         "profile_steam_output": 4.25,
+        "profile_scale_hours": 30.0,
         "profile_void_output": 3,
         "profile_circuit_bonus_chance": 50,
         "profile_circuit_bonus_multiplier": 3,
@@ -112,6 +118,7 @@ PHASES = (
         "fluid_weights": ("minecraft:lava|5",),
         "profile_casings": 3,
         "profile_steam_output": 1.75,
+        "profile_scale_hours": 9.0,
         "profile_void_output": 2,
         "profile_circuit_bonus_chance": 25,
         "profile_circuit_bonus_multiplier": 1,
@@ -146,6 +153,7 @@ def profile_lines(phase: dict[str, object], difficulty: str) -> list[str]:
     if difficulty == phase["difficulty"]:
         number_values["gtceuCasingsPerCraft"] = phase["profile_casings"]
         number_values["steamOutputMultiplier"] = phase["profile_steam_output"]
+        number_values["boilerRoomScaleFailureHours"] = phase["profile_scale_hours"]
         number_values["voidProducerOutputMultiplier"] = phase["profile_void_output"]
         number_values["circuitAssemblerBonusChancePercent"] = phase["profile_circuit_bonus_chance"]
         number_values["circuitAssemblerBonusMultiplier"] = phase["profile_circuit_bonus_multiplier"]
@@ -170,6 +178,9 @@ def write_config(phase: dict[str, object]) -> None:
             f'difficulty = "{phase["difficulty"]}"',
             "difficultyEnabled = true",
             "difficultySetupCompleted = true",
+            "machines.boiler_room.waterScale.enabled = true",
+            "machines.boiler_room.waterScale.descalingAcidMb = 8000",
+            "machines.boiler_room.waterScale.descalingDurationTicks = 3200",
             "",
         ]
         + profile_lines(phase, "EASY")
@@ -203,6 +214,7 @@ def run_phase(phase: dict[str, object], command: list[str]) -> None:
     environment["GSE_EXPECTED_FLUID_DRILL_WEIGHTS"] = ";".join(phase["fluid_weights"])
     environment["GSE_EXPECTED_PROFILE_CASINGS"] = str(phase["profile_casings"])
     environment["GSE_EXPECTED_PROFILE_STEAM_OUTPUT"] = str(phase["profile_steam_output"])
+    environment["GSE_EXPECTED_PROFILE_SCALE_HOURS"] = str(phase["profile_scale_hours"])
     environment["GSE_EXPECTED_PROFILE_VOID_OUTPUT"] = str(phase["profile_void_output"])
     environment["GSE_EXPECTED_PROFILE_CIRCUIT_BONUS_CHANCE"] = str(
         phase["profile_circuit_bonus_chance"]

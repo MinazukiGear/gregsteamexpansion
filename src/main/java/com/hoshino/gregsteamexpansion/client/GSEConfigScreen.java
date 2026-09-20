@@ -1,7 +1,9 @@
 package com.hoshino.gregsteamexpansion.client;
 
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyAuthority;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -11,8 +13,9 @@ import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * In-game editor for the difficulty switch and tier in
- * gregsteamexpansion-common.toml. The one-time variant is shown before the
+ * In-game editor for the standalone difficulty switch and tier in
+ * gregsteamexpansion-common.toml. With an external pack authority it becomes
+ * a read-only status view. The one-time variant is shown before the
  * first title screen; the regular variant opens from the Mods config button.
  * Standard left-right layout: setting label on the left, value control on
  * the right, footer buttons across the bottom. Writing follows the restart
@@ -39,6 +42,8 @@ public final class GSEConfigScreen extends Screen {
             Component.translatable("config.gregsteamexpansion.screen.configure");
     private static final Component RESTART_HINT =
             Component.translatable("config.gregsteamexpansion.screen.restart");
+    private static final Component EXTERNAL_LABEL =
+            Component.translatable("config.gregsteamexpansion.screen.external_authority");
 
     @Nullable
     private final Screen parent;
@@ -61,8 +66,10 @@ public final class GSEConfigScreen extends Screen {
                 : "config.gregsteamexpansion.screen.title"));
         this.parent = parent;
         this.initialSetup = initialSetup;
-        this.enabledValue = GSEDifficultyConfig.capturedDifficultyEnabled();
-        this.value = GSEDifficultyConfig.capturedDifficulty();
+        this.enabledValue = GSEDifficultyAuthority.isExternallyManaged()
+                ? GSEDifficultyState.isEnabled() : GSEDifficultyConfig.capturedDifficultyEnabled();
+        this.value = GSEDifficultyAuthority.isExternallyManaged()
+                ? GSEDifficultyState.resolved() : GSEDifficultyConfig.capturedDifficulty();
     }
 
     public static GSEConfigScreen initialSetup(Screen parent) {
@@ -72,14 +79,17 @@ public final class GSEConfigScreen extends Screen {
     @Override
     protected void init() {
         int left = this.width / 2 - PANEL_HALF_WIDTH;
-        this.enabledButton = this.addRenderableWidget(
-                Button.builder(enabledLabel(), button -> toggleEnabled())
-                        .bounds(this.width / 2 + 5, ENABLED_ROW_Y, 150, 20).build());
-        // Right-aligned value control; the label is drawn beside it in render.
-        this.valueButton = this.addRenderableWidget(
-                Button.builder(valueLabel(), button -> cycleValue())
-                        .bounds(this.width / 2 + 5, DIFFICULTY_ROW_Y, 150, 20).build());
-        this.valueButton.active = enabledValue;
+        boolean externallyManaged = GSEDifficultyAuthority.isExternallyManaged();
+        if (!externallyManaged) {
+            this.enabledButton = this.addRenderableWidget(
+                    Button.builder(enabledLabel(), button -> toggleEnabled())
+                            .bounds(this.width / 2 + 5, ENABLED_ROW_Y, 150, 20).build());
+            // Right-aligned value control; the label is drawn beside it in render.
+            this.valueButton = this.addRenderableWidget(
+                    Button.builder(valueLabel(), button -> cycleValue())
+                            .bounds(this.width / 2 + 5, DIFFICULTY_ROW_Y, 150, 20).build());
+            this.valueButton.active = enabledValue;
+        }
         if (!initialSetup) {
             this.addRenderableWidget(Button.builder(CONFIGURE_LABEL,
                             button -> {
@@ -91,12 +101,14 @@ public final class GSEConfigScreen extends Screen {
         }
 
         int footerY = this.height - FOOTER_Y;
-        this.addRenderableWidget(Button.builder(RESET_LABEL, button -> {
-                    enabledValue = false;
-                    value = Difficulty.NORMAL;
-                    refreshButtons();
-                }).bounds(left, footerY, FOOTER_BUTTON_WIDTH, 20).build());
-        if (!initialSetup) {
+        if (!externallyManaged) {
+            this.addRenderableWidget(Button.builder(RESET_LABEL, button -> {
+                        enabledValue = false;
+                        value = Difficulty.NORMAL;
+                        refreshButtons();
+                    }).bounds(left, footerY, FOOTER_BUTTON_WIDTH, 20).build());
+        }
+        if (!initialSetup && !externallyManaged) {
             this.addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), button -> this.onClose())
                     .bounds(this.width / 2 - 51, footerY, FOOTER_BUTTON_WIDTH, 20).build());
         }
@@ -104,7 +116,9 @@ public final class GSEConfigScreen extends Screen {
                 ? "config.gregsteamexpansion.screen.first_setup.save"
                 : "gui.done");
         this.addRenderableWidget(Button.builder(doneLabel, button -> {
-                    if (initialSetup) {
+                    if (externallyManaged) {
+                        this.onClose();
+                    } else if (initialSetup) {
                         GSEDifficultyConfig.completeInitialSetup(enabledValue, value);
                         if (this.minecraft != null) {
                             this.minecraft.stop();
@@ -113,7 +127,8 @@ public final class GSEConfigScreen extends Screen {
                         GSEDifficultyConfig.setDifficultySettings(enabledValue, value);
                         this.onClose();
                     }
-                }).bounds(initialSetup ? this.width / 2 - FOOTER_BUTTON_WIDTH / 2 : this.width / 2 + 53,
+                }).bounds(initialSetup || externallyManaged
+                                ? this.width / 2 - FOOTER_BUTTON_WIDTH / 2 : this.width / 2 + 53,
                         footerY, FOOTER_BUTTON_WIDTH, 20).build());
     }
 
@@ -152,6 +167,13 @@ public final class GSEConfigScreen extends Screen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics);
         graphics.drawCenteredString(this.font, this.title, this.width / 2, 30, 0xFFFFFF);
+        boolean externallyManaged = GSEDifficultyAuthority.isExternallyManaged();
+        if (externallyManaged) {
+            graphics.drawCenteredString(this.font, EXTERNAL_LABEL, this.width / 2, 72, 0xA0A0A0);
+            graphics.drawCenteredString(this.font,
+                    Component.translatable("config.gregsteamexpansion.screen.external_difficulty", valueLabel()),
+                    this.width / 2, 92, 0xFFFFFF);
+        }
         if (initialSetup) {
             int lineY = 47;
             int lineWidth = Math.min(360, this.width - 30);
@@ -166,16 +188,20 @@ public final class GSEConfigScreen extends Screen {
                 lineY += 10;
             }
         }
-        graphics.drawString(this.font, ENABLED_LABEL,
-                this.width / 2 - PANEL_HALF_WIDTH, ENABLED_ROW_Y + 6, 0xFFFFFF);
-        graphics.drawString(this.font, DIFFICULTY_LABEL,
-                this.width / 2 - PANEL_HALF_WIDTH, DIFFICULTY_ROW_Y + 6,
-                enabledValue ? 0xFFFFFF : 0x808080);
+        if (!externallyManaged) {
+            graphics.drawString(this.font, ENABLED_LABEL,
+                    this.width / 2 - PANEL_HALF_WIDTH, ENABLED_ROW_Y + 6, 0xFFFFFF);
+            graphics.drawString(this.font, DIFFICULTY_LABEL,
+                    this.width / 2 - PANEL_HALF_WIDTH, DIFFICULTY_ROW_Y + 6,
+                    enabledValue ? 0xFFFFFF : 0x808080);
+        }
         if (!initialSetup) {
             graphics.drawString(this.font, TERMINAL_LABEL,
                     this.width / 2 - PANEL_HALF_WIDTH, TERMINAL_ROW_Y + 6, 0xFFFFFF);
         }
-        graphics.drawCenteredString(this.font, RESTART_HINT, this.width / 2, this.height - 28, 0x808080);
+        if (!externallyManaged) {
+            graphics.drawCenteredString(this.font, RESTART_HINT, this.width / 2, this.height - 28, 0x808080);
+        }
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 

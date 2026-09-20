@@ -90,9 +90,21 @@ public final class GSERecipes {
         addWroughtIronBlastRecipes(provider);
         addLargeSteamBlastFurnaceRecipe(provider);
         addBoilerRoomRecipes(provider);
+        addDilutedHydrochloricAcidRecipe(provider);
         addLargeSteamOrePlantRecipe(provider);
         addLargeSteamFluidDrillRecipe(provider);
         addElectricOreCrusherRecipes(provider);
+    }
+
+    private static void addDilutedHydrochloricAcidRecipe(Consumer<FinishedRecipe> provider) {
+        GTRecipeTypes.MIXER_RECIPES.recipeBuilder(
+                        GregSteamExpansion.id("diluted_hydrochloric_acid"))
+                .inputFluids(GTMaterials.HydrochloricAcid.getFluid(1_000))
+                .inputFluids(GTMaterials.Water.getFluid(1_000))
+                .outputFluids(GTMaterials.DilutedHydrochloricAcid.getFluid(2_000))
+                .duration(200)
+                .EUt(7)
+                .save(provider);
     }
 
     /**

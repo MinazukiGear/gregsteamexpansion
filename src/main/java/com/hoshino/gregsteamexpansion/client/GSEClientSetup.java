@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.client;
 
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenRenderer;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyMessages;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyAuthority;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.registry.GSEMenuTypes;
 
@@ -44,6 +45,7 @@ public final class GSEClientSetup {
     /** Replaces the first title screen with the one-time, restart-safe difficulty choice. */
     private static void onScreenOpening(ScreenEvent.Opening event) {
         if (event.getNewScreen() instanceof TitleScreen title
+                && !GSEDifficultyAuthority.isExternallyManaged()
                 && !com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig.isInitialSetupCompleted()) {
             event.setNewScreen(GSEConfigScreen.initialSetup(title));
         }

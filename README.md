@@ -21,7 +21,7 @@
 - **大型蒸汽组装机 / 大型蒸汽电路组装机**（B1/B2）：运行 `assembler` / `circuit_assembler` 全类型；控制器组装机槽位（1–4 台同等级电力组装机，不可混装）解锁配方等级并提升并行至 2/4/8/16，次线性蒸汽/耗时阶梯，Easy 档产出 2×。电路组装机另有一个不消耗参照物的电路专精槽：匹配配方耗时与总耗汽增加 50%，并按启动档位获得额外目标电路，默认 Easy `100% / +7×`、Normal `50% / +3×`、Expert `25% / +1×`。
 - **大型蒸汽高炉**（G1，旗舰）：运行 `primitive_blast_furnace` 全类型的原始高炉上位多方块。`13×13` 底、`15` 高的三段收分巨塔，主体以高炉砖（`gtceu:firebricks`，与原始高炉同款材质）砌成，辅以 121 格焦炭砖炉床与工业蒸汽机械方块骨架；并行 `96`（全模组最高）、`0.4×` 耗时，满载吞吐为原始高炉的 `240×`。满载需 `19,200 mB/t` 蒸汽（恰 16 个供给仓）与全部 8 个鼓风口的鼓风空气（4 mB/t/并行；蒸汽进气室必需化，家族首个必需进气室机型）——极高造价与极大的结构换取极高效率。
 - **锻铁大宗配方注入**（随 G1 落地）：向 `primitive_blast_furnace` 类型 add-only 注入 3 条"铁粉 + 燃料粉 → 锻铁"配方，原始高炉同步可用，补足上游仅有铁粒零散路线（铁粒烧锻铁粒为上游既有 `gtceu:wrought_iron_nugget`，本模组不重复添加）的锻铁产能缺口。
-- **锅炉房**（青铜/钢/钛/钨钢四档，S2）：仅协同燃烧的产汽终端，蒸汽进气室硬性前置（助燃空气 50/100/200/400 mB/t 逐档递增），产汽逐档上位于同档大型锅炉；液体燃料白名单由数据包加载时注入，Easy 档产汽 2×。
+- **锅炉房**（青铜/钢/钛/钨钢四档，S2）：仅协同燃烧的产汽终端，蒸汽进气室硬性前置（助燃空气 50/100/200/400 mB/t 逐档递增），产汽逐档上位于同档大型锅炉；液体燃料白名单由数据包加载时注入。带可配置水垢机制：舒适/压榨档按 24/8 小时等效满载寿命分档减产，第三档向所有者在线团队发聊天警告，满垢永久报废；可停机冷却后用稀盐酸酸洗。
 - **终极终端**：在同时安装 AE2 与 GTM Things 时启用的高级结构工程终端。它直接识别运行时实现 GTCEu `IMultiController` 的任意控制器，不限制 `gtceu`、GSE 或第三方附属模组命名空间；可为最多 16 个同维度目标建立持久任务，按控制器公开的 `BlockPattern` 补建、修复，或安全拆除已成型及未成型结构中仍匹配蓝图的普通方块。内置结构尺寸信道支持可变宽度机器，线圈与配置选材信道在独立“信道”页使用方块下拉选择。终端固定不放置仓室；生存模式材料先从玩家物品栏、再从已绑定的 AE2 无线终端网络原子预留，创造模式则无视两处数量直接放置；服务器默认每刻最多处理 32 个方块。
 - **大型蒸汽采矿厂 / 大型蒸汽流体钻井**（F1/F2 旗舰）：纯虚空生产机器——采矿厂 4 工位每 200 tick 按权重抽取粗矿 ×8/抽（满速 12,000 mB/t），流体钻井 2 泵位抽主世界油类流体 2,000 mB/抽（满速 6,000 mB/t）；产出倍率 Easy 4× / Normal 2× / Expert 1×；配置开关与可覆盖权重表见 `machines.large_steam_ore_plant.*` / `machines.large_steam_fluid_drill.*`（重启生效，禁用时机器不可运行）。
 - **可选全局工作强度机制**：默认关闭；启用后可选 Easy / Normal / Expert，影响产量、预热成本、蒸汽消耗等数值。三档的全部运行时参数、5 个本模组配方加难开关和 19 个 GTCEu 配方开关均可由整合包作者分别配置；本模组非控制器方块产量与 `gtceuCasingsPerCraft` 统一。首次启动可在游戏内选择，保存并完整重启后生效；关闭时所有难度倍率为 `1×`，且不接管 GTCEu 难度配置。
@@ -49,7 +49,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（154 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（155 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -67,7 +67,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 | `GSEAcquisitionTests` | 已实现内容的获取配方清单、原料标签解析与内部依赖无环检查，以及大型蒸汽高炉精确升级配方 |
 | `GSESteamHatchTests` | 蒸汽供汽/流体/进气仓能力、专用蒸汽源声明、大型供汽仓超频经济、流体仓互换回滚、覆盖板状态与旧蒸汽仓方块/物品迁移 |
 | `GSEStructureFormationTests` | 30 个结构成型契约：预览形状逐坐标与数量、水平朝向、共用墙体、仓室位置/数量及非法接口边界 |
-| `GSEBoilerRoomTests` | 四档进气条带位置/数量、非法仓室拒绝、多进气室汇总供气与不足不扣、仪表同步、状态提示、原生/GTM Things 物品输入及完整燃料启动链 |
+| `GSEBoilerRoomTests` | 四档进气条带位置/数量、非法仓室拒绝、多进气室汇总供气与不足不扣、仪表同步、状态提示、原生/GTM Things 物品输入、完整燃料启动链，以及水垢阈值/累计/酸洗/NBT/报废与稀盐酸配方 |
 | `GSESteamTankTests` | 大型蒸汽储罐可变尺寸/容量、共享存量与标准蒸汽过滤、阀门主动输入/输出及 ME 接口类相邻流体库存兼容（3 个） |
 | `GSEDifficultyGameTests` | 启动档位、可配置难度参数、GTCEu 配方映射、旗舰机器开关和权重表 |
 | `GSERecipeOptimizationTests` | 配方缓存失效与空闲机器唤醒 |
@@ -132,7 +132,7 @@ python tools/generate_assets.py --check
 
 - Mod ID：`gregsteamexpansion`
 - 入口类：`com.hoshino.gregsteamexpansion.GregSteamExpansion`
-- 当前版本：`0.1.0-alpha.5`（发布标签 [`v0.1.0-alpha.5`](https://github.com/MinazukiGear/gregsteamexpansion/releases/tag/v0.1.0-alpha.5)，测试版）
+- 当前开发版本：`0.1.0-alpha.6`（测试版；上一发布标签为 [`v0.1.0-alpha.5`](https://github.com/MinazukiGear/gregsteamexpansion/releases/tag/v0.1.0-alpha.5)）
 - 许可：代码与功能性资源 LGPL-3.0（`LICENSE.txt`）；`textures/` 图像素材 CC BY-NC-SA 4.0，禁止商用（`LICENSE-ASSETS.txt`）
 
 ## 致谢
