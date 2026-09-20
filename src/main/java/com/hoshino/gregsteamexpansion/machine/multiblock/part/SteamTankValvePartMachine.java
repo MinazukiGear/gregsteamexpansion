@@ -41,7 +41,7 @@ public class SteamTankValvePartMachine extends MultiblockPartMachine {
             SteamTankValvePartMachine.class, MultiblockPartMachine.MANAGED_FIELD_HOLDER);
 
     private final FluidTankProxyTrait tankProxy;
-    private final ConditionalSubscriptionHandler autoOutputSubscription;
+    private final ConditionalSubscriptionHandler autoIOSubscription;
 
     @Persisted
     @DescSynced
@@ -51,7 +51,7 @@ public class SteamTankValvePartMachine extends MultiblockPartMachine {
     public SteamTankValvePartMachine(IMachineBlockEntity holder) {
         super(holder);
         tankProxy = new FluidTankProxyTrait(this, IO.BOTH);
-        autoOutputSubscription = new ConditionalSubscriptionHandler(this, this::autoOutput, this::shouldAutoOutput);
+        autoIOSubscription = new ConditionalSubscriptionHandler(this, this::autoIO, this::shouldAutoIO);
     }
 
     @Override
@@ -68,12 +68,12 @@ public class SteamTankValvePartMachine extends MultiblockPartMachine {
     public void onLoad() {
         super.onLoad();
         updateModeAppearance();
-        autoOutputSubscription.initialize(getLevel());
+        autoIOSubscription.initialize(getLevel());
     }
 
     @Override
     public void onUnload() {
-        autoOutputSubscription.unsubscribe();
+        autoIOSubscription.unsubscribe();
         super.onUnload();
     }
 
@@ -83,26 +83,26 @@ public class SteamTankValvePartMachine extends MultiblockPartMachine {
         if (controller instanceof LargeSteamTankMachine tank) {
             tankProxy.setProxy(tank.getTank());
         }
-        autoOutputSubscription.updateSubscription();
+        autoIOSubscription.updateSubscription();
     }
 
     @Override
     public void removedFromController(IMultiController controller) {
         super.removedFromController(controller);
         tankProxy.setProxy(null);
-        autoOutputSubscription.updateSubscription();
+        autoIOSubscription.updateSubscription();
     }
 
     @Override
     public void onRotated(Direction oldFacing, Direction newFacing) {
         super.onRotated(oldFacing, newFacing);
-        autoOutputSubscription.updateSubscription();
+        autoIOSubscription.updateSubscription();
     }
 
     @Override
     public void onNeighborChanged(Block block, BlockPos fromPos, boolean isMoving) {
         super.onNeighborChanged(block, fromPos, isMoving);
-        autoOutputSubscription.updateSubscription();
+        autoIOSubscription.updateSubscription();
     }
 
     public boolean isOutputMode() {
@@ -113,7 +113,7 @@ public class SteamTankValvePartMachine extends MultiblockPartMachine {
         if (this.outputMode == outputMode) return;
         this.outputMode = outputMode;
         updateModeAppearance();
-        autoOutputSubscription.updateSubscription();
+        autoIOSubscription.updateSubscription();
         notifyBlockUpdate();
         markDirty();
     }
@@ -145,14 +145,24 @@ public class SteamTankValvePartMachine extends MultiblockPartMachine {
         return !stack.isEmpty() && stack.getFluid().is(GTMaterials.Steam.getFluidTag());
     }
 
-    private boolean shouldAutoOutput() {
-        return outputMode && isFormed() && !tankProxy.isEmpty() &&
+    private boolean shouldAutoIO() {
+        return isFormed() && (!outputMode || !tankProxy.isEmpty()) &&
                 GTTransferUtils.hasAdjacentFluidHandler(getLevel(), getPos(), getFrontFacing());
     }
 
-    private void autoOutput() {
-        tankProxy.exportToNearby(getFrontFacing());
-        autoOutputSubscription.updateSubscription();
+    private void autoIO() {
+        Direction facing = getFrontFacing();
+        if (outputMode) {
+            tankProxy.exportToNearby(facing);
+        } else {
+            IFluidHandlerModifiable input = getFluidHandlerCap(facing, true);
+            if (input != null) {
+                GTTransferUtils.getAdjacentFluidHandler(getLevel(), getPos(), facing)
+                        .ifPresent(source -> GTTransferUtils.transferFluidsFiltered(
+                                source, input, SteamTankValvePartMachine::isSteam));
+            }
+        }
+        autoIOSubscription.updateSubscription();
     }
 
     /** Uses the upstream valve's lit overlay to make output mode visible. */

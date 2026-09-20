@@ -12,11 +12,16 @@ import net.minecraft.client.resources.language.I18n;
 public final class GSEDifficultyDisplay {
     private GSEDifficultyDisplay() {}
 
-    public static String worldListSuffix(Difficulty difficulty) {
-        return " " + difficulty.getDisplayColor() + "[" + I18n.get(difficulty.getDisplayNameKey()) + "]";
+    public static String worldListSuffix(boolean enabled, Difficulty difficulty) {
+        String key = enabled ? difficulty.getDisplayNameKey()
+                : "config.gregsteamexpansion.difficulty.disabled";
+        return " " + (enabled ? difficulty.getDisplayColor() : net.minecraft.ChatFormatting.GRAY)
+                + "[" + I18n.get(key) + "]";
     }
 
-    public static String titleSuffix(Difficulty difficulty) {
-        return " [" + I18n.get(difficulty.getDisplayNameKey()) + "]";
+    public static String titleSuffix(boolean enabled, Difficulty difficulty) {
+        String key = enabled ? difficulty.getDisplayNameKey()
+                : "config.gregsteamexpansion.difficulty.disabled";
+        return " [" + I18n.get(key) + "]";
     }
 }

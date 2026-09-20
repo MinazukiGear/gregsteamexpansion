@@ -1,0 +1,42 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    {
+      "type": "gregsteamexpansion:difficulty_recipe_config",
+      "key": "harderSteamGrindingBlockRecipes",
+      "value": true
+    },
+    {
+      "type": "gregsteamexpansion:difficulty_recipe_config",
+      "key": "gtceuCasingsPerCraft",
+      "value": 3
+    }
+  ],
+  "key": {
+    "D": {
+      "item": "gtceu:diamond_grinding_head"
+    },
+    "G": {
+      "item": "gtceu:bronze_gear"
+    },
+    "P": {
+      "item": "gtceu:bronze_plate"
+    },
+    "h": {
+      "tag": "gtceu:tools/crafting_hammers"
+    },
+    "w": {
+      "tag": "gtceu:tools/crafting_wrenches"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "PGP",
+    "hDw",
+    "PGP"
+  ],
+  "result": {
+    "count": 3,
+    "item": "gregsteamexpansion:steam_grinding_block"
+  }
+}

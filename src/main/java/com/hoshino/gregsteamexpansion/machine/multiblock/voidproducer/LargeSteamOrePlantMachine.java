@@ -9,7 +9,6 @@ import com.gregtechceu.gtceu.api.sound.SoundEntry;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTSoundEntries;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
-import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.registry.GSEVoidPatterns;
@@ -102,15 +101,10 @@ public class LargeSteamOrePlantMachine extends AbstractSteamVoidMachine {
         return GSEDifficultyConfig.orePlantEnabled();
     }
 
-    /** 议题 6: Easy 4× / Normal 2× / Expert 1× (只放大产出数量). */
+    /** Configured difficulty multiplier; only output quantity is scaled. */
     @Override
     public int outputMultiplier() {
-        Difficulty difficulty = GSEDifficultyState.current(isRemote());
-        return switch (difficulty) {
-            case EASY -> 4;
-            case NORMAL -> 2;
-            case EXPERT -> 1;
-        };
+        return GSEDifficultyState.voidProducerOutputMultiplier(isRemote());
     }
 
     @Override

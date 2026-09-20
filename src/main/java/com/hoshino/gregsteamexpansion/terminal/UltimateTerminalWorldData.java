@@ -499,11 +499,11 @@ public final class UltimateTerminalWorldData extends SavedData {
         TerminalBuildProfile profile = profileFor(player.server, project, target, true);
         UltimateStructurePlanner.Plan plan = UltimateStructurePlanner.plan(level, target.pos(), profile,
                 project.mode == UltimateTerminalMode.UPGRADE);
-        int maximum = structureSize ? plan.structure().options().size()
+        int maximumIndex = structureSize ? plan.structure().options().size() - 1
                 : plan.channels().stream().filter(choice -> choice.id().equals(channelId))
-                        .mapToInt(choice -> choice.options().size()).findFirst().orElse(0);
-        if (maximum <= 0) return;
-        profile.setChannel(channelId, selection, maximum);
+                        .mapToInt(choice -> choice.options().size() - 1).findFirst().orElse(-1);
+        if (maximumIndex < 0) return;
+        profile.setChannel(channelId, selection, maximumIndex);
         setDirty();
     }
     public void toggleAE(UUID owner) { Project project = project(owner); project.useAE = !project.useAE; setDirty(); }

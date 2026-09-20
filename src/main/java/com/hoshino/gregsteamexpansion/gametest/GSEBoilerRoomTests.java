@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
@@ -13,6 +14,7 @@ import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
+import com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.ItemBusPartMachine;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.MufflerPartMachine;
@@ -209,6 +211,9 @@ public final class GSEBoilerRoomTests {
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void completeFuelRecipeStarts(GameTestHelper h) {
+        assertFullTemperatureOutputs(h, Difficulty.EASY, 18_000, 40_500, 72_000, 144_000);
+        assertFullTemperatureOutputs(h, Difficulty.NORMAL, 12_000, 27_000, 48_000, 96_000);
+        assertFullTemperatureOutputs(h, Difficulty.EXPERT, 9_000, 20_250, 36_000, 72_000);
         var definition = GSEMachines.BOILER_ROOM_BRONZE;
         var m = (BoilerRoomMachine) GSEStructureTestUtils.placeShape(h, definition,
                 definition.getMatchingShapes().get(0));
@@ -249,7 +254,22 @@ public final class GSEBoilerRoomTests {
                                 + ", waiting=" + m.getRecipeLogic().getWaitingReason()))
                 .thenWaitUntil(() -> h.assertTrue(m.getRecipeLogic().getProgress() > 0 && m.getRoomTemperature() > 0,
                         "Boiler recipe started but did not advance or begin heating"))
+                .thenExecute(() -> h.assertTrue(!hasInheritedSteamSubscription(m),
+                        "Boiler room started the inherited large-boiler steam loop"))
                 .thenSucceed();
+    }
+
+    private static void assertFullTemperatureOutputs(GameTestHelper h, Difficulty difficulty,
+                                                     long bronze, long steel, long titanium,
+                                                     long tungstensteel) {
+        long[] expected = {bronze, steel, titanium, tungstensteel};
+        for (int tier = 0; tier < expected.length; tier++) {
+            long actual = BoilerRoomMachine.calculateSteamOutputPerTick(
+                    BoilerRoomMachine.MAX_TEMPERATURES[tier], 100, difficulty);
+            h.assertTrue(actual == expected[tier],
+                    difficulty + " boiler-room tier " + tier + " produced " + actual
+                            + " mB/t instead of " + expected[tier]);
+        }
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
@@ -408,6 +428,16 @@ public final class GSEBoilerRoomTests {
             method.invoke(m);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Cannot execute boiler temperature tick", e);
+        }
+    }
+
+    private static boolean hasInheritedSteamSubscription(BoilerRoomMachine m) {
+        try {
+            var field = LargeBoilerMachine.class.getDeclaredField("temperatureSubs");
+            field.setAccessible(true);
+            return field.get(m) != null;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Cannot inspect inherited boiler steam subscription", e);
         }
     }
 }

@@ -44,7 +44,7 @@ public final class GSETerminalTests {
         profile.changeRepeats(100);
         profile.changeCoilTier(100);
         profile.changePart(casing, 25, 20);
-        profile.changeChannel("glass", 25, 5);
+        profile.changeChannel("glass", 100, UltimateTerminalConfig.MAX_CHANNEL_INDEX);
 
         TerminalBuildProfile restored = TerminalBuildProfile.load(profile.save());
         helper.assertTrue(restored.repeatCount() == 64, "Repeat count was not clamped to 64");
@@ -52,8 +52,10 @@ public final class GSETerminalTests {
         helper.assertTrue(!restored.buildHatches(), "Ultimate Terminal unexpectedly enabled hatch placement");
         helper.assertTrue(restored.partTargets().getOrDefault(casing, 0) == 20,
                 "Candidate target did not survive NBT");
-        helper.assertTrue(restored.channelSelection("glass") == 5,
+        helper.assertTrue(restored.channelSelection("glass") == 63,
                 "Configured selection channel did not survive NBT");
+        helper.assertTrue(restored.channelSelection("unset") == -1,
+                "Unconfigured channel did not retain the -1 automatic sentinel");
         var channel = UltimateTerminalConfig.parseChannel(
                 "glass=minecraft:glass,gtceu:tempered_glass,minecraft:glass");
         helper.assertTrue(channel != null && channel.blocks().size() == 2,
@@ -64,10 +66,23 @@ public final class GSETerminalTests {
         helper.assertTrue(UltimateTerminalConfig.parseChannel(
                 "structure_size=minecraft:stone,minecraft:glass") == null,
                 "Reserved built-in structure-size channel ID was accepted");
+        String sixtyFourOptions = "limit=" + java.util.stream.IntStream.range(0, 64)
+                .mapToObj(index -> "gregsteamexpansion:test_" + index)
+                .collect(java.util.stream.Collectors.joining(","));
+        helper.assertTrue(UltimateTerminalConfig.parseChannel(sixtyFourOptions) != null,
+                "A channel with exactly 64 zero-based options was rejected");
+        helper.assertTrue(UltimateTerminalConfig.parseChannel(
+                sixtyFourOptions + ",gregsteamexpansion:test_64") == null,
+                "A channel with more than 64 options was not rejected");
 
         CompoundTag legacy = new CompoundTag();
+        CompoundTag legacyChannels = new CompoundTag();
+        legacyChannels.putInt("glass", 1);
+        legacy.put("channels", legacyChannels);
         TerminalBuildProfile migrated = TerminalBuildProfile.load(legacy);
         helper.assertTrue(!migrated.buildHatches(), "A legacy profile re-enabled terminal hatch placement");
+        helper.assertTrue(migrated.channelSelection("glass") == 0,
+                "Legacy one-based channel selection was not migrated to zero-based index 0");
         helper.succeed();
     }
 
@@ -217,15 +232,15 @@ public final class GSETerminalTests {
                 helper.getLevel(), controllerPos, largeProfile, false);
         helper.assertTrue(large.valid(), "Default furnace structure plan failed: " + large.error());
         helper.assertTrue(large.structure().options().equals(java.util.List.of("7×7", "11×11", "15×15"))
-                        && large.structure().selected() == 3,
+                        && large.structure().selected() == 2,
                 "Furnace structure-size channel did not expose the expected default variants");
 
         TerminalBuildProfile smallProfile = new TerminalBuildProfile();
-        smallProfile.setChannel(UltimateTerminalStructureVariants.CHANNEL_ID, 1, 3);
+        smallProfile.setChannel(UltimateTerminalStructureVariants.CHANNEL_ID, 0, 2);
         UltimateStructurePlanner.Plan small = UltimateStructurePlanner.plan(
                 helper.getLevel(), controllerPos, smallProfile, false);
         helper.assertTrue(small.valid(), "Selected 7×7 furnace structure plan failed: " + small.error());
-        helper.assertTrue(small.structure().selected() == 1 && small.cells().size() < large.cells().size(),
+        helper.assertTrue(small.structure().selected() == 0 && small.cells().size() < large.cells().size(),
                 "Selecting 7×7 did not reduce the planned furnace geometry");
         helper.assertTrue(small.placements().stream().noneMatch(value ->
                         value.stack().getItem() instanceof net.minecraft.world.item.BlockItem item

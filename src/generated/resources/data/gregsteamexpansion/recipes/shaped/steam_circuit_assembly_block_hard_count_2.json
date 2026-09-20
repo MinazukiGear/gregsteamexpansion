@@ -1,0 +1,45 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "conditions": [
+    {
+      "type": "gregsteamexpansion:difficulty_recipe_config",
+      "key": "hardSteamCircuitAssemblyBlockRecipes",
+      "value": true
+    },
+    {
+      "type": "gregsteamexpansion:difficulty_recipe_config",
+      "key": "gtceuCasingsPerCraft",
+      "value": 2
+    }
+  ],
+  "key": {
+    "C": {
+      "item": "gregsteamexpansion:bronze_component"
+    },
+    "D": {
+      "item": "gtceu:double_bronze_plate"
+    },
+    "G": {
+      "item": "gtceu:bronze_gear"
+    },
+    "R": {
+      "item": "gtceu:rubber_plate"
+    },
+    "w": {
+      "tag": "gtceu:tools/crafting_wrenches"
+    },
+    "x": {
+      "tag": "gtceu:tools/crafting_wire_cutters"
+    }
+  },
+  "matchSize": false,
+  "pattern": [
+    "DGD",
+    "xCw",
+    "RGR"
+  ],
+  "result": {
+    "count": 2,
+    "item": "gregsteamexpansion:steam_circuit_assembly_block"
+  }
+}

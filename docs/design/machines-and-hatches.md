@@ -195,9 +195,10 @@ D C D
 | `C` ×4 | 任意 HV 电路（`gtceu:circuits/hv`） |
 | `H` ×1 | 本模组蒸汽供给仓（`gregsteamexpansion:steam_supply_hatch`） |
 
-- 配方资源 ID 为 `gregsteamexpansion:shaped/large_steam_supply_hatch`，固定产出 `1` 个大型蒸汽供给仓。
+- 工作台配方资源 ID 为 `gregsteamexpansion:shaped/large_steam_supply_hatch`，固定产出 `1` 个大型蒸汽供给仓。
+- 组装机另提供材料完全相同的自动化路线：编程电路配置 `1`，`480 EU/t`，持续 `200 tick`，资源 ID 为 `gregsteamexpansion:assembler/large_steam_supply_hatch`，同样固定产出 `1` 个。
 - 不接受旧 `gtceu:steam_input_hatch`、普通流体仓或任意其他储罐代替中心的蒸汽供给仓。
-- 自动化测试核对大型仓的独立注册能力、大小型结构接受范围、`4,800 mB/t` 原子限流、完整容量、蒸汽过滤、输入方向、禁止 I/O 对调，以及升级配方确实包含普通蒸汽供给仓与四个任意 HV 电路位；超频经济测试另行核对禁用/缺仓时不生效、奇数耗时向上取半和每刻耗汽乘 `3`。四类控制器均有真实成型运行测试：用大型仓重新成型后实际启动处理机、粉碎机、蓄热熔炉和虚空生产机，核对结构收集、实际扣汽、批次或周期参数锁定，以及运行中切换只影响下一次工作。
+- 自动化测试核对大型仓的独立注册能力、大小型结构接受范围、`4,800 mB/t` 原子限流、完整容量、蒸汽过滤、输入方向、禁止 I/O 对调，以及工作台与组装机升级配方均包含普通蒸汽供给仓和四个任意 HV 电路；超频经济测试另行核对禁用/缺仓时不生效、奇数耗时向上取半和每刻耗汽乘 `3`。四类控制器均有真实成型运行测试：用大型仓重新成型后实际启动处理机、粉碎机、蓄热熔炉和虚空生产机，核对结构收集、实际扣汽、批次或周期参数锁定，以及运行中切换只影响下一次工作。
 
 ## 已定案：高级蒸汽排气仓
 
@@ -230,7 +231,9 @@ D C D
 | `C` ×4 | 任意 HV 电路（`gtceu:circuits/hv`） |
 | `H` ×1 | 普通蒸汽排气仓（`gregsteamexpansion:steam_exhaust_hatch`） |
 
-配方资源 ID 为 `gregsteamexpansion:shaped/advanced_steam_exhaust_hatch`，固定产出 `1` 个。
+工作台配方资源 ID 为 `gregsteamexpansion:shaped/advanced_steam_exhaust_hatch`，固定产出 `1` 个。
+
+组装机另提供材料完全相同的自动化路线：编程电路配置 `2`，`480 EU/t`，持续 `200 tick`，资源 ID 为 `gregsteamexpansion:assembler/advanced_steam_exhaust_hatch`，同样固定产出 `1` 个。
 
 ## 已定案：蒸汽流体输入/输出仓
 

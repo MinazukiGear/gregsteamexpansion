@@ -90,7 +90,7 @@ P w P
 | `w` | GTCEu 扳手工具位，不消耗工具本体，只扣除耐久 |
 
 - 产出数量遵循 GTCEu 的 `recipes.casingsPerCraft` 配置，允许值为 `1–3`，默认产出 `2` 个。
-- 配方资源 ID 为 `gregsteamexpansion:shaped/industrial_steam_casing`。
+- 配方资源 ID 为 `gregsteamexpansion:shaped/industrial_steam_casing_count_<1–3>`，由有效 `gtceuCasingsPerCraft` 唯一选中。
 - 配方上下不对称，锻造锤固定在上方、扳手固定在下方；左右镜像不会产生不同的材料排列或额外冲突。
 - 该路线不得要求电路、马达、钢、机器外壳或任何电力时代产物。
 
@@ -107,7 +107,7 @@ P w P
 | 持续时间 | `50 tick`（2.5 秒） |
 | 总耗能 | `800 EU` |
 | 产出 | 遵循 `recipes.casingsPerCraft`，默认 2 个工业蒸汽机械方块 |
-| 配方资源 ID | `gregsteamexpansion:assembler/industrial_steam_casing` |
+| 配方资源 ID | `gregsteamexpansion:assembler/industrial_steam_casing_count_<1–3>` |
 
 - 组装机路线只是低电压阶段的自动化便利，不得替代或锁定蒸汽阶段手工路线。
 - 两条路线使用相同的材料成本和产出数量，组装机不提供额外材料增益。
@@ -188,7 +188,7 @@ P w P
 | `w` | GTCEu 扳手工具位，不消耗工具本体，只扣除耐久 |
 
 - 每次固定产出 `1` 个青铜构件，不读取 GTCEu 的外壳产出数量配置。
-- 配方资源 ID 为 `gregsteamexpansion:shaped/bronze_component`。
+- 配方资源 ID 为 `gregsteamexpansion:shaped/bronze_component_<standard|hard>`，由 `hardBronzeComponentRecipes` 唯一选中。
 - 配方左右对称；水平镜像不会产生新的材料排列。上下方向固定，以保持锻造锤和扳手工具位与其他 GTCEu 外壳类配方相近。
 - 配方不使用电路、马达、泵、机器外壳、钢或其他电力时代产物。
 
@@ -206,7 +206,7 @@ P w P
 | 持续时间 | `50 tick`（2.5 秒） |
 | 总耗能 | `800 EU` |
 | 产出 | 1 个青铜构件 |
-| 配方资源 ID | `gregsteamexpansion:assembler/bronze_component` |
+| 配方资源 ID | `gregsteamexpansion:assembler/bronze_component_<standard|hard>` |
 
 - 组装机配方相较手工配方减少 1 块青铜板和 1 个铜弹簧，但仍固定产出 1 个青铜构件。
 - 材料节省是进入低电压阶段并建立自动化后的明确奖励，不向纯蒸汽阶段提供等价的低成本手工替代配方。
@@ -299,7 +299,7 @@ P G P
 | `w` | GTCEu 扳手工具位，不消耗工具本体，只扣除耐久 |
 
 - 产出数量读取[全局工作强度机制](difficulty.md)的通用方块产量：Easy 产出 `2` 个，Normal 与 Expert 产出 `1` 个。
-- 配方资源 ID 为 `gregsteamexpansion:shaped/steam_grinding_block`。
+- 配方资源 ID 为 `gregsteamexpansion:shaped/steam_grinding_block_<standard|hard>_count_<1–3>`。
 - 钻石研磨头位于中央，表示碾磨核心；上下两个青铜齿轮件组成紧凑传动机构；四角青铜板形成外壳；锻造锤与扳手完成板材固定和齿轮装配。
 - 配方材料上下对称；水平镜像只会交换锻造锤与扳手的位置，不改变材料成本或产出。
 - 钻石研磨头已经包含钢制骨架，配方不再额外加入钢板、钢框架或其他齿轮。
@@ -319,7 +319,7 @@ P G P
 | 持续时间 | `100 tick`（5 秒） |
 | 总耗能 | `1,600 EU` |
 | 产出 | Easy 为 2 个；Normal、Expert 为 1 个蒸汽碾磨方块 |
-| 配方资源 ID | `gregsteamexpansion:assembler/steam_grinding_block` |
+| 配方资源 ID | `gregsteamexpansion:assembler/steam_grinding_block_<standard|hard>_count_<1–3>` |
 
 - 组装机路线相较手工配方减少 1 块青铜板和 1 个对应档位的青铜齿轮件，但仍消耗完整的钻石研磨头；产出数量继续服从通用方块产量。
 - 材料节省是进入低电压阶段后的自动化奖励，不提供同成本的低价手工配方。
@@ -441,7 +441,7 @@ P G P
 | `w` | GTCEu 扳手工具位，不消耗工具本体，只扣除耐久 |
 
 - 产出数量读取全局通用方块产量：Easy 产出 `2` 个，Normal 与 Expert 产出 `1` 个。
-- 配方资源 ID 为 `gregsteamexpansion:shaped/steam_assembly_block`。
+- 配方资源 ID 为 `gregsteamexpansion:shaped/steam_assembly_block_<standard|hard>_count_<1–3>`。
 - 青铜构件位于中央，表示装配模块的标准承力核心；上下两个青铜齿轮表示同步传动；四角板材形成工作面和外部防护。
 - Easy 与 Normal 的板材上下对称；Expert 的上方两个位置使用青铜双层板、下方两个位置使用普通青铜板。三档均保持水平对称，水平镜像只会交换锻造锤与扳手的位置。
 - 配方不使用青铜小齿轮；蒸汽装配方块需要普通青铜齿轮提供更大的传动与夹持力，以区别于蒸汽碾磨方块的紧凑传动组。
@@ -460,7 +460,7 @@ P G P
 | 持续时间 | `100 tick`（5 秒） |
 | 总耗能 | `1,600 EU` |
 | 产出 | Easy 为 2 个；Normal、Expert 为 1 个蒸汽装配方块 |
-| 配方资源 ID | `gregsteamexpansion:assembler/steam_assembly_block` |
+| 配方资源 ID | `gregsteamexpansion:assembler/steam_assembly_block_<standard|hard>_count_<1–3>` |
 
 - 组装机路线在每个档位都将板材输入槽位从 4 个减少为 2 个：Easy、Normal 少用 2 块青铜板，Expert 少用 1 块青铜板和 1 块青铜双层板；三档仍消耗完整的 1 个青铜构件和 2 个青铜齿轮。
 - 材料节省是进入低电压阶段后的自动化奖励，不提供相同成本的低价手工配方。
@@ -586,7 +586,7 @@ R G R
 | `w` | GTCEu 扳手工具位，不消耗工具本体，只扣除耐久 |
 
 - 产出数量读取全局通用方块产量：Easy 产出 `2` 个，Normal 与 Expert 产出 `1` 个。
-- 配方资源 ID 为 `gregsteamexpansion:shaped/steam_circuit_assembly_block`。
+- 配方资源 ID 为 `gregsteamexpansion:shaped/steam_circuit_assembly_block_<standard|hard>_count_<1–3>`。
 - `x` 是 GTCEu 7.5.3 为剪线钳定义的标准工作台工具符号，对应手动或电动剪线钳的合成工具标签。
 - 青铜构件位于中央，上下两个青铜齿轮表示同步精密夹持机构；上方青铜板材形成工作面和防护结构，下方橡胶片形成绝缘衬层。
 - 三档均保持水平对称，水平镜像只会交换剪线钳与扳手的位置；Expert 仅将上方两个青铜板升级为青铜双层板。
@@ -607,7 +607,7 @@ R G R
 | 持续时间 | `100 tick`（5 秒） |
 | 总耗能 | `1,600 EU` |
 | 产出 | Easy 为 2 个；Normal、Expert 为 1 个蒸汽电路装配方块 |
-| 配方资源 ID | `gregsteamexpansion:assembler/steam_circuit_assembly_block` |
+| 配方资源 ID | `gregsteamexpansion:assembler/steam_circuit_assembly_block_<standard|hard>_count_<1–3>` |
 
 - 每个橡胶片按 GTCEu 的一个材料单位 `144 mB` 换算，2 个橡胶片对应 `288 mB` 液态橡胶；组装机配方不接受橡胶片替代流体输入。
 - 组装机路线保留手工配方的 2 个对应档位青铜板材、1 个青铜构件和 2 个青铜齿轮，只改变橡胶的输入形态。
@@ -735,7 +735,7 @@ P R P
 | `w` | GTCEu 扳手工具位，不消耗工具本体，只扣除耐久 |
 
 - 产出数量读取全局通用方块产量：Easy 产出 `2` 个，Normal 与 Expert 产出 `1` 个。
-- 配方资源 ID 为 `gregsteamexpansion:shaped/steam_mixing_block`。
+- 配方资源 ID 为 `gregsteamexpansion:shaped/steam_mixing_block_<standard|hard>_count_<1–3>`。
 - 顶部齿轮表示动力传入；中央与底部的两个青铜转子沿纵向排列，表示同轴双层搅拌叶轮；四角板材形成轴承座、承压外壳与固定结构。
 - 配方上下方向固定，不能把齿轮与转子互换；三档均保持水平对称，水平镜像只会交换锻造锤与扳手的位置。
 - Expert 只升级上方靠近传动齿轮的两块板材，表示对传动端和轴承座的额外加固；下方转子周围仍使用普通青铜板。
@@ -754,7 +754,7 @@ P R P
 | 持续时间 | `100 tick`（5 秒） |
 | 总耗能 | `1,600 EU` |
 | 产出 | Easy 为 2 个；Normal、Expert 为 1 个蒸汽搅拌方块 |
-| 配方资源 ID | `gregsteamexpansion:assembler/steam_mixing_block` |
+| 配方资源 ID | `gregsteamexpansion:assembler/steam_mixing_block_<standard|hard>_count_<1–3>` |
 
 - 组装机路线在每个档位都将板材输入槽位从 4 个减少为 2 个，但仍消耗完整的 1 个青铜齿轮和 2 个青铜转子。
 - 编程电路配置 `6` 用于标识搅拌模块的轴系装配；配方选择仍必须同时匹配全部材料，不能仅凭电路把其他结构组件转换为搅拌方块。

@@ -173,7 +173,7 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
         // 单方块缓存). Easy doubles it; Normal and Expert keep the default.
         return new NotifiableFluidTank(this, 1,
                 16 * FluidType.BUCKET_VOLUME
-                        * GSEDifficultyState.current(isRemote()).getSingleblockSteamCacheMultiplier(),
+                        * GSEDifficultyState.singleblockSteamCacheMultiplier(isRemote()),
                 IO.OUT);
     }
 
@@ -286,7 +286,7 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
         int fillAmount = (int) getTotalSteamOutput();
         // Water use follows the amplified steam output at the original
         // water-to-steam ratio (difficulty.md 专用蒸汽锅炉的全局产量与单方块缓存).
-        int waterUse = Math.max(1, Math.round(GSEDifficultyState.current(isRemote()).getSteamOutputMultiplier()));
+        int waterUse = Math.max(1, Math.round(GSEDifficultyState.steamOutputMultiplier(isRemote())));
         boolean drainedWater = !waterTank.drainInternal(waterUse, FluidAction.EXECUTE).isEmpty();
         long filledSteam = 0;
         if (drainedWater) {
@@ -353,7 +353,7 @@ public final class MixedFuelBoilerMachine extends SteamWorkableMachine
     /** Returns the difficulty-scaled amount of steam produced by one 10-tick production cycle. */
     public long getTotalSteamOutput() {
         if (currentTemperature < 100) return 0;
-        float difficultyMultiplier = GSEDifficultyState.current(isRemote()).getSteamOutputMultiplier();
+        float difficultyMultiplier = GSEDifficultyState.steamOutputMultiplier(isRemote());
         return (long) (getBaseSteamOutput() * ((float) currentTemperature / getMaxTemperature())
                 / 2 * difficultyMultiplier);
     }

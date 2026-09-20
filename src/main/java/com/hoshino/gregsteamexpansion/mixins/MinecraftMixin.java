@@ -23,7 +23,9 @@ public abstract class MinecraftMixin {
     private void gse$appendDifficultyToTitle(Window window, String title) {
         Minecraft minecraft = (Minecraft) (Object) this;
         if (minecraft.level != null && GSEDifficultyState.isClientTierSynced()) {
-            window.setTitle(title + GSEDifficultyDisplay.titleSuffix(GSEDifficultyState.getClientDifficulty()));
+            window.setTitle(title + GSEDifficultyDisplay.titleSuffix(
+                    GSEDifficultyState.isClientDifficultyEnabled(),
+                    GSEDifficultyState.getClientDifficulty()));
         } else {
             window.setTitle(title);
         }

@@ -16,7 +16,6 @@ import com.gregtechceu.gtceu.api.recipe.lookup.RecipeManagerHandler;
 import com.gregtechceu.gtceu.common.data.GTRecipeCategories;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
-import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.crusher.SteamCrusherMachine;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
@@ -160,10 +159,10 @@ public final class OreCrushingMigration {
         // (ore-crushing.md 保留的上游路线). A recipe that passes hasOreInput but
         // fails the material relation is the "cannot confirm" error state the
         // spec says must block the load.
-        Difficulty difficulty = currentDifficulty(client);
+        float difficultyMultiplier = GSEDifficultyState.oreCrushingMultiplier(client);
         List<GTRecipe> migrated = new ArrayList<>();
         for (GTRecipe candidate : candidates) {
-            GTRecipe copy = copyRecipe(candidate, targetType, difficulty);
+            GTRecipe copy = copyRecipe(candidate, targetType, difficultyMultiplier);
             if (copy == null) {
                 throw migrationFailure(
                         "macerator ore recipe " + candidate.getId() + " failed semantic validation", client);
@@ -260,7 +259,7 @@ public final class OreCrushingMigration {
      * 目标识别前两条 (ore-crushing.md 目标识别): type + category. The remaining
      * conditions — exactly one ore/raw-ore input, same-material crushed main
      * product, no stray consumables — are checked by {@link #hasOreInput(GTRecipe)}
-     * and {@link #copyRecipe(GTRecipe, GTRecipeType, Difficulty)}; recipes the
+     * and {@link #copyRecipe(GTRecipe, GTRecipeType, float)}; recipes the
      * category shares with the retained upstream routes (crushed ore → impure
      * dust and friends) are kept in the macerator.
      */
@@ -295,7 +294,8 @@ public final class OreCrushingMigration {
      * cannot be confirmed.
      */
     @Nullable
-    private static GTRecipe copyRecipe(GTRecipe original, GTRecipeType targetType, Difficulty difficulty) {
+    private static GTRecipe copyRecipe(GTRecipe original, GTRecipeType targetType,
+                                       float difficultyMultiplier) {
         List<Content> itemInputs = original.inputs.get(ItemRecipeCapability.CAP);
         if (itemInputs == null || itemInputs.size() != 1) {
             return null;
@@ -353,7 +353,7 @@ public final class OreCrushingMigration {
 
         // main product count: ores ×4 baseline, then the work-intensity multiplier
         ItemStack mainStack = representativeStack(mainOutput).copy();
-        double multiplier = (isOre ? 4.0 : 1.0) * difficulty.getOreCrushingMultiplier();
+        double multiplier = (isOre ? 4.0 : 1.0) * difficultyMultiplier;
         mainStack.setCount(Math.max(1, (int) Math.round(mainStack.getCount() * multiplier)));
 
         ResourceLocation newId = GregSteamExpansion.id(
@@ -483,14 +483,6 @@ public final class OreCrushingMigration {
         type.beginStagingRecipes();
         RecipeManagerHandler.addRecipesToLookup(postMigrationMap, type);
         type.getAdditionHandler().completeStaging();
-    }
-
-    private static Difficulty currentDifficulty(boolean client) {
-        if (client) {
-            return GSEDifficultyState.isClientTierSynced() ? GSEDifficultyState.getClientDifficulty()
-                    : Difficulty.NORMAL;
-        }
-        return GSEDifficultyState.current(false);
     }
 
     private static IllegalStateException migrationFailure(String message, boolean client) {

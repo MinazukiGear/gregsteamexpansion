@@ -8,6 +8,7 @@ import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 
 import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidType;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -40,18 +41,17 @@ public abstract class SteamBoilerMachineMixin {
 
     @Inject(method = "onLoad", at = @At("TAIL"), remap = false)
     private void gse$applySteamTankCapacityOnLoad(CallbackInfo ci) {
-        // CustomFluidTank NBT round-trips Capacity, so a save load restores the
-        // original value; re-apply the multiplier after deserialization. The
-        // divide-then-multiply keeps the operation idempotent.
+        // Reassert the authoritative base capacity after deserialization; using
+        // the fixed upstream 16-bucket base keeps this operation idempotent.
         gse$applySteamTankCapacity();
     }
 
     @Unique
     private void gse$applySteamTankCapacity() {
         SteamBoilerMachine self = (SteamBoilerMachine) (Object) this;
-        int multiplier = GSEDifficultyState.current(self.isRemote()).getSingleblockSteamCacheMultiplier();
+        int multiplier = GSEDifficultyState.singleblockSteamCacheMultiplier(self.isRemote());
         for (CustomFluidTank storage : self.steamTank.getStorages()) {
-            storage.setCapacity(storage.getCapacity() / multiplier * multiplier);
+            storage.setCapacity(16 * FluidType.BUCKET_VOLUME * multiplier);
         }
     }
 
@@ -60,7 +60,7 @@ public abstract class SteamBoilerMachineMixin {
                      target = "Lcom/gregtechceu/gtceu/api/machine/steam/SteamBoilerMachine;getBaseSteamOutput()J"))
     private long gse$multiplySteamOutput(long original) {
         SteamBoilerMachine self = (SteamBoilerMachine) (Object) this;
-        return (long) (original * GSEDifficultyState.current(self.isRemote()).getSteamOutputMultiplier());
+        return (long) (original * GSEDifficultyState.steamOutputMultiplier(self.isRemote()));
     }
 
     @Redirect(method = "updateCurrentTemperature", remap = false,
@@ -72,7 +72,7 @@ public abstract class SteamBoilerMachineMixin {
         // tank when venting a blocked output.
         SteamBoilerMachine self = (SteamBoilerMachine) (Object) this;
         if (tank == self.waterTank) {
-            float multiplier = GSEDifficultyState.current(self.isRemote()).getSteamOutputMultiplier();
+            float multiplier = GSEDifficultyState.steamOutputMultiplier(self.isRemote());
             amount = Math.max(amount, Math.round(amount * multiplier));
         }
         return tank.drainInternal(amount, action);

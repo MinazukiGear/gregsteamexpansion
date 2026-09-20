@@ -4,6 +4,7 @@ import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyProfile;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 
 import net.minecraft.gametest.framework.GameTest;
@@ -21,34 +22,97 @@ public final class GSEDifficultyGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void startupDifficultyControlsGtceuRecipeProfile(GameTestHelper helper) {
         Difficulty difficulty = GSEDifficultyState.resolved();
+        boolean enabled = GSEDifficultyState.isEnabled();
         ConfigHolder.RecipeConfigs recipes = ConfigHolder.INSTANCE.recipes;
-        boolean normalOrExpert = difficulty != Difficulty.EASY;
-        boolean expert = difficulty == Difficulty.EXPERT;
 
         helper.assertTrue(GSEDifficultyState.isResolved(), "Startup difficulty was not initialized");
+        helper.assertTrue(enabled == GSEDifficultyConfig.capturedDifficultyEnabled(),
+                "Captured difficulty switch and process state differ");
+        GSEDifficultyProfile easyDefaults = GSEDifficultyProfile.defaults(Difficulty.EASY);
+        GSEDifficultyProfile normalDefaults = GSEDifficultyProfile.defaults(Difficulty.NORMAL);
+        GSEDifficultyProfile expertDefaults = GSEDifficultyProfile.defaults(Difficulty.EXPERT);
+        helper.assertTrue(easyDefaults.circuitAssemblerBonusChancePercent() == 100
+                        && easyDefaults.circuitAssemblerBonusMultiplier() == 7
+                        && normalDefaults.circuitAssemblerBonusChancePercent() == 50
+                        && normalDefaults.circuitAssemblerBonusMultiplier() == 3
+                        && expertDefaults.circuitAssemblerBonusChancePercent() == 25
+                        && expertDefaults.circuitAssemblerBonusMultiplier() == 1,
+                "Circuit-specialization tier defaults are not 100%/+7x, 50%/+3x, 25%/+1x");
+        if (!enabled) {
+            helper.assertTrue(difficulty == Difficulty.NORMAL,
+                    "Disabled difficulty must resolve to the recipe baseline Normal tier");
+            helper.assertTrue(GSEDifficultyState.steamOutputMultiplier(false) == 1.0F,
+                    "Disabled difficulty applied a steam-output multiplier");
+            helper.assertTrue(GSEDifficultyState.singleblockSteamCacheMultiplier(false) == 1,
+                    "Disabled difficulty applied a steam-cache multiplier");
+            helper.assertTrue(GSEDifficultyState.boilerRoomSteamOutputMultiplier(false) == 1.0F,
+                    "Disabled difficulty applied a boiler-room multiplier");
+            helper.assertTrue(GSEDifficultyState.oreCrushingMultiplier(false) == 1.0F,
+                    "Disabled difficulty applied an ore-crushing multiplier");
+            helper.assertTrue(GSEDifficultyState.assemblerOutputMultiplier(false) == 1.0F,
+                    "Disabled difficulty applied an assembler-output multiplier");
+            helper.assertTrue(GSEDifficultyState.voidProducerOutputMultiplier(false) == 1,
+                    "Disabled difficulty applied a void-producer multiplier");
+            helper.assertTrue(GSEDifficultyState.circuitAssemblerBonusChancePercent(false) == 50
+                            && GSEDifficultyState.circuitAssemblerBonusMultiplier(false) == 3,
+                    "Disabled difficulty did not use the Normal circuit-specialization baseline");
+            helper.assertTrue(GSEDifficultyState.preheatCostPercent(false) == 100
+                            && GSEDifficultyState.processingSteamPercent(false) == 100,
+                    "Disabled difficulty applied a furnace consumption multiplier");
+            helper.succeed();
+            return;
+        }
         helper.assertTrue(difficulty == GSEDifficultyConfig.capturedDifficulty(),
-                "Captured config and process difficulty differ");
-        assertValue(helper, "disableManualCompression", recipes.disableManualCompression, normalOrExpert);
-        assertValue(helper, "harderRods", recipes.harderRods, normalOrExpert);
-        assertValue(helper, "harderBrickRecipes", recipes.harderBrickRecipes, expert);
-        assertValue(helper, "nerfWoodCrafting", recipes.nerfWoodCrafting, expert);
-        assertValue(helper, "hardWoodRecipes", recipes.hardWoodRecipes, expert);
-        assertValue(helper, "hardIronRecipes", recipes.hardIronRecipes, normalOrExpert);
-        assertValue(helper, "hardRedstoneRecipes", recipes.hardRedstoneRecipes, expert);
-        assertValue(helper, "hardToolArmorRecipes", recipes.hardToolArmorRecipes, expert);
-        assertValue(helper, "hardMiscRecipes", recipes.hardMiscRecipes, expert);
-        assertValue(helper, "hardGlassRecipes", recipes.hardGlassRecipes, normalOrExpert);
-        assertValue(helper, "nerfPaperCrafting", recipes.nerfPaperCrafting, normalOrExpert);
-        assertValue(helper, "hardAdvancedIronRecipes", recipes.hardAdvancedIronRecipes, normalOrExpert);
-        assertValue(helper, "hardDyeRecipes", recipes.hardDyeRecipes, expert);
-        assertValue(helper, "harderCharcoalRecipe", recipes.harderCharcoalRecipe, normalOrExpert);
-        assertValue(helper, "flintAndSteelRequireSteel", recipes.flintAndSteelRequireSteel, normalOrExpert);
-        assertValue(helper, "removeVanillaBlockRecipes", recipes.removeVanillaBlockRecipes, expert);
-        assertValue(helper, "removeVanillaTNTRecipe", recipes.removeVanillaTNTRecipe, normalOrExpert);
-        assertValue(helper, "harderCircuitRecipes", recipes.harderCircuitRecipes, expert);
-        assertValue(helper, "hardMultiRecipes", recipes.hardMultiRecipes, expert);
-        helper.assertTrue(recipes.casingsPerCraft == difficulty.getCasingsPerCraft(),
-                "casingsPerCraft does not match startup difficulty");
+                "Captured config and enabled process difficulty differ");
+        GSEDifficultyProfile profile = GSEDifficultyConfig.capturedProfile(difficulty);
+        assertValue(helper, "disableManualCompression", recipes.disableManualCompression, profile.disableManualCompression());
+        assertValue(helper, "harderRods", recipes.harderRods, profile.harderRods());
+        assertValue(helper, "harderBrickRecipes", recipes.harderBrickRecipes, profile.harderBrickRecipes());
+        assertValue(helper, "nerfWoodCrafting", recipes.nerfWoodCrafting, profile.nerfWoodCrafting());
+        assertValue(helper, "hardWoodRecipes", recipes.hardWoodRecipes, profile.hardWoodRecipes());
+        assertValue(helper, "hardIronRecipes", recipes.hardIronRecipes, profile.hardIronRecipes());
+        assertValue(helper, "hardRedstoneRecipes", recipes.hardRedstoneRecipes, profile.hardRedstoneRecipes());
+        assertValue(helper, "hardToolArmorRecipes", recipes.hardToolArmorRecipes, profile.hardToolArmorRecipes());
+        assertValue(helper, "hardMiscRecipes", recipes.hardMiscRecipes, profile.hardMiscRecipes());
+        assertValue(helper, "hardGlassRecipes", recipes.hardGlassRecipes, profile.hardGlassRecipes());
+        assertValue(helper, "nerfPaperCrafting", recipes.nerfPaperCrafting, profile.nerfPaperCrafting());
+        assertValue(helper, "hardAdvancedIronRecipes", recipes.hardAdvancedIronRecipes, profile.hardAdvancedIronRecipes());
+        assertValue(helper, "hardDyeRecipes", recipes.hardDyeRecipes, profile.hardDyeRecipes());
+        assertValue(helper, "harderCharcoalRecipe", recipes.harderCharcoalRecipe, profile.harderCharcoalRecipe());
+        assertValue(helper, "flintAndSteelRequireSteel", recipes.flintAndSteelRequireSteel, profile.flintAndSteelRequireSteel());
+        assertValue(helper, "removeVanillaBlockRecipes", recipes.removeVanillaBlockRecipes, profile.removeVanillaBlockRecipes());
+        assertValue(helper, "removeVanillaTNTRecipe", recipes.removeVanillaTNTRecipe, profile.removeVanillaTNTRecipe());
+        assertValue(helper, "harderCircuitRecipes", recipes.harderCircuitRecipes, profile.harderCircuitRecipes());
+        assertValue(helper, "hardMultiRecipes", recipes.hardMultiRecipes, profile.hardMultiRecipes());
+        helper.assertTrue(recipes.casingsPerCraft == profile.gtceuCasingsPerCraft(),
+                "casingsPerCraft does not match the configured startup profile");
+        helper.assertTrue(GSEDifficultyState.recipeCasingsPerCraft() == profile.gtceuCasingsPerCraft(),
+                "GSE block recipe output does not follow gtceuCasingsPerCraft");
+        helper.assertTrue(GSEDifficultyState.profileFingerprint().equals(profile.fingerprint()),
+                "Runtime profile fingerprint does not match the captured config");
+        helper.assertTrue(GSEDifficultyState.steamOutputMultiplier(false) == (float) profile.steamOutputMultiplier(),
+                "Steam-output multiplier does not match the configured profile");
+        helper.assertTrue(GSEDifficultyState.singleblockSteamCacheMultiplier(false)
+                        == profile.singleblockSteamCacheMultiplier(),
+                "Steam-cache multiplier does not match the configured profile");
+        helper.assertTrue(GSEDifficultyState.preheatCostPercent(false) == profile.preheatCostPercent()
+                        && GSEDifficultyState.preheatIntervalTicks(false) == profile.preheatIntervalTicks()
+                        && GSEDifficultyState.processingSteamPercent(false) == profile.processingSteamPercent(),
+                "Furnace settings do not match the configured profile");
+        helper.assertTrue(GSEDifficultyState.oreCrushingMultiplier(false) == (float) profile.oreCrushingMultiplier()
+                        && GSEDifficultyState.boilerRoomSteamOutputMultiplier(false)
+                        == (float) profile.boilerRoomSteamOutputMultiplier(),
+                "Recipe or boiler-room multiplier does not match the configured profile");
+        helper.assertTrue(GSEDifficultyState.assemblerOutputMultiplier(false)
+                        == (float) profile.assemblerOutputMultiplier()
+                        && GSEDifficultyState.voidProducerOutputMultiplier(false)
+                        == profile.voidProducerOutputMultiplier(),
+                "Machine output multiplier does not match the configured profile");
+        helper.assertTrue(GSEDifficultyState.circuitAssemblerBonusChancePercent(false)
+                        == profile.circuitAssemblerBonusChancePercent()
+                        && GSEDifficultyState.circuitAssemblerBonusMultiplier(false)
+                        == profile.circuitAssemblerBonusMultiplier(),
+                "Circuit-specialization settings do not match the configured profile");
         assertExpectedRestartConfig(helper, difficulty);
         helper.succeed();
     }
@@ -71,6 +135,22 @@ public final class GSEDifficultyGameTests {
                 System.getenv("GSE_EXPECTED_ORE_PLANT_WEIGHTS"));
         assertExpectedWeights(helper, "fluid drill", GSEDifficultyConfig.fluidDrillWeightEntries(),
                 System.getenv("GSE_EXPECTED_FLUID_DRILL_WEIGHTS"));
+        GSEDifficultyProfile profile = GSEDifficultyConfig.capturedProfile(difficulty);
+        assertExpectedInt(helper, "profile casingsPerCraft", profile.gtceuCasingsPerCraft(),
+                System.getenv("GSE_EXPECTED_PROFILE_CASINGS"));
+        assertExpectedDouble(helper, "profile steam output", profile.steamOutputMultiplier(),
+                System.getenv("GSE_EXPECTED_PROFILE_STEAM_OUTPUT"));
+        assertExpectedInt(helper, "profile void output", profile.voidProducerOutputMultiplier(),
+                System.getenv("GSE_EXPECTED_PROFILE_VOID_OUTPUT"));
+        assertExpectedInt(helper, "profile circuit bonus chance", profile.circuitAssemblerBonusChancePercent(),
+                System.getenv("GSE_EXPECTED_PROFILE_CIRCUIT_BONUS_CHANCE"));
+        assertExpectedInt(helper, "profile circuit bonus multiplier", profile.circuitAssemblerBonusMultiplier(),
+                System.getenv("GSE_EXPECTED_PROFILE_CIRCUIT_BONUS_MULTIPLIER"));
+        assertExpectedBoolean(helper, "profile harderRods", profile.harderRods(),
+                System.getenv("GSE_EXPECTED_PROFILE_HARDER_RODS"));
+        assertExpectedBoolean(helper, "profile hardBronzeComponentRecipes",
+                profile.hardBronzeComponentRecipes(),
+                System.getenv("GSE_EXPECTED_PROFILE_HARD_BRONZE_COMPONENT"));
     }
 
     private static void assertExpectedBoolean(GameTestHelper helper, String name,
@@ -91,6 +171,19 @@ public final class GSEDifficultyGameTests {
                 : java.util.List.of(configured.split(";", -1));
         helper.assertTrue(actual.equals(expected),
                 name + " weights were " + actual + " after restart, expected " + expected);
+    }
+
+    private static void assertExpectedInt(GameTestHelper helper, String name, int actual, String configured) {
+        helper.assertTrue(configured != null, "Missing restart expectation for " + name);
+        int expected = Integer.parseInt(configured);
+        helper.assertTrue(actual == expected, name + " was " + actual + ", expected " + expected);
+    }
+
+    private static void assertExpectedDouble(GameTestHelper helper, String name, double actual, String configured) {
+        helper.assertTrue(configured != null, "Missing restart expectation for " + name);
+        double expected = Double.parseDouble(configured);
+        helper.assertTrue(Double.compare(actual, expected) == 0,
+                name + " was " + actual + ", expected " + expected);
     }
 
     private static void assertValue(GameTestHelper helper, String field,

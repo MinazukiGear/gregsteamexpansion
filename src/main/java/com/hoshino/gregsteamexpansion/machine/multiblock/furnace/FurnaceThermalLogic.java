@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.machine.multiblock.furnace;
 
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyProfile;
 
 /** Pure temperature formulas and state transitions for the heat-storage furnace. */
 public final class FurnaceThermalLogic {
@@ -69,7 +70,12 @@ public final class FurnaceThermalLogic {
     }
 
     public static long preheatCostPerDegreeUnits(int width, int height, Difficulty difficulty) {
-        return formedVolume(width, height) * 2 * difficulty.getPreheatCostPercent();
+        return preheatCostPerDegreeUnits(
+                width, height, GSEDifficultyProfile.defaults(difficulty).preheatCostPercent());
+    }
+
+    public static long preheatCostPerDegreeUnits(int width, int height, int preheatCostPercent) {
+        return formedVolume(width, height) * 2 * preheatCostPercent;
     }
 
     public static int coolingIntervalTicks(int width, int height, int temperature, boolean processing) {

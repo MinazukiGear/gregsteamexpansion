@@ -14,18 +14,32 @@ public final class GSEDifficultyEvents {
      * A successful declaration is synced back for client-side display and
      * machine construction.
      */
-    public static void onDeclared(ServerPlayer player, @Nullable Difficulty declared) {
+    public static void onDeclared(ServerPlayer player, boolean declaredEnabled,
+                                  @Nullable Difficulty declared, String declaredProfileFingerprint) {
+        boolean requiredEnabled = GSEDifficultyState.isEnabled();
         Difficulty required = GSEDifficultyState.resolved();
-        if (declared != required) {
-            Component declaredName = Component.translatable(declared != null
-                    ? declared.getDisplayNameKey()
-                    : "config.gregsteamexpansion.difficulty.invalid");
+        if (declaredEnabled != requiredEnabled || (requiredEnabled && declared != required)) {
+            Component declaredName = settingName(declaredEnabled, declared);
             player.connection.disconnect(Component.translatable(
                     "config.gregsteamexpansion.difficulty.mismatch",
                     declaredName,
-                    Component.translatable(required.getDisplayNameKey())));
+                    settingName(requiredEnabled, required)));
             return;
         }
-        GSEDifficultyMessages.sendDifficultySync(player, required);
+        if (requiredEnabled && !GSEDifficultyState.profileFingerprint().equals(declaredProfileFingerprint)) {
+            player.connection.disconnect(Component.translatable(
+                    "config.gregsteamexpansion.difficulty.profile_mismatch"));
+            return;
+        }
+        GSEDifficultyMessages.sendDifficultySync(player, requiredEnabled, required);
+    }
+
+    private static Component settingName(boolean enabled, @Nullable Difficulty difficulty) {
+        if (!enabled) {
+            return Component.translatable("config.gregsteamexpansion.difficulty.disabled");
+        }
+        return Component.translatable(difficulty != null
+                ? difficulty.getDisplayNameKey()
+                : "config.gregsteamexpansion.difficulty.invalid");
     }
 }

@@ -9,9 +9,13 @@ import com.hoshino.gregsteamexpansion.GregSteamExpansion;
  * client value exists only for multiplayer display and machine-side parity.
  */
 public final class GSEDifficultyState {
+    private static volatile boolean startupEnabled;
     private static volatile Difficulty startupDifficulty = Difficulty.NORMAL;
+    private static volatile GSEDifficultyProfile startupProfile = GSEDifficultyProfile.defaults(Difficulty.NORMAL);
     private static volatile boolean initialized;
+    private static volatile boolean clientEnabled;
     private static volatile Difficulty clientDifficulty = Difficulty.NORMAL;
+    private static volatile GSEDifficultyProfile clientProfile = GSEDifficultyProfile.defaults(Difficulty.NORMAL);
     private static volatile boolean clientTierSynced;
 
     private GSEDifficultyState() {}
@@ -21,14 +25,21 @@ public final class GSEDifficultyState {
         return startupDifficulty;
     }
 
+    /** Whether the startup process enabled difficulty integration. */
+    public static boolean isEnabled() {
+        return startupEnabled;
+    }
+
     /** True once Forge has loaded this mod's startup config. */
     public static boolean isResolved() {
         return initialized;
     }
 
     /** Stores the tier pushed to this client after a passed login check. */
-    public static void setClientDifficulty(Difficulty difficulty) {
+    public static void setClientDifficulty(boolean enabled, Difficulty difficulty) {
+        clientEnabled = enabled;
         clientDifficulty = difficulty;
+        clientProfile = GSEDifficultyConfig.capturedProfile(difficulty);
         clientTierSynced = true;
     }
 
@@ -42,6 +53,10 @@ public final class GSEDifficultyState {
         return clientDifficulty;
     }
 
+    public static boolean isClientDifficultyEnabled() {
+        return clientEnabled;
+    }
+
     public static void clearClientTierSynced() {
         clientTierSynced = false;
     }
@@ -51,47 +66,108 @@ public final class GSEDifficultyState {
         return remote ? clientDifficulty : resolved();
     }
 
+    /** Startup-captured values used by machine-side logic. */
+    public static GSEDifficultyProfile currentProfile(boolean remote) {
+        return remote ? clientProfile : startupProfile;
+    }
+
+    /** Integration state for side-aware hooks that touch upstream GTCEu behavior. */
+    public static boolean isEnabled(boolean remote) {
+        return remote ? clientEnabled : startupEnabled;
+    }
+
+    public static float steamOutputMultiplier(boolean remote) {
+        return isEnabled(remote) ? (float) currentProfile(remote).steamOutputMultiplier() : 1.0F;
+    }
+
+    public static int singleblockSteamCacheMultiplier(boolean remote) {
+        return isEnabled(remote) ? currentProfile(remote).singleblockSteamCacheMultiplier() : 1;
+    }
+
+    public static float boilerRoomSteamOutputMultiplier(boolean remote) {
+        return isEnabled(remote) ? (float) currentProfile(remote).boilerRoomSteamOutputMultiplier() : 1.0F;
+    }
+
+    public static float oreCrushingMultiplier(boolean remote) {
+        return isEnabled(remote) ? (float) currentProfile(remote).oreCrushingMultiplier() : 1.0F;
+    }
+
+    public static int preheatCostPercent(boolean remote) {
+        return isEnabled(remote) ? currentProfile(remote).preheatCostPercent() : 100;
+    }
+
+    public static int preheatIntervalTicks(boolean remote) {
+        return isEnabled(remote) ? currentProfile(remote).preheatIntervalTicks() : 5;
+    }
+
+    public static int processingSteamPercent(boolean remote) {
+        return isEnabled(remote) ? currentProfile(remote).processingSteamPercent() : 100;
+    }
+
+    public static float assemblerOutputMultiplier(boolean remote) {
+        return isEnabled(remote) ? (float) currentProfile(remote).assemblerOutputMultiplier() : 1.0F;
+    }
+
+    public static int voidProducerOutputMultiplier(boolean remote) {
+        return isEnabled(remote) ? currentProfile(remote).voidProducerOutputMultiplier() : 1;
+    }
+
+    /** Uses the selected tier, or the Normal profile when difficulty integration is disabled. */
+    public static int circuitAssemblerBonusChancePercent(boolean remote) {
+        return currentProfile(remote).circuitAssemblerBonusChancePercent();
+    }
+
+    /** Uses the selected tier, or the Normal profile when difficulty integration is disabled. */
+    public static int circuitAssemblerBonusMultiplier(boolean remote) {
+        return currentProfile(remote).circuitAssemblerBonusMultiplier();
+    }
+
     /**
-     * Captures the process tier and applies the GTCEu 7.5.3 recipe-difficulty
-     * profile before recipes are loaded. Easy disables the profile, Normal
-     * reproduces GTCEu defaults, and Expert enables every listed hard option.
+     * Effective casing/block recipe output. When difficulty is disabled GSE
+     * follows GTCEu's untouched setting instead of imposing a profile value.
      */
-    static synchronized void initializeAtStartup(Difficulty difficulty) {
+    public static int recipeCasingsPerCraft() {
+        if (startupEnabled) {
+            return startupProfile.gtceuCasingsPerCraft();
+        }
+        ConfigHolder.init();
+        return ConfigHolder.INSTANCE.recipes.casingsPerCraft;
+    }
+
+    public static String profileFingerprint() {
+        return startupProfile.fingerprint();
+    }
+
+    /**
+     * Captures the process tier and applies its startup-configured GTCEu 7.5.3
+     * recipe profile before recipes are loaded.
+     */
+    static synchronized void initializeAtStartup(boolean enabled, Difficulty difficulty,
+                                                 GSEDifficultyProfile profile) {
         if (initialized) {
             return;
         }
-        ConfigHolder.init();
-        ConfigHolder.RecipeConfigs recipes = ConfigHolder.INSTANCE.recipes;
-        boolean normalOrExpert = difficulty != Difficulty.EASY;
-        boolean expert = difficulty == Difficulty.EXPERT;
+        Difficulty effectiveDifficulty = enabled ? difficulty : Difficulty.NORMAL;
+        if (enabled) {
+            ConfigHolder.init();
+            ConfigHolder.RecipeConfigs recipes = ConfigHolder.INSTANCE.recipes;
+            profile.applyTo(recipes);
 
-        recipes.disableManualCompression = normalOrExpert;
-        recipes.harderRods = normalOrExpert;
-        recipes.harderBrickRecipes = expert;
-        recipes.nerfWoodCrafting = expert;
-        recipes.hardWoodRecipes = expert;
-        recipes.hardIronRecipes = normalOrExpert;
-        recipes.hardRedstoneRecipes = expert;
-        recipes.hardToolArmorRecipes = expert;
-        recipes.hardMiscRecipes = expert;
-        recipes.hardGlassRecipes = normalOrExpert;
-        recipes.nerfPaperCrafting = normalOrExpert;
-        recipes.hardAdvancedIronRecipes = normalOrExpert;
-        recipes.hardDyeRecipes = expert;
-        recipes.harderCharcoalRecipe = normalOrExpert;
-        recipes.flintAndSteelRequireSteel = normalOrExpert;
-        recipes.removeVanillaBlockRecipes = expert;
-        recipes.removeVanillaTNTRecipe = normalOrExpert;
-        recipes.harderCircuitRecipes = expert;
-        recipes.hardMultiRecipes = expert;
-        recipes.casingsPerCraft = difficulty.getCasingsPerCraft();
+            GregSteamExpansion.LOGGER.info(
+                    "[Difficulty] Applied configurable GTCEu startup recipe profile {} (casingsPerCraft {}).",
+                    difficulty,
+                    recipes.casingsPerCraft);
+        } else {
+            GregSteamExpansion.LOGGER.info(
+                    "[Difficulty] Integration disabled; keeping GTCEu configuration untouched and using GSE Normal baseline.");
+        }
 
-        startupDifficulty = difficulty;
-        clientDifficulty = difficulty;
+        startupEnabled = enabled;
+        startupDifficulty = effectiveDifficulty;
+        startupProfile = enabled ? profile : GSEDifficultyProfile.defaults(Difficulty.NORMAL);
+        clientEnabled = enabled;
+        clientDifficulty = effectiveDifficulty;
+        clientProfile = startupProfile;
         initialized = true;
-        GregSteamExpansion.LOGGER.info(
-                "[Difficulty] Applied GTCEu startup recipe profile {} (hard options {}, casingsPerCraft {}).",
-                difficulty, expert ? "all" : difficulty == Difficulty.EASY ? "off" : "GTCEu defaults",
-                recipes.casingsPerCraft);
     }
 }

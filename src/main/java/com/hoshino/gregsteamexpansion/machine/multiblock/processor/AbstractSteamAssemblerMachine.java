@@ -9,7 +9,6 @@ import com.gregtechceu.gtceu.api.transfer.item.CustomItemStackHandler;
 import com.gregtechceu.gtceu.api.sound.SoundEntry;
 import com.gregtechceu.gtceu.common.data.GTSoundEntries;
 import com.gregtechceu.gtceu.utils.GTUtil;
-import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 
 import com.gregtechceu.gtceu.api.gui.GuiTextures;
@@ -225,10 +224,10 @@ public abstract class AbstractSteamAssemblerMachine extends AbstractSteamProcess
         return (long) Math.ceil(eu * (double) STEAM_PER_EU_MB * steamScale(parallel));
     }
 
-    /** 议题 11: Easy 档产出 2× (locked per batch; Normal / Expert stay 1×). */
+    /** Configured difficulty output multiplier, locked for the whole batch. */
     @Override
     protected float batchOutputMultiplier() {
-        return GSEDifficultyState.current(isRemote()) == Difficulty.EASY ? 2.0f : 1.0f;
+        return GSEDifficultyState.assemblerOutputMultiplier(isRemote());
     }
 
     /** 蒸汽每刻倍率: floor to the largest ladder step ≤ 实际并行. */

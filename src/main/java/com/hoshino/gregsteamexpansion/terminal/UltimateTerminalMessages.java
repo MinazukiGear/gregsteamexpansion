@@ -273,7 +273,8 @@ public final class UltimateTerminalMessages {
             List<ItemStack> options = new ArrayList<>(optionCount);
             for (int j = 0; j < optionCount; j++) options.add(buf.readItem());
             values.add(new UltimateTerminalSnapshot.ChannelInfo(id,
-                    Math.max(0, Math.min(selected, optionCount)), List.copyOf(options)));
+                    Math.max(UltimateTerminalConfig.AUTO_CHANNEL_SELECTION,
+                            Math.min(selected, optionCount - 1)), List.copyOf(options)));
         }
         return List.copyOf(values);
     }
@@ -374,8 +375,9 @@ public final class UltimateTerminalMessages {
             NetworkEvent.Context context = supplier.get();
             ServerPlayer sender = context.getSender();
             if (sender != null) context.enqueueWork(() -> {
-                if (validMenu(sender, packet.containerId) && packet.selection >= 0
-                        && packet.selection <= UltimateTerminalConfig.MAX_CHANNEL_OPTIONS) {
+                if (validMenu(sender, packet.containerId)
+                        && packet.selection >= UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
+                        && packet.selection <= UltimateTerminalConfig.MAX_CHANNEL_INDEX) {
                     UltimateTerminalWorldData.get(sender.server)
                             .setChannel(sender, packet.channelId, packet.selection);
                     forceFull(sender);

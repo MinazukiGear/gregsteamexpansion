@@ -17,6 +17,7 @@ import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.machine.multiblock.steam.LargeBoilerMachine;
 import com.gregtechceu.gtceu.config.ConfigHolder;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyProfile;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.CoFiringPowderFuel;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
@@ -62,16 +63,16 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * {@code co_firing_dust_fuels} powder feeds the +50% output multiplier
  * (P1#4/P1#8). Steam generation follows the explicit rule
  * {@code temperature × throttle / 20 × 1.5 × difficulty} per tick (P1#4,
- * P2#12: Easy ×2, Normal/Expert ×1); the tiers differ only in
+ * P2#12: Easy ×3, Normal ×2, Expert ×1.5); the tiers differ only in
  * {@code maxTemperature} (800/1800/3200/6400) and the heating/cooling cadence
  * (P1#6), where missing-powder cooling must always beat both shutdown cooling
  * and heating (hard constraint).
  *
- * <p>The parent's own temperature field is left at zero on purpose: the
- * per-tier cadence (integer tick intervals) cannot be expressed through the
- * parent's integer {@code heatSpeed}, so this class keeps its own persisted
- * {@link #roomTemperature} and overrides every parent entry point that reads
- * the parent's field. The steam air intake hatch is the hard co-firing
+ * <p>The parent's steam-generation subscription is disabled: the per-tier
+ * cadence (integer tick intervals) cannot be expressed through the parent's
+ * integer {@code heatSpeed}, so this class keeps its own persisted
+ * {@link #roomTemperature} and is exclusively responsible for steam output.
+ * The steam air intake hatch is the hard co-firing
  * prerequisite (P2#10): without it the room never runs, and each tier
  * continuously draws its own air amount (50/100/200/400 mB/t). No steam
  * input/output hatches of any kind and no steam item bus are admissible
@@ -202,6 +203,18 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     public int getPowderBurnRemaining() {
         return powderBurnRemaining;
+    }
+
+    /** Exact per-tick output before the five-tick water conversion batch. */
+    public static long calculateSteamOutputPerTick(int temperature, int throttle, Difficulty difficulty) {
+        return calculateSteamOutputPerTick(temperature, throttle,
+                (float) GSEDifficultyProfile.defaults(difficulty).boilerRoomSteamOutputMultiplier());
+    }
+
+    /** Same formula with an explicit multiplier, allowing disabled difficulty to use neutral x1. */
+    public static long calculateSteamOutputPerTick(int temperature, int throttle, float difficultyMultiplier) {
+        return Math.round(temperature * (double) throttle / 20.0
+                * CO_FIRING_MULTIPLIER * difficultyMultiplier);
     }
 
     //////////////////////////////////////
@@ -409,6 +422,20 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     /**
+     * The inherited large-boiler loop must never run for a boiler room. Its
+     * own temperature and steam output would otherwise operate in parallel
+     * with {@link #updateRoomTemperature()}, adding a second difficulty-scaled
+     * steam stream to every output hatch.
+     */
+    @Override
+    protected void updateSteamSubscription() {
+        if (temperatureSubs != null) {
+            temperatureSubs.unsubscribe();
+            temperatureSubs = null;
+        }
+    }
+
+    /**
      * P1#6 cadence with the hard constraint: no-powder cooling beats both
      * shutdown cooling and heating on every tier. Steam generation runs on
      * the parent's 5-tick cycle with the P1#4 co-firing formula.
@@ -498,9 +525,8 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             cycleSteamGenerated = 0;
             return;
         }
-        double difficultyMultiplier = GSEDifficultyState.current(isRemote()) == Difficulty.EASY ? 2.0 : 1.0;
-        long steamPerTick = Math.round(roomTemperature * (double) getThrottle() / 20.0
-                * CO_FIRING_MULTIPLIER * difficultyMultiplier);
+        long steamPerTick = calculateSteamOutputPerTick(
+                roomTemperature, getThrottle(), GSEDifficultyState.boilerRoomSteamOutputMultiplier(isRemote()));
         if (steamPerTick <= 0) {
             cycleSteamGenerated = 0;
             return;
@@ -523,7 +549,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         long drained = (drainWater == null || drainWater.isEmpty()) ? waterNeeded
                 : waterNeeded - drainWater.get(0).getAmount();
 
-        long steamProduced = drained * steamPerWater;
+        long steamProduced = Math.min(steamTarget, drained * steamPerWater);
         cycleSteamGenerated = (int) Math.min(Integer.MAX_VALUE, steamProduced);
         if (steamProduced > 0) {
             var fillSteam = List.of(FluidIngredient.of(

@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.client;
 
 import com.hoshino.gregsteamexpansion.menu.UltimateTerminalMenu;
 import com.hoshino.gregsteamexpansion.terminal.UltimateStructurePlanner;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalConfig;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalMessages;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalMode;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalSnapshot;
@@ -204,14 +205,14 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             int index = start + row;
             if (index < structureRows) {
                 var structure = snapshot.structure();
-                Component selected = structure.selected() > 0 && structure.selected() <= structure.options().size()
-                        ? Component.literal(structure.options().get(structure.selected() - 1)) : Component.empty();
+                Component selected = structure.selected() >= 0 && structure.selected() < structure.options().size()
+                        ? Component.literal(structure.options().get(structure.selected())) : Component.empty();
                 addRenderableWidget(dropdownButton(x + 132, y + row * 23, 176,
                         UltimateTerminalStructureVariants.CHANNEL_ID, selected));
             } else {
                 var channel = snapshot.channels().get(index - structureRows);
-                ItemStack selected = channel.selected() > 0 && channel.selected() <= channel.options().size()
-                        ? channel.options().get(channel.selected() - 1) : ItemStack.EMPTY;
+                ItemStack selected = channel.selected() >= 0 && channel.selected() < channel.options().size()
+                        ? channel.options().get(channel.selected()) : ItemStack.EMPTY;
                 addRenderableWidget(dropdownButton(x + 132, y + row * 23, 176, channel.id(), selected.isEmpty()
                         ? Component.translatable("gregsteamexpansion.ultimate_terminal.channel.auto")
                         : selected.getHoverName()));
@@ -241,7 +242,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
         if (openDropdown.equals(UltimateTerminalStructureVariants.CHANNEL_ID)) {
             options = snapshot.structure().options().stream()
                     .map(value -> (Component) Component.literal(value)).toList();
-            firstSelection = 1;
+            firstSelection = 0;
         } else {
             var channel = snapshot.channels().stream().filter(value -> value.id().equals(openDropdown))
                     .findFirst().orElse(null);
@@ -253,7 +254,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             values.add(Component.translatable("gregsteamexpansion.ultimate_terminal.channel.auto"));
             channel.options().forEach(stack -> values.add(stack.getHoverName()));
             options = List.copyOf(values);
-            firstSelection = 0;
+            firstSelection = UltimateTerminalConfig.AUTO_CHANNEL_SELECTION;
         }
         int pageSize = 5;
         int pages = Math.max(1, (options.size() - 1) / pageSize + 1);
@@ -439,8 +440,8 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
                         14, 60 + row * 23, 0xFF55FFFF, false);
             } else {
                 var channel = snapshot.channels().get(index - structureRows);
-                ItemStack selected = channel.selected() > 0 && channel.selected() <= channel.options().size()
-                        ? channel.options().get(channel.selected() - 1) : ItemStack.EMPTY;
+                ItemStack selected = channel.selected() >= 0 && channel.selected() < channel.options().size()
+                        ? channel.options().get(channel.selected()) : ItemStack.EMPTY;
                 if (!selected.isEmpty()) graphics.renderItem(selected, 106, 55 + row * 23);
                 Component name = channel.id().equals("coil")
                         ? Component.translatable("gregsteamexpansion.ultimate_terminal.channel.coil")

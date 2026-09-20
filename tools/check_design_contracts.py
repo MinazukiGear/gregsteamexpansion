@@ -187,7 +187,7 @@ def check_game_test_inventory() -> None:
         )[0],
         "automation interface status": captured_integers(
             "docs/design/automation-interfaces.md",
-            r"已实现并通过 (\d+) 项 GameTest",
+            r"已实现 (\d+) 项 GameTest",
             "automation interface GameTest count",
         )[0],
     }
@@ -239,15 +239,20 @@ def crafting_ingredient_counts(relative: str) -> dict[str, int]:
     return counts
 
 
-def recipe_difficulty(data: dict, relative: str) -> str | None:
-    difficulties = [
-        condition.get("difficulty")
+def recipe_profile(data: dict, relative: str) -> dict[str, object]:
+    conditions = [
+        condition
         for condition in data.get("conditions", [])
-        if condition.get("type") == "gregsteamexpansion:difficulty"
+        if condition.get("type") == "gregsteamexpansion:difficulty_recipe_config"
     ]
-    if len(difficulties) > 1 or any(not isinstance(value, str) for value in difficulties):
-        raise ContractError(f"{relative}: malformed difficulty condition")
-    return difficulties[0] if difficulties else None
+    profile: dict[str, object] = {}
+    for condition in conditions:
+        key = condition.get("key")
+        value = condition.get("value")
+        if not isinstance(key, str) or key in profile or not isinstance(value, (bool, int)):
+            raise ContractError(f"{relative}: malformed difficulty recipe config condition")
+        profile[key] = value
+    return profile
 
 
 def canonical_ingredient(spec: str) -> str:
@@ -287,7 +292,7 @@ def canonical_ingredient(spec: str) -> str:
     return spec
 
 
-def crafting_route(relative: str) -> tuple[str, int, str | None, Counter[str]]:
+def crafting_route(relative: str) -> tuple[str, int, dict[str, object], Counter[str]]:
     data = json.loads(source(relative))
     result = data.get("result", {})
     item = result.get("item")
@@ -299,12 +304,12 @@ def crafting_route(relative: str) -> tuple[str, int, str | None, Counter[str]]:
         if spec.startswith("tag:gtceu:tools/crafting_"):
             continue
         materials[canonical_ingredient(spec)] += amount
-    return item, count, recipe_difficulty(data, relative), materials
+    return item, count, recipe_profile(data, relative), materials
 
 
 def assembler_route(
     relative: str,
-) -> tuple[str, int, str | None, Counter[str], int, int, int, dict[str, int]]:
+) -> tuple[str, int, dict[str, object], Counter[str], int, int, int, dict[str, int]]:
     data = json.loads(source(relative))
     outputs = data.get("outputs", {}).get("item", [])
     if len(outputs) != 1:
@@ -357,7 +362,7 @@ def assembler_route(
     return (
         item,
         count,
-        recipe_difficulty(data, relative),
+        recipe_profile(data, relative),
         materials,
         circuit_configs[0],
         duration,
@@ -368,7 +373,7 @@ def assembler_route(
 
 def check_acquisition_route_parity() -> None:
     recipe_root = "src/generated/resources/data/gregsteamexpansion/recipes"
-    pairs: dict[str, tuple[int, int, int, Counter[str], dict[str, int]]] = {}
+    pairs: dict[str, tuple[int, int, int, Counter[str], dict[str, int], dict[str, object]]] = {}
 
     def add(
         name: str,
@@ -377,11 +382,14 @@ def check_acquisition_route_parity() -> None:
         eut: int,
         hand_excess: dict[str, int] | None = None,
         fluids: dict[str, int] | None = None,
+        profile: dict[str, object] | None = None,
     ) -> None:
-        pairs[name] = (circuit, duration, eut, Counter(hand_excess or {}), fluids or {})
+        pairs[name] = (circuit, duration, eut, Counter(hand_excess or {}), fluids or {}, profile or {})
 
     for tier in ("bronze", "steel", "titanium", "tungstensteel"):
         add(f"boiler_room_{tier}", 7, 400, 16)
+    add("large_steam_supply_hatch", 1, 200, 480)
+    add("advanced_steam_exhaust_hatch", 2, 200, 480)
     electric_tiers = ("mv", "hv", "ev", "iv", "luv", "zpm", "uv")
     for index, tier in enumerate(electric_tiers, start=2):
         add(f"electric_ore_crusher_{tier}", index, 100, 16 * (1 << index))
@@ -389,38 +397,55 @@ def check_acquisition_route_parity() -> None:
     add("steam_fluid_output_hatch", 2, 100, 16)
     add("steam_air_intake_hatch", 3, 100, 16)
 
-    for difficulty in ("easy", "normal", "expert"):
-        plate = "double_plate" if difficulty == "expert" else "plate"
-        add(f"industrial_steam_casing_{difficulty}", 6, 50, 16)
+    for count in (1, 2, 3):
+        count_profile = {"gtceuCasingsPerCraft": count}
+        add(f"industrial_steam_casing_count_{count}", 6, 50, 16, profile=count_profile)
+
+    for hard in (False, True):
+        variant = "hard" if hard else "standard"
+        plate = "double_plate" if hard else "plate"
         add(
-            f"bronze_component_{difficulty}",
+            f"bronze_component_{variant}",
             6,
             50,
             16,
             {f"material:{plate}/bronze": 1, "material:spring/copper": 1},
+            profile={"hardBronzeComponentRecipes": hard},
         )
-        grinding_gear = "gear" if difficulty == "expert" else "small_gear"
-        add(
-            f"steam_grinding_block_{difficulty}",
-            4,
-            100,
-            16,
-            {"material:plate/bronze": 1, f"material:{grinding_gear}/bronze": 1},
-        )
-        assembly_excess = (
-            {"material:plate/bronze": 1, "material:double_plate/bronze": 1}
-            if difficulty == "expert"
-            else {"material:plate/bronze": 2}
-        )
-        add(f"steam_assembly_block_{difficulty}", 4, 100, 16, assembly_excess)
-        add(
-            f"steam_circuit_assembly_block_{difficulty}",
-            5,
-            100,
-            16,
-            fluids={"forge:rubber": 288},
-        )
-        add(f"steam_mixing_block_{difficulty}", 6, 100, 16, assembly_excess)
+
+        for count in (1, 2, 3):
+            count_profile = {"gtceuCasingsPerCraft": count}
+            grinding_profile = {"harderSteamGrindingBlockRecipes": hard, **count_profile}
+            grinding_gear = "gear" if hard else "small_gear"
+            add(
+                f"steam_grinding_block_{variant}_count_{count}",
+                4,
+                100,
+                16,
+                {"material:plate/bronze": 1, f"material:{grinding_gear}/bronze": 1},
+                profile=grinding_profile,
+            )
+            assembly_excess = (
+                {"material:plate/bronze": 1, "material:double_plate/bronze": 1}
+                if hard
+                else {"material:plate/bronze": 2}
+            )
+            add(
+                f"steam_assembly_block_{variant}_count_{count}", 4, 100, 16, assembly_excess,
+                profile={"hardSteamAssemblyBlockRecipes": hard, **count_profile},
+            )
+            add(
+                f"steam_circuit_assembly_block_{variant}_count_{count}",
+                5,
+                100,
+                16,
+                fluids={"forge:rubber": 288},
+                profile={"hardSteamCircuitAssemblyBlockRecipes": hard, **count_profile},
+            )
+            add(
+                f"steam_mixing_block_{variant}_count_{count}", 6, 100, 16, assembly_excess,
+                profile={"hardSteamMixingBlockRecipes": hard, **count_profile},
+            )
 
     assembler_root = ROOT / recipe_root / "assembler"
     actual_names = {path.stem for path in assembler_root.glob("*.json")}
@@ -430,7 +455,7 @@ def check_acquisition_route_parity() -> None:
             f"missing={sorted(set(pairs) - actual_names)}, extra={sorted(actual_names - set(pairs))}"
         )
 
-    for name, (circuit, duration, eut, hand_excess, expected_fluids) in pairs.items():
+    for name, (circuit, duration, eut, hand_excess, expected_fluids, expected_profile) in pairs.items():
         shaped_path = f"{recipe_root}/shaped/{name}.json"
         assembler_path = f"{recipe_root}/assembler/{name}.json"
         hand_item, hand_count, hand_difficulty, hand_materials = crafting_route(shaped_path)
@@ -445,18 +470,20 @@ def check_acquisition_route_parity() -> None:
             assembler_fluids,
         ) = assembler_route(assembler_path)
 
-        expected_difficulty = name.rsplit("_", 1)[-1]
-        if expected_difficulty not in {"easy", "normal", "expert"}:
-            expected_difficulty = None
         if (hand_item, hand_count, hand_difficulty) != (
             assembler_item,
             assembler_count,
             assembler_difficulty,
-        ) or hand_difficulty != expected_difficulty:
+        ) or hand_difficulty != expected_profile:
             raise ContractError(
-                f"{name}: hand/assembler output or difficulty differs: "
+                f"{name}: hand/assembler output or recipe profile differs: "
                 f"hand={(hand_item, hand_count, hand_difficulty)}, "
                 f"assembler={(assembler_item, assembler_count, assembler_difficulty)}"
+            )
+        configured_count = expected_profile.get("gtceuCasingsPerCraft")
+        if configured_count is not None and hand_count != configured_count:
+            raise ContractError(
+                f"{name}: output count {hand_count} differs from gtceuCasingsPerCraft {configured_count}"
             )
 
         comparable_assembler = assembler_materials.copy()

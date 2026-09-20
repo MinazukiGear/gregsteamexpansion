@@ -8,6 +8,7 @@ import java.util.TreeMap;
 
 /** Persistent, deterministic structure choices shared by a machine template or one target override. */
 public final class TerminalBuildProfile {
+    private static final int ZERO_BASED_CHANNEL_VERSION = 2;
     private int repeatCount;
     private int coilTier;
     private final TreeMap<ResourceLocation, Integer> partTargets = new TreeMap<>();
@@ -31,21 +32,24 @@ public final class TerminalBuildProfile {
     public int coilTier() { return coilTier; }
     public boolean buildHatches() { return false; }
     public Map<ResourceLocation, Integer> partTargets() { return Map.copyOf(partTargets); }
-    public int channelSelection(String channelId) { return channelSelections.getOrDefault(channelId, 0); }
+    public int channelSelection(String channelId) {
+        return channelSelections.getOrDefault(channelId, UltimateTerminalConfig.AUTO_CHANNEL_SELECTION);
+    }
 
     public void changeRepeats(int delta) { repeatCount = clamp(repeatCount + delta, 0, 64); }
     public void changeCoilTier(int delta) { coilTier = clamp(coilTier + delta, 0, 16); }
-    public void changeChannel(String channelId, int delta, int maximum) {
+    public void changeChannel(String channelId, int delta, int maximumIndex) {
         if (channelId.equals("coil")) coilTier = 0;
-        int next = clamp(channelSelections.getOrDefault(channelId, 0) + delta, 0, Math.max(0, maximum));
-        if (next == 0) channelSelections.remove(channelId);
+        int next = clamp(channelSelection(channelId) + delta,
+                UltimateTerminalConfig.AUTO_CHANNEL_SELECTION, Math.max(0, maximumIndex));
+        if (next == UltimateTerminalConfig.AUTO_CHANNEL_SELECTION) channelSelections.remove(channelId);
         else channelSelections.put(channelId, next);
     }
 
-    public void setChannel(String channelId, int selection, int maximum) {
+    public void setChannel(String channelId, int selection, int maximumIndex) {
         if (channelId.equals("coil")) coilTier = 0;
-        int next = clamp(selection, 0, Math.max(0, maximum));
-        if (next == 0) channelSelections.remove(channelId);
+        int next = clamp(selection, UltimateTerminalConfig.AUTO_CHANNEL_SELECTION, Math.max(0, maximumIndex));
+        if (next == UltimateTerminalConfig.AUTO_CHANNEL_SELECTION) channelSelections.remove(channelId);
         else channelSelections.put(channelId, next);
     }
 
@@ -66,6 +70,7 @@ public final class TerminalBuildProfile {
         CompoundTag channels = new CompoundTag();
         channelSelections.forEach(channels::putInt);
         tag.put("channels", channels);
+        tag.putInt("channelIndexVersion", ZERO_BASED_CHANNEL_VERSION);
         return tag;
     }
 
@@ -80,10 +85,12 @@ public final class TerminalBuildProfile {
             if (id != null && count > 0) profile.partTargets.put(id, Math.min(count, 8192));
         }
         CompoundTag channels = tag.getCompound("channels");
+        boolean zeroBasedChannels = tag.getInt("channelIndexVersion") >= ZERO_BASED_CHANNEL_VERSION;
         for (String key : channels.getAllKeys()) {
-            int selected = channels.getInt(key);
-            if (key.matches("[a-z0-9_.-]{1,32}") && selected > 0) {
-                profile.channelSelections.put(key, Math.min(selected, UltimateTerminalConfig.MAX_CHANNEL_OPTIONS));
+            int stored = channels.getInt(key);
+            int selected = zeroBasedChannels ? stored : stored - 1;
+            if (key.matches("[a-z0-9_.-]{1,32}") && selected >= 0) {
+                profile.channelSelections.put(key, Math.min(selected, UltimateTerminalConfig.MAX_CHANNEL_INDEX));
             }
         }
         return profile;

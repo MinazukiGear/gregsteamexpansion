@@ -1,0 +1,75 @@
+{
+  "type": "gtceu:assembler",
+  "category": "gtceu:assembler",
+  "conditions": [
+    {
+      "type": "gregsteamexpansion:difficulty_recipe_config",
+      "key": "harderSteamGrindingBlockRecipes",
+      "value": true
+    },
+    {
+      "type": "gregsteamexpansion:difficulty_recipe_config",
+      "key": "gtceuCasingsPerCraft",
+      "value": 1
+    }
+  ],
+  "duration": 100,
+  "inputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 3,
+          "ingredient": {
+            "tag": "forge:plates/bronze"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "tag": "forge:gears/bronze"
+          }
+        }
+      },
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "gtceu:diamond_grinding_head"
+          }
+        }
+      },
+      {
+        "chance": 0,
+        "content": {
+          "type": "gtceu:circuit",
+          "configuration": 4
+        }
+      }
+    ]
+  },
+  "outputs": {
+    "item": [
+      {
+        "content": {
+          "type": "gtceu:sized",
+          "count": 1,
+          "ingredient": {
+            "item": "gregsteamexpansion:steam_grinding_block"
+          }
+        }
+      }
+    ]
+  },
+  "tickInputs": {
+    "eu": [
+      {
+        "content": 16
+      }
+    ]
+  }
+}

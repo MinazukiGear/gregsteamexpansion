@@ -17,6 +17,7 @@ import com.gregtechceu.gtceu.common.data.models.GTMachineModels;
 import com.gregtechceu.gtceu.data.model.builder.MachineModelBuilder;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenStructures;
+import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.migration.OreCrushingMigration;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
@@ -598,7 +599,7 @@ public final class GSEMachines {
     // ------------------------------------------------------------------
     // 锅炉房 / Boiler Room (boiler-room.md): 四档终端蒸汽锅炉 (青铜/钢/钛/
     // 钨钢), 共用 BoilerRoomMachine 与 7×11×7 去角长方体图案, 产能严格上位于
-    // 同档 GTCEu 大型锅炉 (协同 +50%; Easy ×2)。部件位置 (P2#9): 控制器正面
+    // 同档 GTCEu 大型锅炉 (协同 +50%; 难度 ×3/×2/×1.5)。部件位置 (P2#9): 控制器正面
     // 中心、消音器背面中心、蒸汽进气室顶面中心、火室两片 3×9、管道中轴 9 格。
     // ------------------------------------------------------------------
 
@@ -639,6 +640,13 @@ public final class GSEMachines {
                                                                   ResourceLocation hullTexture,
                                                                   com.gregtechceu.gtceu.common.block.BoilerFireboxType fireboxType) {
         var tierBlocks = new GSEBoilerPatterns.TierBlocks(casing, pipe, firebox);
+        int maxTemperature = BoilerRoomMachine.MAX_TEMPERATURES[tierIndex];
+        String easyOutput = String.format("%,d",
+                BoilerRoomMachine.calculateSteamOutputPerTick(maxTemperature, 100, Difficulty.EASY));
+        String normalOutput = String.format("%,d",
+                BoilerRoomMachine.calculateSteamOutputPerTick(maxTemperature, 100, Difficulty.NORMAL));
+        String expertOutput = String.format("%,d",
+                BoilerRoomMachine.calculateSteamOutputPerTick(maxTemperature, 100, Difficulty.EXPERT));
         return GSERegistration.REGISTRATE
                 .multiblock("boiler_room_" + name, holder -> new BoilerRoomMachine(holder, tierIndex))
                 .langValue(englishName)
@@ -669,6 +677,9 @@ public final class GSEMachines {
                                 BoilerRoomMachine.MAX_TEMPERATURES[tierIndex]),
                         Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.co_firing",
                                 String.format("%,d", BoilerRoomMachine.AIR_PER_TICK[tierIndex])),
+                        Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.difficulty"),
+                        Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.full_output",
+                                easyOutput, normalOutput, expertOutput),
                         Component.translatable("gregsteamexpansion.machine.boiler_room.tooltip.air_intake"),
                         Component.translatable("gtceu.multiblock.large_boiler.explosion_tooltip")
                                 .withStyle(ChatFormatting.DARK_RED))

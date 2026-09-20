@@ -15,6 +15,7 @@ import com.hoshino.gregsteamexpansion.data.GSERecipes;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyCondition;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyMessages;
+import com.hoshino.gregsteamexpansion.difficulty.GSERecipeConfigCondition;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalConfig;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalEvents;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalMessages;
@@ -90,6 +91,7 @@ public final class GregSteamExpansion {
         GSEDifficultyMessages.register();
         UltimateTerminalMessages.register();
         CraftingHelper.register(GSEDifficultyCondition.Serializer.INSTANCE);
+        CraftingHelper.register(GSERecipeConfigCondition.Serializer.INSTANCE);
 
         // 结构诊断调试指令 /gse structure (structure-diagnostics.md 通道 T6)。
         MinecraftForge.EVENT_BUS.addListener(GSECommands::onRegisterCommands);

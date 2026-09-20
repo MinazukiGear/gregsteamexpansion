@@ -13,8 +13,8 @@ import com.gregtechceu.gtceu.common.data.machines.GTMultiMachines;
 import com.gregtechceu.gtceu.data.recipe.CustomTags;
 import com.gregtechceu.gtceu.data.recipe.VanillaRecipeHelper;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
-import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyRecipes;
+import com.hoshino.gregsteamexpansion.difficulty.GSERecipeConfigCondition;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeSerializers;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
@@ -796,50 +796,56 @@ public final class GSERecipes {
     }
 
     // ------------------------------------------------------------------
-    // Difficulty tiering (difficulty.md 配方与数据重载机制)
+    // Configured recipe variants (difficulty.md 配方与数据重载机制)
     // ------------------------------------------------------------------
 
     @FunctionalInterface
-    private interface TieredRecipe {
-        void build(Consumer<FinishedRecipe> provider, ResourceLocation id, Difficulty difficulty);
+    private interface ProfiledRecipe {
+        void build(Consumer<FinishedRecipe> provider, ResourceLocation id, boolean hard, int outputCount);
     }
 
-    /**
-     * Emits one recipe variant per difficulty tier. Every variant carries a
-     * {@code gregsteamexpansion:difficulty} condition and its own suffixed
-     * resource ID ({@code <base>_easy/_normal/_expert}) so exactly one loads
-     * per save. GTCEu's helpers already prepend the {@code shaped/} and
-     * {@code assembler/} folders, so {@code gregsteamexpansion:shaped/<base>_easy}
-     * matches the resource IDs in items-and-blocks.md.
-     */
-    private static void tiered(Consumer<FinishedRecipe> provider, String basePath, TieredRecipe recipe) {
-        for (Difficulty difficulty : Difficulty.values()) {
-            ResourceLocation id = GregSteamExpansion.id(basePath + "_" + difficulty.getSerializedName());
-            recipe.build(GSEDifficultyRecipes.atDifficulty(provider, difficulty), id, difficulty);
+    private static void counted(Consumer<FinishedRecipe> provider, String basePath, ProfiledRecipe recipe) {
+        for (int outputCount = 1; outputCount <= 3; outputCount++) {
+            ResourceLocation id = GregSteamExpansion.id(basePath + "_count_" + outputCount);
+            recipe.build(GSEDifficultyRecipes.atRecipeConfig(provider,
+                    GSERecipeConfigCondition.casingsPerCraft(outputCount)), id, false, outputCount);
         }
     }
 
-    /**
-     * items-and-blocks.md 通用方块产量: recipes whose primary output is a plain
-     * block registered by this mod produce the same effective value as GTCEu's
-     * {@code recipes.casingsPerCraft} (Easy 2, Normal 1, Expert 1).
-     */
-    private static int blocksPerCraft(Difficulty difficulty) {
-        return difficulty.getCasingsPerCraft();
+    private static void hardened(Consumer<FinishedRecipe> provider, String basePath,
+                                 GSERecipeConfigCondition.Key option, ProfiledRecipe recipe) {
+        for (boolean hard : new boolean[] { false, true }) {
+            ResourceLocation id = GregSteamExpansion.id(basePath + (hard ? "_hard" : "_standard"));
+            recipe.build(GSEDifficultyRecipes.atRecipeConfig(provider,
+                    GSERecipeConfigCondition.recipeOption(option, hard)), id, hard, 1);
+        }
     }
 
-    private static ItemStack blockOutput(RegistryObject<Item> item, Difficulty difficulty) {
-        return new ItemStack(item.get(), blocksPerCraft(difficulty));
+    private static void hardenedAndCounted(Consumer<FinishedRecipe> provider, String basePath,
+                                           GSERecipeConfigCondition.Key option, ProfiledRecipe recipe) {
+        for (boolean hard : new boolean[] { false, true }) {
+            for (int outputCount = 1; outputCount <= 3; outputCount++) {
+                String variant = hard ? "hard" : "standard";
+                ResourceLocation id = GregSteamExpansion.id(
+                        basePath + "_" + variant + "_count_" + outputCount);
+                recipe.build(GSEDifficultyRecipes.atRecipeConfig(provider,
+                                GSERecipeConfigCondition.recipeOption(option, hard),
+                                GSERecipeConfigCondition.casingsPerCraft(outputCount)),
+                        id, hard, outputCount);
+            }
+        }
     }
 
-    /** Expert upgrades regular plates to double plates in equal slot counts. */
-    private static TagPrefix platePrefix(Difficulty difficulty) {
-        return difficulty == Difficulty.EXPERT ? TagPrefix.plateDouble : TagPrefix.plate;
+    private static ItemStack blockOutput(RegistryObject<Item> item, int outputCount) {
+        return new ItemStack(item.get(), outputCount);
     }
 
-    /** Steam grinding block: Expert swaps small gears for full gears. */
-    private static TagPrefix gearPrefix(Difficulty difficulty) {
-        return difficulty == Difficulty.EXPERT ? TagPrefix.gear : TagPrefix.gearSmall;
+    private static TagPrefix platePrefix(boolean hard) {
+        return hard ? TagPrefix.plateDouble : TagPrefix.plate;
+    }
+
+    private static TagPrefix gearPrefix(boolean hard) {
+        return hard ? TagPrefix.gear : TagPrefix.gearSmall;
     }
 
     // ------------------------------------------------------------------
@@ -849,16 +855,16 @@ public final class GSERecipes {
     private static void addIndustrialSteamCasingRecipes(Consumer<FinishedRecipe> provider) {
         // Historical Gregicality Multiblocks steam casing recipe restored for
         // gtceu:industrial_steam_casing; this mod never re-registers the block.
-        // Output follows the GTCEu casingsPerCraft parameter, which the global
-        // difficulty forces to 2 / 1 / 1 (difficulty.md 上游覆盖白名单).
+        // Output follows the effective GTCEu casingsPerCraft parameter. Three
+        // count variants let the startup recipe condition select 1, 2 or 3.
         // GTCEu 7.5.3 gives Brass no GENERATE_FRAME flag, so the frame slot
         // uses the bronze frame instead of the nonexistent brass frame.
         ItemStack brassPlate = ChemicalHelper.get(TagPrefix.plate, GTMaterials.Brass);
         ItemStack bronzeFrame = ChemicalHelper.get(TagPrefix.frameGt, GTMaterials.Bronze);
 
-        tiered(provider, "industrial_steam_casing", (tierProvider, id, difficulty) ->
-                VanillaRecipeHelper.addShapedRecipe(tierProvider, id,
-                        GCYMBlocks.CASING_INDUSTRIAL_STEAM.asStack(difficulty.getCasingsPerCraft()),
+        counted(provider, "industrial_steam_casing", (variantProvider, id, hard, outputCount) ->
+                VanillaRecipeHelper.addShapedRecipe(variantProvider, id,
+                        GCYMBlocks.CASING_INDUSTRIAL_STEAM.asStack(outputCount),
                         "PhP",
                         "PFP",
                         "PwP",
@@ -867,15 +873,15 @@ public final class GSERecipes {
                         'h', CustomTags.CRAFTING_HAMMERS,
                         'w', CustomTags.CRAFTING_WRENCHES));
 
-        tiered(provider, "industrial_steam_casing", (tierProvider, id, difficulty) ->
+        counted(provider, "industrial_steam_casing", (variantProvider, id, hard, outputCount) ->
                 GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(id)
                         .inputItems(TagPrefix.plate, GTMaterials.Brass, 6)
                         .inputItems(TagPrefix.frameGt, GTMaterials.Bronze)
                         .circuitMeta(6)
-                        .outputItems(GCYMBlocks.CASING_INDUSTRIAL_STEAM.asStack(difficulty.getCasingsPerCraft()))
+                        .outputItems(GCYMBlocks.CASING_INDUSTRIAL_STEAM.asStack(outputCount))
                         .duration(50)
                         .EUt(16)
-                        .save(tierProvider));
+                        .save(variantProvider));
     }
 
     // ------------------------------------------------------------------
@@ -888,28 +894,32 @@ public final class GSERecipes {
         // actually generates items for.
         ItemStack copperSpring = ChemicalHelper.get(TagPrefix.spring, GTMaterials.Copper);
 
-        tiered(provider, "bronze_component", (tierProvider, id, difficulty) ->
-                VanillaRecipeHelper.addShapedRecipe(tierProvider, id,
+        hardened(provider, "bronze_component",
+                GSERecipeConfigCondition.Key.HARD_BRONZE_COMPONENT_RECIPES,
+                (variantProvider, id, hard, outputCount) ->
+                VanillaRecipeHelper.addShapedRecipe(variantProvider, id,
                         new ItemStack(GSEBlocks.BRONZE_COMPONENT.get()),
                         "PhP",
                         "SFS",
                         "PwP",
-                        'P', ChemicalHelper.get(platePrefix(difficulty), GTMaterials.Bronze),
+                        'P', ChemicalHelper.get(platePrefix(hard), GTMaterials.Bronze),
                         'S', copperSpring,
                         'F', ChemicalHelper.get(TagPrefix.frameGt, GTMaterials.Bronze),
                         'h', CustomTags.CRAFTING_HAMMERS,
                         'w', CustomTags.CRAFTING_WRENCHES));
 
-        tiered(provider, "bronze_component", (tierProvider, id, difficulty) ->
+        hardened(provider, "bronze_component",
+                GSERecipeConfigCondition.Key.HARD_BRONZE_COMPONENT_RECIPES,
+                (variantProvider, id, hard, outputCount) ->
                 GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(id)
-                        .inputItems(platePrefix(difficulty), GTMaterials.Bronze, 3)
+                        .inputItems(platePrefix(hard), GTMaterials.Bronze, 3)
                         .inputItems(TagPrefix.spring, GTMaterials.Copper)
                         .inputItems(TagPrefix.frameGt, GTMaterials.Bronze)
                         .circuitMeta(6)
                         .outputItems(GSEBlocks.BRONZE_COMPONENT.get(), 1)
                         .duration(50)
                         .EUt(16)
-                        .save(tierProvider));
+                        .save(variantProvider));
     }
 
     // ------------------------------------------------------------------
@@ -917,28 +927,32 @@ public final class GSERecipes {
     // ------------------------------------------------------------------
 
     private static void addSteamGrindingBlockRecipes(Consumer<FinishedRecipe> provider) {
-        tiered(provider, "steam_grinding_block", (tierProvider, id, difficulty) ->
-                VanillaRecipeHelper.addShapedRecipe(tierProvider, id,
-                        blockOutput(GSEBlocks.STEAM_GRINDING_BLOCK_ITEM, difficulty),
+        hardenedAndCounted(provider, "steam_grinding_block",
+                GSERecipeConfigCondition.Key.HARDER_STEAM_GRINDING_BLOCK_RECIPES,
+                (variantProvider, id, hard, outputCount) ->
+                VanillaRecipeHelper.addShapedRecipe(variantProvider, id,
+                        blockOutput(GSEBlocks.STEAM_GRINDING_BLOCK_ITEM, outputCount),
                         "PGP",
                         "hDw",
                         "PGP",
                         'P', ChemicalHelper.get(TagPrefix.plate, GTMaterials.Bronze),
-                        'G', ChemicalHelper.get(gearPrefix(difficulty), GTMaterials.Bronze),
+                        'G', ChemicalHelper.get(gearPrefix(hard), GTMaterials.Bronze),
                         'D', GTItems.COMPONENT_GRINDER_DIAMOND.get(),
                         'h', CustomTags.CRAFTING_HAMMERS,
                         'w', CustomTags.CRAFTING_WRENCHES));
 
-        tiered(provider, "steam_grinding_block", (tierProvider, id, difficulty) ->
+        hardenedAndCounted(provider, "steam_grinding_block",
+                GSERecipeConfigCondition.Key.HARDER_STEAM_GRINDING_BLOCK_RECIPES,
+                (variantProvider, id, hard, outputCount) ->
                 GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(id)
                         .inputItems(TagPrefix.plate, GTMaterials.Bronze, 3)
-                        .inputItems(gearPrefix(difficulty), GTMaterials.Bronze, 1)
+                        .inputItems(gearPrefix(hard), GTMaterials.Bronze, 1)
                         .inputItems(GTItems.COMPONENT_GRINDER_DIAMOND.get())
                         .circuitMeta(4)
-                        .outputItems(GSEBlocks.STEAM_GRINDING_BLOCK_ITEM.get(), blocksPerCraft(difficulty))
+                        .outputItems(GSEBlocks.STEAM_GRINDING_BLOCK_ITEM.get(), outputCount)
                         .duration(100)
                         .EUt(16)
-                        .save(tierProvider));
+                        .save(variantProvider));
     }
 
     // ------------------------------------------------------------------
@@ -951,15 +965,16 @@ public final class GSERecipes {
         ItemStack bronzeGear = ChemicalHelper.get(TagPrefix.gear, GTMaterials.Bronze);
         ItemStack bronzeComponent = new ItemStack(GSEBlocks.BRONZE_COMPONENT.get());
 
-        tiered(provider, "steam_assembly_block", (tierProvider, id, difficulty) -> {
-            boolean expert = difficulty == Difficulty.EXPERT;
+        hardenedAndCounted(provider, "steam_assembly_block",
+                GSERecipeConfigCondition.Key.HARD_STEAM_ASSEMBLY_BLOCK_RECIPES,
+                (variantProvider, id, hard, outputCount) -> {
             // 'D' is only defined when the pattern's top row references it;
             // the Forge-patched serializer rejects unused key symbols.
             List<Object> args = new ArrayList<>(List.of(
-                    expert ? "DGD" : "PGP",
+                    hard ? "DGD" : "PGP",
                     "hCw",
                     "PGP"));
-            if (expert) {
+            if (hard) {
                 args.addAll(List.of('D', bronzeDoublePlate));
             }
             args.addAll(List.of(
@@ -968,25 +983,27 @@ public final class GSERecipes {
                     'C', bronzeComponent,
                     'h', CustomTags.CRAFTING_HAMMERS,
                     'w', CustomTags.CRAFTING_WRENCHES));
-            VanillaRecipeHelper.addShapedRecipe(tierProvider, id,
-                    blockOutput(GSEBlocks.STEAM_ASSEMBLY_BLOCK_ITEM, difficulty), args.toArray());
+            VanillaRecipeHelper.addShapedRecipe(variantProvider, id,
+                    blockOutput(GSEBlocks.STEAM_ASSEMBLY_BLOCK_ITEM, outputCount), args.toArray());
         });
 
-        tiered(provider, "steam_assembly_block", (tierProvider, id, difficulty) -> {
+        hardenedAndCounted(provider, "steam_assembly_block",
+                GSERecipeConfigCondition.Key.HARD_STEAM_ASSEMBLY_BLOCK_RECIPES,
+                (variantProvider, id, hard, outputCount) -> {
             var builder = GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(id)
                     .inputItems(TagPrefix.gear, GTMaterials.Bronze, 2)
                     .inputItems(GSEBlocks.BRONZE_COMPONENT.get())
                     .circuitMeta(4);
-            if (difficulty == Difficulty.EXPERT) {
+            if (hard) {
                 builder.inputItems(TagPrefix.plate, GTMaterials.Bronze, 1)
                         .inputItems(TagPrefix.plateDouble, GTMaterials.Bronze, 1);
             } else {
                 builder.inputItems(TagPrefix.plate, GTMaterials.Bronze, 2);
             }
-            builder.outputItems(GSEBlocks.STEAM_ASSEMBLY_BLOCK_ITEM.get(), blocksPerCraft(difficulty))
+            builder.outputItems(GSEBlocks.STEAM_ASSEMBLY_BLOCK_ITEM.get(), outputCount)
                     .duration(100)
                     .EUt(16)
-                    .save(tierProvider);
+                    .save(variantProvider);
         });
     }
 
@@ -1001,13 +1018,14 @@ public final class GSERecipes {
         ItemStack rubberPlate = ChemicalHelper.get(TagPrefix.plate, GTMaterials.Rubber);
         ItemStack bronzeComponent = new ItemStack(GSEBlocks.BRONZE_COMPONENT.get());
 
-        tiered(provider, "steam_circuit_assembly_block", (tierProvider, id, difficulty) -> {
-            boolean expert = difficulty == Difficulty.EXPERT;
+        hardenedAndCounted(provider, "steam_circuit_assembly_block",
+                GSERecipeConfigCondition.Key.HARD_STEAM_CIRCUIT_ASSEMBLY_BLOCK_RECIPES,
+                (variantProvider, id, hard, outputCount) -> {
             List<Object> args = new ArrayList<>(List.of(
-                    expert ? "DGD" : "PGP",
+                    hard ? "DGD" : "PGP",
                     "xCw",
                     "RGR"));
-            if (expert) {
+            if (hard) {
                 args.addAll(List.of('D', bronzeDoublePlate));
             } else {
                 args.addAll(List.of('P', bronzePlate));
@@ -1018,28 +1036,30 @@ public final class GSERecipes {
                     'C', bronzeComponent,
                     'x', CustomTags.CRAFTING_WIRE_CUTTERS,
                     'w', CustomTags.CRAFTING_WRENCHES));
-            VanillaRecipeHelper.addShapedRecipe(tierProvider, id,
-                    blockOutput(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK_ITEM, difficulty), args.toArray());
+            VanillaRecipeHelper.addShapedRecipe(variantProvider, id,
+                    blockOutput(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK_ITEM, outputCount), args.toArray());
         });
 
         // The assembler replaces the two rubber sheets with an equal material
         // amount of liquid rubber (2 x 144 mB); circuit config 5 keeps it
         // distinct from the regular assembly block's config 4.
-        tiered(provider, "steam_circuit_assembly_block", (tierProvider, id, difficulty) -> {
+        hardenedAndCounted(provider, "steam_circuit_assembly_block",
+                GSERecipeConfigCondition.Key.HARD_STEAM_CIRCUIT_ASSEMBLY_BLOCK_RECIPES,
+                (variantProvider, id, hard, outputCount) -> {
             var builder = GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(id)
                     .inputItems(TagPrefix.gear, GTMaterials.Bronze, 2)
                     .inputItems(GSEBlocks.BRONZE_COMPONENT.get())
                     .inputFluids(GTMaterials.Rubber, 288)
                     .circuitMeta(5);
-            if (difficulty == Difficulty.EXPERT) {
+            if (hard) {
                 builder.inputItems(TagPrefix.plateDouble, GTMaterials.Bronze, 2);
             } else {
                 builder.inputItems(TagPrefix.plate, GTMaterials.Bronze, 2);
             }
-            builder.outputItems(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK_ITEM.get(), blocksPerCraft(difficulty))
+            builder.outputItems(GSEBlocks.STEAM_CIRCUIT_ASSEMBLY_BLOCK_ITEM.get(), outputCount)
                     .duration(100)
                     .EUt(16)
-                    .save(tierProvider);
+                    .save(variantProvider);
         });
     }
 
@@ -1072,6 +1092,20 @@ public final class GSERecipes {
                 'D', GTMachines.BRONZE_DRUM.asStack(),
                 'C', CustomTags.HV_CIRCUITS,
                 'H', GSEMachines.STEAM_EXHAUST_HATCH.asStack());
+
+        // HV assembler automation keeps the exact upgrade materials used by
+        // the hand recipe. Circuit configuration 2 distinguishes the exhaust
+        // upgrade from the matching large supply-hatch route.
+        GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(
+                        GregSteamExpansion.id("advanced_steam_exhaust_hatch"))
+                .inputItems(GTMachines.BRONZE_DRUM.asStack(4))
+                .inputItems(CustomTags.HV_CIRCUITS, 4)
+                .inputItems(GSEMachines.STEAM_EXHAUST_HATCH.asStack())
+                .circuitMeta(2)
+                .outputItems(GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH.asStack())
+                .duration(200)
+                .EUt(480)
+                .save(provider);
     }
 
     // ------------------------------------------------------------------
@@ -1113,6 +1147,20 @@ public final class GSERecipes {
                 'D', bronzeDrum,
                 'C', CustomTags.HV_CIRCUITS,
                 'H', GSEMachines.STEAM_SUPPLY_HATCH.asStack());
+
+        // HV assembler automation uses the same four drums, four HV circuits
+        // and ordinary supply-hatch core as the hand upgrade. Configuration 1
+        // pairs with configuration 2 on the advanced exhaust hatch.
+        GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(
+                        GregSteamExpansion.id("large_steam_supply_hatch"))
+                .inputItems(GTMachines.BRONZE_DRUM.asStack(4))
+                .inputItems(CustomTags.HV_CIRCUITS, 4)
+                .inputItems(GSEMachines.STEAM_SUPPLY_HATCH.asStack())
+                .circuitMeta(1)
+                .outputItems(GSEMachines.LARGE_STEAM_SUPPLY_HATCH.asStack())
+                .duration(200)
+                .EUt(480)
+                .save(provider);
 
         // 蒸汽流体输入仓: single vertical pipe on top (no vertical mirroring;
         // plain horizontal mirroring keeps the pattern unchanged).
@@ -1326,13 +1374,14 @@ public final class GSERecipes {
         ItemStack bronzeGear = ChemicalHelper.get(TagPrefix.gear, GTMaterials.Bronze);
         ItemStack bronzeRotor = ChemicalHelper.get(TagPrefix.rotor, GTMaterials.Bronze);
 
-        tiered(provider, "steam_mixing_block", (tierProvider, id, difficulty) -> {
-            boolean expert = difficulty == Difficulty.EXPERT;
+        hardenedAndCounted(provider, "steam_mixing_block",
+                GSERecipeConfigCondition.Key.HARD_STEAM_MIXING_BLOCK_RECIPES,
+                (variantProvider, id, hard, outputCount) -> {
             List<Object> args = new ArrayList<>(List.of(
-                    expert ? "DGD" : "PGP",
+                    hard ? "DGD" : "PGP",
                     "hRw",
                     "PRP"));
-            if (expert) {
+            if (hard) {
                 args.addAll(List.of('D', bronzeDoublePlate));
             }
             args.addAll(List.of(
@@ -1341,25 +1390,27 @@ public final class GSERecipes {
                     'R', bronzeRotor,
                     'h', CustomTags.CRAFTING_HAMMERS,
                     'w', CustomTags.CRAFTING_WRENCHES));
-            VanillaRecipeHelper.addShapedRecipe(tierProvider, id,
-                    blockOutput(GSEBlocks.STEAM_MIXING_BLOCK_ITEM, difficulty), args.toArray());
+            VanillaRecipeHelper.addShapedRecipe(variantProvider, id,
+                    blockOutput(GSEBlocks.STEAM_MIXING_BLOCK_ITEM, outputCount), args.toArray());
         });
 
-        tiered(provider, "steam_mixing_block", (tierProvider, id, difficulty) -> {
+        hardenedAndCounted(provider, "steam_mixing_block",
+                GSERecipeConfigCondition.Key.HARD_STEAM_MIXING_BLOCK_RECIPES,
+                (variantProvider, id, hard, outputCount) -> {
             var builder = GTRecipeTypes.ASSEMBLER_RECIPES.recipeBuilder(id)
                     .inputItems(TagPrefix.gear, GTMaterials.Bronze, 1)
                     .inputItems(TagPrefix.rotor, GTMaterials.Bronze, 2)
                     .circuitMeta(6);
-            if (difficulty == Difficulty.EXPERT) {
+            if (hard) {
                 builder.inputItems(TagPrefix.plate, GTMaterials.Bronze, 1)
                         .inputItems(TagPrefix.plateDouble, GTMaterials.Bronze, 1);
             } else {
                 builder.inputItems(TagPrefix.plate, GTMaterials.Bronze, 2);
             }
-            builder.outputItems(GSEBlocks.STEAM_MIXING_BLOCK_ITEM.get(), blocksPerCraft(difficulty))
+            builder.outputItems(GSEBlocks.STEAM_MIXING_BLOCK_ITEM.get(), outputCount)
                     .duration(100)
                     .EUt(16)
-                    .save(tierProvider);
+                    .save(variantProvider);
         });
     }
 }

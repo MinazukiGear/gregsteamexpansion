@@ -19,6 +19,7 @@ public abstract class WorldListEntryMixin {
             at = @At(value = "INVOKE",
                      target = "Lnet/minecraft/world/level/storage/LevelSummary;getLevelName()Ljava/lang/String;"))
     private String gse$appendDifficultyTag(String name) {
-        return name + GSEDifficultyDisplay.worldListSuffix(GSEDifficultyState.resolved());
+        return name + GSEDifficultyDisplay.worldListSuffix(
+                GSEDifficultyState.isEnabled(), GSEDifficultyState.resolved());
     }
 }

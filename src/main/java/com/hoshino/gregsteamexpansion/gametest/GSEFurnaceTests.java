@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeHeatStorageSteamFurnaceMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamThrottle;
 import com.hoshino.gregsteamexpansion.machine.multiblock.furnace.FurnaceThermalLogic;
@@ -58,7 +59,7 @@ public final class GSEFurnaceTests {
         h.assertTrue((boolean) call(m, "tryPreheat", difficulty),
                 "Throttled furnace preheat did not consume its first tick");
         int duration = (int) number(m, "preheatDurationTicks");
-        eq(h, duration, SteamThrottle.scaledDuration(difficulty.getPreheatIntervalTicks(), 25),
+        eq(h, duration, SteamThrottle.scaledDuration(GSEDifficultyState.preheatIntervalTicks(false), 25),
                 "25% furnace preheat did not lock a four-times interval");
         long lockedTotal = number(m, "preheatTotalSteamMb");
         for (int tick = 1; tick < duration; tick++) {

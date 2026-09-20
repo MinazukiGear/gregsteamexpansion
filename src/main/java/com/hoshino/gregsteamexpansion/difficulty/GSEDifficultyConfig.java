@@ -3,7 +3,11 @@ package com.hoshino.gregsteamexpansion.difficulty;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 
 import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.common.ForgeConfigSpec;
+
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * Startup-only settings from gregsteamexpansion-common.toml. Difficulty is
@@ -13,18 +17,37 @@ import net.minecraftforge.common.ForgeConfigSpec;
  */
 public final class GSEDifficultyConfig {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
+    private static final ForgeConfigSpec.BooleanValue DIFFICULTY_ENABLED = BUILDER
+            .comment(
+                    "Whether GSE's difficulty system takes control at process startup (default: false).",
+                    "  false = GSE uses its Normal baseline internally and leaves GTCEu difficulty",
+                    "          settings and boiler values untouched.",
+                    "  true  = the selected difficulty applies to GSE and the documented GTCEu",
+                    "          difficulty integration. A full restart is required after changing it.",
+                    "  是否在进程启动时启用 GSE 难度系统（默认关闭）。关闭时，本模组内部使用",
+                    "  Normal 基线，且不改写 GTCEu 的难度配置与锅炉数值；修改后须完整重启。")
+            .define("difficultyEnabled", false);
     private static final ForgeConfigSpec.EnumValue<Difficulty> DIFFICULTY = BUILDER
             .comment(
                     "Work intensity selected when this process starts (default: NORMAL).",
                     "  EASY   = 摸鱼, NORMAL = 舒适, EXPERT = 压榨",
-                    "  The selected tier controls GSE mechanics and GTCEu recipe difficulty",
-                    "  switches before recipes load. In-game edits require a client restart;",
+                    "  When difficultyEnabled is true, the selected tier controls GSE mechanics",
+                    "  and GTCEu recipe difficulty switches before recipes load. In-game edits require a client restart;",
                     "  dedicated-server edits require a server restart. Multiplayer clients",
-                    "  must start with the same tier as the server.",
-                    "  工作强度在进程启动时确定，并在配方加载前同时控制本模组机制与",
-                    "  GTCEu 配方难度开关。游戏内修改后须重启客户端；专用服务端修改后须",
-                    "  重启服务端。联机客户端的启动档位必须与服务端一致。")
+                    "  must start with the same tier and selected profile values as the server.",
+                    "  difficultyEnabled=true 时，工作强度在进程启动时确定，并在配方加载前",
+                    "  同时控制本模组机制与 GTCEu 配方难度开关。游戏内修改后须重启客户端；专用服务端修改后须",
+                    "  重启服务端。联机客户端的启动档位及该档参数必须与服务端一致。")
             .defineEnum("difficulty", Difficulty.NORMAL);
+    private static final ForgeConfigSpec.BooleanValue DIFFICULTY_SETUP_COMPLETED = BUILDER
+            .comment(
+                    "Internal first-run marker. The client sets this after the initial difficulty choice.",
+                    "  Dedicated servers may set it to true after editing difficultyEnabled/difficulty.",
+                    "  首次难度选择完成标记；客户端保存首次选择后自动写入。专用服务端可在完成",
+                    "  difficultyEnabled / difficulty 配置后手动设为 true。")
+            .define("difficultySetupCompleted", false);
+
+    private static final Map<Difficulty, ProfileValues> DIFFICULTY_PROFILES = defineDifficultyProfiles();
 
     // ------------------------------------------------------------------
     // 旗舰虚空机器开关与概率权重表 (large-steam-ore-plant.md 议题 2/3,
@@ -69,7 +92,11 @@ public final class GSEDifficultyConfig {
 
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
+    private static volatile boolean capturedDifficultyEnabled;
     private static volatile Difficulty capturedDifficulty = Difficulty.NORMAL;
+    private static volatile Map<Difficulty, GSEDifficultyProfile> capturedProfiles = defaultProfiles();
+    private static volatile boolean capturedSetupCompleted;
+    private static volatile ModConfig loadedConfig;
     // 旗舰机器捕获值: 仅在 Loading 时应用 (重启生效口径, 同 capturedDifficulty)。
     private static volatile boolean capturedOrePlantEnabled = true;
     private static volatile boolean capturedFluidDrillEnabled = true;
@@ -103,25 +130,48 @@ public final class GSEDifficultyConfig {
         return capturedDifficulty;
     }
 
+    /** Startup-captured profile for a tier; file-watcher reloads do not change it. */
+    public static GSEDifficultyProfile capturedProfile(Difficulty difficulty) {
+        return capturedProfiles.getOrDefault(difficulty, GSEDifficultyProfile.defaults(difficulty));
+    }
+
+    /** Whether the difficulty integration was enabled when this process started. */
+    public static boolean capturedDifficultyEnabled() {
+        return capturedDifficultyEnabled;
+    }
+
+    /** Whether the client has already saved the one-time initial choice. */
+    public static boolean isInitialSetupCompleted() {
+        return capturedSetupCompleted || DIFFICULTY_SETUP_COMPLETED.get();
+    }
+
     public static void onConfigLoading(ModConfigEvent.Loading event) {
         if (event.getConfig().getSpec() == SPEC) {
+            loadedConfig = event.getConfig();
+            capturedDifficultyEnabled = DIFFICULTY_ENABLED.get();
             capturedDifficulty = DIFFICULTY.get();
+            capturedProfiles = captureProfiles();
+            capturedSetupCompleted = DIFFICULTY_SETUP_COMPLETED.get();
             capturedOrePlantEnabled = ORE_PLANT_ENABLED.get();
             capturedFluidDrillEnabled = FLUID_DRILL_ENABLED.get();
             capturedOrePlantWeights = java.util.List.copyOf(ORE_PLANT_WEIGHTS.get());
             capturedFluidDrillWeights = java.util.List.copyOf(FLUID_DRILL_WEIGHTS.get());
-            GSEDifficultyState.initializeAtStartup(capturedDifficulty);
+            GSEDifficultyState.initializeAtStartup(
+                    capturedDifficultyEnabled, capturedDifficulty, capturedProfile(capturedDifficulty));
             GregSteamExpansion.LOGGER.info(
-                    "[Difficulty] Startup difficulty is {}; flagship machines: ore plant {}, fluid drill {}.",
-                    capturedDifficulty, capturedOrePlantEnabled, capturedFluidDrillEnabled);
+                    "[Difficulty] Startup integration is {} with tier {}; flagship machines: ore plant {}, fluid drill {}; circuit assembler specialization: {}%, +{}x.",
+                    capturedDifficultyEnabled ? "enabled" : "disabled", capturedDifficulty,
+                    capturedOrePlantEnabled, capturedFluidDrillEnabled,
+                    GSEDifficultyState.circuitAssemblerBonusChancePercent(false),
+                    GSEDifficultyState.circuitAssemblerBonusMultiplier(false));
         }
     }
 
     public static void onConfigReloading(ModConfigEvent.Reloading event) {
         if (event.getConfig().getSpec() == SPEC) {
             GregSteamExpansion.LOGGER.warn(
-                    "[Difficulty] config changed while running (difficulty {}, ore plant {}, fluid drill {}); it is ignored until the next full restart.",
-                    DIFFICULTY.get(), ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
+                    "[Difficulty] config changed while running (enabled {}, difficulty {}, ore plant {}, fluid drill {}); it is ignored until the next full restart.",
+                    DIFFICULTY_ENABLED.get(), DIFFICULTY.get(), ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
         }
     }
 
@@ -130,7 +180,190 @@ public final class GSEDifficultyConfig {
      * touching the captured value: the running session keeps following the
      * restart rule, and the file-watcher reload logs the usual reminder.
      */
-    public static void setDifficulty(Difficulty difficulty) {
+    public static void setDifficultySettings(boolean enabled, Difficulty difficulty) {
+        DIFFICULTY_ENABLED.set(enabled);
         DIFFICULTY.set(difficulty);
+        save();
+    }
+
+    /** Saves the one-time client choice and its marker before the required restart. */
+    public static void completeInitialSetup(boolean enabled, Difficulty difficulty) {
+        DIFFICULTY_ENABLED.set(enabled);
+        DIFFICULTY.set(difficulty);
+        DIFFICULTY_SETUP_COMPLETED.set(true);
+        capturedSetupCompleted = true;
+        save();
+    }
+
+    private static void save() {
+        ModConfig config = loadedConfig;
+        if (config != null) {
+            config.save();
+        }
+    }
+
+    private static Map<Difficulty, ProfileValues> defineDifficultyProfiles() {
+        EnumMap<Difficulty, ProfileValues> values = new EnumMap<>(Difficulty.class);
+        BUILDER.comment(
+                "Per-tier balance profiles. Every value is captured only at startup.",
+                "These settings are intended for modpack authors; clients and servers must use",
+                "the same selected profile. Most multipliers are ignored while difficultyEnabled=false;",
+                "the circuit-assembler specialization uses the Normal profile as its baseline.",
+                "三档难度的独立平衡参数，仅在启动时读取，适合整合包作者覆盖。联机双方所选档位",
+                "的全部参数必须一致；difficultyEnabled=false 时多数倍率不生效，电路组装机专精",
+                "按 Normal 档基线运行。")
+                .push("difficultyProfiles");
+        for (Difficulty difficulty : Difficulty.values()) {
+            values.put(difficulty, defineProfile(difficulty, GSEDifficultyProfile.defaults(difficulty)));
+        }
+        BUILDER.pop();
+        return Map.copyOf(values);
+    }
+
+    private static ProfileValues defineProfile(Difficulty difficulty, GSEDifficultyProfile defaults) {
+        BUILDER.comment("Balance values for " + difficulty.name() + ". / " + difficulty.name() + " 档参数。")
+                .push(difficulty.getSerializedName());
+        ProfileValues values = new ProfileValues(
+                BUILDER.comment("GTCEu recipes.casingsPerCraft (1-3).")
+                        .defineInRange("gtceuCasingsPerCraft", defaults.gtceuCasingsPerCraft(), 1, 3),
+                BUILDER.comment("Dedicated steam boiler output multiplier (0.01-1000).")
+                        .defineInRange("steamOutputMultiplier", defaults.steamOutputMultiplier(), 0.01, 1000.0),
+                BUILDER.comment("Single-block boiler steam tank capacity multiplier (1-1000).")
+                        .defineInRange("singleblockSteamCacheMultiplier", defaults.singleblockSteamCacheMultiplier(), 1, 1000),
+                BUILDER.comment("Heat-storage furnace preheat steam cost, percent of baseline (1-10000).")
+                        .defineInRange("preheatCostPercent", defaults.preheatCostPercent(), 1, 10000),
+                BUILDER.comment("Heat-storage furnace ticks per +1 C while preheating (1-1200).")
+                        .defineInRange("preheatIntervalTicks", defaults.preheatIntervalTicks(), 1, 1200),
+                BUILDER.comment("Heat-storage furnace processing steam cost, percent of baseline (1-10000).")
+                        .defineInRange("processingSteamPercent", defaults.processingSteamPercent(), 1, 10000),
+                BUILDER.comment("Migrated ore-crushing main-output multiplier (0.01-1000).")
+                        .defineInRange("oreCrushingMultiplier", defaults.oreCrushingMultiplier(), 0.01, 1000.0),
+                BUILDER.comment("Boiler-room co-firing steam output multiplier (0.01-1000).")
+                        .defineInRange("boilerRoomSteamOutputMultiplier", defaults.boilerRoomSteamOutputMultiplier(), 0.01, 1000.0),
+                BUILDER.comment("Steam assembler batch item-output multiplier (0.01-1000).")
+                        .defineInRange("assemblerOutputMultiplier", defaults.assemblerOutputMultiplier(), 0.01, 1000.0),
+                BUILDER.comment("Ore plant and fluid drill output multiplier (1-1000).")
+                        .defineInRange("voidProducerOutputMultiplier", defaults.voidProducerOutputMultiplier(), 1, 1000),
+                BUILDER.comment(
+                                "Large Steam Circuit Assembler specialization chance (0-100 percent).",
+                                "A matching batch takes 50% longer and then rolls this chance once.",
+                                "大型蒸汽电路组装机专精增产概率（0-100，单位 %）；匹配批次耗时与总耗汽",
+                                "增加 50%，完成时按此概率掷骰一次。")
+                        .defineInRange("circuitAssemblerBonusChancePercent",
+                                defaults.circuitAssemblerBonusChancePercent(), 0, 100),
+                BUILDER.comment(
+                                "Additional target-circuit multiplier on a successful roll (1-15, integer).",
+                                "7 means an additional 7x the target circuit output.",
+                                "专精成功时追加的目标电路倍率（1-15，仅整数）；7 表示额外追加 7 倍。")
+                        .defineInRange("circuitAssemblerBonusMultiplier",
+                                defaults.circuitAssemblerBonusMultiplier(), 1, 15),
+                defineGseRecipeBoolean("hardBronzeComponentRecipes", defaults.hardBronzeComponentRecipes()),
+                defineGseRecipeBoolean("harderSteamGrindingBlockRecipes", defaults.harderSteamGrindingBlockRecipes()),
+                defineGseRecipeBoolean("hardSteamAssemblyBlockRecipes", defaults.hardSteamAssemblyBlockRecipes()),
+                defineGseRecipeBoolean("hardSteamCircuitAssemblyBlockRecipes", defaults.hardSteamCircuitAssemblyBlockRecipes()),
+                defineGseRecipeBoolean("hardSteamMixingBlockRecipes", defaults.hardSteamMixingBlockRecipes()),
+                defineRecipeBoolean("disableManualCompression", defaults.disableManualCompression()),
+                defineRecipeBoolean("harderRods", defaults.harderRods()),
+                defineRecipeBoolean("harderBrickRecipes", defaults.harderBrickRecipes()),
+                defineRecipeBoolean("nerfWoodCrafting", defaults.nerfWoodCrafting()),
+                defineRecipeBoolean("hardWoodRecipes", defaults.hardWoodRecipes()),
+                defineRecipeBoolean("hardIronRecipes", defaults.hardIronRecipes()),
+                defineRecipeBoolean("hardRedstoneRecipes", defaults.hardRedstoneRecipes()),
+                defineRecipeBoolean("hardToolArmorRecipes", defaults.hardToolArmorRecipes()),
+                defineRecipeBoolean("hardMiscRecipes", defaults.hardMiscRecipes()),
+                defineRecipeBoolean("hardGlassRecipes", defaults.hardGlassRecipes()),
+                defineRecipeBoolean("nerfPaperCrafting", defaults.nerfPaperCrafting()),
+                defineRecipeBoolean("hardAdvancedIronRecipes", defaults.hardAdvancedIronRecipes()),
+                defineRecipeBoolean("hardDyeRecipes", defaults.hardDyeRecipes()),
+                defineRecipeBoolean("harderCharcoalRecipe", defaults.harderCharcoalRecipe()),
+                defineRecipeBoolean("flintAndSteelRequireSteel", defaults.flintAndSteelRequireSteel()),
+                defineRecipeBoolean("removeVanillaBlockRecipes", defaults.removeVanillaBlockRecipes()),
+                defineRecipeBoolean("removeVanillaTNTRecipe", defaults.removeVanillaTNTRecipe()),
+                defineRecipeBoolean("harderCircuitRecipes", defaults.harderCircuitRecipes()),
+                defineRecipeBoolean("hardMultiRecipes", defaults.hardMultiRecipes()));
+        BUILDER.pop();
+        return values;
+    }
+
+    private static ForgeConfigSpec.BooleanValue defineRecipeBoolean(String name, boolean defaultValue) {
+        return BUILDER.comment("Value written to GTCEu recipes." + name + " at startup.")
+                .define("gtceuRecipeOptions." + name, defaultValue);
+    }
+
+    private static ForgeConfigSpec.BooleanValue defineGseRecipeBoolean(String name, boolean defaultValue) {
+        return BUILDER.comment("Selects the harder GSE recipe variant for " + name + ".")
+                .define("gseRecipeOptions." + name, defaultValue);
+    }
+
+    private static Map<Difficulty, GSEDifficultyProfile> captureProfiles() {
+        EnumMap<Difficulty, GSEDifficultyProfile> profiles = new EnumMap<>(Difficulty.class);
+        DIFFICULTY_PROFILES.forEach((difficulty, values) -> profiles.put(difficulty, values.capture()));
+        return Map.copyOf(profiles);
+    }
+
+    private static Map<Difficulty, GSEDifficultyProfile> defaultProfiles() {
+        EnumMap<Difficulty, GSEDifficultyProfile> profiles = new EnumMap<>(Difficulty.class);
+        for (Difficulty difficulty : Difficulty.values()) {
+            profiles.put(difficulty, GSEDifficultyProfile.defaults(difficulty));
+        }
+        return Map.copyOf(profiles);
+    }
+
+    private record ProfileValues(
+                                 ForgeConfigSpec.IntValue gtceuCasingsPerCraft,
+                                 ForgeConfigSpec.DoubleValue steamOutputMultiplier,
+                                 ForgeConfigSpec.IntValue singleblockSteamCacheMultiplier,
+                                 ForgeConfigSpec.IntValue preheatCostPercent,
+                                 ForgeConfigSpec.IntValue preheatIntervalTicks,
+                                 ForgeConfigSpec.IntValue processingSteamPercent,
+                                 ForgeConfigSpec.DoubleValue oreCrushingMultiplier,
+                                 ForgeConfigSpec.DoubleValue boilerRoomSteamOutputMultiplier,
+                                 ForgeConfigSpec.DoubleValue assemblerOutputMultiplier,
+                                 ForgeConfigSpec.IntValue voidProducerOutputMultiplier,
+                                 ForgeConfigSpec.IntValue circuitAssemblerBonusChancePercent,
+                                 ForgeConfigSpec.IntValue circuitAssemblerBonusMultiplier,
+                                 ForgeConfigSpec.BooleanValue hardBronzeComponentRecipes,
+                                 ForgeConfigSpec.BooleanValue harderSteamGrindingBlockRecipes,
+                                 ForgeConfigSpec.BooleanValue hardSteamAssemblyBlockRecipes,
+                                 ForgeConfigSpec.BooleanValue hardSteamCircuitAssemblyBlockRecipes,
+                                 ForgeConfigSpec.BooleanValue hardSteamMixingBlockRecipes,
+                                 ForgeConfigSpec.BooleanValue disableManualCompression,
+                                 ForgeConfigSpec.BooleanValue harderRods,
+                                 ForgeConfigSpec.BooleanValue harderBrickRecipes,
+                                 ForgeConfigSpec.BooleanValue nerfWoodCrafting,
+                                 ForgeConfigSpec.BooleanValue hardWoodRecipes,
+                                 ForgeConfigSpec.BooleanValue hardIronRecipes,
+                                 ForgeConfigSpec.BooleanValue hardRedstoneRecipes,
+                                 ForgeConfigSpec.BooleanValue hardToolArmorRecipes,
+                                 ForgeConfigSpec.BooleanValue hardMiscRecipes,
+                                 ForgeConfigSpec.BooleanValue hardGlassRecipes,
+                                 ForgeConfigSpec.BooleanValue nerfPaperCrafting,
+                                 ForgeConfigSpec.BooleanValue hardAdvancedIronRecipes,
+                                 ForgeConfigSpec.BooleanValue hardDyeRecipes,
+                                 ForgeConfigSpec.BooleanValue harderCharcoalRecipe,
+                                 ForgeConfigSpec.BooleanValue flintAndSteelRequireSteel,
+                                 ForgeConfigSpec.BooleanValue removeVanillaBlockRecipes,
+                                 ForgeConfigSpec.BooleanValue removeVanillaTNTRecipe,
+                                 ForgeConfigSpec.BooleanValue harderCircuitRecipes,
+                                 ForgeConfigSpec.BooleanValue hardMultiRecipes) {
+
+        private GSEDifficultyProfile capture() {
+            return new GSEDifficultyProfile(
+                    gtceuCasingsPerCraft.get(), steamOutputMultiplier.get(), singleblockSteamCacheMultiplier.get(),
+                    preheatCostPercent.get(), preheatIntervalTicks.get(), processingSteamPercent.get(),
+                    oreCrushingMultiplier.get(), boilerRoomSteamOutputMultiplier.get(),
+                    assemblerOutputMultiplier.get(), voidProducerOutputMultiplier.get(),
+                    circuitAssemblerBonusChancePercent.get(), circuitAssemblerBonusMultiplier.get(),
+                    hardBronzeComponentRecipes.get(), harderSteamGrindingBlockRecipes.get(),
+                    hardSteamAssemblyBlockRecipes.get(), hardSteamCircuitAssemblyBlockRecipes.get(),
+                    hardSteamMixingBlockRecipes.get(),
+                    disableManualCompression.get(), harderRods.get(), harderBrickRecipes.get(),
+                    nerfWoodCrafting.get(), hardWoodRecipes.get(), hardIronRecipes.get(),
+                    hardRedstoneRecipes.get(), hardToolArmorRecipes.get(), hardMiscRecipes.get(),
+                    hardGlassRecipes.get(), nerfPaperCrafting.get(), hardAdvancedIronRecipes.get(),
+                    hardDyeRecipes.get(), harderCharcoalRecipe.get(), flintAndSteelRequireSteel.get(),
+                    removeVanillaBlockRecipes.get(), removeVanillaTNTRecipe.get(),
+                    harderCircuitRecipes.get(), hardMultiRecipes.get());
+        }
     }
 }

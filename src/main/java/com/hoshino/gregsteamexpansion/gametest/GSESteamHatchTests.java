@@ -265,6 +265,11 @@ public final class GSESteamHatchTests {
                         "Large steam supply hatch recipe does not require four arbitrary HV circuits");
             }
         }
+        var assemblerRecipe = helper.getLevel().getRecipeManager()
+                .byKey(GregSteamExpansion.id("assembler/large_steam_supply_hatch"))
+                .orElse(null);
+        helper.assertTrue(assemblerRecipe != null,
+                "Large steam supply hatch assembler recipe is missing");
         helper.succeed();
     }
 
@@ -298,6 +303,11 @@ public final class GSESteamHatchTests {
                         "Advanced exhaust recipe does not require four arbitrary HV circuits");
             }
         }
+        var assemblerRecipe = helper.getLevel().getRecipeManager()
+                .byKey(GregSteamExpansion.id("assembler/advanced_steam_exhaust_hatch"))
+                .orElse(null);
+        helper.assertTrue(assemblerRecipe != null,
+                "Advanced steam exhaust hatch assembler recipe is missing");
         helper.succeed();
     }
 

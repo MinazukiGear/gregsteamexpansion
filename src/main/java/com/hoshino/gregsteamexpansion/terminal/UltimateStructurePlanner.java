@@ -72,7 +72,9 @@ public final class UltimateStructurePlanner {
     public record ChannelChoice(String id, int selected, List<ItemStack> options) {}
 
     public record StructureChoice(int selected, List<String> options) {
-        static StructureChoice empty() { return new StructureChoice(0, List.of()); }
+        static StructureChoice empty() {
+            return new StructureChoice(UltimateTerminalConfig.AUTO_CHANNEL_SELECTION, List.of());
+        }
     }
 
     public record Plan(List<Placement> placements, List<Cell> cells,
@@ -266,9 +268,9 @@ public final class UltimateStructurePlanner {
             List<UltimateTerminalStructureVariants.Variant> variants = provider.terminalStructureVariants();
             if (!variants.isEmpty()) {
                 int configured = profile.channelSelection(UltimateTerminalStructureVariants.CHANNEL_ID);
-                int index = configured <= 0 ? variants.size() - 1 : Math.min(configured, variants.size()) - 1;
+                int index = configured < 0 ? variants.size() - 1 : Math.min(configured, variants.size() - 1);
                 return new PatternSelection(variants.get(index).pattern(),
-                        new StructureChoice(index + 1, variants.stream()
+                        new StructureChoice(index, variants.stream()
                                 .map(UltimateTerminalStructureVariants.Variant::label).toList()));
             }
         }
@@ -281,7 +283,7 @@ public final class UltimateStructurePlanner {
             for (int i = 0; i < variants.size(); i++) {
                 var variant = variants.get(i);
                 if (variant.pattern().checkPatternAt(controller.getMultiblockState(), false)) {
-                    return new PatternSelection(variant.pattern(), new StructureChoice(i + 1,
+                    return new PatternSelection(variant.pattern(), new StructureChoice(i,
                             variants.stream().map(UltimateTerminalStructureVariants.Variant::label).toList()));
                 }
             }
@@ -443,7 +445,7 @@ public final class UltimateStructurePlanner {
 
     private static Candidate selectedCoil(TraceabilityPredicate predicate, TerminalBuildProfile profile) {
         int selected = profile.channelSelection("coil");
-        if (selected <= 0) {
+        if (selected < 0) {
             return profile.coilTier() > 0 ? closestCoil(predicate, profile.coilTier()) : null;
         }
         List<Candidate> coils = new ArrayList<>();
@@ -456,27 +458,27 @@ public final class UltimateStructurePlanner {
         }
         coils.sort(Comparator.comparingInt(candidate ->
                 ((CoilBlock) ((BlockItem) candidate.stack().getItem()).getBlock()).coilType.getTier()));
-        return coils.isEmpty() ? null : coils.get(Math.min(selected, coils.size()) - 1);
+        return coils.isEmpty() ? null : coils.get(Math.min(selected, coils.size() - 1));
     }
 
     private static ItemStack preferredCoilStack(List<ItemStack> candidates, TerminalBuildProfile profile) {
         int selected = profile.channelSelection("coil");
-        if (selected <= 0) return ItemStack.EMPTY;
+        if (selected < 0) return ItemStack.EMPTY;
         List<ItemStack> coils = candidates.stream()
                 .filter(stack -> ((BlockItem) stack.getItem()).getBlock() instanceof CoilBlock)
                 .sorted(Comparator.comparingInt(stack ->
                         ((CoilBlock) ((BlockItem) stack.getItem()).getBlock()).coilType.getTier()))
                 .toList();
-        return coils.isEmpty() ? ItemStack.EMPTY : coils.get(Math.min(selected, coils.size()) - 1);
+        return coils.isEmpty() ? ItemStack.EMPTY : coils.get(Math.min(selected, coils.size() - 1));
     }
 
     private static ChannelMatch closestChannel(TraceabilityPredicate predicate, TerminalBuildProfile profile) {
         for (UltimateTerminalConfig.SelectionChannel channel : UltimateTerminalConfig.selectionChannels()) {
             int selected = profile.channelSelection(channel.id());
-            if (selected <= 0) continue;
+            if (selected < 0) continue;
             List<ItemStack> options = resolvedOptions(channel);
             if (options.isEmpty()) continue;
-            int requested = Math.min(selected, options.size()) - 1;
+            int requested = Math.min(selected, options.size() - 1);
             Candidate best = null;
             int distance = Integer.MAX_VALUE;
             for (SimplePredicate simple : combined(predicate)) {
@@ -496,10 +498,10 @@ public final class UltimateStructurePlanner {
     private static ItemStack preferredChannelStack(List<ItemStack> candidates, TerminalBuildProfile profile) {
         for (UltimateTerminalConfig.SelectionChannel channel : UltimateTerminalConfig.selectionChannels()) {
             int selected = profile.channelSelection(channel.id());
-            if (selected <= 0) continue;
+            if (selected < 0) continue;
             List<ItemStack> options = resolvedOptions(channel);
             if (options.isEmpty()) continue;
-            int requested = Math.min(selected, options.size()) - 1;
+            int requested = Math.min(selected, options.size() - 1);
             ItemStack best = ItemStack.EMPTY;
             int distance = Integer.MAX_VALUE;
             for (ItemStack candidate : candidates) {
@@ -532,18 +534,18 @@ public final class UltimateStructurePlanner {
                 .map(stack -> stack.copyWithCount(1)).toList();
         if (coils.size() >= 2) {
             int selected = profile.channelSelection("coil");
-            if (selected <= 0 && profile.coilTier() > 0) {
+            if (selected < 0 && profile.coilTier() > 0) {
                 int bestDistance = Integer.MAX_VALUE;
                 for (int i = 0; i < coils.size(); i++) {
                     int tier = ((CoilBlock) ((BlockItem) coils.get(i).getItem()).getBlock()).coilType.getTier() + 1;
                     int distance = Math.abs(tier - profile.coilTier());
                     if (distance < bestDistance) {
                         bestDistance = distance;
-                        selected = i + 1;
+                        selected = i;
                     }
                 }
             }
-            choices.add(new ChannelChoice("coil", Math.min(selected, coils.size()), coils));
+            choices.add(new ChannelChoice("coil", Math.min(selected, coils.size() - 1), coils));
         }
         for (UltimateTerminalConfig.SelectionChannel channel : UltimateTerminalConfig.selectionChannels()) {
             List<ItemStack> options = resolvedOptions(channel);
@@ -551,7 +553,7 @@ public final class UltimateStructurePlanner {
                     .filter(java.util.Objects::nonNull).filter(stats::containsKey).count();
             if (applicable < 2) continue;
             choices.add(new ChannelChoice(channel.id(),
-                    Math.min(profile.channelSelection(channel.id()), options.size()), options));
+                    Math.min(profile.channelSelection(channel.id()), options.size() - 1), options));
         }
         return List.copyOf(choices);
     }

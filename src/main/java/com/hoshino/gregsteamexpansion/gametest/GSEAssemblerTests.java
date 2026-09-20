@@ -1,9 +1,9 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
-import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
-import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.AbstractSteamAssemblerMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamCircuitAssemblerMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
 import com.gregtechceu.gtceu.api.GTValues;
@@ -11,6 +11,7 @@ import com.gregtechceu.gtceu.api.machine.MultiblockMachineDefinition;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
+import com.gregtechceu.gtceu.common.data.GTItems;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
@@ -171,13 +172,87 @@ public final class GSEAssemblerTests {
             eq(h, fluidInput.getFluidAmount(), 0,
                     "Accepted circuit recipe did not consume exactly one operation of solder");
 
-            float expectedMultiplier = GSEDifficultyConfig.capturedDifficulty() == Difficulty.EASY
-                    ? 2.0F : 1.0F;
+            float expectedMultiplier = GSEDifficultyState.assemblerOutputMultiplier(false);
             h.assertTrue(((Number) get(machine, "batchOutputMultiplier")).floatValue() == expectedMultiplier,
                     "Circuit assembler locked the wrong output multiplier for the startup difficulty");
             call(machine, "completeBatch");
             eq(h, outputCount(machine, Items.STONE), Math.round(expectedMultiplier),
                     "Circuit assembler produced the wrong item count for the startup difficulty");
+        });
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void circuitSpecializationMatchesOnlySelectedOutputAndLocksBonus(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_CIRCUIT_ASSEMBLER, controller -> {
+            LargeSteamCircuitAssemblerMachine machine = (LargeSteamCircuitAssemblerMachine) controller;
+            machine.getAssemblerSlotHandler().setStackInSlot(
+                    0, GTMachines.CIRCUIT_ASSEMBLER[GTValues.LV].asStack());
+            ItemBusPartMachine input = inputBus(machine);
+            fillOutputs(machine, false);
+
+            ItemStack selectedCircuit = GTItems.ELECTRONIC_CIRCUIT_LV.asStack();
+            ItemStack rejected = machine.getSpecializationSlotHandler().insertItem(
+                    0, new ItemStack(Items.STONE), false);
+            h.assertTrue(rejected.is(Items.STONE) && machine.getSpecializationCircuit().isEmpty(),
+                    "Specialization slot accepted a non-circuit item");
+            h.assertTrue(machine.getSpecializationSlotHandler().insertItem(
+                    0, selectedCircuit.copy(), false).isEmpty(),
+                    "Specialization slot rejected a tagged circuit");
+            eq(h, machine.getSpecializationCircuit().getCount(), 1,
+                    "Specialization slot did not enforce its one-item limit");
+
+            GTRecipe matching = GTRecipeTypes.CIRCUIT_ASSEMBLER_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("circuit_specialization_matching"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE))
+                    .outputItems(selectedCircuit.copy())
+                    .duration(20).EUt(GTValues.VA[GTValues.LV]).buildRawRecipe();
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 4));
+
+            fillOutputs(machine, true);
+            outputs(machine).get(0).getInventory().setStackInSlot(
+                    0, selectedCircuit.copyWithCount(selectedCircuit.getMaxStackSize() - 2));
+            h.assertTrue(!(boolean) call(machine, "tryStartRecipe", matching),
+                    "Specialization started when only the base output could fit");
+            eq(h, inputItemCount(input, Items.COBBLESTONE), 4,
+                    "Failed specialization output precheck consumed input");
+            h.assertTrue(machine.getBatchRecipeId().isEmpty(),
+                    "Failed specialization output precheck left a locked batch");
+
+            fillOutputs(machine, false);
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", matching),
+                    "Circuit assembler rejected the matching specialization recipe");
+            eq(h, machine.getBatchParallel(), 2,
+                    "Matching specialization changed the assembler parallel");
+            eq(h, machine.getBatchDuration(), 68,
+                    "Matching specialization did not add 50% to the rounded base duration");
+            eq(h, machine.getBatchSteamPerTick(), 75,
+                    "Matching specialization incorrectly changed the per-tick steam rate");
+            eq(h, number(machine, "batchTotalSteamMb"), 68L * 75L,
+                    "Matching specialization did not increase total steam with duration");
+
+            // Force the already locked batch to the boundary values so settlement is deterministic.
+            set(machine, "batchSpecializationChancePercent", 100);
+            set(machine, "batchSpecializationMultiplier", 3);
+            set(machine, "batchOutputMultiplier", 1.0F);
+            call(machine, "completeBatch");
+            eq(h, outputCount(machine, selectedCircuit.getItem()), 8,
+                    "Successful specialization did not add base output x parallel x multiplier");
+            eq(h, machine.getSpecializationCircuit().getCount(), 1,
+                    "Specialization consumed its reference circuit");
+
+            GTRecipe nonMatching = GTRecipeTypes.CIRCUIT_ASSEMBLER_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("circuit_specialization_non_matching"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE))
+                    .outputItems(new ItemStack(Items.STONE))
+                    .duration(20).EUt(GTValues.VA[GTValues.LV]).buildRawRecipe();
+            clearInventory(input);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 4));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", nonMatching),
+                    "Circuit assembler rejected a non-matching recipe");
+            eq(h, machine.getBatchDuration(), 45,
+                    "Non-matching recipe received the specialization duration penalty");
+            eq(h, machine.getBatchSteamPerTick(), 75,
+                    "Non-matching recipe received the specialization steam penalty");
         });
     }
 

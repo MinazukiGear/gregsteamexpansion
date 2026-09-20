@@ -519,7 +519,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         long baseEu = RecipeHelper.getRealEUt(recipe).getTotalEU();
         long baseEnergy = baseEu * recipe.duration;
         double discount = steamDiscount();
-        double processingMultiplier = difficulty.getProcessingSteamPercent() / 100.0;
+        double processingMultiplier = GSEDifficultyState.processingSteamPercent(isRemote()) / 100.0;
         long totalSteam = (long) Math.ceil(baseEnergy * 2.0 * parallel * discount * processingMultiplier);
         double speed = speedMultiplier();
         int normalDuration = Math.max(1, (int) Math.ceil(recipe.duration / speed));
@@ -613,7 +613,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         long baseEu = RecipeHelper.getRealEUt(recipe).getTotalEU();
         long baseEnergy = baseEu * recipe.duration;
         double discount = steamDiscount();
-        double processingMultiplier = difficulty.getProcessingSteamPercent() / 100.0;
+        double processingMultiplier = GSEDifficultyState.processingSteamPercent(isRemote()) / 100.0;
         double speed = speedMultiplier();
         int normalDuration = Math.max(1, (int) Math.ceil(recipe.duration / speed));
         for (int parallel = maximumParallel(); parallel >= 1; parallel--) {
@@ -672,7 +672,7 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
         if ((heatTimer == 0 && preheatProgressUnits == 0) || preheatDurationTicks <= 0) {
             preheatSteamThrottlePercent = SteamThrottle.normalize(steamThrottlePercent);
             preheatDurationTicks = SteamThrottle.scaledDuration(
-                    difficulty.getPreheatIntervalTicks(), preheatSteamThrottlePercent);
+                    GSEDifficultyState.preheatIntervalTicks(isRemote()), preheatSteamThrottlePercent);
             preheatTotalSteamMb = partCollector.modifySteamConsumption((heatTotalUnits + 99) / 100);
         }
 
@@ -760,7 +760,8 @@ public class LargeHeatStorageSteamFurnaceMachine extends MultiblockControllerMac
 
     /** 预热每 1°C 蒸汽成本 in 1/100 mB units: (宽²−4) × 高 × 2 × percent / 100. */
     public long preheatCostPerDegreeUnits(Difficulty difficulty) {
-        return FurnaceThermalLogic.preheatCostPerDegreeUnits(formedWidth, formedHeight, difficulty);
+        return FurnaceThermalLogic.preheatCostPerDegreeUnits(
+                formedWidth, formedHeight, GSEDifficultyState.preheatCostPercent(isRemote()));
     }
 
     /**

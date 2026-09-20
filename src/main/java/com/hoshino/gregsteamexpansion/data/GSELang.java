@@ -107,7 +107,7 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_tank_valve.tooltip.0",
                 "Proxies the shared Large Steam Tank storage without adding capacity.");
         add("gregsteamexpansion.machine.steam_tank_valve.tooltip.1",
-                "Use a screwdriver to switch between input and active output modes.");
+                "Use a screwdriver to switch between active input and output modes; input mode supports ME Interfaces.");
         add("gregsteamexpansion.machine.steam_tank_valve.mode.input", "Steam Tank Valve: input mode");
         add("gregsteamexpansion.machine.steam_tank_valve.mode.output", "Steam Tank Valve: output mode");
         add("gregsteamexpansion.gui.large_steam_tank.title", "Large Steam Tank");
@@ -866,17 +866,51 @@ public final class GSELang {
         add("config.gregsteamexpansion.difficulty.easy", "Easy (MoYu)");
         add("config.gregsteamexpansion.difficulty.normal", "Normal (ShuShi)");
         add("config.gregsteamexpansion.difficulty.expert", "Expert (YaZha)");
+        add("config.gregsteamexpansion.difficulty.disabled", "Difficulty Off");
         add("config.gregsteamexpansion.difficulty.invalid", "Invalid");
         add("config.gregsteamexpansion.difficulty.mismatch",
-                "Work intensity mismatch: your client difficulty is %s, but the server uses %s. " +
-                        "Set difficulty in config/gregsteamexpansion-common.toml to the server tier, " +
+                "Difficulty setting mismatch: your client uses %s, but the server uses %s. " +
+                        "Match difficultyEnabled and difficulty in config/gregsteamexpansion-common.toml, " +
                         "then restart your client before reconnecting.");
+        add("config.gregsteamexpansion.difficulty.profile_mismatch",
+                "Difficulty profile mismatch: your selected tier has different configured values from the server. " +
+                        "Use the server's difficultyProfiles settings, then restart your client before reconnecting.");
 
         add("config.gregsteamexpansion.screen.title", "Greg Steam Expansion Config");
+        add("config.gregsteamexpansion.screen.difficulty_enabled", "Enable difficulty system");
         add("config.gregsteamexpansion.screen.difficulty", "Work intensity (difficulty)");
+        add("config.gregsteamexpansion.screen.first_setup.title", "Greg Steam Expansion: Initial Setup");
+        add("config.gregsteamexpansion.screen.first_setup.description",
+                "Difficulty is off by default; while off, every difficulty multiplier is \u00d71.");
+        add("config.gregsteamexpansion.screen.first_setup.restart",
+                "Choose whether to enable it and select a tier. Saving closes the game; restart to apply.");
+        add("config.gregsteamexpansion.screen.first_setup.save", "Save and Exit");
+        add("config.gregsteamexpansion.screen.ultimate_terminal", "Ultimate Terminal");
+        add("config.gregsteamexpansion.screen.configure", "Configure...");
         add("config.gregsteamexpansion.screen.restart",
                 "Saved to the config file; restart the client before it takes effect.");
         add("config.gregsteamexpansion.screen.reset", "Reset to Default");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.title", "Ultimate Terminal Config");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.blocks_per_tick", "Block operations per tick (1-256)");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels", "Structure-selection channels");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels_hint",
+                "Edited on a separate page; expand a channel to map values to block IDs.");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels.open", "Edit (%s channels)...");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels.title",
+                "Structure-selection Channels");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels.guide",
+                "Expand a channel to edit its value-to-block mapping.");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels.add_channel", "Add Channel");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels.add_entry", "Add Entry");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels.channel_id", "Channel ID");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels.block_id", "Block ID");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels.delete", "Delete");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.channels.invalid",
+                "Invalid/duplicate ID; every channel needs 2-64 unique block IDs.");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.server_hint",
+                "Server-side settings; dedicated servers must edit their own config file.");
+        add("config.gregsteamexpansion.screen.ultimate_terminal.invalid",
+                "Invalid value, channel syntax, duplicate channel ID, or more than 32 channels.");
 
         addCokeOvenLang();
         addLargeCokeOvenLang();
@@ -984,12 +1018,16 @@ public final class GSELang {
 
     // ------------------------------------------------------------------
     // 锅炉房 (boiler-room.md 两级物品提示与状态文本)。控制器条目沿用上游
-    // gtceu.multiblock.large_boiler.* 的温度/节流/爆炸文案, 仅新增协同燃烧
-    // 与助燃空气两行及四条运行状态。
+    // gtceu.multiblock.large_boiler.* 的温度/节流/爆炸文案, 仅新增协同燃烧、
+    // 难度倍率、满温产量与助燃空气提示及四条运行状态。
     // ------------------------------------------------------------------
     private static void addBoilerRoomLang() {
         add("gregsteamexpansion.machine.boiler_room.tooltip.co_firing",
-                "Co-firing only: liquid fuel + a co-firing dust powder; output \u00d71.5, drawing %s mB/t of combustion air.");
+                "Co-firing only: liquid fuel + a co-firing dust powder; fixed co-firing bonus \u00d71.5, drawing %s mB/t of combustion air.");
+        add("gregsteamexpansion.machine.boiler_room.tooltip.difficulty",
+                "Built-in difficulty defaults: Off \u00d71 / Easy \u00d73 / Normal \u00d72 / Expert \u00d71.5; profile values are configurable.");
+        add("gregsteamexpansion.machine.boiler_room.tooltip.full_output",
+                "Built-in defaults at full temperature and 100%% throttle: Easy %s / Normal %s / Expert %s mB/t.");
         add("gregsteamexpansion.machine.boiler_room.tooltip.air_intake",
                 "Top centre strip (11 blocks): tier casing or 1-11 Steam Air Intake Hatches only; no other hatches on this strip.");
         add("gregsteamexpansion.machine.boiler_room.status.no_air_intake",
@@ -1043,7 +1081,7 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.0",
                 "5\u00d711\u00d76 large steam circuit assembler running the full gtceu:circuit_assembler recipe type with pure steam power.");
         add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.1",
-                "Same assembler-slot mechanism as the Large Steam Assembler; every recipe also needs its mandatory solder-type fluid input.");
+                "Same assembler-slot mechanism as the Large Steam Assembler; a second slot specializes production for one installed circuit.");
         add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.summary.2",
                 "Hold Shift for slot, parallel ladder and structure details.");
         add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle", "Assembler Slot");
@@ -1059,9 +1097,9 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.4",
                 "Ladder at 1 / 2 / 4 / 8 / 16 parallel: steam \u00d71 / 1.25 / 1.5 / 1.75 / 2, duration \u00d71 / 1.5 / 2 / 2.5 / 3 \u2014 higher parallel lowers steam cost per item.");
         add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.5",
-                "Every circuit assembler recipe carries a mandatory fluid input (upstream auto-adds solder); the fluid input hatch is a first-class requirement.");
+                "The specialization slot accepts one circuit and does not consume it. A matching output makes the batch take and consume 50% more in total, then rolls the configured bonus once.");
         add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.6",
-                "Easy difficulty doubles item outputs of new batches; Normal and Expert stay 1\u00d7 \u2014 inputs are never discounted.");
+                "Bonus chance and additional output are configurable per tier. Defaults: Easy 100% / +7\u00d7, Normal 50% / +3\u00d7, Expert 25% / +1\u00d7. Non-matching recipes are unchanged.");
         add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.subtitle3", "Structure and Automation");
         add("gregsteamexpansion.machine.large_steam_circuit_assembler.tooltip.details.7",
                 "Steam machine casings form the bottom face, walls and edges (\u226416 hatches in total); only the 1\u00d711 top ridge is industrial casing.");
@@ -1074,6 +1112,10 @@ public final class GSELang {
         add("gregsteamexpansion.machine.steam_assembler.ui.slot_empty", "Assembler slot: empty (ULV only)");
         add("gregsteamexpansion.machine.steam_assembler.ui.slot_summary",
                 "Assembler slot: %s \u00d7%s (parallel \u2264 %s)");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.specialization.slot",
+                "Circuit specialization slot (reference circuit is not consumed)");
+        add("gregsteamexpansion.machine.large_steam_circuit_assembler.specialization.settings",
+                "Matching batches: +50% duration / total steam; %s%% chance for +%s\u00d7 target output");
     }
 
     /** 大型焦炉本地化 (coke-ovens.md 大型焦炉已确认设计)。 */

@@ -1,6 +1,8 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.gregtechceu.gtceu.common.data.GTMaterials;
+import com.gregtechceu.gtceu.common.data.GTMachines;
+import com.gregtechceu.gtceu.common.machine.multiblock.part.FluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.LargeSteamTankMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamTankValvePartMachine;
@@ -126,5 +128,57 @@ public final class GSESteamTankTests {
         helper.assertTrue(restored.getFormedCapacity() == 20_736_000,
                 "Controller item round-trip lost the last formed capacity");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void valveActivelyTransfersSteamInBothModes(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_TANK;
+        LargeSteamTankMachine tank = (LargeSteamTankMachine) GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(0));
+        helper.assertTrue(tank != null && tank.checkPattern(), "Steam tank fixture did not match");
+        if (tank == null) return;
+        tank.onStructureFormed();
+
+        SteamTankValvePartMachine valve = tank.getParts().stream()
+                .filter(SteamTankValvePartMachine.class::isInstance)
+                .map(SteamTankValvePartMachine.class::cast)
+                .findFirst()
+                .orElse(null);
+        helper.assertTrue(valve != null, "Steam tank fixture has no valve");
+        if (valve == null) return;
+
+        BlockPos templateOrigin = helper.absolutePos(BlockPos.ZERO);
+        BlockPos sourcePos = valve.getPos().relative(valve.getFrontFacing()).subtract(templateOrigin);
+        FluidHatchPartMachine source = GSEStructureTestUtils.placeMachine(
+                helper, GTMachines.FLUID_EXPORT_HATCH[1], sourcePos);
+        source.setWorkingEnabled(false);
+        source.tank.setFluidInTank(0, GTMaterials.Steam.getFluid(4_000));
+
+        helper.runAfterDelay(10, () -> {
+            helper.assertTrue(tank.getStoredAmount() == 4_000,
+                    "Input-mode valve did not pull steam from the adjacent fluid handler");
+            helper.assertTrue(source.tank.getFluidInTank(0).isEmpty(),
+                    "Adjacent fluid handler retained steam after valve import");
+
+            source.tank.setFluidInTank(0, GTMaterials.Water.getFluid(1_000));
+            helper.runAfterDelay(10, () -> {
+                helper.assertTrue(tank.getStoredAmount() == 4_000,
+                        "Active valve import bypassed the standard-steam filter");
+                helper.assertTrue(source.tank.getFluidInTank(0).getAmount() == 1_000,
+                        "Active valve import removed a rejected fluid from its source");
+
+                FluidHatchPartMachine sink = GSEStructureTestUtils.placeMachine(
+                        helper, GTMachines.FLUID_IMPORT_HATCH[1], sourcePos);
+                sink.setWorkingEnabled(false);
+                valve.setOutputMode(true);
+                helper.runAfterDelay(10, () -> {
+                    helper.assertTrue(tank.getStoredAmount() == 0,
+                            "Output-mode valve did not push steam into the adjacent fluid handler");
+                    helper.assertTrue(sink.tank.getFluidInTank(0).getAmount() == 4_000,
+                            "Adjacent fluid handler did not receive the valve's active steam output");
+                    helper.succeed();
+                });
+            });
+        });
     }
 }

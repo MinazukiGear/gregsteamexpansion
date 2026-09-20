@@ -30,6 +30,6 @@ public abstract class LargeBoilerMachineMixin {
                      target = "Lcom/gregtechceu/gtceu/config/ConfigHolder$MachineConfigs$LargeBoilers;steamPerWater:I"))
     private int gse$multiplySteamGeneration(int original) {
         LargeBoilerMachine self = (LargeBoilerMachine) (Object) this;
-        return Math.round(original * GSEDifficultyState.current(self.isRemote()).getSteamOutputMultiplier());
+        return Math.round(original * GSEDifficultyState.steamOutputMultiplier(self.isRemote()));
     }
 }

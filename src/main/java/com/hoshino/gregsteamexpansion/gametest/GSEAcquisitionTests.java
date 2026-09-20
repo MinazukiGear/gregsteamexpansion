@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
@@ -22,6 +23,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
@@ -95,17 +97,19 @@ public final class GSEAcquisitionTests {
         }
         assertUltimateTerminalRecipe(helper);
 
-        assertOneDifficultyRecipeOutput(helper, "shaped/bronze_component", GregSteamExpansion.id("bronze_component"));
-        assertOneDifficultyRecipeOutput(helper, "shaped/industrial_steam_casing",
-                GregSteamExpansion.gtceuId("industrial_steam_casing"));
-        assertOneDifficultyRecipeOutput(helper, "shaped/steam_grinding_block",
-                GregSteamExpansion.id("steam_grinding_block"));
-        assertOneDifficultyRecipeOutput(helper, "shaped/steam_assembly_block",
-                GregSteamExpansion.id("steam_assembly_block"));
-        assertOneDifficultyRecipeOutput(helper, "shaped/steam_circuit_assembly_block",
-                GregSteamExpansion.id("steam_circuit_assembly_block"));
-        assertOneDifficultyRecipeOutput(helper, "shaped/steam_mixing_block",
-                GregSteamExpansion.id("steam_mixing_block"));
+        assertOneConfiguredRecipeOutput(helper, "shaped/bronze_component",
+                GregSteamExpansion.id("bronze_component"), 1);
+        int blockOutputCount = GSEDifficultyState.recipeCasingsPerCraft();
+        assertOneConfiguredRecipeOutput(helper, "shaped/industrial_steam_casing",
+                GregSteamExpansion.gtceuId("industrial_steam_casing"), blockOutputCount);
+        assertOneConfiguredRecipeOutput(helper, "shaped/steam_grinding_block",
+                GregSteamExpansion.id("steam_grinding_block"), blockOutputCount);
+        assertOneConfiguredRecipeOutput(helper, "shaped/steam_assembly_block",
+                GregSteamExpansion.id("steam_assembly_block"), blockOutputCount);
+        assertOneConfiguredRecipeOutput(helper, "shaped/steam_circuit_assembly_block",
+                GregSteamExpansion.id("steam_circuit_assembly_block"), blockOutputCount);
+        assertOneConfiguredRecipeOutput(helper, "shaped/steam_mixing_block",
+                GregSteamExpansion.id("steam_mixing_block"), blockOutputCount);
         helper.succeed();
     }
 
@@ -302,18 +306,22 @@ public final class GSEAcquisitionTests {
                         + ForgeRegistries.ITEMS.getKey(expected.getItem()));
     }
 
-    private static void assertOneDifficultyRecipeOutput(GameTestHelper helper, String recipeBasePath,
-                                                        ResourceLocation expectedItemId) {
-        int loaded = 0;
-        for (String difficulty : List.of("easy", "normal", "expert")) {
-            String recipePath = recipeBasePath + "_" + difficulty;
-            if (helper.getLevel().getRecipeManager().byKey(GregSteamExpansion.id(recipePath)).isPresent()) {
-                loaded++;
-                assertLoadedRecipeOutput(helper, recipePath, expectedItemId);
-            }
-        }
-        helper.assertTrue(loaded == 1,
-                "Expected exactly one loaded difficulty recipe for " + recipeBasePath + ", found " + loaded);
+    private static void assertOneConfiguredRecipeOutput(GameTestHelper helper, String recipeBasePath,
+                                                        ResourceLocation expectedItemId, int expectedCount) {
+        List<Recipe<?>> loaded = helper.getLevel().getRecipeManager().getRecipes().stream()
+                .filter(recipe -> GregSteamExpansion.MOD_ID.equals(recipe.getId().getNamespace()))
+                .filter(recipe -> recipe.getId().getPath().startsWith(recipeBasePath + "_"))
+                .toList();
+        helper.assertTrue(loaded.size() == 1,
+                "Expected exactly one loaded configured recipe for " + recipeBasePath
+                        + ", found " + loaded.size());
+        Recipe<?> recipe = loaded.get(0);
+        ItemStack result = recipe.getResultItem(helper.getLevel().registryAccess());
+        ResourceLocation actualItemId = ForgeRegistries.ITEMS.getKey(result.getItem());
+        helper.assertTrue(expectedItemId.equals(actualItemId),
+                recipe.getId() + " outputs " + actualItemId + " instead of " + expectedItemId);
+        helper.assertTrue(result.getCount() == expectedCount,
+                recipe.getId() + " outputs " + result.getCount() + " instead of " + expectedCount);
     }
 
     private static boolean isAcquisitionDependencyResolvable(Item item,

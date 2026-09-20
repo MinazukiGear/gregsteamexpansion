@@ -894,6 +894,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchAuxiliaryPerTickMb = auxiliary.steamPerTickMb();
         batchOutputMultiplier = batchOutputMultiplier();
         batchInputDisplay = firstInputDisplay(recipe);
+        onBatchStarted(recipe, parallel);
         GregSteamExpansion.LOGGER.debug(
                 "Steam processor at {} started batch {} with parallel {} ({} ticks, {} mB total, {} mB/t)",
                 getPos(), batchRecipeId, parallel, batchDurationTicks, batchTotalSteamMb, batchSteamPerTickMb);
@@ -985,6 +986,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 }
             }
         }
+        perOperationItems.addAll(additionalWorstCaseItemOutputs(recipe));
         List<FluidStack> perOperationFluids = new ArrayList<>();
         if (fluidOutputs != null) {
             for (Content content : fluidOutputs) {
@@ -1075,6 +1077,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         if (batchRecipe == null) {
             hasBatch = false;
             batchLargeSteamOverclock = false;
+            onBatchCleared();
             return;
         }
         GTRecipe multiplied = batchRecipe.copy(ContentModifier.multiplier(batchParallel));
@@ -1100,6 +1103,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
                 producedFluids.addAll(materializeFluidContents(rolled));
             }
         });
+        appendAdditionalBatchOutputs(batchRecipe, batchParallel, produced);
         List<ItemStack> scaledProduced = scaleByMultiplier(produced, batchOutputMultiplier);
         pendingBuffer.addMergedItems(scaledProduced);
         pendingBuffer.addMergedFluids(producedFluids);
@@ -1111,8 +1115,30 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         batchLargeSteamOverclock = false;
         batchInputDisplay = ItemStack.EMPTY;
         batchOutputMultiplier = 1.0f;
+        onBatchCleared();
         deliverPendingOutputs();
     }
+
+    /**
+     * Extension point for controller-specific state that must be locked with a
+     * newly accepted batch. The default processor family has no extra state.
+     */
+    protected void onBatchStarted(GTRecipe recipe, int parallel) {}
+
+    /**
+     * Extra per-operation item outputs used by the startup worst-case fit
+     * check. Chance-based specializations should return their success case so
+     * a successful roll can never void items after inputs have been consumed.
+     */
+    protected List<ItemStack> additionalWorstCaseItemOutputs(GTRecipe recipe) {
+        return List.of();
+    }
+
+    /** Adds controller-specific outputs after the recipe's own chances roll exactly once. */
+    protected void appendAdditionalBatchOutputs(GTRecipe recipe, int parallel, List<ItemStack> produced) {}
+
+    /** Clears any controller-specific locked batch state after completion or cancellation. */
+    protected void onBatchCleared() {}
 
     /**
      * 议题 11 (B1/B2 Easy 档): multiply the item output COUNT by the locked
@@ -1561,6 +1587,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         steamThrottlePercent = SteamThrottle.MAX_PERCENT;
         batchOutputMultiplier = 1.0f;
         batchInputDisplay = ItemStack.EMPTY;
+        onBatchCleared();
         pendingBuffer.clear();
         exhaustFeedbackTimer = 0;
         exhaustDamageTimer = 0;

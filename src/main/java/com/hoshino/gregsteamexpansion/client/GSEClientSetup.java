@@ -6,7 +6,9 @@ import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.registry.GSEMenuTypes;
 
 import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.client.gui.screens.TitleScreen;
 
+import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -33,13 +35,22 @@ public final class GSEClientSetup {
         IEventBus forgeBus = net.minecraftforge.common.MinecraftForge.EVENT_BUS;
         forgeBus.addListener(GSEClientSetup::onClientLoggingIn);
         forgeBus.addListener(GSEClientSetup::onClientLoggingOut);
+        forgeBus.addListener(GSEClientSetup::onScreenOpening);
         forgeBus.addListener(StructureErrorHighlight::onRenderLevelStage);
         forgeBus.addListener(UltimateTerminalHologramRenderer::onRenderLevelStage);
         forgeBus.addListener(UltimateTerminalClientState::onClientTick);
     }
 
+    /** Replaces the first title screen with the one-time, restart-safe difficulty choice. */
+    private static void onScreenOpening(ScreenEvent.Opening event) {
+        if (event.getNewScreen() instanceof TitleScreen title
+                && !com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig.isInitialSetupCompleted()) {
+            event.setNewScreen(GSEConfigScreen.initialSetup(title));
+        }
+    }
+
     /**
-     * Declares this process's startup tier as the first play-phase
+     * Declares this process's startup switch and tier as the first play-phase
      * packet after the join completes; the server gates the connection the
      * moment it arrives (difficulty.md 客户端进入校验).
      */
