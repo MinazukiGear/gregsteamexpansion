@@ -15,6 +15,7 @@ import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.widget.ImageWidget;
 import com.lowdragmc.lowdraglib.gui.widget.LabelWidget;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
+import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -89,6 +90,8 @@ public class SteamAirIntakeHatchPartMachine extends MultiblockPartMachine implem
         }
     }
 
+    /** Completed air storage survives world saves; unfinished cycle progress does not. */
+    @Persisted
     public final NotifiableFluidTank tank;
 
     @Nullable

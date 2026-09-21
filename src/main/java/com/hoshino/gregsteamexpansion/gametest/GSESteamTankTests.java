@@ -14,10 +14,13 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+
+import java.util.List;
 
 @GameTestHolder(GregSteamExpansion.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -40,6 +43,9 @@ public final class GSESteamTankTests {
                         helper, definition, GSESteamTankPatterns.createShapeInfo(definition, width, height));
                 helper.assertTrue(tank != null, "No controller for " + width + "x" + width + "x" + height);
                 if (tank == null) return;
+                if (width == 5 && height == 4) {
+                    replaceWallWithEveryVanillaGlass(tank);
+                }
                 helper.assertTrue(tank.checkPattern(),
                         "Steam tank did not match at " + width + "x" + width + "x" + height);
                 tank.onStructureFormed();
@@ -59,6 +65,43 @@ public final class GSESteamTankTests {
         helper.assertTrue(GSEPartAbilities.STEAM_TANK_VALVE.isApplicable(GSEMachines.STEAM_TANK_VALVE.getBlock()),
                 "Steam tank valve is missing its dedicated ability");
         helper.succeed();
+    }
+
+    /** Places plain glass and all sixteen stained colours in one valid tank. */
+    private static void replaceWallWithEveryVanillaGlass(LargeSteamTankMachine tank) {
+        List<Block> variants = List.of(
+                Blocks.GLASS,
+                Blocks.WHITE_STAINED_GLASS,
+                Blocks.ORANGE_STAINED_GLASS,
+                Blocks.MAGENTA_STAINED_GLASS,
+                Blocks.LIGHT_BLUE_STAINED_GLASS,
+                Blocks.YELLOW_STAINED_GLASS,
+                Blocks.LIME_STAINED_GLASS,
+                Blocks.PINK_STAINED_GLASS,
+                Blocks.GRAY_STAINED_GLASS,
+                Blocks.LIGHT_GRAY_STAINED_GLASS,
+                Blocks.CYAN_STAINED_GLASS,
+                Blocks.PURPLE_STAINED_GLASS,
+                Blocks.BLUE_STAINED_GLASS,
+                Blocks.BROWN_STAINED_GLASS,
+                Blocks.GREEN_STAINED_GLASS,
+                Blocks.RED_STAINED_GLASS,
+                Blocks.BLACK_STAINED_GLASS);
+        int replaced = 0;
+        BlockPos controller = tank.getPos();
+        for (int y = 1; y < 3 && replaced < variants.size(); y++) {
+            for (int x = -2; x <= 2 && replaced < variants.size(); x++) {
+                for (int z = 0; z < 5 && replaced < variants.size(); z++) {
+                    BlockPos pos = controller.offset(x, y, z);
+                    if (tank.getLevel().getBlockState(pos).is(Blocks.GLASS)) {
+                        tank.getLevel().setBlockAndUpdate(pos, variants.get(replaced++).defaultBlockState());
+                    }
+                }
+            }
+        }
+        if (replaced != variants.size()) {
+            throw new IllegalStateException("Steam tank fixture has too few glass wall positions");
+        }
     }
 
     private static void clearTankArea(GameTestHelper helper) {

@@ -2,11 +2,14 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.mojang.authlib.GameProfile;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomModules;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.terminal.TerminalBuildProfile;
 import com.hoshino.gregsteamexpansion.terminal.UltimateStructurePlanner;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalConfig;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalStructureVariants;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalWorldData;
 
@@ -66,6 +69,9 @@ public final class GSETerminalTests {
         helper.assertTrue(UltimateTerminalConfig.parseChannel(
                 "structure_size=minecraft:stone,minecraft:glass") == null,
                 "Reserved built-in structure-size channel ID was accepted");
+        helper.assertTrue(UltimateTerminalConfig.parseChannel(
+                "module=minecraft:stone,minecraft:glass") == null,
+                "Reserved built-in module channel ID was accepted");
         String sixtyFourOptions = "limit=" + java.util.stream.IntStream.range(0, 64)
                 .mapToObj(index -> "gregsteamexpansion:test_" + index)
                 .collect(java.util.stream.Collectors.joining(","));
@@ -219,6 +225,20 @@ public final class GSETerminalTests {
         helper.assertTrue(plan.valid(), "Native GTCEu structure blueprint failed: " + plan.error());
         helper.assertTrue(!plan.cells().isEmpty() && !plan.placements().isEmpty(),
                 "Native GTCEu structure produced no ordinary-block blueprint");
+
+        BlockPos coilController = helper.absolutePos(new BlockPos(8, 16, 8));
+        GSEStructureTestUtils.placeMachine(helper, GTMultiMachines.ELECTRIC_BLAST_FURNACE,
+                new BlockPos(8, 16, 8));
+        UltimateStructurePlanner.Plan coilPlan = UltimateStructurePlanner.plan(
+                helper.getLevel(), coilController, new TerminalBuildProfile(), false);
+        helper.assertTrue(coilPlan.valid(), "Native GTCEu coil structure blueprint failed: "
+                + coilPlan.error());
+        helper.assertTrue(coilPlan.channels().stream().anyMatch(channel -> channel.id().equals("coil")),
+                "Native GTCEu coil structure did not expose the coil dropdown");
+        helper.assertTrue(coilPlan.candidates().stream().noneMatch(candidate -> candidate.configurable()
+                        && candidate.stack().getItem() instanceof net.minecraft.world.item.BlockItem item
+                        && item.getBlock() instanceof com.gregtechceu.gtceu.common.block.CoilBlock),
+                "Uniform heating coils leaked into the block-quota candidates");
         data.clear(player.getUUID());
         helper.succeed();
     }
@@ -246,6 +266,44 @@ public final class GSETerminalTests {
                         value.stack().getItem() instanceof net.minecraft.world.item.BlockItem item
                                 && item.getBlock() instanceof com.gregtechceu.gtceu.api.block.MetaMachineBlock),
                 "No-hatch mode planned a machine part block");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void moduleChannelUsesImplementationOrderAndPlansModule(GameTestHelper helper) {
+        BoilerRoomMachine machine = GSEStructureTestUtils.placeMachine(
+                helper, GSEMachines.BOILER_ROOM_BRONZE, CONTROLLER);
+        BlockPos controllerPos = helper.absolutePos(CONTROLLER);
+        TerminalBuildProfile baseProfile = new TerminalBuildProfile();
+        UltimateStructurePlanner.Plan base = UltimateStructurePlanner.plan(
+                helper.getLevel(), controllerPos, baseProfile, false);
+        helper.assertTrue(base.valid(), "Base boiler-room plan failed: " + base.error());
+        helper.assertTrue(base.module().selected() == UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
+                        && base.module().options().isEmpty(),
+                "An absent boiler-room module was exposed by the terminal");
+
+        BlockPos partialSoftener = BoilerRoomModules.local(
+                controllerPos, machine.getFrontFacing(), -6, 2, -3);
+        helper.getLevel().setBlockAndUpdate(partialSoftener,
+                BoilerRoomModules.casing(BoilerRoomMachine.BRONZE_TIER).defaultBlockState());
+        UltimateStructurePlanner.Plan partial = UltimateStructurePlanner.plan(
+                helper.getLevel(), controllerPos, baseProfile, false);
+        helper.assertTrue(partial.valid(), "Partial-module boiler-room plan failed: " + partial.error());
+        helper.assertTrue(partial.module().selected() == UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
+                        && partial.module().options().equals(java.util.List.of(
+                                "gregsteamexpansion.machine.boiler_room.module.water_softener")),
+                "The partially built water softener was not exposed at channel value 0");
+
+        TerminalBuildProfile moduleProfile = new TerminalBuildProfile();
+        moduleProfile.setChannel(UltimateTerminalModuleProvider.CHANNEL_ID, 0, 0);
+        UltimateStructurePlanner.Plan withModule = UltimateStructurePlanner.plan(
+                helper.getLevel(), controllerPos, moduleProfile, false);
+        helper.assertTrue(withModule.valid(), "Selected boiler-room module plan failed: " + withModule.error());
+        helper.assertTrue(withModule.module().selected() == 0,
+                "The first implemented module did not occupy channel value 0");
+        helper.assertTrue(withModule.placements().size() == partial.placements().size() + 62
+                        && withModule.cells().size() == partial.cells().size() + 63,
+                "Selecting the partial water softener did not append its exact 63-block blueprint");
         helper.succeed();
     }
 

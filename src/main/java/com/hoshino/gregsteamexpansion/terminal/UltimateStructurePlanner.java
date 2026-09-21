@@ -13,6 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -33,6 +34,10 @@ import java.util.TreeMap;
 
 /** Resolves a deterministic, material-backed blueprint from a GTCEu pattern. */
 public final class UltimateStructurePlanner {
+    private static final Set<String> UNIFORM_CANDIDATE_ERRORS = Set.of(
+            "gtceu.multiblock.pattern.error.coils",
+            "gtceu.multiblock.pattern.error.filters",
+            "gtceu.multiblock.pattern.error.batteries");
     private static final Field BLOCK_MATCHES;
     private static final Field CENTER_OFFSET;
 
@@ -77,15 +82,22 @@ public final class UltimateStructurePlanner {
         }
     }
 
+    public record ModuleChoice(int selected, List<String> options) {
+        static ModuleChoice empty() {
+            return new ModuleChoice(UltimateTerminalConfig.AUTO_CHANNEL_SELECTION, List.of());
+        }
+    }
+
     public record Plan(List<Placement> placements, List<Cell> cells,
                        List<CandidateChoice> candidates, List<ChannelChoice> channels,
-                       StructureChoice structure, String error) {
+                       StructureChoice structure, ModuleChoice module, String error) {
         public boolean valid() {
             return error == null;
         }
 
         static Plan failed(String error) {
-            return new Plan(List.of(), List.of(), List.of(), List.of(), StructureChoice.empty(), error);
+            return new Plan(List.of(), List.of(), List.of(), List.of(), StructureChoice.empty(),
+                    ModuleChoice.empty(), error);
         }
     }
 
@@ -127,7 +139,7 @@ public final class UltimateStructurePlanner {
             cells.add(new Cell(cell.pos(), stack.copyWithCount(1), CellStatus.REMOVE));
         }
         return new Plan(List.copyOf(removals), List.copyOf(cells), List.of(), current.channels(),
-                current.structure(), null);
+                current.structure(), current.module(), null);
     }
 
     private static Plan plan(ServerLevel level, BlockPos controllerPos,
@@ -245,6 +257,13 @@ public final class UltimateStructurePlanner {
                     }
                 }
             }
+            remainingRequests.entrySet().removeIf(entry -> {
+                CandidateAccumulator accumulator = candidateStats.get(entry.getKey());
+                return accumulator != null && !accumulator.configurable;
+            });
+            ModuleSelection module = selectedModule(machine, profile);
+            String moduleError = appendModule(level, module.selected(), placements, cells);
+            if (firstError == null) firstError = moduleError;
             for (var entry : remainingRequests.entrySet()) {
                 if (entry.getValue() > 0 && firstError == null) {
                     firstError = "requested_part_unavailable:" + entry.getKey() + ":" + entry.getValue();
@@ -257,7 +276,7 @@ public final class UltimateStructurePlanner {
                     .sorted(Comparator.comparing(choice -> ForgeRegistries.ITEMS.getKey(choice.stack().getItem()).toString()))
                     .toList();
             return new Plan(List.copyOf(placements), List.copyOf(cells), candidates,
-                    channelChoices(profile, candidateStats), selectedPattern.choice(), firstError);
+                    channelChoices(profile, candidateStats), selectedPattern.choice(), module.choice(), firstError);
         } catch (ReflectiveOperationException | RuntimeException exception) {
             return Plan.failed("pattern_error:" + exception.getClass().getSimpleName());
         }
@@ -292,6 +311,67 @@ public final class UltimateStructurePlanner {
         BlockPattern pattern = controller.getPattern();
         return pattern.checkPatternAt(controller.getMultiblockState(), false)
                 ? new PatternSelection(pattern, StructureChoice.empty()) : null;
+    }
+
+    private static ModuleSelection selectedModule(MetaMachine machine, TerminalBuildProfile profile) {
+        if (!(machine instanceof UltimateTerminalModuleProvider provider)) {
+            return new ModuleSelection(ModuleChoice.empty(), null);
+        }
+        List<UltimateTerminalModuleProvider.Module> modules = provider.terminalModules().stream()
+                .limit(UltimateTerminalConfig.MAX_CHANNEL_OPTIONS).toList();
+        if (modules.isEmpty()) return new ModuleSelection(ModuleChoice.empty(), null);
+        int configured = profile.channelSelection(UltimateTerminalModuleProvider.CHANNEL_ID);
+        int selected = configured < 0 ? UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
+                : Math.min(configured, modules.size() - 1);
+        ModuleChoice choice = new ModuleChoice(selected,
+                modules.stream().map(UltimateTerminalModuleProvider.Module::translationKey).toList());
+        return new ModuleSelection(choice, selected < 0 ? null : modules.get(selected));
+    }
+
+    private static String appendModule(ServerLevel level,
+                                       UltimateTerminalModuleProvider.Module module,
+                                       List<Placement> placements,
+                                       List<Cell> cells) {
+        if (module == null) return null;
+        Set<BlockPos> occupied = new HashSet<>();
+        cells.forEach(cell -> occupied.add(cell.pos()));
+        String firstError = null;
+        for (UltimateTerminalModuleProvider.Requirement requirement : module.requirements()) {
+            BlockPos pos = requirement.pos();
+            if (!occupied.add(pos)) continue;
+            if (!level.hasChunkAt(pos)) {
+                ItemStack expected = requirement.air() ? ItemStack.EMPTY
+                        : requirement.block().asItem().getDefaultInstance();
+                cells.add(new Cell(pos, expected.copyWithCount(1), CellStatus.UNLOADED));
+                if (firstError == null) firstError = "chunk_unloaded@" + pos.toShortString();
+                continue;
+            }
+            if (requirement.air()) {
+                if (!level.getBlockState(pos).isAir()) {
+                    cells.add(new Cell(pos, ItemStack.EMPTY, CellStatus.CONFLICT));
+                    if (firstError == null) firstError = "module_air_obstructed@" + pos.toShortString();
+                }
+                continue;
+            }
+            ItemStack expected = requirement.block().asItem().getDefaultInstance();
+            if (expected.isEmpty() || !(expected.getItem() instanceof BlockItem)) {
+                if (firstError == null) firstError = "module_no_item@" + pos.toShortString();
+                continue;
+            }
+            Block actual = level.getBlockState(pos).getBlock();
+            if (actual == requirement.block()) {
+                cells.add(new Cell(pos, expected.copyWithCount(1), CellStatus.SATISFIED));
+                continue;
+            }
+            if (!level.isEmptyBlock(pos) && !level.getBlockState(pos).canBeReplaced()) {
+                cells.add(new Cell(pos, expected.copyWithCount(1), CellStatus.CONFLICT));
+                if (firstError == null) firstError = "module_collision@" + pos.toShortString();
+                continue;
+            }
+            placements.add(new Placement(pos, expected.copyWithCount(1)));
+            cells.add(new Cell(pos, expected.copyWithCount(1), CellStatus.MISSING));
+        }
+        return firstError;
     }
 
     private static Candidate matchingCandidate(ServerLevel level, BlockPos pos,
@@ -347,6 +427,7 @@ public final class UltimateStructurePlanner {
                                                  Map<SimplePredicate, Integer> layer,
                                                  TerminalBuildProfile profile,
                                                  Map<ResourceLocation, Integer> remainingRequests) {
+        if (requiresUniformCandidate(predicate)) return null;
         for (ResourceLocation requestedId : remainingRequests.keySet()) {
             if (remainingRequests.getOrDefault(requestedId, 0) <= 0) continue;
             for (SimplePredicate simple : combined(predicate)) {
@@ -590,13 +671,24 @@ public final class UltimateStructurePlanner {
                 }
             }
         }
-        boolean configurable = cellCandidates.size() > 1;
+        boolean configurable = cellCandidates.size() > 1 && !requiresUniformCandidate(predicate);
         for (ResourceLocation id : cellCandidates) {
             CandidateAccumulator accumulator = stats.computeIfAbsent(id,
                     ignored -> new CandidateAccumulator(stacks.get(id)));
             accumulator.maximum++;
             accumulator.configurable |= configurable;
         }
+    }
+
+    private static boolean requiresUniformCandidate(TraceabilityPredicate predicate) {
+        for (SimplePredicate simple : combined(predicate)) {
+            if (simple.toolTips == null) continue;
+            for (var tooltip : simple.toolTips) {
+                if (tooltip.getContents() instanceof TranslatableContents translated
+                        && UNIFORM_CANDIDATE_ERRORS.contains(translated.getKey())) return true;
+            }
+        }
+        return false;
     }
 
     private static void markPresent(Map<ResourceLocation, CandidateAccumulator> stats, ItemStack stack) {
@@ -630,6 +722,9 @@ public final class UltimateStructurePlanner {
     private record ChannelMatch(String id, Candidate candidate) {}
 
     private record PatternSelection(BlockPattern pattern, StructureChoice choice) {}
+
+    private record ModuleSelection(ModuleChoice choice,
+                                   UltimateTerminalModuleProvider.Module selected) {}
 
     private static final class CandidateAccumulator {
         final ItemStack stack;

@@ -12,6 +12,7 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamThrottle;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
 import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
@@ -55,7 +56,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
  */
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine {
+public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
+        implements UltimateTerminalModuleProvider {
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(
             LargeSteamBlastFurnaceMachine.class, AbstractSteamProcessorMachine.MANAGED_FIELD_HOLDER);
@@ -546,5 +548,13 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     @Override
     public BlockPattern getPattern() {
         return GSEProcessorPatterns.createBlastFurnace(getDefinition());
+    }
+
+    @Override
+    public List<UltimateTerminalModuleProvider.Module> terminalModules() {
+        return List.of(new UltimateTerminalModuleProvider.Module(
+                "hot_blast_stoves",
+                "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.label",
+                BlastFurnaceHotBlastModule.terminalRequirements(getPos(), getFrontFacing())));
     }
 }

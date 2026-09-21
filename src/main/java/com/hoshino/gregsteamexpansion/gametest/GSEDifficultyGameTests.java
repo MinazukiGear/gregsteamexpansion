@@ -41,7 +41,10 @@ public final class GSEDifficultyGameTests {
                         && expertDefaults.circuitAssemblerBonusChancePercent() == 25
                         && expertDefaults.circuitAssemblerBonusMultiplier() == 1,
                 "Circuit-specialization tier defaults are not 100%/+7x, 50%/+3x, 25%/+1x");
-        helper.assertTrue(easyDefaults.boilerRoomScaleFailureHours() == 0.0
+        helper.assertTrue(easyDefaults.boilerRoomScaleFailureHours() == 720.0
+                        && easyDefaults.boilerRoomScaleLossStage1Percent() == 5
+                        && easyDefaults.boilerRoomScaleLossStage2Percent() == 10
+                        && easyDefaults.boilerRoomScaleLossStage3Percent() == 20
                         && normalDefaults.boilerRoomScaleFailureHours() == 24.0
                         && expertDefaults.boilerRoomScaleFailureHours() == 8.0
                         && normalDefaults.boilerRoomScaleLossStage1Percent() == 10

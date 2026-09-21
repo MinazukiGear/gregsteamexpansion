@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.machine.multiblock.processor;
 
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -82,6 +83,17 @@ public final class BlastFurnaceHotBlastModule {
                 level.setBlockAndUpdate(requirement.pos(), requirement.block().defaultBlockState());
             }
         }
+    }
+
+    /** Exact terminal blueprint, including the two strict-air combustion cores. */
+    public static List<UltimateTerminalModuleProvider.Requirement> terminalRequirements(
+            BlockPos controller, Direction front) {
+        return requirements(controller, front).stream()
+                .map(requirement -> requirement.air()
+                        ? UltimateTerminalModuleProvider.Requirement.air(requirement.pos())
+                        : UltimateTerminalModuleProvider.Requirement.solid(
+                                requirement.pos(), requirement.block()))
+                .toList();
     }
 
     private static List<Requirement> requirements(BlockPos controller, Direction front) {

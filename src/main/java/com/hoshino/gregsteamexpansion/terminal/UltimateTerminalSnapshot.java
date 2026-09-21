@@ -19,6 +19,7 @@ public record UltimateTerminalSnapshot(
         List<CandidateInfo> candidates,
         List<ChannelInfo> channels,
         StructureInfo structure,
+        ModuleInfo module,
         boolean targetOverride,
         boolean unlimitedMaterials,
         String error) {
@@ -39,13 +40,18 @@ public record UltimateTerminalSnapshot(
     public record StructureInfo(int selected, List<String> options) {
         public static StructureInfo empty() { return new StructureInfo(0, List.of()); }
     }
+    public record ModuleInfo(int selected, List<String> options) {
+        public static ModuleInfo empty() {
+            return new ModuleInfo(UltimateTerminalConfig.AUTO_CHANNEL_SELECTION, List.of());
+        }
+    }
 
     public static UltimateTerminalSnapshot from(UltimateTerminalWorldData.PreviewData preview, int revision) {
         if (preview.targets().isEmpty()) {
             return new UltimateTerminalSnapshot(revision, List.of(), 0,
                     ResourceLocation.fromNamespaceAndPath("minecraft", "overworld"), BlockPos.ZERO,
                     List.of(), List.of(), List.of(), List.of(), List.of(), StructureInfo.empty(),
-                    false, preview.unlimitedMaterials(), preview.error());
+                    ModuleInfo.empty(), false, preview.unlimitedMaterials(), preview.error());
         }
         var target = preview.targets().get(Math.max(0,
                 Math.min(preview.selectedTarget(), preview.targets().size() - 1)));
@@ -73,9 +79,11 @@ public record UltimateTerminalSnapshot(
                 .toList();
         StructureInfo structure = new StructureInfo(preview.plan().structure().selected(),
                 preview.plan().structure().options());
+        ModuleInfo module = new ModuleInfo(preview.plan().module().selected(),
+                preview.plan().module().options());
         return new UltimateTerminalSnapshot(revision, targets, preview.selectedTarget(), target.dimension(),
                 target.pos(), cells, selectedMaterials, batchMaterials, candidates,
-                channels, structure, preview.targetOverride(), preview.unlimitedMaterials(),
+                channels, structure, module, preview.targetOverride(), preview.unlimitedMaterials(),
                 preview.error() == null ? "" : preview.error());
     }
 }

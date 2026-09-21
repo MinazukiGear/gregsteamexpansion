@@ -81,10 +81,19 @@ public final class BoilerRoomModuleWorldData extends SavedData {
     }
 
     public static Claim waterSoftenerClaim(BlockPos controller, net.minecraft.core.Direction front) {
-        BlockPos[] bounds = BoilerRoomWaterSoftenerModule.bounds(controller, front);
-        return new Claim(controller.immutable(), BoilerRoomWaterSoftenerModule.MODULE_ID,
-                BoilerRoomWaterSoftenerModule.FACE_ID,
-                BoilerRoomWaterSoftenerModule.anchor(controller, front), bounds[0], bounds[1]);
+        return BoilerRoomModules.claim(controller, front, BoilerRoomModules.WATER_SOFTENER);
+    }
+
+    /** Body claims have priority over optional modules and make nearby-controller overlap deterministic. */
+    public synchronized void claimBody(Claim body) {
+        boolean changed = claims.entrySet().removeIf(entry -> {
+            Claim other = entry.getValue();
+            return !other.controller().equals(body.controller())
+                    && !"__body".equals(other.moduleId())
+                    && intersects(body.min(), body.max(), other.min(), other.max());
+        });
+        Claim previous = claims.put(key(body.controller(), body.moduleId()), body);
+        if (changed || !body.equals(previous)) setDirty();
     }
 
     /** Same controller/type and same controller/face are unique; every complete box is exclusive. */

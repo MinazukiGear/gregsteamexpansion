@@ -24,8 +24,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Renders the first server-reported multiblock structure error as a red block
  * outline. The marker remains after the player looks away and is removed only
- * after the associated controller is confirmed formed (or the client session
- * ends).
+ * after the associated controller is confirmed formed, removed, or the client
+ * session ends.
  */
 public final class StructureErrorHighlight {
 
@@ -74,13 +74,20 @@ public final class StructureErrorHighlight {
             return;
         }
 
-        // GTCEu marks MultiblockControllerMachine#isFormed as @DescSynced, so
-        // this becomes true client-side without requiring another Jade lookup.
-        if (minecraft.level.hasChunkAt(controllerPos) &&
-                minecraft.level.getBlockEntity(controllerPos) instanceof MetaMachineBlockEntity blockEntity &&
-                blockEntity.getMetaMachine() instanceof IMultiController multiblock && multiblock.isFormed()) {
-            clear();
-            return;
+        if (minecraft.level.hasChunkAt(controllerPos)) {
+            // A loaded position with no multiblock controller means the source
+            // controller was broken or replaced. Do not retain its stale marker.
+            if (!(minecraft.level.getBlockEntity(controllerPos) instanceof MetaMachineBlockEntity blockEntity) ||
+                    !(blockEntity.getMetaMachine() instanceof IMultiController multiblock)) {
+                clear();
+                return;
+            }
+            // GTCEu marks MultiblockControllerMachine#isFormed as @DescSynced,
+            // so this becomes true client-side without another Jade lookup.
+            if (multiblock.isFormed()) {
+                clear();
+                return;
+            }
         }
         if (!minecraft.level.hasChunkAt(pos)) {
             return;

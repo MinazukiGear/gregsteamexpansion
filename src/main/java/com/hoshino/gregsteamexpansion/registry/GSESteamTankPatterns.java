@@ -13,6 +13,7 @@ import com.gregtechceu.gtceu.common.data.GTBlocks;
 
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraftforge.common.Tags;
 
 /** Variable-width, variable-height shell for the Large Steam Tank. */
 public final class GSESteamTankPatterns {
@@ -26,7 +27,10 @@ public final class GSESteamTankPatterns {
     private GSESteamTankPatterns() {}
 
     public static BlockPattern create(MultiblockMachineDefinition definition, int width) {
-        TraceabilityPredicate glass = GSEProcessorPatterns.anyGlass().setMinGlobalLimited(1);
+        // forge:glass/silica contains plain glass and all sixteen stained colours.
+        // One shared tag predicate accepts every member at every wall position;
+        // it deliberately does not record or enforce a single chosen glass type.
+        TraceabilityPredicate glass = Predicates.blockTag(Tags.Blocks.GLASS_SILICA).setMinGlobalLimited(1);
         TraceabilityPredicate valve = Predicates.abilities(GSEPartAbilities.STEAM_TANK_VALVE)
                 .setMinGlobalLimited(1);
         return FactoryBlockPattern

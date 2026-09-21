@@ -33,10 +33,10 @@ public final class UltimateTerminalConfig {
                     "Syntax: channel_id=namespace:block,namespace:block,...",
                     "A channel is shown only when at least two of its blocks are legal candidates for the selected structure.",
                     "Selection -1 means automatic; configured blocks use zero-based values 0-63 in the written order.",
-                    "Up to 32 channels and 64 blocks per channel are accepted. The ids 'coil' and 'structure_size' are reserved by built-in controls.",
+                    "Up to 32 channels and 64 blocks per channel are accepted. The ids 'coil', 'module' and 'structure_size' are reserved by built-in controls.",
                     "终极终端的有序结构选材信道。格式：信道ID=命名空间:方块,命名空间:方块,...",
                     "只有当前结构至少允许其中两个方块时才显示该信道；-1 表示自动，配置条目按顺序对应 0–63。",
-                    "最多接受 32 个信道、每个信道 64 个方块；coil 与 structure_size ID 由内置信道占用。")
+                    "最多接受 32 个信道、每个信道 64 个方块；coil、module 与 structure_size ID 由内置信道占用。")
             .defineListAllowEmpty("ultimateTerminalSelectionChannels", DEFAULT_SELECTION_CHANNELS,
                     value -> value instanceof String);
 
@@ -115,6 +115,7 @@ public final class UltimateTerminalConfig {
         if (separator <= 0 || separator == configured.length() - 1) return null;
         String id = configured.substring(0, separator).trim().toLowerCase(Locale.ROOT);
         if (!id.matches("[a-z0-9_.-]{1,32}") || id.equals("coil")
+                || id.equals(UltimateTerminalModuleProvider.CHANNEL_ID)
                 || id.equals(UltimateTerminalStructureVariants.CHANNEL_ID)) return null;
         List<ResourceLocation> blocks = new ArrayList<>();
         for (String token : configured.substring(separator + 1).split(",")) {

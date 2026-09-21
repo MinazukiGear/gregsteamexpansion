@@ -64,7 +64,7 @@ public record GSEDifficultyProfile(
     public static GSEDifficultyProfile defaults(Difficulty difficulty) {
         return switch (difficulty) {
             case EASY -> new GSEDifficultyProfile(
-                    2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 0.0, 0, 0, 0, 2.0, 4,
+                    2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 720.0, 5, 10, 20, 2.0, 4,
                     100, 7,
                     75, 65, 55, 45, 144, 576, 1440,
                     false, false, false, false, false,

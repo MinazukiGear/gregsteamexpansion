@@ -489,6 +489,13 @@ public final class GSESteamHatchTests {
                             SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,
                     "Standalone steam air intake hatch did not report collecting status");
 
+            CompoundTag saved = blockEntity.saveWithoutMetadata();
+            intake.tank.getStorages()[0].setFluid(net.minecraftforge.fluids.FluidStack.EMPTY);
+            blockEntity.load(saved);
+            helper.assertTrue(intake.tank.getFluidInTank(0).getAmount() ==
+                            SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT,
+                    "Steam air intake hatch lost cached air across NBT reload");
+
             CompoundTag serverData = new CompoundTag();
             BlockAccessor accessor = GSESteamEngineTestSupport.jadeAccessor(intake, serverData);
             Object airProvider = GSESteamEngineTestSupport.jadeProvider("AirIntakeProvider");

@@ -666,9 +666,7 @@ public final class GSEMachines {
                                 ? firebox.get().defaultBlockState()
                                 : casing.get().defaultBlockState())
                 .pattern(definition -> GSEBoilerPatterns.createPattern(definition, tierBlocks))
-                .shapeInfos(definition -> List.of(
-                        GSEBoilerPatterns.shapeInfo(definition, tierBlocks),
-                        GSEBoilerPatterns.shapeInfoWithWaterSoftener(definition, tierBlocks)))
+                .shapeInfos(definition -> List.of(GSEBoilerPatterns.shapeInfo(definition, tierBlocks)))
                 .modelProperty(GTMachineModelProperties.RECIPE_LOGIC_STATUS, RecipeLogic.Status.IDLE)
                 .model(GTMachineModels.createWorkableCasingMachineModel(hullTexture,
                         com.gregtechceu.gtceu.GTCEu.id("block/multiblock/generator/large_" + name + "_boiler"))

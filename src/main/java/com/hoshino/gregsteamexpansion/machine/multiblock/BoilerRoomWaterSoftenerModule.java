@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.machine.multiblock;
 
 import com.gregtechceu.gtceu.common.data.GTBlocks;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -14,7 +15,7 @@ import java.util.List;
 /** Fixed ordinary-block geometry of the boiler room's left-side water softener. */
 public final class BoilerRoomWaterSoftenerModule {
 
-    public static final String MODULE_ID = "water_softener";
+    public static final String MODULE_ID = BoilerRoomModules.SOFTENER;
     public static final String FACE_ID = "left";
     public static final int OUTWARD_WIDTH = 3;
     public static final int DEPTH = 7;
@@ -36,50 +37,35 @@ public final class BoilerRoomWaterSoftenerModule {
     private BoilerRoomWaterSoftenerModule() {}
 
     public static Result validate(ServerLevel level, BlockPos controller, Direction front, int tierIndex) {
-        List<Requirement> requirements = requirements(controller, front, tierIndex);
-        for (Requirement requirement : requirements) {
-            if (!level.hasChunkAt(requirement.pos())) {
-                return Result.UNLOADED;
-            }
-        }
-
-        int present = 0;
-        boolean valid = true;
-        for (Requirement requirement : requirements) {
-            Block block = level.getBlockState(requirement.pos()).getBlock();
-            if (block != Blocks.AIR) {
-                present++;
-            }
-            valid &= block == requirement.block();
-        }
-        if (valid) {
-            return Result.VALID;
-        }
-        return present == 0 ? Result.MISSING : Result.INVALID;
+        return switch (BoilerRoomModules.validate(level, controller, front, tierIndex,
+                BoilerRoomModules.WATER_SOFTENER).status()) {
+            case VALID -> Result.VALID;
+            case MISSING -> Result.MISSING;
+            case UNLOADED -> Result.UNLOADED;
+            default -> Result.INVALID;
+        };
     }
 
     /** The full 3x7x3 box is exclusive, including every occupied glass/casing position. */
     public static BlockPos[] bounds(BlockPos controller, Direction front) {
-        BlockPos a = local(controller, front, FAR_SIDE_OFFSET, FRONT_DEPTH_OFFSET, BOTTOM_OFFSET);
-        BlockPos b = local(controller, front, NEAR_SIDE_OFFSET, REAR_DEPTH_OFFSET, TOP_OFFSET);
-        return new BlockPos[] {
-                new BlockPos(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()),
-                        Math.min(a.getZ(), b.getZ())),
-                new BlockPos(Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()),
-                        Math.max(a.getZ(), b.getZ()))
-        };
+        return BoilerRoomModules.WATER_SOFTENER.bounds(controller, front);
     }
 
     /** The pipe touching the middle of the boiler's left wall is the stable ownership anchor. */
     public static BlockPos anchor(BlockPos controller, Direction front) {
-        return local(controller, front, NEAR_SIDE_OFFSET, 5, -2);
+        return BoilerRoomModules.WATER_SOFTENER.anchor(controller, front);
     }
 
     /** Test/blueprint helper which places exactly the 63 required ordinary blocks. */
     public static void place(ServerLevel level, BlockPos controller, Direction front, int tierIndex) {
-        for (Requirement requirement : requirements(controller, front, tierIndex)) {
-            level.setBlockAndUpdate(requirement.pos(), requirement.block().defaultBlockState());
-        }
+        BoilerRoomModules.place(level, controller, front, tierIndex, BoilerRoomModules.WATER_SOFTENER);
+    }
+
+    /** Exact tier-aware terminal blueprint for the controller-owned softener. */
+    public static List<UltimateTerminalModuleProvider.Requirement> terminalRequirements(
+            BlockPos controller, Direction front, int tierIndex) {
+        return BoilerRoomModules.terminalRequirements(controller, front, tierIndex,
+                BoilerRoomModules.WATER_SOFTENER);
     }
 
     private static List<Requirement> requirements(BlockPos controller, Direction front, int tierIndex) {

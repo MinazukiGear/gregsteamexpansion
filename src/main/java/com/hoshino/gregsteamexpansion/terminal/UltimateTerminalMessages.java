@@ -27,7 +27,7 @@ import java.util.function.Supplier;
 
 /** Authenticated terminal preview/configuration protocol with bounded snapshot payloads. */
 public final class UltimateTerminalMessages {
-    private static final String PROTOCOL = "4";
+    private static final String PROTOCOL = "5";
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             GregSteamExpansion.id("ultimate_terminal"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
@@ -92,8 +92,8 @@ public final class UltimateTerminalMessages {
                 next = new UltimateTerminalSnapshot(session.snapshot.revision() + 1, next.targets(),
                         next.selectedTarget(), next.dimension(), next.controller(), next.cells(),
                         next.selectedMaterials(), next.batchMaterials(), next.candidates(),
-                        next.channels(), next.structure(), next.targetOverride(), next.unlimitedMaterials(),
-                        next.error());
+                        next.channels(), next.structure(), next.module(), next.targetOverride(),
+                        next.unlimitedMaterials(), next.error());
                 session.snapshot = next;
                 CHANNEL.sendTo(new FullPacket(next), player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
                 continue;
@@ -109,6 +109,7 @@ public final class UltimateTerminalMessages {
                     || !sameCandidates(next.candidates(), session.snapshot.candidates())
                     || !next.channels().equals(session.snapshot.channels())
                     || !next.structure().equals(session.snapshot.structure())
+                    || !next.module().equals(session.snapshot.module())
                     || next.targetOverride() != session.snapshot.targetOverride()
                     || next.unlimitedMaterials() != session.snapshot.unlimitedMaterials()
                     || !next.error().equals(session.snapshot.error());
@@ -116,7 +117,7 @@ public final class UltimateTerminalMessages {
                 session.snapshot = next;
                 CHANNEL.sendTo(new DeltaPacket(next.revision(), changes, next.selectedMaterials(),
                                 next.batchMaterials(), next.candidates(), next.channels(), next.structure(),
-                                next.targetOverride(), next.unlimitedMaterials(), next.error()),
+                                next.module(), next.targetOverride(), next.unlimitedMaterials(), next.error()),
                         player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
             }
         }
@@ -193,6 +194,7 @@ public final class UltimateTerminalMessages {
         writeCandidates(buf, value.candidates());
         writeChannels(buf, value.channels());
         writeStructure(buf, value.structure());
+        writeModule(buf, value.module());
         buf.writeBoolean(value.targetOverride());
         buf.writeBoolean(value.unlimitedMaterials());
         buf.writeUtf(value.error(), 256);
@@ -213,7 +215,8 @@ public final class UltimateTerminalMessages {
                 buf.readBlockPos(), buf.readItem(), status(buf.readUnsignedByte())));
         return new UltimateTerminalSnapshot(revision, List.copyOf(targets), selected, dimension, controller,
                 List.copyOf(cells), readMaterials(buf), readMaterials(buf), readCandidates(buf),
-                readChannels(buf), readStructure(buf), buf.readBoolean(), buf.readBoolean(), buf.readUtf(256));
+                readChannels(buf), readStructure(buf), readModule(buf), buf.readBoolean(), buf.readBoolean(),
+                buf.readUtf(256));
     }
 
     private static void writeMaterials(FriendlyByteBuf buf, List<UltimateTerminalSnapshot.MaterialInfo> values) {
@@ -292,6 +295,22 @@ public final class UltimateTerminalMessages {
         for (int i = 0; i < size; i++) options.add(buf.readUtf(32));
         return new UltimateTerminalSnapshot.StructureInfo(Math.max(0, Math.min(selected, size)),
                 List.copyOf(options));
+    }
+
+    private static void writeModule(FriendlyByteBuf buf, UltimateTerminalSnapshot.ModuleInfo value) {
+        buf.writeVarInt(value.selected());
+        buf.writeVarInt(value.options().size());
+        for (String option : value.options()) buf.writeUtf(option, 128);
+    }
+
+    private static UltimateTerminalSnapshot.ModuleInfo readModule(FriendlyByteBuf buf) {
+        int selected = buf.readVarInt();
+        int size = bounded(buf.readVarInt(), UltimateTerminalConfig.MAX_CHANNEL_OPTIONS);
+        List<String> options = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) options.add(buf.readUtf(128));
+        return new UltimateTerminalSnapshot.ModuleInfo(
+                Math.max(UltimateTerminalConfig.AUTO_CHANNEL_SELECTION,
+                        Math.min(selected, size - 1)), List.copyOf(options));
     }
 
     private static int bounded(int value, int maximum) {
@@ -406,6 +425,7 @@ public final class UltimateTerminalMessages {
                               List<UltimateTerminalSnapshot.CandidateInfo> candidates,
                               List<UltimateTerminalSnapshot.ChannelInfo> channels,
                               UltimateTerminalSnapshot.StructureInfo structure,
+                              UltimateTerminalSnapshot.ModuleInfo module,
                               boolean targetOverride, boolean unlimitedMaterials, String error) {
         static void encode(DeltaPacket packet, FriendlyByteBuf buf) {
             buf.writeVarInt(packet.revision);
@@ -418,6 +438,7 @@ public final class UltimateTerminalMessages {
             writeCandidates(buf, packet.candidates);
             writeChannels(buf, packet.channels);
             writeStructure(buf, packet.structure);
+            writeModule(buf, packet.module);
             buf.writeBoolean(packet.targetOverride);
             buf.writeBoolean(packet.unlimitedMaterials);
             buf.writeUtf(packet.error, 256);
@@ -429,7 +450,7 @@ public final class UltimateTerminalMessages {
             for (int i = 0; i < size; i++) changes.add(new CellDelta(buf.readVarInt(), status(buf.readUnsignedByte())));
             return new DeltaPacket(revision, List.copyOf(changes), readMaterials(buf), readMaterials(buf),
                     readCandidates(buf), readChannels(buf), readStructure(buf),
-                    buf.readBoolean(), buf.readBoolean(), buf.readUtf(256));
+                    readModule(buf), buf.readBoolean(), buf.readBoolean(), buf.readUtf(256));
         }
         static void handle(DeltaPacket packet, Supplier<NetworkEvent.Context> supplier) {
             NetworkEvent.Context context = supplier.get();

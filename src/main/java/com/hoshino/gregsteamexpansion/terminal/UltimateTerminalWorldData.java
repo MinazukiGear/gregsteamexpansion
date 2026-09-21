@@ -490,7 +490,9 @@ public final class UltimateTerminalWorldData extends SavedData {
     }
     public void setChannel(ServerPlayer player, String channelId, int selection) {
         boolean structureSize = channelId.equals(UltimateTerminalStructureVariants.CHANNEL_ID);
-        if (!structureSize && !channelId.equals("coil") && UltimateTerminalConfig.channel(channelId) == null) return;
+        boolean module = channelId.equals(UltimateTerminalModuleProvider.CHANNEL_ID);
+        if (!structureSize && !module && !channelId.equals("coil")
+                && UltimateTerminalConfig.channel(channelId) == null) return;
         Project project = project(player.getUUID());
         Target target = selectedTarget(project);
         if (target == null) return;
@@ -500,6 +502,7 @@ public final class UltimateTerminalWorldData extends SavedData {
         UltimateStructurePlanner.Plan plan = UltimateStructurePlanner.plan(level, target.pos(), profile,
                 project.mode == UltimateTerminalMode.UPGRADE);
         int maximumIndex = structureSize ? plan.structure().options().size() - 1
+                : module ? plan.module().options().size() - 1
                 : plan.channels().stream().filter(choice -> choice.id().equals(channelId))
                         .mapToInt(choice -> choice.options().size() - 1).findFirst().orElse(-1);
         if (maximumIndex < 0) return;
@@ -534,6 +537,7 @@ public final class UltimateTerminalWorldData extends SavedData {
         UltimateStructurePlanner.Plan plan = UltimateStructurePlanner.plan(level, target.pos(), profile,
                 project.mode == UltimateTerminalMode.UPGRADE);
         int maximum = plan.candidates().stream()
+                .filter(UltimateStructurePlanner.CandidateChoice::configurable)
                 .filter(candidate -> blockId.equals(blockId(candidate.stack())))
                 .mapToInt(UltimateStructurePlanner.CandidateChoice::maximum).findFirst().orElse(0);
         if (maximum <= 0) return;

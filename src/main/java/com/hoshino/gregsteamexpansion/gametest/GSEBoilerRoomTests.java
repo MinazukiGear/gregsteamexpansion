@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomModules;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomModuleWorldData;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomThermalLogic;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomWaterSoftenerModule;
@@ -29,6 +30,7 @@ import com.lowdragmc.lowdraglib.gui.widget.ComponentPanelWidget;
 import com.lowdragmc.lowdraglib.gui.widget.ProgressWidget;
 
 import net.minecraft.core.Direction;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -54,6 +56,39 @@ import java.util.ArrayList;
 @PrefixGameTestTemplate(false)
 public final class GSEBoilerRoomTests {
     private GSEBoilerRoomTests() {}
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 400)
+    public static void approvedModuleGeometryAllTiersAndFacings(GameTestHelper h) {
+        BlockPos controller = h.absolutePos(new BlockPos(16, 12, 16));
+        for (int tier = 0; tier < 4; tier++) {
+            for (Direction front : Direction.Plane.HORIZONTAL) {
+                for (BoilerRoomModules.Descriptor module : BoilerRoomModules.ALL) {
+                    BoilerRoomModules.place(h.getLevel(), controller, front, tier, module);
+                    var validation = BoilerRoomModules.validate(h.getLevel(), controller, front, tier, module);
+                    h.assertTrue(validation.status() == BoilerRoomModules.Status.VALID,
+                            module.id() + " failed tier/facing validation: " + tier + "/" + front
+                                    + " -> " + validation.status());
+                    BlockPos[] bounds = module.bounds(controller, front);
+                    for (BlockPos pos : BlockPos.betweenClosed(bounds[0], bounds[1])) {
+                        h.getLevel().setBlockAndUpdate(pos.immutable(), Blocks.AIR.defaultBlockState());
+                    }
+                }
+            }
+        }
+        h.assertTrue(BoilerRoomMachine.forceCoolingWaterRequired(126) == 2_500
+                        && BoilerRoomMachine.atomizerAirDemand(50) == 63
+                        && BoilerRoomMachine.atomizerAirDemand(400) == 500,
+                "Approved cooling/atomizer arithmetic changed");
+        var split = BoilerRoomMachine.condenserSplit(16_000, 160);
+        h.assertTrue(split.standardSteam() == 14_400 && split.distilledWater() == 10
+                        && split.condensedSteam() == 1_600,
+                "Condenser conservation arithmetic changed");
+        h.assertTrue(BoilerRoomMachine.hotWashAcidAmount(8_000, 26) == 8_000
+                        && BoilerRoomMachine.hotWashAcidAmount(8_000, 99) == 12_000
+                        && BoilerRoomMachine.hotWashAcidAmount(8_000, 199) == 24_000,
+                "Hot acid temperature bands changed");
+        h.succeed();
+    }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void bronzeWaterSoftenerStructure(GameTestHelper helper) {
@@ -81,22 +116,12 @@ public final class GSEBoilerRoomTests {
 
     private static void waterSoftenerStructure(GameTestHelper h, MultiblockMachineDefinition definition,
                                                 int tier, boolean exerciseRuntime) {
-        h.assertTrue(definition.getMatchingShapes().size() == 2,
-                "Boiler room must expose base and water-softener previews");
+        h.assertTrue(definition.getMatchingShapes().size() == 1,
+                "GTCEu structure preview must expose only the base boiler room");
         var m = (BoilerRoomMachine) GSEStructureTestUtils.placeShape(h, definition,
                 definition.getMatchingShapes().get(0));
         h.assertTrue(m != null, "Combined preview controller missing");
         BoilerRoomWaterSoftenerModule.place(h.getLevel(), m.getPos(), m.getFrontFacing(), tier);
-        var bounds = BoilerRoomWaterSoftenerModule.bounds(m.getPos(), m.getFrontFacing());
-        var casing = h.getLevel().getBlockState(bounds[0]).getBlock();
-        var pipe = h.getLevel().getBlockState(
-                BoilerRoomWaterSoftenerModule.anchor(m.getPos(), m.getFrontFacing())).getBlock();
-        var baseShape = definition.getMatchingShapes().get(0);
-        var combinedShape = definition.getMatchingShapes().get(1);
-        h.assertTrue(countBlocks(combinedShape, casing) - countBlocks(baseShape, casing) == 52
-                        && countBlocks(combinedShape, pipe) - countBlocks(baseShape, pipe) == 6
-                        && countBlocks(combinedShape, Blocks.GLASS) - countBlocks(baseShape, Blocks.GLASS) == 5,
-                "Combined preview does not contain the exact 52 casing / 6 pipe / 5 glass module");
         h.startSequence()
                 .thenWaitUntil(() -> h.assertTrue(m.isFormed(), "Combined boiler room did not form"))
                 .thenWaitUntil(() -> h.assertTrue(m.getWaterSoftenerStatusId().equals("ready"),
@@ -115,11 +140,8 @@ public final class GSEBoilerRoomTests {
                     h.assertTrue(!overlap.success(),
                             "A second controller claimed an overlapping boiler module box");
 
-                    var itemInput = m.getParts().stream().filter(ItemBusPartMachine.class::isInstance)
-                            .map(ItemBusPartMachine.class::cast)
-                            .filter(part -> part.getInventory().getHandlerIO() !=
-                                    com.gregtechceu.gtceu.api.capability.recipe.IO.OUT)
-                            .findFirst().orElseThrow();
+                    var itemInput = (ItemBusPartMachine) MetaMachine.getMachine(h.getLevel(),
+                            BoilerRoomWaterSoftenerModule.anchor(m.getPos(), m.getFrontFacing()));
                     h.assertTrue(itemInput.getInventory().insertItemInternal(
                                     0, GTItems.STICKY_RESIN.asStack(), false).isEmpty(),
                             "Item input bus rejected Sticky Resin");
@@ -138,8 +160,8 @@ public final class GSEBoilerRoomTests {
 
                     setLong(m, "waterSoftenerDoseUnits", 12_345L);
                     m.getMultiblockState().error = MultiblockState.UNLOAD_ERROR;
-                    h.assertTrue((boolean) call(m, "refreshWaterSoftener", true)
-                                    && m.getWaterSoftenerDoseUnits() == 12_345L,
+                    call(m, "refreshModules", true);
+                    h.assertTrue(m.getWaterSoftenerDoseUnits() == 12_345L,
                             "Main-structure invalidity cleared an intact softener charge");
                     m.getMultiblockState().error = null;
 
@@ -153,8 +175,8 @@ public final class GSEBoilerRoomTests {
                     h.getLevel().setBlockAndUpdate(
                             BoilerRoomWaterSoftenerModule.anchor(m.getPos(), m.getFrontFacing()),
                             Blocks.AIR.defaultBlockState());
-                    h.assertTrue(!(boolean) call(m, "refreshWaterSoftener", true)
-                                    && m.getWaterSoftenerDoseUnits() == 0
+                    call(m, "refreshModules", true);
+                    h.assertTrue(m.getWaterSoftenerDoseUnits() == 0
                                     && m.getWaterSoftenerStatusId().equals("invalid"),
                             "Damaged softener retained its charge or valid status");
                 })

@@ -26,6 +26,7 @@ import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.CoFiringPowderFuel;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.registry.GSERecipeTypes;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
 
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.IGuiTexture;
@@ -58,8 +59,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -90,7 +93,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
  */
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLife, IDropSaveMachine, IMachineModifyDrops {
+public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLife, IDropSaveMachine,
+        IMachineModifyDrops, UltimateTerminalModuleProvider {
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(
             BoilerRoomMachine.class, LargeBoilerMachine.MANAGED_FIELD_HOLDER);
@@ -103,7 +107,10 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     private static final double SCALE_WARNING_THRESHOLD = 0.75;
     private static final double SCALE_SCRAP_THRESHOLD = 1.0;
     private static final String ITEM_SCALE_KEY = "GSEBoilerWaterScale";
-    private static final long WATER_SOFTENER_VALIDATION_INTERVAL_TICKS = 20L;
+    private static final long MODULE_VALIDATION_INTERVAL_TICKS = 20L;
+    private static final int SAFE_INTERNAL_TEMPERATURE = 26; // 300 K on GTCEu's +274 display convention.
+    private static final int HOT_WASH_MAX_INTERNAL_TEMPERATURE = 199; // 473 K.
+    private static final int FORCE_COOLING_DURATION = 1_200;
 
     /** Tier constants (P1#6/P2#10): max temperature / heat / cooldown / no-powder cooldown / air, by tier index 0-3. */
     public static final int BRONZE_TIER = 0;
@@ -118,19 +125,12 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     public static final int[] WATER_SOFTENER_REDUCTION_PERCENT = {40, 55, 70, 85};
     public static final int[] WATER_SOFTENER_RESIN_TICKS = {3_600, 2_400, 1_800, 1_200};
 
-    private enum WaterSoftenerStatus {
-        MISSING("missing"),
-        INVALID("invalid"),
-        UNLOADED("unloaded"),
-        CONFLICT("conflict"),
-        VALID("ready");
-
-        private final String key;
-
-        WaterSoftenerStatus(String key) {
-            this.key = key;
-        }
-    }
+    private static final int DESCALING_COLD = 0;
+    private static final int DESCALING_AUTO = 1;
+    private static final int DESCALING_HOT = 2;
+    private static final int AUTO_IDLE = 0;
+    private static final int AUTO_COOLING = 1;
+    private static final int AUTO_WASHING = 2;
 
     //////////////////////////////////////
     // ***** Tier configuration ******//
@@ -172,6 +172,34 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     /** Exact throttle-percent ticks already dissolved into the connected softener. */
     @Persisted
     private long waterSoftenerDoseUnits;
+    @Persisted
+    private boolean forcedDraftEnabled;
+    @Persisted
+    private boolean atomizerEnabled;
+    @Persisted
+    private boolean atomizerBatchLocked;
+    @Persisted
+    private boolean condenserEnabled;
+    @Persisted
+    private boolean automaticWashEnabled;
+    @Persisted
+    private int automaticWashThreshold = 75;
+    @Persisted
+    private int automaticWashPhase;
+    @Persisted
+    private boolean automaticWashResumeEnabled;
+    @Persisted
+    private int forceCoolingTicksRemaining;
+    @Persisted
+    private int forceCoolingStartTemperature;
+    @Persisted
+    private long steamBufferAmount;
+    @Persisted
+    private int descalingMode;
+    @Persisted
+    private int descalingAcidConsumed;
+    @Persisted
+    private boolean acidRecoveryEligible;
 
     //////////////////////////////////////
     // ***** Runtime state ******//
@@ -180,17 +208,19 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     @Nullable
     private TickableSubscription roomTemperatureSubs;
     @Nullable
-    private TickableSubscription waterSoftenerSubs;
+    private TickableSubscription moduleSubs;
     private int heatCounter;
     private int coolCounter;
-    private int waterSoftenerStatus;
-    private long lastWaterSoftenerValidationTick = Long.MIN_VALUE;
-    private boolean waterSoftenerValidatedThisSession;
+    private long lastModuleValidationTick = Long.MIN_VALUE;
     private boolean waterSoftenerAppliedLastCycle;
+    private boolean forcedDraftHalfTick;
+    private final Map<String, ModuleRuntime> modules = new HashMap<>();
     @Nullable
     private GTRecipe waterSoftenerTransactionRecipe;
     /** Collected on formation: the roof-strip air intakes. */
     private final List<SteamAirIntakeHatchPartMachine> airIntakes = new ArrayList<>();
+
+    private record ModuleRuntime(BoilerRoomModules.Status status, @Nullable IMultiPart port) {}
 
     /**
      * @param tierIndex 0..3 = bronze / steel / titanium / tungstensteel
@@ -243,6 +273,18 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     public int getTierIndex() {
         return tierIndex;
+    }
+
+    @Override
+    public List<UltimateTerminalModuleProvider.Module> terminalModules() {
+        if (!(getLevel() instanceof ServerLevel level)) return List.of();
+        return BoilerRoomModules.ALL.stream()
+                .filter(module -> BoilerRoomModules.countPresent(
+                        level, getPos(), getFrontFacing(), tierIndex, module) > 0)
+                .map(module -> new UltimateTerminalModuleProvider.Module(
+                        module.id(), module.translationKey(), BoilerRoomModules.terminalRequirements(
+                                getPos(), getFrontFacing(), tierIndex, module)))
+                .toList();
     }
 
     public int getRoomTemperature() {
@@ -317,8 +359,22 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     public String getWaterSoftenerStatusId() {
-        return currentWaterSoftenerStatus().key;
+        return moduleStatus(BoilerRoomModules.WATER_SOFTENER).key();
     }
+
+    public boolean isForcedDraftEnabled() { return forcedDraftEnabled; }
+
+    public boolean isAtomizerEnabled() { return atomizerEnabled; }
+
+    public boolean isCondenserEnabled() { return condenserEnabled; }
+
+    public boolean isAutomaticWashEnabled() { return automaticWashEnabled; }
+
+    public int getAutomaticWashThreshold() { return automaticWashThreshold; }
+
+    public boolean isForceCooling() { return forceCoolingTicksRemaining > 0; }
+
+    public long getSteamBufferAmount() { return Math.max(0, steamBufferAmount); }
 
     public boolean isWaterSoftenerAppliedLastCycle() {
         return waterSoftenerAppliedLastCycle;
@@ -372,7 +428,11 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     public void onStructureFormed() {
         super.onStructureFormed();
         collectBoilerParts();
-        refreshWaterSoftener(true);
+        if (getLevel() instanceof ServerLevel level) {
+            BoilerRoomModuleWorldData.getOrCreate(level).claimBody(
+                    BoilerRoomModules.bodyClaim(getPos(), getFrontFacing()));
+        }
+        refreshModules(true);
     }
 
     @Override
@@ -391,75 +451,88 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     //////////////////////////////////////
-    // ***** Left water softener ******//
+    // ***** External modules ******//
     //////////////////////////////////////
 
-    private void updateWaterSoftenerSubscription() {
-        waterSoftenerSubs = subscribeServerTick(waterSoftenerSubs, () -> refreshWaterSoftener(false));
+    private void updateModuleSubscription() {
+        moduleSubs = subscribeServerTick(moduleSubs, () -> refreshModules(false));
     }
 
-    private boolean refreshWaterSoftener(boolean force) {
-        if (!(getLevel() instanceof ServerLevel level)) {
-            return currentWaterSoftenerStatus() == WaterSoftenerStatus.VALID;
-        }
+    private void refreshModules(boolean force) {
+        if (!(getLevel() instanceof ServerLevel level)) return;
         long now = level.getGameTime();
-        if (!force && lastWaterSoftenerValidationTick != Long.MIN_VALUE
-                && now - lastWaterSoftenerValidationTick < WATER_SOFTENER_VALIDATION_INTERVAL_TICKS) {
-            return currentWaterSoftenerStatus() == WaterSoftenerStatus.VALID;
-        }
-        lastWaterSoftenerValidationTick = now;
-
-        var geometry = BoilerRoomWaterSoftenerModule.validate(level, getPos(), getFrontFacing(), tierIndex);
+        if (!force && lastModuleValidationTick != Long.MIN_VALUE
+                && now - lastModuleValidationTick < MODULE_VALIDATION_INTERVAL_TICKS) return;
+        lastModuleValidationTick = now;
         var data = BoilerRoomModuleWorldData.getOrCreate(level);
-        if (geometry == BoilerRoomWaterSoftenerModule.Result.VALID) {
-            var claim = data.claim(BoilerRoomModuleWorldData.waterSoftenerClaim(getPos(), getFrontFacing()));
-            if (claim.success()) {
-                setWaterSoftenerStatus(WaterSoftenerStatus.VALID);
-                waterSoftenerValidatedThisSession = true;
-                return true;
+        data.claimBody(BoilerRoomModules.bodyClaim(getPos(), getFrontFacing()));
+        for (BoilerRoomModules.Descriptor descriptor : BoilerRoomModules.ALL) {
+            var validation = BoilerRoomModules.validate(level, getPos(), getFrontFacing(), tierIndex, descriptor);
+            BoilerRoomModules.Status next = validation.status();
+            IMultiPart port = validation.portPart();
+            if (next == BoilerRoomModules.Status.VALID) {
+                var result = data.claim(BoilerRoomModules.claim(getPos(), getFrontFacing(), descriptor));
+                if (!result.success()) {
+                    data.release(getPos(), descriptor.id());
+                    next = BoilerRoomModules.Status.CONFLICT;
+                    port = null;
+                }
+            } else if (next != BoilerRoomModules.Status.UNLOADED) {
+                data.release(getPos(), descriptor.id());
             }
-            data.release(getPos(), BoilerRoomWaterSoftenerModule.MODULE_ID);
-            waterSoftenerValidatedThisSession = true;
-            invalidateWaterSoftener(WaterSoftenerStatus.CONFLICT);
-            return false;
-        }
-
-        if (geometry == BoilerRoomWaterSoftenerModule.Result.UNLOADED) {
-            if (waterSoftenerValidatedThisSession) {
-                data.release(getPos(), BoilerRoomWaterSoftenerModule.MODULE_ID);
-                invalidateWaterSoftener(WaterSoftenerStatus.UNLOADED);
-            } else {
-                setWaterSoftenerStatus(WaterSoftenerStatus.UNLOADED);
-                waterSoftenerAppliedLastCycle = false;
+            ModuleRuntime old = modules.put(descriptor.id(), new ModuleRuntime(next, port));
+            if (old != null && old.status() == BoilerRoomModules.Status.VALID
+                    && next != BoilerRoomModules.Status.VALID
+                    && next != BoilerRoomModules.Status.UNLOADED) {
+                onModuleInvalidated(descriptor);
             }
-            return false;
-        }
-
-        data.release(getPos(), BoilerRoomWaterSoftenerModule.MODULE_ID);
-        waterSoftenerValidatedThisSession = true;
-        invalidateWaterSoftener(geometry == BoilerRoomWaterSoftenerModule.Result.MISSING
-                ? WaterSoftenerStatus.MISSING : WaterSoftenerStatus.INVALID);
-        return false;
-    }
-
-    private void invalidateWaterSoftener(WaterSoftenerStatus status) {
-        boolean changed = waterSoftenerDoseUnits != 0;
-        waterSoftenerDoseUnits = 0;
-        waterSoftenerAppliedLastCycle = false;
-        setWaterSoftenerStatus(status);
-        if (changed) {
-            markDirty();
         }
     }
 
-    private WaterSoftenerStatus currentWaterSoftenerStatus() {
-        WaterSoftenerStatus[] values = WaterSoftenerStatus.values();
-        return waterSoftenerStatus >= 0 && waterSoftenerStatus < values.length
-                ? values[waterSoftenerStatus] : WaterSoftenerStatus.MISSING;
+    private void onModuleInvalidated(BoilerRoomModules.Descriptor descriptor) {
+        if (descriptor == BoilerRoomModules.WATER_SOFTENER) {
+            waterSoftenerDoseUnits = 0;
+            waterSoftenerAppliedLastCycle = false;
+        } else if (descriptor == BoilerRoomModules.COOLING_TANK && isForceCooling()) {
+            forceCoolingTicksRemaining = 0;
+        } else if (descriptor == BoilerRoomModules.AUTO_WASH_STATION
+                && automaticWashPhase == AUTO_COOLING) {
+            restoreAutomaticWashState();
+        } else if (descriptor == BoilerRoomModules.HOT_ACID_FACILITY
+                && descalingMode == DESCALING_HOT && isDescaling()) {
+            cancelDescaling();
+        } else if (descriptor == BoilerRoomModules.BUFFER_TANK) {
+            steamBufferAmount = 0;
+        } else if (descriptor == BoilerRoomModules.ATOMIZATION_ROOM && atomizerBatchLocked) {
+            getRecipeLogic().interruptRecipe();
+            atomizerBatchLocked = false;
+        }
+        markDirty();
     }
 
-    private void setWaterSoftenerStatus(WaterSoftenerStatus status) {
-        waterSoftenerStatus = status.ordinal();
+    private BoilerRoomModules.Status moduleStatus(BoilerRoomModules.Descriptor descriptor) {
+        ModuleRuntime runtime = modules.get(descriptor.id());
+        return runtime == null ? BoilerRoomModules.Status.MISSING : runtime.status();
+    }
+
+    private boolean moduleValid(BoilerRoomModules.Descriptor descriptor) {
+        refreshModules(false);
+        return moduleStatus(descriptor) == BoilerRoomModules.Status.VALID;
+    }
+
+    private List<IRecipeHandler<?>> moduleHandlers(BoilerRoomModules.Descriptor descriptor,
+                                                   IO io, boolean item) {
+        ModuleRuntime runtime = modules.get(descriptor.id());
+        if (runtime == null || runtime.status() != BoilerRoomModules.Status.VALID || runtime.port() == null) {
+            return List.of();
+        }
+        List<IRecipeHandler<?>> result = new ArrayList<>();
+        for (var list : runtime.port().getRecipeHandlers()) {
+            if (!list.isValid(io)) continue;
+            result.addAll(list.getHandlerMap().getOrDefault(
+                    item ? ItemRecipeCapability.CAP : FluidRecipeCapability.CAP, List.of()));
+        }
+        return result;
     }
 
     private static boolean isStickyResin(ItemStack stack) {
@@ -467,7 +540,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     private boolean hasStickyResin() {
-        for (IRecipeHandler<?> handler : getPowderInputs()) {
+        for (IRecipeHandler<?> handler : moduleHandlers(BoilerRoomModules.WATER_SOFTENER, IO.IN, true)) {
             for (Object content : handler.getContents()) {
                 if (content instanceof ItemStack stack && isStickyResin(stack)) {
                     return true;
@@ -481,7 +554,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     @SuppressWarnings("unchecked")
     private boolean extractOneStickyResin() {
         Ingredient one = Ingredient.of(GTItems.STICKY_RESIN.asStack());
-        for (IRecipeHandler<?> handler : getPowderInputs()) {
+        for (IRecipeHandler<?> handler : moduleHandlers(BoilerRoomModules.WATER_SOFTENER, IO.IN, true)) {
             boolean present = false;
             for (Object content : handler.getContents()) {
                 if (content instanceof ItemStack stack && isStickyResin(stack)) {
@@ -511,7 +584,8 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     private boolean consumeWaterSoftenerDoseForCycle() {
         waterSoftenerAppliedLastCycle = false;
-        if (!isWaterScaleEffective() || !refreshWaterSoftener(true)) {
+        refreshModules(true);
+        if (!isWaterScaleEffective() || !moduleValid(BoilerRoomModules.WATER_SOFTENER)) {
             return false;
         }
         long cost = waterSoftenerCycleCost(getThrottle(), TICKS_PER_STEAM_GENERATION);
@@ -633,19 +707,44 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     /** True when the combined intakes cannot supply this tier's per-tick air amount. */
     public boolean isAirStarved() {
-        int remaining = airConsumptionPerTick;
+        return !canConsumeAir(requiredAirForLockedBatch());
+    }
+
+    private int requiredAirForLockedBatch() {
+        return atomizerBatchLocked ? atomizerAirDemand(airConsumptionPerTick) : airConsumptionPerTick;
+    }
+
+    public static int atomizerAirDemand(int baseAir) {
+        return Math.max(0, (baseAir * 5 + 3) / 4);
+    }
+
+    public static int forceCoolingWaterRequired(int internalTemperature) {
+        return Math.max(0, internalTemperature - SAFE_INTERNAL_TEMPERATURE) * 25;
+    }
+
+    public static SteamSplit condenserSplit(long actualSteam, int steamPerWater) {
+        if (actualSteam <= 0 || steamPerWater <= 0) return new SteamSplit(Math.max(0, actualSteam), 0, 0);
+        long distilledWater = (actualSteam / 10) / steamPerWater;
+        long condensedSteam = distilledWater * steamPerWater;
+        return new SteamSplit(actualSteam - condensedSteam, distilledWater, condensedSteam);
+    }
+
+    public record SteamSplit(long standardSteam, long distilledWater, long condensedSteam) {}
+
+    private boolean canConsumeAir(int amount) {
+        int remaining = Math.max(0, amount);
         for (var intake : airIntakes) {
             remaining -= intake.tank.drainInternal(GTMaterials.Air.getFluid(remaining), FluidAction.SIMULATE)
                     .getAmount();
-            if (remaining == 0) return false;
+            if (remaining == 0) return true;
         }
-        return true;
+        return remaining == 0;
     }
 
     /** Simulate the whole demand first so shortage never partially drains the intakes. */
-    private boolean consumeAir() {
-        if (isAirStarved()) return false;
-        int remaining = airConsumptionPerTick;
+    private boolean consumeAir(int amount) {
+        if (!canConsumeAir(amount)) return false;
+        int remaining = Math.max(0, amount);
         for (var intake : airIntakes) {
             remaining -= intake.tank.drainInternal(GTMaterials.Air.getFluid(remaining), FluidAction.EXECUTE)
                     .getAmount();
@@ -660,33 +759,58 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     /** True while the fuel recipe is paused for missing powder or air. */
     public boolean isCoFiringPaused() {
-        return scrappedByScale || isDescaling() || isMissingPowder() || isAirStarved();
+        return scrappedByScale || isDescaling() || isForceCooling()
+                || isMissingPowder() || isAirStarved()
+                || atomizerBatchLocked
+                && moduleStatus(BoilerRoomModules.ATOMIZATION_ROOM) == BoilerRoomModules.Status.UNLOADED;
     }
 
     /** Starts one fixed-cost cycle which removes at most one 25-point scale band. */
     public boolean startDescaling() {
         if (isRemote() || !GSEDifficultyConfig.boilerRoomWaterScaleEnabled() || !isFormed()
                 || scrappedByScale || isDescaling() || waterScaleProgress <= 0.0
-                || roomTemperature >= 100 || getRecipeLogic().isWorking()
+                || roomTemperature > HOT_WASH_MAX_INTERNAL_TEMPERATURE || getRecipeLogic().isWorking()
                 || isStructureTemporarilyUnavailable()) {
             return false;
         }
-        int acid = GSEDifficultyConfig.boilerRoomDescalingAcidMb();
-        if (!drainDescalingAcid(acid, true) || !drainDescalingAcid(acid, false)) return false;
+        int baseAcid = GSEDifficultyConfig.boilerRoomDescalingAcidMb();
+        int mode = DESCALING_COLD;
+        int acid = baseAcid;
+        boolean moduleAcid = false;
+        if (roomTemperature > SAFE_INTERNAL_TEMPERATURE) {
+            if (!moduleValid(BoilerRoomModules.HOT_ACID_FACILITY)) return false;
+            mode = DESCALING_HOT;
+            moduleAcid = true;
+            acid = hotWashAcidAmount(baseAcid, roomTemperature);
+        }
+        if (!drainDescalingAcid(acid, true, moduleAcid)
+                || !drainDescalingAcid(acid, false, moduleAcid)) return false;
+        beginDescaling(mode, acid);
+        return true;
+    }
+
+    public static int hotWashAcidAmount(int baseAmount, int internalTemperature) {
+        if (internalTemperature <= SAFE_INTERNAL_TEMPERATURE) return Math.max(0, baseAmount);
+        if (internalTemperature <= 99) return (Math.max(0, baseAmount) * 3 + 1) / 2;
+        return Math.multiplyExact(Math.max(0, baseAmount), 3);
+    }
+
+    private void beginDescaling(int mode, int acidConsumed) {
+        descalingMode = mode;
+        descalingAcidConsumed = acidConsumed;
+        acidRecoveryEligible = moduleValid(BoilerRoomModules.RECOVERY_POOL);
         descalingTicksTotal = GSEDifficultyConfig.boilerRoomDescalingDurationTicks();
         descalingTicksRemaining = descalingTicksTotal;
         cycleSteamGenerated = 0;
         updateRoomTemperatureSubscription();
         markDirty();
-        return true;
     }
 
     @SuppressWarnings("unchecked")
-    private boolean drainDescalingAcid(int amount, boolean simulate) {
+    private boolean drainDescalingAcid(int amount, boolean simulate, boolean modulePort) {
         var remaining = List.of(FluidIngredient.of(GTMaterials.DilutedHydrochloricAcid.getFluid(amount)));
-        List<IRecipeHandler<?>> inputTanks = new ArrayList<>();
-        inputTanks.addAll(getCapabilitiesFlat(IO.IN, FluidRecipeCapability.CAP));
-        inputTanks.addAll(getCapabilitiesFlat(IO.BOTH, FluidRecipeCapability.CAP));
+        List<IRecipeHandler<?>> inputTanks = modulePort
+                ? moduleHandlers(descalingPort(), IO.IN, false) : bodyFluidHandlers(IO.IN);
         for (IRecipeHandler<?> tank : inputTanks) {
             remaining = (List<FluidIngredient>) tank.handleRecipe(IO.IN, null, remaining, simulate);
             if (remaining == null || remaining.isEmpty()) return true;
@@ -694,11 +818,65 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         return false;
     }
 
+    /** Kept as the baseline-air entry point used by existing diagnostics and compatibility tests. */
+    @SuppressWarnings("unused")
+    private boolean consumeAir() {
+        return consumeAir(airConsumptionPerTick);
+    }
+
+    private BoilerRoomModules.Descriptor descalingPort() {
+        return automaticWashPhase != AUTO_IDLE
+                ? BoilerRoomModules.AUTO_WASH_STATION : BoilerRoomModules.HOT_ACID_FACILITY;
+    }
+
+    private List<IRecipeHandler<?>> bodyFluidHandlers(IO direction) {
+        List<IRecipeHandler<?>> tanks = new ArrayList<>();
+        tanks.addAll(getCapabilitiesFlat(direction, FluidRecipeCapability.CAP));
+        tanks.addAll(getCapabilitiesFlat(IO.BOTH, FluidRecipeCapability.CAP));
+        return tanks;
+    }
+
+    public boolean startForceCooling() {
+        if (isRemote() || !isFormed() || roomTemperature <= SAFE_INTERNAL_TEMPERATURE
+                || isForceCooling() || !moduleValid(BoilerRoomModules.COOLING_TANK)) return false;
+        int water = forceCoolingWaterRequired(roomTemperature);
+        if (!drainModuleFluid(BoilerRoomModules.COOLING_TANK, Fluids.WATER, water, true)
+                || !drainModuleFluid(BoilerRoomModules.COOLING_TANK, Fluids.WATER, water, false)) return false;
+        getRecipeLogic().interruptRecipe();
+        getRecipeLogic().setWorkingEnabled(false);
+        forceCoolingStartTemperature = roomTemperature;
+        forceCoolingTicksRemaining = FORCE_COOLING_DURATION;
+        cycleSteamGenerated = 0;
+        updateRoomTemperatureSubscription();
+        markDirty();
+        return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean drainModuleFluid(BoilerRoomModules.Descriptor descriptor,
+                                     net.minecraft.world.level.material.Fluid fluid,
+                                     int amount, boolean simulate) {
+        List<FluidIngredient> remaining = List.of(FluidIngredient.of(fluid, amount));
+        for (IRecipeHandler<?> handler : moduleHandlers(descriptor, IO.IN, false)) {
+            remaining = (List<FluidIngredient>) handler.handleRecipe(IO.IN, null, remaining, simulate);
+            if (remaining == null || remaining.isEmpty()) return true;
+        }
+        return false;
+    }
+
     @Override
     public boolean beforeWorking(@Nullable GTRecipe recipe) {
-        if (scrappedByScale || isDescaling()) return false;
+        if (scrappedByScale || isDescaling() || isForceCooling() || automaticWashPhase != AUTO_IDLE) return false;
+        refreshModules(false);
+        atomizerBatchLocked = atomizerEnabled && moduleValid(BoilerRoomModules.ATOMIZATION_ROOM);
+        if (atomizerBatchLocked && !canConsumeAir(atomizerAirDemand(airConsumptionPerTick))) {
+            atomizerBatchLocked = false;
+            return false;
+        }
         // 开工预检 (P1#8/P2#10): powder buffer refill + intake presence, else waiting.
-        return preparePowder(recipe) && hasAirIntake() && super.beforeWorking(recipe);
+        boolean accepted = preparePowder(recipe) && hasAirIntake() && super.beforeWorking(recipe);
+        if (!accepted) atomizerBatchLocked = false;
+        return accepted;
     }
 
     @Override
@@ -715,14 +893,20 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     @Override
+    public void afterWorking() {
+        atomizerBatchLocked = false;
+        super.afterWorking();
+    }
+
+    @Override
     public void onUnload() {
         if (roomTemperatureSubs != null) {
             roomTemperatureSubs.unsubscribe();
             roomTemperatureSubs = null;
         }
-        if (waterSoftenerSubs != null) {
-            waterSoftenerSubs.unsubscribe();
-            waterSoftenerSubs = null;
+        if (moduleSubs != null) {
+            moduleSubs.unsubscribe();
+            moduleSubs = null;
         }
         super.onUnload();
     }
@@ -734,14 +918,15 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         if (getLevel() instanceof ServerLevel serverLevel) {
             serverLevel.getServer().tell(new TickTask(0, () -> {
                 updateRoomTemperatureSubscription();
-                updateWaterSoftenerSubscription();
-                refreshWaterSoftener(true);
+                updateModuleSubscription();
+                refreshModules(true);
             }));
         }
     }
 
     protected void updateRoomTemperatureSubscription() {
-        if (roomTemperature > 0 || isDescaling()) {
+        if (roomTemperature > 0 || isDescaling() || isForceCooling()
+                || automaticWashPhase != AUTO_IDLE || steamBufferAmount > 0) {
             roomTemperatureSubs = subscribeServerTick(roomTemperatureSubs, this::updateRoomTemperature);
         } else if (roomTemperatureSubs != null) {
             roomTemperatureSubs.unsubscribe();
@@ -778,17 +963,74 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             return;
         }
 
+        refreshModules(false);
+        updateAutomaticWash();
+        drainSteamBuffer();
+        if (automaticWashPhase == AUTO_COOLING && roomTemperature <= SAFE_INTERNAL_TEMPERATURE) {
+            cycleSteamGenerated = 0;
+            return;
+        }
+        if (isForceCooling()) {
+            BoilerRoomModules.Status status = moduleStatus(BoilerRoomModules.COOLING_TANK);
+            if (status == BoilerRoomModules.Status.UNLOADED) {
+                cycleSteamGenerated = 0;
+                return;
+            }
+            if (status != BoilerRoomModules.Status.VALID) {
+                forceCoolingTicksRemaining = 0;
+                markDirty();
+            } else {
+                int elapsed = FORCE_COOLING_DURATION - forceCoolingTicksRemaining + 1;
+                roomTemperature = Math.max(SAFE_INTERNAL_TEMPERATURE,
+                        forceCoolingStartTemperature - (int) Math.ceil(
+                                (forceCoolingStartTemperature - SAFE_INTERNAL_TEMPERATURE)
+                                        * elapsed / (double) FORCE_COOLING_DURATION));
+                forceCoolingTicksRemaining--;
+                cycleSteamGenerated = 0;
+                if (forceCoolingTicksRemaining % 20 == 0) markDirty();
+                return;
+            }
+        }
+
+        if (descalingMode == DESCALING_HOT && isDescaling()) {
+            BoilerRoomModules.Status hotStatus = moduleStatus(BoilerRoomModules.HOT_ACID_FACILITY);
+            if (hotStatus == BoilerRoomModules.Status.UNLOADED) {
+                cycleSteamGenerated = 0;
+                return;
+            }
+            if (hotStatus != BoilerRoomModules.Status.VALID) cancelDescaling();
+        }
+
         boolean working = recipeLogic.isWorking();
         boolean thermalHold = isDescaling() || scrappedByScale;
+        boolean airAvailable = !working || thermalHold;
+        if (working && !thermalHold) {
+            int required = requiredAirForLockedBatch();
+            boolean boosted = roomTemperature < getMaxTemperature() && forcedDraftEnabled
+                    && moduleValid(BoilerRoomModules.DRAFT_ROOM)
+                    && canConsumeAir(Math.max(required, airConsumptionPerTick * 2));
+            int demand = boosted ? Math.max(required, airConsumptionPerTick * 2) : required;
+            airAvailable = consumeAir(demand);
+            if (atomizerBatchLocked && !airAvailable) {
+                getRecipeLogic().interruptRecipe();
+                atomizerBatchLocked = false;
+            }
+            if (boosted && airAvailable) {
+                forcedDraftHalfTick = !forcedDraftHalfTick;
+                if (forcedDraftHalfTick) heatCounter++;
+            }
+        }
+        boolean descalingBefore = isDescaling();
         var result = BoilerRoomThermalLogic.advance(
                 new BoilerRoomThermalLogic.ThermalState(roomTemperature, heatCounter, coolCounter,
                         descalingTicksRemaining, descalingTicksTotal, waterScaleProgress),
                 new BoilerRoomThermalLogic.TickInput(
-                        working, !working || thermalHold || consumeAir(),
+                        working, airAvailable,
                         !working && !thermalHold && isMissingPowder(), scrappedByScale,
                         getMaxTemperature(), heatIntervalTicks, cooldownIntervalTicks,
                         noPowderCooldownIntervalTicks));
         applyThermalState(result.state());
+        if (descalingBefore && !isDescaling()) finishDescaling();
         if (result.markDirty()) markDirty();
         if (result.suppressSteamGeneration()) {
             cycleSteamGenerated = 0;
@@ -800,6 +1042,74 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             generateSteamCycle();
         }
         updateRoomTemperatureSubscription();
+    }
+
+    private void updateAutomaticWash() {
+        if (!automaticWashEnabled || scrappedByScale || isForceCooling()) return;
+        if (automaticWashPhase == AUTO_IDLE && !isDescaling()
+                && getWaterScalePercent() >= automaticWashThreshold
+                && moduleValid(BoilerRoomModules.AUTO_WASH_STATION)) {
+            automaticWashResumeEnabled = getRecipeLogic().isWorkingEnabled();
+            getRecipeLogic().interruptRecipe();
+            getRecipeLogic().setWorkingEnabled(false);
+            automaticWashPhase = AUTO_COOLING;
+            cycleSteamGenerated = 0;
+            markDirty();
+        }
+        if (automaticWashPhase != AUTO_COOLING) return;
+        BoilerRoomModules.Status status = moduleStatus(BoilerRoomModules.AUTO_WASH_STATION);
+        if (status != BoilerRoomModules.Status.VALID) {
+            if (status != BoilerRoomModules.Status.UNLOADED) restoreAutomaticWashState();
+            return;
+        }
+        if (roomTemperature > SAFE_INTERNAL_TEMPERATURE || waterScaleProgress <= 0.0) return;
+        int acid = GSEDifficultyConfig.boilerRoomDescalingAcidMb();
+        if (!drainDescalingAcid(acid, true, true) || !drainDescalingAcid(acid, false, true)) return;
+        automaticWashPhase = AUTO_WASHING;
+        beginDescaling(DESCALING_AUTO, acid);
+    }
+
+    private void restoreAutomaticWashState() {
+        boolean resume = automaticWashResumeEnabled;
+        automaticWashPhase = AUTO_IDLE;
+        automaticWashResumeEnabled = false;
+        if (resume) getRecipeLogic().setWorkingEnabled(true);
+        markDirty();
+    }
+
+    private void cancelDescaling() {
+        descalingTicksRemaining = 0;
+        descalingTicksTotal = 0;
+        descalingAcidConsumed = 0;
+        acidRecoveryEligible = false;
+        descalingMode = DESCALING_COLD;
+        cycleSteamGenerated = 0;
+        markDirty();
+    }
+
+    private void finishDescaling() {
+        if (acidRecoveryEligible && moduleValid(BoilerRoomModules.RECOVERY_POOL)) {
+            outputModuleFluid(BoilerRoomModules.RECOVERY_POOL,
+                    GTMaterials.DilutedHydrochloricAcid.getFluid(), descalingAcidConsumed / 10);
+        }
+        int completedMode = descalingMode;
+        descalingMode = DESCALING_COLD;
+        descalingAcidConsumed = 0;
+        acidRecoveryEligible = false;
+        if (completedMode == DESCALING_AUTO) restoreAutomaticWashState();
+        markDirty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private int outputModuleFluid(BoilerRoomModules.Descriptor descriptor,
+                                  net.minecraft.world.level.material.Fluid fluid, int amount) {
+        if (amount <= 0) return 0;
+        List<FluidIngredient> remaining = List.of(FluidIngredient.of(fluid, amount));
+        for (IRecipeHandler<?> handler : moduleHandlers(descriptor, IO.OUT, false)) {
+            remaining = (List<FluidIngredient>) handler.handleRecipe(IO.OUT, null, remaining, false);
+            if (remaining == null || remaining.isEmpty()) return amount;
+        }
+        return amount - (remaining == null || remaining.isEmpty() ? 0 : remaining.get(0).getAmount());
     }
 
     private void applyThermalState(BoilerRoomThermalLogic.ThermalState state) {
@@ -864,8 +1174,10 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             cycleSteamGenerated = 0;
             return;
         }
-        long cleanSteamPerTick = calculateSteamOutputPerTick(
+        long baseCleanSteamPerTick = calculateSteamOutputPerTick(
                 roomTemperature, getThrottle(), GSEDifficultyState.boilerRoomSteamOutputMultiplier(isRemote()));
+        long cleanSteamPerTick = atomizerBatchLocked
+                ? Math.round(baseCleanSteamPerTick * 1.10) : baseCleanSteamPerTick;
         long steamPerTick = applyWaterScaleLoss(cleanSteamPerTick, getWaterScaleLossPercent());
         if (steamPerTick <= 0) {
             cycleSteamGenerated = 0;
@@ -891,27 +1203,71 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
         long steamProduced = Math.min(steamTarget, drained * steamPerWater);
         cycleSteamGenerated = (int) Math.min(Integer.MAX_VALUE, steamProduced);
-        if (steamProduced > 0) {
-            var fillSteam = List.of(FluidIngredient.of(
-                    GTMaterials.Steam.getFluid((int) Math.min(steamProduced, Integer.MAX_VALUE))));
-            List<IRecipeHandler<?>> outputTanks = new ArrayList<>();
-            outputTanks.addAll(getCapabilitiesFlat(IO.OUT, FluidRecipeCapability.CAP));
-            outputTanks.addAll(getCapabilitiesFlat(IO.BOTH, FluidRecipeCapability.CAP));
-            for (IRecipeHandler<?> tank : outputTanks) {
-                fillSteam = (List<FluidIngredient>) tank.handleRecipe(IO.OUT, null, fillSteam, false);
-                if (fillSteam == null) break;
-            }
+        long standardSteam = steamProduced;
+        if (steamProduced > 0 && condenserEnabled && moduleValid(BoilerRoomModules.CONDENSER_TOWER)) {
+            SteamSplit split = condenserSplit(steamProduced, steamPerWater);
+            standardSteam = split.standardSteam();
+            outputModuleFluid(BoilerRoomModules.CONDENSER_TOWER,
+                    GTMaterials.DistilledWater.getFluid(),
+                    (int) Math.min(Integer.MAX_VALUE, split.distilledWater()));
+        }
+        long accepted = outputBodySteam(standardSteam);
+        long overflow = standardSteam - accepted;
+        if (overflow > 0 && moduleValid(BoilerRoomModules.BUFFER_TANK)) {
+            long room = Math.max(0, steamBufferCapacity() - steamBufferAmount);
+            long buffered = Math.min(room, overflow);
+            steamBufferAmount += buffered;
+            if (buffered > 0) markDirty();
         }
 
         // 干烧爆炸 (P1#7): inherited strength-2 explosion, no double-blast rule.
         if (drained < waterNeeded) {
             doExplosion(2f);
         } else if (steamProduced > 0) {
-            accumulateWaterScale(cleanSteamPerTick);
+            accumulateWaterScale(cleanSteamPerTick, atomizerBatchLocked);
         }
     }
 
-    private void accumulateWaterScale(long cleanSteamPerTick) {
+    @SuppressWarnings("unchecked")
+    private long outputBodySteam(long amount) {
+        long remainingAmount = Math.max(0, amount);
+        for (IRecipeHandler<?> tank : bodyFluidHandlers(IO.OUT)) {
+            while (remainingAmount > 0) {
+                int chunk = (int) Math.min(Integer.MAX_VALUE, remainingAmount);
+                List<FluidIngredient> remaining = (List<FluidIngredient>) tank.handleRecipe(IO.OUT, null,
+                        List.of(FluidIngredient.of(GTMaterials.Steam.getFluid(chunk))), false);
+                int left = remaining == null || remaining.isEmpty() ? 0 : remaining.get(0).getAmount();
+                remainingAmount -= chunk - left;
+                if (left > 0) break;
+            }
+            if (remainingAmount == 0) break;
+        }
+        return amount - remainingAmount;
+    }
+
+    private long baseMaximumSteamPerTick() {
+        return calculateSteamOutputPerTick(getMaxTemperature(), 100,
+                GSEDifficultyState.boilerRoomSteamOutputMultiplier(isRemote()));
+    }
+
+    public long steamBufferCapacity() {
+        return Math.multiplyExact(baseMaximumSteamPerTick(), 600L);
+    }
+
+    private void drainSteamBuffer() {
+        if (steamBufferAmount <= 0 || !isFormed()
+                || moduleStatus(BoilerRoomModules.BUFFER_TANK) != BoilerRoomModules.Status.VALID) return;
+        long capacity = steamBufferCapacity();
+        if (steamBufferAmount > capacity) steamBufferAmount = capacity;
+        long attempted = Math.min(steamBufferAmount, baseMaximumSteamPerTick());
+        long accepted = outputBodySteam(attempted);
+        if (accepted > 0) {
+            steamBufferAmount -= accepted;
+            markDirty();
+        }
+    }
+
+    private void accumulateWaterScale(long cleanSteamPerTick, boolean atomized) {
         waterSoftenerAppliedLastCycle = false;
         if (!isWaterScaleEffective() || scrappedByScale || isDescaling() || cleanSteamPerTick <= 0) return;
         double failureHours = GSEDifficultyState.boilerRoomScaleFailureHours(isRemote());
@@ -919,6 +1275,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
                 GSEDifficultyState.boilerRoomSteamOutputMultiplier(isRemote()));
         double increment = calculateWaterScaleIncrement(cleanSteamPerTick, maximumCleanOutput,
                 TICKS_PER_STEAM_GENERATION, failureHours);
+        if (atomized) increment *= 2.0;
         if (increment <= 0.0) return;
         if (consumeWaterSoftenerDoseForCycle()) {
             increment = applyWaterSoftenerReduction(increment, getWaterSoftenerReductionPercent());
@@ -1003,6 +1360,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             textList.add(Component.translatable("gregsteamexpansion.machine.boiler_room.status.no_air_intake")
                     .withStyle(ChatFormatting.GRAY));
             addWaterSoftenerDisplayText(textList);
+            addModuleDisplayText(textList);
             return;
         }
         {
@@ -1078,10 +1436,19 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     @Override
     public void handleDisplayClick(String componentData, ClickData clickData) {
-        if ("descale".equals(componentData)) {
-            startDescaling();
-        } else {
-            super.handleDisplayClick(componentData, clickData);
+        switch (componentData) {
+            case "descale" -> startDescaling();
+            case "force_cool" -> startForceCooling();
+            case "forced_draft" -> { forcedDraftEnabled = !forcedDraftEnabled; markDirty(); }
+            case "atomizer" -> { atomizerEnabled = !atomizerEnabled; markDirty(); }
+            case "condenser" -> { condenserEnabled = !condenserEnabled; markDirty(); }
+            case "auto_wash" -> { automaticWashEnabled = !automaticWashEnabled; markDirty(); }
+            case "auto_threshold" -> {
+                automaticWashThreshold = automaticWashThreshold == 25 ? 50
+                        : automaticWashThreshold == 50 ? 75 : 25;
+                markDirty();
+            }
+            default -> super.handleDisplayClick(componentData, clickData);
         }
     }
 
@@ -1093,15 +1460,15 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
             return;
         }
 
-        WaterSoftenerStatus status = currentWaterSoftenerStatus();
-        if (status != WaterSoftenerStatus.VALID) {
+        BoilerRoomModules.Status status = moduleStatus(BoilerRoomModules.WATER_SOFTENER);
+        if (status != BoilerRoomModules.Status.VALID) {
             ChatFormatting color = switch (status) {
                 case INVALID, CONFLICT -> ChatFormatting.RED;
                 case UNLOADED -> ChatFormatting.YELLOW;
                 default -> ChatFormatting.GRAY;
             };
             textList.add(Component.translatable(
-                    "gregsteamexpansion.machine.boiler_room.water_softener." + status.key)
+                    "gregsteamexpansion.machine.boiler_room.water_softener." + status.key())
                     .withStyle(color));
             return;
         }
@@ -1126,6 +1493,50 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         textList.add(Component.translatable(key, getWaterSoftenerReductionPercent(),
                 formatWaterSoftenerTime(getWaterSoftenerRemainingTicksAtCurrentThrottle()))
                 .withStyle(waterSoftenerAppliedLastCycle ? ChatFormatting.AQUA : ChatFormatting.GRAY));
+    }
+
+    private void addModuleDisplayText(List<Component> textList) {
+        for (BoilerRoomModules.Descriptor module : BoilerRoomModules.ALL) {
+            if (module == BoilerRoomModules.WATER_SOFTENER) continue;
+            BoilerRoomModules.Status status = moduleStatus(module);
+            if (status == BoilerRoomModules.Status.MISSING) continue;
+            ChatFormatting color = status == BoilerRoomModules.Status.VALID ? ChatFormatting.GRAY
+                    : status == BoilerRoomModules.Status.UNLOADED ? ChatFormatting.YELLOW : ChatFormatting.RED;
+            textList.add(Component.translatable("gregsteamexpansion.machine.boiler_room.module.status",
+                    Component.translatable(module.translationKey()),
+                    Component.translatable("gregsteamexpansion.machine.boiler_room.module.status." + status.key()))
+                    .withStyle(color));
+        }
+        if (moduleValid(BoilerRoomModules.COOLING_TANK) && roomTemperature > SAFE_INTERNAL_TEMPERATURE
+                && !isForceCooling()) {
+            textList.add(ComponentPanelWidget.withButton(Component.translatable(
+                    "gregsteamexpansion.machine.boiler_room.module.force_cooling.start",
+                    (roomTemperature - SAFE_INTERNAL_TEMPERATURE) * 25), "force_cool"));
+        }
+        addToggle(textList, BoilerRoomModules.DRAFT_ROOM, forcedDraftEnabled, "forced_draft");
+        addToggle(textList, BoilerRoomModules.ATOMIZATION_ROOM, atomizerEnabled, "atomizer");
+        addToggle(textList, BoilerRoomModules.CONDENSER_TOWER, condenserEnabled, "condenser");
+        if (moduleValid(BoilerRoomModules.AUTO_WASH_STATION)) {
+            addToggle(textList, BoilerRoomModules.AUTO_WASH_STATION, automaticWashEnabled, "auto_wash");
+            textList.add(ComponentPanelWidget.withButton(Component.translatable(
+                    "gregsteamexpansion.machine.boiler_room.module.auto_acid.threshold",
+                    automaticWashThreshold), "auto_threshold"));
+        }
+        if (moduleValid(BoilerRoomModules.BUFFER_TANK)) {
+            textList.add(Component.translatable("gregsteamexpansion.machine.boiler_room.module.steam_buffer.amount",
+                    steamBufferAmount, steamBufferCapacity()).withStyle(ChatFormatting.GRAY));
+        }
+    }
+
+    private void addToggle(List<Component> textList, BoilerRoomModules.Descriptor module,
+                           boolean enabled, String action) {
+        if (!moduleValid(module)) return;
+        textList.add(ComponentPanelWidget.withButton(Component.translatable(
+                "gregsteamexpansion.machine.boiler_room.module.toggle",
+                Component.translatable(module.translationKey()),
+                Component.translatable(enabled
+                        ? "gregsteamexpansion.machine.boiler_room.module.enabled"
+                        : "gregsteamexpansion.machine.boiler_room.module.disabled")), action));
     }
 
     private static String formatWaterSoftenerTime(long ticks) {
@@ -1167,7 +1578,21 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
                         (int) Math.round(room.getDescalingProgress() * 100.0)));
                 return;
             }
+            if (room.isForceCooling()) {
+                setWaiting(Component.translatable(
+                        "gregsteamexpansion.machine.boiler_room.module.force_cooling.running"));
+                return;
+            }
+            if (room.automaticWashPhase == AUTO_COOLING) {
+                setWaiting(Component.translatable(
+                        "gregsteamexpansion.machine.boiler_room.module.auto_acid.waiting"));
+                return;
+            }
             if (room.isCoFiringPaused()) {
+                if (room.atomizerBatchLocked && room.isAirStarved()) {
+                    interruptRecipe();
+                    return;
+                }
                 setWaiting(Component.translatable(room.isMissingPowder()
                         ? "gregsteamexpansion.machine.boiler_room.status.missing_powder"
                         : "gregsteamexpansion.machine.boiler_room.status.air_starved"));
@@ -1201,6 +1626,20 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         descalingTicksTotal = 0;
         waterSoftenerDoseUnits = 0;
         waterSoftenerAppliedLastCycle = false;
+        forcedDraftEnabled = false;
+        atomizerEnabled = false;
+        atomizerBatchLocked = false;
+        condenserEnabled = false;
+        automaticWashEnabled = false;
+        automaticWashThreshold = 75;
+        automaticWashPhase = AUTO_IDLE;
+        automaticWashResumeEnabled = false;
+        forceCoolingTicksRemaining = 0;
+        forceCoolingStartTemperature = 0;
+        steamBufferAmount = 0;
+        descalingMode = DESCALING_COLD;
+        descalingAcidConsumed = 0;
+        acidRecoveryEligible = false;
     }
 
     @Override
@@ -1222,6 +1661,16 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         descalingTicksTotal = 0;
         waterSoftenerDoseUnits = 0;
         waterSoftenerAppliedLastCycle = false;
+        atomizerBatchLocked = false;
+        automaticWashPhase = AUTO_IDLE;
+        automaticWashResumeEnabled = false;
+        forceCoolingTicksRemaining = 0;
+        forceCoolingStartTemperature = 0;
+        steamBufferAmount = 0;
+        descalingMode = DESCALING_COLD;
+        descalingAcidConsumed = 0;
+        acidRecoveryEligible = false;
+        modules.clear();
         airIntakes.clear();
     }
 }

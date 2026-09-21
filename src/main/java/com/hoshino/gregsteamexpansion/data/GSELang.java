@@ -80,6 +80,8 @@ public final class GSELang {
                 "This structure has no interchangeable ordinary blocks");
         add("gregsteamexpansion.ultimate_terminal.channel.auto", "Automatic");
         add("gregsteamexpansion.ultimate_terminal.channel.structure_size", "Structure size");
+        add("gregsteamexpansion.ultimate_terminal.channel.module", "External module");
+        add("gregsteamexpansion.ultimate_terminal.channel.none", "None");
         add("gregsteamexpansion.ultimate_terminal.channel.coil", "Coil block");
         add("gregsteamexpansion.ultimate_terminal.channels.empty", "No selectable channels for this structure");
         add("gregsteamexpansion.ultimate_terminal.channels.legend", "Select structure size and preferred blocks directly");
@@ -1064,7 +1066,7 @@ public final class GSELang {
         add("gregsteamexpansion.machine.boiler_room.tooltip.air_intake",
                 "Top centre strip (11 blocks): tier casing or 1-11 Steam Air Intake Hatches only; no other hatches on this strip.");
         add("gregsteamexpansion.machine.boiler_room.tooltip.water_scale",
-                "Water scale: Easy never builds up; Normal/Expert scrap the controller after 24/8 equivalent full-load hours. Descaling while stopped and below 100°C removes one 25% band per cycle.");
+                "Water scale: Easy/Normal/Expert scrap the controller after 720/24/8 equivalent full-load hours. Cold descaling while stopped at or below 300 K removes one 25% band per cycle.");
         add("gregsteamexpansion.machine.boiler_room.tooltip.water_softener",
                 "Optional left-side water softener: Sticky Resin reduces new scale by %s%%; one resin supplies %s equivalent ticks at 100%% throttle.");
         add("gregsteamexpansion.machine.boiler_room.tooltip.stored_scale",
@@ -1088,6 +1090,7 @@ public final class GSELang {
                 "Controller permanently scrapped by severe water scale");
         add("gregsteamexpansion.machine.boiler_room.water_scale.warning",
                 "DANGER: %s at %s [%s, %s, %s] reached severe water scale; steam output is reduced by %s%% and the next stage permanently scraps the controller.");
+        add("gregsteamexpansion.machine.boiler_room.water_softener.label", "Water Softener Tower");
         add("gregsteamexpansion.machine.boiler_room.water_softener.missing",
                 "Water softener: not installed on the left side");
         add("gregsteamexpansion.machine.boiler_room.water_softener.invalid",
@@ -1106,6 +1109,32 @@ public final class GSELang {
                 "Water softener active: %s%% less new scale, %s remaining at current throttle");
         add("gregsteamexpansion.machine.boiler_room.water_softener.bypass",
                 "Water softener bypass: missing Sticky Resin");
+        add("gregsteamexpansion.machine.boiler_room.module.water_softener", "Water Softener Tower");
+        add("gregsteamexpansion.machine.boiler_room.module.force_cooling", "Force-cooling Tank");
+        add("gregsteamexpansion.machine.boiler_room.module.acid_recovery", "Acid Recovery Pool");
+        add("gregsteamexpansion.machine.boiler_room.module.forced_draft", "Forced Draft Room");
+        add("gregsteamexpansion.machine.boiler_room.module.atomizer", "Liquid-fuel Atomization Room");
+        add("gregsteamexpansion.machine.boiler_room.module.hot_acid", "Hot Acid-wash Facility");
+        add("gregsteamexpansion.machine.boiler_room.module.condenser", "Steam Condenser Tower");
+        add("gregsteamexpansion.machine.boiler_room.module.steam_buffer", "Steam Buffer Tank");
+        add("gregsteamexpansion.machine.boiler_room.module.auto_acid", "Automatic Acid-wash Station");
+        add("gregsteamexpansion.machine.boiler_room.module.status", "%s: %s");
+        add("gregsteamexpansion.machine.boiler_room.module.status.ready", "ready");
+        add("gregsteamexpansion.machine.boiler_room.module.status.invalid", "invalid structure, port or tier");
+        add("gregsteamexpansion.machine.boiler_room.module.status.unloaded", "area unloaded; waiting");
+        add("gregsteamexpansion.machine.boiler_room.module.status.conflict", "space or face claimed");
+        add("gregsteamexpansion.machine.boiler_room.module.status.missing", "not installed");
+        add("gregsteamexpansion.machine.boiler_room.module.force_cooling.start",
+                "[Force cool now: %s mB water]");
+        add("gregsteamexpansion.machine.boiler_room.module.force_cooling.running", "Force cooling in progress");
+        add("gregsteamexpansion.machine.boiler_room.module.auto_acid.waiting",
+                "Automatic acid wash: cooling or waiting for acid");
+        add("gregsteamexpansion.machine.boiler_room.module.auto_acid.threshold", "[Threshold: %s%%]");
+        add("gregsteamexpansion.machine.boiler_room.module.toggle", "[%s: %s]");
+        add("gregsteamexpansion.machine.boiler_room.module.enabled", "enabled");
+        add("gregsteamexpansion.machine.boiler_room.module.disabled", "disabled");
+        add("gregsteamexpansion.machine.boiler_room.module.steam_buffer.amount",
+                "Steam buffer: %s / %s mB");
         add("config.jade.plugin_gregsteamexpansion.boiler_room_water_scale",
                 "Boiler Room Water Scale");
         add("gregsteamexpansion.jade.boiler_room.water_scale", "Water scale: %s%% (-%s%% steam)");
