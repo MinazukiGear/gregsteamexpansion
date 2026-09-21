@@ -476,7 +476,8 @@ public final class GSEMachines {
             .pattern(GSEProcessorPatterns::createBlastFurnace)
             .shapeInfos(definition -> List.of(
                     GSEProcessorPatterns.blastFurnaceShapeInfo(definition),
-                    GSEProcessorPatterns.blastFurnaceHotBlastShapeInfo(definition)))
+                    GSEProcessorPatterns.blastFurnaceHotBlastShapeInfo(definition),
+                    GSEProcessorPatterns.blastFurnaceHighChargeShapeInfo(definition)))
             .langValue("Large Steam Blast Furnace")
             .tooltipBuilder(GSEMachineTooltips.LARGE_STEAM_BLAST_FURNACE)
             .allowCoverOnFront(false)

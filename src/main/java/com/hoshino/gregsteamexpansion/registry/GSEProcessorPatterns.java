@@ -548,6 +548,46 @@ public final class GSEProcessorPatterns {
                 .build();
     }
 
+    /** Optional full preview with BF-T-10 centred above the 5x5 chimney crown. */
+    public static MultiblockShapeInfo blastFurnaceHighChargeShapeInfo(
+            MultiblockMachineDefinition definition) {
+        return GSEPatternLayouts.shape(blastFurnaceHighChargeLayers())
+                .where('I', industrialSteamCasing())
+                .where('H', blastBricks())
+                .where('K', cokeBricksCasing())
+                .where('A', Blocks.AIR)
+                .where('C', definition, Direction.NORTH)
+                .where('J', GTMachines.STEAM_IMPORT_BUS, Direction.NORTH)
+                .where('O', GTMachines.STEAM_EXPORT_BUS, Direction.NORTH)
+                .where('S', GSEMachines.STEAM_SUPPLY_HATCH, Direction.NORTH)
+                .where('E', GSEMachines.STEAM_EXHAUST_HATCH, Direction.NORTH)
+                .where('F', GSEMachines.STEAM_AIR_INTAKE_HATCH, Direction.NORTH)
+                .build();
+    }
+
+    private static String[][] blastFurnaceHighChargeLayers() {
+        String[][] body = blastFurnaceLayers();
+        String[][] combined = new String[body.length + 11][];
+        System.arraycopy(body, 0, combined, 0, body.length);
+        for (int moduleY = 0; moduleY < 11; moduleY++) {
+            String[] layer = new String[13];
+            java.util.Arrays.fill(layer, "             ");
+            if (moduleY < 4) {
+                layer[4] = "    IIIII    ";
+                layer[5] = "    IHHHI    ";
+                layer[6] = "    IHHHI    ";
+                layer[7] = "    IHHHI    ";
+                layer[8] = "    IIIII    ";
+            } else {
+                layer[5] = "     III     ";
+                layer[6] = "     IHI     ";
+                layer[7] = "     III     ";
+            }
+            combined[body.length + moduleY] = layer;
+        }
+        return combined;
+    }
+
     private static String[][] blastFurnaceHotBlastLayers() {
         String[][] body = blastFurnaceLayers();
         String[][] combined = new String[body.length][];

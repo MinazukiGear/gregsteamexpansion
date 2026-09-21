@@ -720,20 +720,19 @@ def main() -> int:
             (6,),
         ),
         (
-            "large steam blast-furnace parallel cap",
+            "large steam blast-furnace parallel caps",
             captured_integers(
                 "docs/design/large-steam-blast-furnace.md",
-                r"最大并行固定 `(\d+)`",
-                "large steam blast-furnace parallel design",
+                r"普通批次最大并行固定 `(\d+)`；模块完整且高装料周期允许时临时上限为 `(\d+)`",
+                "large steam blast-furnace parallel designs",
             ),
-            (
-                integer_return(
-                    "src/main/java/com/hoshino/gregsteamexpansion/machine/multiblock/"
-                    "processor/LargeSteamBlastFurnaceMachine.java",
-                    "maximumParallel",
-                ),
+            captured_integers(
+                "src/main/java/com/hoshino/gregsteamexpansion/machine/multiblock/"
+                "processor/LargeSteamBlastFurnaceMachine.java",
+                r"NORMAL_MAX_PARALLEL\s*=\s*(\d+);[\s\S]*?HIGH_CHARGE_MAX_PARALLEL\s*=\s*(\d+);",
+                "large steam blast-furnace parallel code",
             ),
-            (96,),
+            (96, 192),
         ),
         (
             "steam assembler parallel mapping",

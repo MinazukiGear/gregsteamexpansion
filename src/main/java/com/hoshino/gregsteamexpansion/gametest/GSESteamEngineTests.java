@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.AbstractSteamProcessorMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHighChargeModule;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastModule;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamBlastFurnaceMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
@@ -49,6 +50,7 @@ public final class GSESteamEngineTests {
     private static final ChunkPos PROCESSOR_RELOAD_CHUNK = new ChunkPos(256, 256);
     private static final ChunkPos HOT_BLAST_RESTART_CHUNK = new ChunkPos(260, 260);
     private static final long HOT_BLAST_RESTART_HEAT = 12_345_678L;
+    private static final long HIGH_CHARGE_RESTART_DEBT = 123L;
 
     private GSESteamEngineTests() {}
 
@@ -480,10 +482,17 @@ public final class GSESteamEngineTests {
                 "Hot-blast restart fixture controller did not instantiate");
         LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) placed;
         BlastFurnaceHotBlastModule.place(level, controllerPos, Direction.NORTH);
+        BlastFurnaceHighChargeModule.place(level, controllerPos, Direction.NORTH);
         set(machine, "lastHotBlastValidationTick", Long.MIN_VALUE);
         h.assertTrue((boolean) call(machine, "refreshHotBlastModule", true),
                 "Hot-blast restart fixture module did not validate before save");
+        set(machine, "lastHighChargeValidationTick", Long.MIN_VALUE);
+        h.assertTrue((boolean) call(machine, "refreshHighChargeModule", true),
+                "High-charge restart fixture module did not validate before save");
         set(machine, "hotBlastHeat", HOT_BLAST_RESTART_HEAT);
+        set(machine, "highChargeEnabled", true);
+        set(machine, "highChargePhase", 1);
+        set(machine, "highChargeResetTicksRemaining", HIGH_CHARGE_RESTART_DEBT);
 
         BlockEntity blockEntity = level.getBlockEntity(controllerPos);
         h.assertTrue(blockEntity != null, "Hot-blast restart fixture has no controller block entity");
@@ -501,13 +510,27 @@ public final class GSESteamEngineTests {
         h.assertTrue(BlastFurnaceHotBlastModule.validate(level, controllerPos, Direction.NORTH)
                         == BlastFurnaceHotBlastModule.Result.VALID,
                 "Hot-blast ordinary-block module did not survive server restart");
+        h.assertTrue(BlastFurnaceHighChargeModule.validate(level, controllerPos, Direction.NORTH)
+                        == BlastFurnaceHighChargeModule.Result.VALID,
+                "High-charge ordinary-block module did not survive server restart");
         eq(h, machine.getHotBlastHeat(), HOT_BLAST_RESTART_HEAT,
                 "Hot-blast heat did not survive server restart");
+        h.assertTrue(machine.isHighChargeEnabled(),
+                "High-charge toggle did not survive server restart");
+        h.assertTrue(machine.getHighChargePhaseId().equals("second"),
+                "High-charge committed phase did not survive server restart");
+        eq(h, machine.getHighChargeResetTicksRemaining(), HIGH_CHARGE_RESTART_DEBT,
+                "High-charge reset debt did not survive server restart");
         set(machine, "lastHotBlastValidationTick", Long.MIN_VALUE);
         h.assertTrue((boolean) call(machine, "refreshHotBlastModule", true),
                 "Restored hot-blast module failed ownership validation");
+        set(machine, "lastHighChargeValidationTick", Long.MIN_VALUE);
+        h.assertTrue((boolean) call(machine, "refreshHighChargeModule", true),
+                "Restored high-charge module failed ownership validation");
         eq(h, machine.getHotBlastHeat(), HOT_BLAST_RESTART_HEAT,
                 "Module revalidation changed restored hot-blast heat");
+        eq(h, machine.getHighChargeResetTicksRemaining(), HIGH_CHARGE_RESTART_DEBT,
+                "Module revalidation changed restored high-charge reset debt");
     }
 
     private static void cleanupHotBlastRestartFixture(ServerLevel level) {
@@ -523,15 +546,24 @@ public final class GSESteamEngineTests {
         for (BlockPos pos : BlockPos.betweenClosed(bounds[0], bounds[1])) {
             level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
         }
+        BlockPos[] highChargeBounds = BlastFurnaceHighChargeModule.bounds(controllerPos, Direction.NORTH);
+        for (BlockPos pos : BlockPos.betweenClosed(highChargeBounds[0], highChargeBounds[1])) {
+            level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+        }
     }
 
     private static void forceHotBlastRestartChunks(ServerLevel level, boolean forced) {
         BlockPos controllerPos = hotBlastRestartControllerPos();
-        BlockPos[] bounds = BlastFurnaceHotBlastModule.bounds(controllerPos, Direction.NORTH);
-        int minX = Math.min(HOT_BLAST_RESTART_CHUNK.x, new ChunkPos(bounds[0]).x);
-        int maxX = Math.max(HOT_BLAST_RESTART_CHUNK.x, new ChunkPos(bounds[1]).x);
-        int minZ = Math.min(HOT_BLAST_RESTART_CHUNK.z, new ChunkPos(bounds[0]).z);
-        int maxZ = Math.max(HOT_BLAST_RESTART_CHUNK.z, new ChunkPos(bounds[1]).z);
+        BlockPos[] hotBlastBounds = BlastFurnaceHotBlastModule.bounds(controllerPos, Direction.NORTH);
+        BlockPos[] highChargeBounds = BlastFurnaceHighChargeModule.bounds(controllerPos, Direction.NORTH);
+        int minX = Math.min(HOT_BLAST_RESTART_CHUNK.x,
+                Math.min(new ChunkPos(hotBlastBounds[0]).x, new ChunkPos(highChargeBounds[0]).x));
+        int maxX = Math.max(HOT_BLAST_RESTART_CHUNK.x,
+                Math.max(new ChunkPos(hotBlastBounds[1]).x, new ChunkPos(highChargeBounds[1]).x));
+        int minZ = Math.min(HOT_BLAST_RESTART_CHUNK.z,
+                Math.min(new ChunkPos(hotBlastBounds[0]).z, new ChunkPos(highChargeBounds[0]).z));
+        int maxZ = Math.max(HOT_BLAST_RESTART_CHUNK.z,
+                Math.max(new ChunkPos(hotBlastBounds[1]).z, new ChunkPos(highChargeBounds[1]).z));
         for (int chunkX = minX; chunkX <= maxX; chunkX++) {
             for (int chunkZ = minZ; chunkZ <= maxZ; chunkZ++) {
                 level.setChunkForced(chunkX, chunkZ, forced);

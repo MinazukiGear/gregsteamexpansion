@@ -519,6 +519,33 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.ready", "Ready");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.charging", "Recovering Heat");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.hot", "Hot Blast (-15% Steam)");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.high_charge.structure",
+                "Optional BF-T-10 High-Charge Tower: a solid 5x5x4 base and centred 3x3x7 crown directly above the furnace, made from Industrial Steam Machine Casings around blast-brick cores.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.high_charge.cycle",
+                "When enabled, a 97-192 parallel batch commits two high-charge batches. The second accepts 1-192 parallel but is unavoidable; both use exactly 19,200 mB/t steam and 384 mB/t blast air at 100% throttle with no large-steam overclock.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.tooltip.high_charge.failure",
+                "Each high-charge start adds reset debt. After batch two, or if the tower fails during a committed cycle, reset consumes the same fixed steam and air per successful tick before normal work can resume.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status.label", "High-Charge Tower");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status.missing", "Not Installed");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status.invalid", "Invalid Structure");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status.unloaded", "Module Unloaded");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status.conflict", "Claimed by Another Furnace");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status.ready", "Ready");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.mode.label", "High-Charge Mode");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.mode.disabled", "Disabled");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.mode.enabled", "Armed");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.mode.batch_1", "Batch 1 / 2");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.mode.batch_2", "Batch 2 / 2");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.mode.second", "Awaiting Forced Batch 2");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.mode.reset", "Resetting");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.debt.label", "Reset Debt");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.toggle", "High-Charge Mode");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.toggle.info",
+                "Arms a new cycle only when the first batch actually exceeds 96 parallel.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.toggle.committed",
+                "Changing this during a committed cycle affects only the next cycle.");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.controller.reset", "High-Charge Reset");
+        add("gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.controller.waiting", "Awaiting Forced High-Charge Batch");
         add("gregsteamexpansion.machine.large_steam_blast_furnace.low_blast",
                 "Blast Air Shortage");
         add("gregsteamexpansion.multiblock.auxiliary_shortfall",

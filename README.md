@@ -49,7 +49,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（168 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（171 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -94,8 +94,9 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 bash tools/verify.sh                                # 与 CI 完全一致的完整门禁
 ```
 
-处理机控制器的跨服务器进程持久化使用专用双阶段验证。脚本先启动一个 GameTest
-服务器写入并落盘状态，再启动全新的服务器进程读取、核对并清理测试区块：
+处理机控制器以及大型蒸汽高炉外挂模块的跨服务器进程持久化使用专用双阶段验证。
+脚本先启动一个 GameTest 服务器写入并落盘批次、待输出、热风炉储热和高装料周期状态，
+再启动全新的服务器进程读取、核对并清理测试区块：
 
 ```powershell
 python tools/verify_server_restart.py

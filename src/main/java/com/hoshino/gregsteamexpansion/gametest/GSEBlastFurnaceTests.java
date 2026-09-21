@@ -7,8 +7,10 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatc
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastModule;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastWorldData;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHighChargeModule;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.LargeSteamBlastFurnaceMachine;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
+import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
 import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
 import com.gregtechceu.gtceu.api.data.RotationState;
@@ -68,6 +70,191 @@ import static com.hoshino.gregsteamexpansion.gametest.GSESteamEngineTestSupport.
 @PrefixGameTestTemplate(false)
 public final class GSEBlastFurnaceTests {
     private GSEBlastFurnaceTests() {}
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 100)
+    public static void highChargeTowerGeometryAndClaimsAreExact(GameTestHelper h) {
+        BlockPos controller = h.absolutePos(new BlockPos(16, 2, 16));
+        var requirements = BlastFurnaceHighChargeModule.terminalRequirements(controller, Direction.NORTH);
+        eq(h, requirements.size(), 275, "BF-T-10 claim is not exactly 5x5x11");
+        eq(h, requirements.stream().filter(requirement -> requirement.air()).count(), 112,
+                "BF-T-10 strict-air skirt count changed");
+        eq(h, requirements.stream().filter(requirement -> !requirement.air()
+                        && requirement.block() == GSEProcessorPatterns.industrialSteamCasing()).count(),
+                120, "BF-T-10 industrial casing count changed");
+        eq(h, requirements.stream().filter(requirement -> !requirement.air()
+                        && requirement.block() == GSEProcessorPatterns.blastBricks()).count(),
+                43, "BF-T-10 blast-brick core count changed");
+
+        for (Direction facing : Direction.Plane.HORIZONTAL) {
+            BlockPos facingController = controller.relative(facing, 7);
+            BlastFurnaceHighChargeModule.place(h.getLevel(), facingController, facing);
+            h.assertTrue(BlastFurnaceHighChargeModule.validate(h.getLevel(), facingController, facing)
+                            == BlastFurnaceHighChargeModule.Result.VALID,
+                    "BF-T-10 failed its " + facing + " rotated geometry");
+        }
+
+        var claims = BlastFurnaceHotBlastWorldData.getOrCreate(h.getLevel());
+        claims.releaseAll(controller);
+        claims.claimBody(BlastFurnaceHotBlastWorldData.bodyClaimFor(controller, Direction.NORTH));
+        h.assertTrue(claims.claim(BlastFurnaceHotBlastWorldData.claimFor(
+                        controller, Direction.NORTH)).success(),
+                "Rear BF-B-01 claim did not coexist with its furnace body");
+        var highClaim = BlastFurnaceHotBlastWorldData.highChargeClaimFor(controller, Direction.NORTH);
+        h.assertTrue(claims.claim(highClaim).success(),
+                "Top BF-T-10 claim did not coexist with BF-B-01");
+        var foreignOverlap = new BlastFurnaceHotBlastWorldData.Claim(controller.east(),
+                BlastFurnaceHighChargeModule.ID, "top", highClaim.anchor(),
+                highClaim.min(), highClaim.max());
+        h.assertTrue(!claims.claim(foreignOverlap).success(),
+                "A second furnace claimed the occupied BF-T-10 box");
+        claims.releaseAll(controller);
+        claims.releaseAll(controller.east());
+        h.succeed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 400)
+    public static void highChargeCycleLocksDebtAndResetsAtomically(GameTestHelper h) {
+        formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+            LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+            configureBlastFurnaceFullLoadHatches(h, machine);
+            BlastFurnaceHighChargeModule.place(h.getLevel(), machine.getPos(), machine.getFrontFacing());
+            set(machine, "lastHighChargeValidationTick", Long.MIN_VALUE);
+            h.assertTrue((boolean) call(machine, "refreshHighChargeModule", true),
+                    "Complete BF-T-10 did not validate");
+            var ui = machine.createUI(FakePlayerFactory.getMinecraft(h.getLevel()));
+            List<ToggleButtonWidget> highChargeButtons = ui.getFlatWidgetCollection().stream()
+                    .filter(ToggleButtonWidget.class::isInstance)
+                    .map(ToggleButtonWidget.class::cast)
+                    .filter(widget -> widget.getSelfPositionX() == 28)
+                    .toList();
+            h.assertTrue(highChargeButtons.size() == 1,
+                    "Controller UI did not expose exactly one high-charge toggle");
+            ToggleButtonWidget highChargeButton = highChargeButtons.get(0);
+            highChargeButton.detectAndSendChanges();
+            h.assertTrue(!highChargeButton.isPressed(), "High-charge toggle did not default off");
+            guiToggle(highChargeButton, true);
+            h.assertTrue(machine.isHighChargeEnabled(), "GUI did not arm high-charge mode");
+
+            GTRecipe first = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("high_charge_first_probe"))
+                    .inputItems(new ItemStack(Items.COBBLESTONE))
+                    .outputItems(new ItemStack(Items.IRON_INGOT))
+                    .duration(120).buildRawRecipe();
+            ItemBusPartMachine input = inputBus(machine);
+            clearInventory(input);
+            fillOutputs(machine, false);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 64));
+            input.getInventory().setStackInSlot(1, new ItemStack(Items.COBBLESTONE, 32));
+            fillSteam(machine, 32_000);
+            for (SteamAirIntakeHatchPartMachine intake :
+                    GSESteamEngineTestSupport.<SteamAirIntakeHatchPartMachine>list(
+                            machine, "airIntakeHatches")) {
+                intake.tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(64_000));
+            }
+
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", first),
+                    "96-parallel armed probe did not start");
+            eq(h, machine.getBatchParallel(), 96, "96-parallel boundary changed parallel");
+            h.assertTrue(!machine.isCurrentBatchHighCharge()
+                            && machine.getHighChargePhaseId().equals("idle"),
+                    "A 96-parallel batch incorrectly committed high-charge mode");
+            clearActiveProcessorBatch(machine);
+            call(machine, "onBatchCleared");
+            clearInventory(input);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 64));
+            input.getInventory().setStackInSlot(1, new ItemStack(Items.COBBLESTONE, 33));
+
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", first),
+                    "97-parallel first high-charge batch did not start");
+            eq(h, machine.getBatchParallel(), 97, "First high-charge batch changed parallel");
+            h.assertTrue(machine.isCurrentBatchHighCharge(), "First batch was not marked high-charge");
+            eq(h, machine.getCurrentHighChargeBatchOrdinal(), 1, "First batch has wrong cycle ordinal");
+            eq(h, machine.getBatchSteamPerTick(), 19_200, "First batch changed fixed steam demand");
+            eq(h, machine.getCurrentBatchSteamThrottlePercent(), 100,
+                    "First batch did not force 100% throttle");
+            long firstDebt = (machine.getBatchDuration() + 95L) / 96L;
+            eq(h, machine.getHighChargeResetTicksRemaining(), firstDebt,
+                    "First batch locked the wrong reset debt");
+
+            CompoundTag highChargeSaved = saveState(h, machine);
+            set(machine, "highChargeEnabled", false);
+            set(machine, "highChargePhase", 0);
+            set(machine, "highChargeResetTicksRemaining", 0L);
+            set(machine, "batchHighCharge", false);
+            set(machine, "batchHighChargeOrdinal", 0);
+            loadState(h, machine, highChargeSaved);
+            h.assertTrue(machine.isHighChargeEnabled(),
+                    "High-charge toggle did not survive controller NBT reload");
+            h.assertTrue(machine.isCurrentBatchHighCharge(),
+                    "Active high-charge batch did not survive controller NBT reload");
+            eq(h, machine.getCurrentHighChargeBatchOrdinal(), 1,
+                    "High-charge batch ordinal did not survive controller NBT reload");
+            h.assertTrue(machine.getHighChargePhaseId().equals("second"),
+                    "High-charge phase did not survive controller NBT reload");
+            eq(h, machine.getHighChargeResetTicksRemaining(), firstDebt,
+                    "High-charge reset debt did not survive controller NBT reload");
+
+            call(machine, "onBatchCompleted", first, 97);
+            clearActiveProcessorBatch(machine);
+            call(machine, "onBatchCleared");
+            h.assertTrue(machine.getHighChargePhaseId().equals("second"),
+                    "Completing batch one did not require batch two");
+            machine.setHighChargeEnabled(false);
+
+            GTRecipe second = GTRecipeTypes.PRIMITIVE_BLAST_FURNACE_RECIPES
+                    .recipeBuilder(GregSteamExpansion.id("high_charge_second_probe"))
+                    .inputItems(new ItemStack(Items.DIRT))
+                    .outputItems(new ItemStack(Items.GOLD_INGOT))
+                    .duration(80).buildRawRecipe();
+            clearInventory(input);
+            input.getInventory().setStackInSlot(0, new ItemStack(Items.DIRT));
+            h.assertTrue((boolean) call(machine, "tryStartRecipe", second),
+                    "Forced one-parallel second high-charge batch did not start");
+            eq(h, machine.getBatchParallel(), 1, "Forced second batch changed actual parallel");
+            eq(h, machine.getCurrentHighChargeBatchOrdinal(), 2, "Second batch has wrong cycle ordinal");
+            eq(h, machine.getBatchSteamPerTick(), 19_200, "Second batch lost fixed steam demand");
+            eq(h, number(machine, "batchAuxiliaryPerTickMb"), 384,
+                    "Second batch lost fixed blast-air demand");
+            eq(h, machine.getHighChargeResetTicksRemaining(), firstDebt,
+                    "One-parallel second batch incorrectly added debt");
+
+            for (var supply : supplies(machine)) {
+                supply.tank.getStorages()[0].setFluid(FluidStack.EMPTY);
+            }
+            for (SteamAirIntakeHatchPartMachine intake :
+                    GSESteamEngineTestSupport.<SteamAirIntakeHatchPartMachine>list(
+                            machine, "airIntakeHatches")) {
+                intake.tank.getStorages()[0].setFluid(FluidStack.EMPTY);
+            }
+            h.getLevel().setBlockAndUpdate(BlastFurnaceHighChargeModule.anchor(
+                    machine.getPos(), machine.getFrontFacing()), Blocks.AIR.defaultBlockState());
+            set(machine, "lastHighChargeValidationTick", Long.MIN_VALUE);
+            tick(machine);
+            h.assertTrue(!machine.isCurrentBatchHighCharge() && machine.getBatchRecipeId().isEmpty(),
+                    "Tower failure did not discard the active second batch");
+            h.assertTrue(machine.getHighChargePhaseId().equals("reset"),
+                    "Tower failure did not enter reset");
+            eq(h, machine.getHighChargeResetTicksRemaining(), firstDebt,
+                    "Tower failure erased locked reset debt");
+
+            fillSteam(machine, 32_000);
+            long steamBefore = steam(machine);
+            tick(machine);
+            eq(h, steam(machine), steamBefore, "Air-short reset tick wasted steam");
+            eq(h, machine.getHighChargeResetTicksRemaining(), firstDebt,
+                    "Air-short reset tick reduced debt");
+
+            List<SteamAirIntakeHatchPartMachine> intakes = list(machine, "airIntakeHatches");
+            intakes.get(0).tank.getStorages()[0].setFluid(GTMaterials.Air.getFluid(384));
+            steamBefore = steam(machine);
+            tick(machine);
+            eq(h, steamBefore - steam(machine), 19_200,
+                    "Successful reset tick consumed the wrong steam amount");
+            eq(h, air(machine), 0, "Successful reset tick consumed the wrong blast-air amount");
+            eq(h, machine.getHighChargeResetTicksRemaining(), Math.max(0, firstDebt - 1),
+                    "Successful reset tick did not reduce debt exactly once");
+        });
+    }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 400)
     public static void hotBlastModuleCyclesHeatAndFallsBackOnDamage(GameTestHelper h) {
@@ -268,7 +455,7 @@ public final class GSEBlastFurnaceTests {
                     "Controller GUI did not expose locked parallel as 4 / 96");
             h.assertTrue(!labelText(ui.getFlatWidgetCollection(), 104, 42).isBlank(),
                     "Controller GUI omitted the proficiency row");
-            String intakeText = labelText(ui.getFlatWidgetCollection(), 104, 92);
+            String intakeText = labelText(ui.getFlatWidgetCollection(), 104, 122);
             h.assertTrue(intakeText.equals(call(machine, "intakeText")),
                     "Controller GUI intake row diverged from the intake snapshot");
             h.assertTrue(!intakeText.equals("—"), "Controller GUI omitted its required intake row");

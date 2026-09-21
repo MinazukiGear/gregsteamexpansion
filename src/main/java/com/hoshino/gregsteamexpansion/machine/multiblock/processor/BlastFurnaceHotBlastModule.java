@@ -15,6 +15,7 @@ import java.util.List;
 /** Fixed ordinary-block geometry of the large steam blast furnace's twin hot-blast stoves. */
 public final class BlastFurnaceHotBlastModule {
 
+    public static final String ID = "BF-B-01";
     public static final int WIDTH = 7;
     public static final int DEPTH = 5;
     public static final int HEIGHT = 9;

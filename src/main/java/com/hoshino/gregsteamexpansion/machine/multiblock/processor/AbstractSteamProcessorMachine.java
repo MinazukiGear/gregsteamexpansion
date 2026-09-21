@@ -487,6 +487,11 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
             return;
         }
 
+        if (!hasBatch && runControllerPhaseTick()) {
+            updateWorkingAppearance();
+            return;
+        }
+
         if (hasBatch) {
             runBatchTick();
         } else if (recipeSearchDirty || level.getGameTime() >= nextRecipeSearchTick) {
@@ -924,10 +929,11 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         LargeSteamOverclock.LockedEconomics overclock = LargeSteamOverclock.lock(
                 (int) batchDurationTicks(recipe, parallel),
                 partCollector.modifySteamConsumption(batchSteamPerTickMb(recipe, eu, parallel)),
-                largeSteamOverclockEnabled,
+                largeSteamOverclockEnabled && allowsLargeSteamOverclockForBatch(recipe, parallel),
                 hasLargeSteamSupplyHatch());
         SteamThrottle.LockedEconomics normal = SteamThrottle.lock(
-                overclock.durationTicks(), overclock.steamPerTickMb(), steamThrottlePercent);
+                overclock.durationTicks(), overclock.steamPerTickMb(),
+                steamThrottlePercentForBatch(recipe, parallel));
         SteamThrottle.LockedEconomics selected = adjustLockedSteamEconomics(recipe, parallel, normal);
         if (selected.durationTicks() != normal.durationTicks() ||
                 selected.throttlePercent() != normal.throttlePercent()) {
@@ -1149,6 +1155,30 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     protected void onProcessorServerTick() {}
 
     /**
+     * Optional controller-owned phase that runs only while no recipe batch is active, after the
+     * common pending-output, pause, structure and exhaust gates. Returning {@code true} consumes
+     * the tick and suppresses recipe search. The default processor family has no such phase.
+     */
+    protected boolean runControllerPhaseTick() {
+        return false;
+    }
+
+    /** Batch-local gate for the Large Steam Supply Hatch overclock. */
+    protected boolean allowsLargeSteamOverclockForBatch(GTRecipe recipe, int parallel) {
+        return true;
+    }
+
+    /** Batch-local throttle selection. Subclasses may lock a special batch to full throttle. */
+    protected int steamThrottlePercentForBatch(GTRecipe recipe, int parallel) {
+        return steamThrottlePercent;
+    }
+
+    /** Steam demand shown while a controller-owned non-recipe phase is active. */
+    protected long controllerPhaseSteamDemandPerTick() {
+        return 0;
+    }
+
+    /**
      * Allows a controller to reduce the already-finalized steam total without changing the
      * locked duration or throttle. The hook is pure: recipe search may call it repeatedly while
      * lowering a candidate parallel, and only {@link #onBatchEconomicsLocked} commits state.
@@ -1257,6 +1287,33 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return steamBudget.drawSteam(amountMb, remaining -> GregSteamExpansion.LOGGER.warn(
                 "Steam processor at {} draw execution fell short of the simulated plan by {} mB",
                 getPos(), remaining));
+    }
+
+    /**
+     * Runs the same auxiliary-simulate -> steam-draw -> auxiliary-execute transaction used by a
+     * recipe tick for a controller-owned phase such as blast-furnace reset. This method must be
+     * called from {@link #runControllerPhaseTick()}, after the common controller gates.
+     */
+    protected final boolean consumeControllerPhaseResources(long steamDemandMb,
+                                                             long auxiliaryDemandMb) {
+        BatchStateMachine.TickResult tick = batchState.runTick(0, Integer.MAX_VALUE,
+                () -> drawAuxiliaryInputs(auxiliaryDemandMb, true),
+                () -> drawSteam(steamDemandMb),
+                () -> drawAuxiliaryInputs(auxiliaryDemandMb, false));
+        if (!tick.consumed()) {
+            return false;
+        }
+        if (tick.auxiliaryExecutionShortfall()) {
+            GregSteamExpansion.LOGGER.warn(
+                    "Steam processor at {} controller-phase auxiliary draw fell short after steam draw",
+                    getPos());
+        }
+        if (hasExhaustHazard() && !exhaustHatches.isEmpty()) {
+            SteamExhaustHatchMachine exhaustHatch = exhaustHatches.get(0);
+            exhaustFeedbackTimer = exhaustHatch.advanceFeedbackCycle(exhaustFeedbackTimer);
+            exhaustDamageTimer = exhaustHatch.advanceDamageCycle(exhaustDamageTimer);
+        }
+        return true;
     }
 
     /** 供给仓合计存量 (mB). */
@@ -1453,6 +1510,7 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         SteamProcessorUI.addPowerButton(ui, uiHeight, this::isWorkingEnabled, this::setWorkingEnabled);
         SteamProcessorUI.addLargeSteamOverclockButton(ui, uiHeight, this::hasLargeSteamSupplyHatch,
                 this::isLargeSteamOverclockEnabled, this::setLargeSteamOverclockEnabled);
+        appendControllerButtons(ui, uiHeight);
         return ui;
     }
 
@@ -1461,6 +1519,9 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         return y;
     }
 
+    /** Controller-specific footer buttons appended after the shared power/overclock controls. */
+    protected void appendControllerButtons(ModularUI ui, int uiHeight) {}
+
     /** `45.0%（135 / 300 tick）`; completed-but-undelivered stays at 100%. */
     private String progressText() {
         return SteamProcessorUI.progress(hasBatch, batchProgress, batchDurationTicks);
@@ -1468,7 +1529,8 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
 
     /** 当前每刻需求为 EU/t × 2 × P；仅运行中且成功扣取蒸汽时才算实际消耗。 */
     private String demandText() {
-        return SteamProcessorUI.demand(currentSteamDemandPerTick(), batchSteamPerTickMb,
+        long lockedDemand = hasBatch ? batchSteamPerTickMb : controllerPhaseSteamDemandPerTick();
+        return SteamProcessorUI.demand(currentSteamDemandPerTick(), lockedDemand,
                 batchState.consumedThisTick(), UI_PREFIX + "not_consuming");
     }
 
@@ -1543,6 +1605,34 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
         }
     }
 
+    /**
+     * Discards a live batch after its inputs were committed, producing no outputs. Existing pending
+     * outputs from older completed batches are untouched. Intended for explicit destructive module
+     * failure contracts only.
+     */
+    protected final void discardCurrentBatch() {
+        if (!hasBatch) {
+            return;
+        }
+        hasBatch = false;
+        batchRecipe = null;
+        batchRecipeId = "";
+        batchProgress = 0;
+        batchParallel = 0;
+        batchDurationTicks = 0;
+        batchTotalSteamMb = 0;
+        batchSteamPerTickMb = 0;
+        batchAuxiliaryTotalMb = 0;
+        batchAuxiliaryPerTickMb = 0;
+        batchLargeSteamOverclock = false;
+        batchSteamThrottlePercent = SteamThrottle.MAX_PERCENT;
+        batchOutputMultiplier = 1.0f;
+        batchInputDisplay = ItemStack.EMPTY;
+        onBatchCleared();
+        requestRecipeSearch();
+        markDirty();
+    }
+
     public long getBatchSteamPerTick() {
         return currentSteamDemandPerTick();
     }
@@ -1552,7 +1642,14 @@ public abstract class AbstractSteamProcessorMachine extends MultiblockController
     }
 
     private long currentSteamDemandPerTick() {
-        if (!hasBatch) return 0;
+        if (!hasBatch) {
+            String status = getStatusId();
+            if (status.equals("invalid_structure") || status.equals("exhaust_obstructed")
+                    || status.equals("insufficient_outputs") || status.equals("working_disabled")) {
+                return 0;
+            }
+            return Math.max(0, controllerPhaseSteamDemandPerTick());
+        }
         String status = getStatusId();
         return status.equals("working") || status.equals("low_steam") || status.equals("auxiliary_shortfall")
                 ? batchSteamDemandForProgress() : 0;

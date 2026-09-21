@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastModule;
+import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHighChargeModule;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
@@ -134,8 +135,8 @@ public final class GSEStructureFormationTests {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void largeSteamBlastFurnaceHotBlastPreviewMatchesModule(GameTestHelper helper) {
         var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
-        helper.assertTrue(definition.getMatchingShapes().size() == 2,
-                "Blast furnace must expose base and hot-blast previews");
+        helper.assertTrue(definition.getMatchingShapes().size() == 3,
+                "Blast furnace must expose base, hot-blast and high-charge previews");
         MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
                 helper, definition, definition.getMatchingShapes().get(1),
                 new BlockPos(16, 16, 8), Direction.NORTH);
@@ -150,6 +151,28 @@ public final class GSEStructureFormationTests {
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
                         "Combined hot-blast preview did not preserve base formation"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeSteamBlastFurnaceHighChargePreviewMatchesModule(GameTestHelper helper) {
+        var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
+        helper.assertTrue(definition.getMatchingShapes().size() == 3,
+                "Blast furnace must expose its high-charge preview");
+        MultiblockControllerMachine machine = GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(2),
+                new BlockPos(16, 2, 8), Direction.NORTH);
+        helper.assertTrue(machine != null, "Missing high-charge preview controller");
+        if (machine == null) {
+            return;
+        }
+        helper.assertTrue(BlastFurnaceHighChargeModule.validate(
+                        helper.getLevel(), machine.getPos(), machine.getFrontFacing())
+                        == BlastFurnaceHighChargeModule.Result.VALID,
+                "High-charge preview does not match the runtime module validator");
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
+                        "Combined high-charge preview did not preserve base formation"))
                 .thenSucceed();
     }
 

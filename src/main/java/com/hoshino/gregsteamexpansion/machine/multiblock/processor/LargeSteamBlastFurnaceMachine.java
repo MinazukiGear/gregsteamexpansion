@@ -1,6 +1,8 @@
 package com.hoshino.gregsteamexpansion.machine.multiblock.processor;
 
 import com.gregtechceu.gtceu.api.machine.IMachineBlockEntity;
+import com.gregtechceu.gtceu.api.gui.GuiTextures;
+import com.gregtechceu.gtceu.api.gui.widget.ToggleButtonWidget;
 import com.gregtechceu.gtceu.api.pattern.BlockPattern;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
@@ -14,11 +16,13 @@ import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatc
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
 import com.lowdragmc.lowdraglib.gui.widget.DraggableScrollableWidgetGroup;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraftforge.fluids.capability.IFluidHandler;
@@ -72,6 +76,10 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     public static final int HOT_BLAST_STEAM_PERCENT = 85;
     /** Two compact checkerwork towers store at most 100 million mB-equivalent heat. */
     public static final long HOT_BLAST_HEAT_CAPACITY = 100_000_000L;
+    public static final int NORMAL_MAX_PARALLEL = 96;
+    public static final int HIGH_CHARGE_MAX_PARALLEL = 192;
+    public static final long HIGH_CHARGE_STEAM_PER_TICK_MB = 19_200;
+    public static final long HIGH_CHARGE_AIR_PER_TICK_MB = 384;
     private static final long MODULE_VALIDATION_INTERVAL_TICKS = 20L;
 
     /** Exact recipe id whose consecutive completed operations are tracked. */
@@ -108,9 +116,35 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     @DescSynced
     private int hotBlastStatus;
 
+    /** Player preference for starting a new BF-T-10 two-batch cycle. */
+    @Persisted
+    @DescSynced
+    private boolean highChargeEnabled;
+    /** Synced ordinal of {@link HighChargePhase}; committed cycles ignore later toggle changes. */
+    @Persisted
+    @DescSynced
+    private int highChargePhase;
+    /** Reset work still owed in successful 19,200-steam/384-air ticks. */
+    @Persisted
+    @DescSynced
+    private long highChargeResetTicksRemaining;
+    /** The active recipe batch is one of the two committed high-charge batches. */
+    @Persisted
+    @DescSynced
+    private boolean batchHighCharge;
+    /** 1 for the opening batch, 2 for the forced follow-up batch. */
+    @Persisted
+    @DescSynced
+    private int batchHighChargeOrdinal;
+    /** Synced ordinal of {@link HighChargeStatus}; geometry remains server-authoritative. */
+    @DescSynced
+    private int highChargeStatus;
+
     private long lastHotBlastValidationTick = Long.MIN_VALUE;
     private boolean hotBlastValidatedThisSession;
     private boolean skipBatchTickAfterHotBlastFailure;
+    private long lastHighChargeValidationTick = Long.MIN_VALUE;
+    private boolean highChargeValidatedThisSession;
 
     private enum HotBlastStatus {
         MISSING("missing"),
@@ -122,6 +156,32 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         private final String key;
 
         HotBlastStatus(String key) {
+            this.key = key;
+        }
+    }
+
+    private enum HighChargeStatus {
+        MISSING("missing"),
+        INVALID("invalid"),
+        UNLOADED("unloaded"),
+        CONFLICT("conflict"),
+        VALID("ready");
+
+        private final String key;
+
+        HighChargeStatus(String key) {
+            this.key = key;
+        }
+    }
+
+    private enum HighChargePhase {
+        IDLE("idle"),
+        FORCED_SECOND("second"),
+        RESET("reset");
+
+        private final String key;
+
+        HighChargePhase(String key) {
             this.key = key;
         }
     }
@@ -142,9 +202,11 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     public int maximumParallel() {
-        // 96 remains the fixed cap; proficiency now controls duration and keeps
-        // even mastered default throughput below the former 0.4x/240x values.
-        return 96;
+        HighChargePhase phase = currentHighChargePhase();
+        return currentHighChargeStatus() == HighChargeStatus.VALID
+                && (phase == HighChargePhase.FORCED_SECOND
+                    || (phase == HighChargePhase.IDLE && highChargeEnabled))
+                ? HIGH_CHARGE_MAX_PARALLEL : NORMAL_MAX_PARALLEL;
     }
 
     @Override
@@ -206,6 +268,16 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
             proficiencyOperations = 0;
             markDirty();
         }
+        if (isHighChargeCandidate(parallel)) {
+            batchHighCharge = true;
+            batchHighChargeOrdinal = currentHighChargePhase() == HighChargePhase.FORCED_SECOND ? 2 : 1;
+            if (batchHighChargeOrdinal == 1) {
+                setHighChargePhase(HighChargePhase.FORCED_SECOND);
+            }
+            highChargeResetTicksRemaining = saturatedAdd(highChargeResetTicksRemaining,
+                    resetDebtFor(getBatchDuration(), parallel));
+            markDirty();
+        }
     }
 
     @Override
@@ -219,6 +291,9 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         }
         int cap = GSEDifficultyState.blastFurnaceRequiredOperations(isRemote(), 3);
         proficiencyOperations = (int) Math.min(cap, (long) boundedProficiencyOperations() + parallel);
+        if (batchHighCharge && batchHighChargeOrdinal == 2) {
+            setHighChargePhase(HighChargePhase.RESET);
+        }
         markDirty();
     }
 
@@ -259,11 +334,36 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         y = SteamProcessorUI.infoRow(scroll, y,
                 "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.label",
                 this::hotBlastStatusText, net.minecraft.ChatFormatting.WHITE);
-        return SteamProcessorUI.infoRow(scroll, y,
+        y = SteamProcessorUI.infoRow(scroll, y,
                 "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.heat.label",
                 () -> FormattingUtil.formatNumbers(boundedHotBlastHeat()) + " / "
                         + FormattingUtil.formatNumbers(HOT_BLAST_HEAT_CAPACITY) + " mB",
                 net.minecraft.ChatFormatting.WHITE);
+        y = SteamProcessorUI.infoRow(scroll, y,
+                "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status.label",
+                this::highChargeStatusText, ChatFormatting.WHITE);
+        y = SteamProcessorUI.infoRow(scroll, y,
+                "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.mode.label",
+                this::highChargeModeText, ChatFormatting.WHITE);
+        return SteamProcessorUI.infoRow(scroll, y,
+                "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.debt.label",
+                () -> FormattingUtil.formatNumbers(Math.max(0, highChargeResetTicksRemaining)) + " tick",
+                ChatFormatting.WHITE);
+    }
+
+    @Override
+    protected void appendControllerButtons(ModularUI ui, int uiHeight) {
+        ui.widget(new ToggleButtonWidget(28, uiHeight - 24, 18, 18, GuiTextures.BUTTON_BATCH,
+                this::isHighChargeEnabled, this::setHighChargeEnabled).setHoverTooltips(
+                Component.translatable(
+                        "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.toggle")
+                        .withStyle(ChatFormatting.YELLOW),
+                Component.translatable(
+                        "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.toggle.info")
+                        .withStyle(ChatFormatting.GRAY),
+                Component.translatable(
+                        "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.toggle.committed")
+                        .withStyle(ChatFormatting.GRAY)));
     }
 
     private String hotBlastStatusText() {
@@ -277,6 +377,28 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         }
         return Component.translatable(
                 "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status." + suffix)
+                .getString();
+    }
+
+    private String highChargeStatusText() {
+        return Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status."
+                        + currentHighChargeStatus().key).getString();
+    }
+
+    private String highChargeModeText() {
+        String suffix;
+        if (batchHighCharge && hasActiveBatch()) {
+            suffix = batchHighChargeOrdinal == 2 ? "batch_2" : "batch_1";
+        } else if (currentHighChargePhase() == HighChargePhase.RESET) {
+            suffix = "reset";
+        } else if (currentHighChargePhase() == HighChargePhase.FORCED_SECOND) {
+            suffix = "second";
+        } else {
+            suffix = highChargeEnabled ? "enabled" : "disabled";
+        }
+        return Component.translatable(
+                "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.mode." + suffix)
                 .getString();
     }
 
@@ -313,8 +435,13 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         proficiencyRecipeId = "";
         proficiencyOperations = 0;
         hotBlastHeat = 0;
+        highChargeEnabled = false;
+        highChargeResetTicksRemaining = 0;
+        batchHighCharge = false;
+        batchHighChargeOrdinal = 0;
+        setHighChargePhase(HighChargePhase.IDLE);
         if (getLevel() instanceof ServerLevel level) {
-            BlastFurnaceHotBlastWorldData.getOrCreate(level).release(getPos());
+            BlastFurnaceHotBlastWorldData.getOrCreate(level).releaseAll(getPos());
         }
         super.onMachineRemoved();
     }
@@ -323,18 +450,26 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     protected long batchSteamPerTickMb(GTRecipe recipe, long eu, int parallel) {
         // 议题 5: 配方无 EU, 蒸汽按固定马力费计收 (与 EU 脱钩);
         // 满载 96 并行 = 19,200 mB/t: 16 个普通仓或 4 个大型仓.
-        return STEAM_PER_TICK_PER_PARALLEL_MB * parallel;
+        return isHighChargeCandidate(parallel)
+                ? HIGH_CHARGE_STEAM_PER_TICK_MB
+                : STEAM_PER_TICK_PER_PARALLEL_MB * parallel;
     }
 
     @Override
     public void onStructureFormed() {
         super.onStructureFormed();
+        if (getLevel() instanceof ServerLevel level) {
+            BlastFurnaceHotBlastWorldData.getOrCreate(level).claimBody(
+                    BlastFurnaceHotBlastWorldData.bodyClaimFor(getPos(), getFrontFacing()));
+        }
         refreshHotBlastModule(true);
+        refreshHighChargeModule(true);
     }
 
     @Override
     protected void onProcessorServerTick() {
         refreshHotBlastModule(false);
+        refreshHighChargeModule(batchHighCharge || currentHighChargePhase() == HighChargePhase.FORCED_SECOND);
     }
 
     @Override
@@ -342,7 +477,7 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
             GTRecipe recipe, int parallel, SteamThrottle.LockedEconomics normal) {
         // The processor refreshes the optional structure before recipe search each server tick.
         // Keep candidate economics pure because parallel fitting may evaluate this hook repeatedly.
-        if (currentHotBlastStatus() != HotBlastStatus.VALID) {
+        if (isHighChargeCandidate(parallel) || currentHotBlastStatus() != HotBlastStatus.VALID) {
             return normal;
         }
         long hotTotal = percentCeil(normal.totalSteamMb(), HOT_BLAST_STEAM_PERCENT);
@@ -359,6 +494,13 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
                                           SteamThrottle.LockedEconomics selected) {
         batchNormalSteamTotalMb = normal.totalSteamMb();
         batchNormalSteamPerTickMb = normal.steamPerTickMb();
+        if (isHighChargeCandidate(parallel)) {
+            batchHotBlast = false;
+            batchHotBlastModuleParticipating = false;
+            batchHotBlastHeatTotal = 0;
+            batchHotBlastHeatPerTick = 0;
+            return;
+        }
         long hotTotal = percentCeil(normal.totalSteamMb(), HOT_BLAST_STEAM_PERCENT);
         batchHotBlastHeatTotal = Math.max(0, normal.totalSteamMb() - hotTotal);
         batchHotBlastHeatPerTick = SteamThrottle.spread(batchHotBlastHeatTotal,
@@ -369,6 +511,10 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     protected boolean beforeBatchTick(GTRecipe recipe, int parallel, int progress) {
+        if (batchHighCharge && currentHighChargeStatus() == HighChargeStatus.UNLOADED
+                && !highChargeValidatedThisSession) {
+            return false;
+        }
         if (skipBatchTickAfterHotBlastFailure) {
             skipBatchTickAfterHotBlastFailure = false;
             return false;
@@ -413,6 +559,84 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         batchNormalSteamTotalMb = 0;
         batchNormalSteamPerTickMb = 0;
         skipBatchTickAfterHotBlastFailure = false;
+        batchHighCharge = false;
+        batchHighChargeOrdinal = 0;
+    }
+
+    @Override
+    protected boolean allowsLargeSteamOverclockForBatch(GTRecipe recipe, int parallel) {
+        return !isHighChargeCandidate(parallel);
+    }
+
+    @Override
+    protected int steamThrottlePercentForBatch(GTRecipe recipe, int parallel) {
+        return isHighChargeCandidate(parallel) ? SteamThrottle.MAX_PERCENT
+                : super.steamThrottlePercentForBatch(recipe, parallel);
+    }
+
+    @Override
+    protected boolean runControllerPhaseTick() {
+        if (currentHighChargePhase() != HighChargePhase.RESET) {
+            return false;
+        }
+        if (highChargeResetTicksRemaining <= 0) {
+            highChargeResetTicksRemaining = 0;
+            setHighChargePhase(HighChargePhase.IDLE);
+            requestRecipeSearch();
+            markDirty();
+            return true;
+        }
+        if (consumeControllerPhaseResources(
+                HIGH_CHARGE_STEAM_PER_TICK_MB, HIGH_CHARGE_AIR_PER_TICK_MB)) {
+            highChargeResetTicksRemaining--;
+            if (highChargeResetTicksRemaining == 0) {
+                setHighChargePhase(HighChargePhase.IDLE);
+                requestRecipeSearch();
+            }
+            markDirty();
+        }
+        return true;
+    }
+
+    @Override
+    protected long controllerPhaseSteamDemandPerTick() {
+        return currentHighChargePhase() == HighChargePhase.RESET
+                && highChargeResetTicksRemaining > 0 ? HIGH_CHARGE_STEAM_PER_TICK_MB : 0;
+    }
+
+    @Override
+    public String getStatusId() {
+        String base = super.getStatusId();
+        if (!base.equals("idle")) {
+            return base;
+        }
+        if (currentHighChargePhase() == HighChargePhase.RESET) {
+            return "high_charge_reset";
+        }
+        if (currentHighChargePhase() == HighChargePhase.FORCED_SECOND) {
+            return "high_charge_waiting";
+        }
+        return base;
+    }
+
+    @Override
+    public Component getStatusText() {
+        return switch (getStatusId()) {
+            case "high_charge_reset" -> Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.controller.reset");
+            case "high_charge_waiting" -> Component.translatable(
+                    "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.controller.waiting");
+            default -> super.getStatusText();
+        };
+    }
+
+    @Override
+    public ChatFormatting getStatusColor() {
+        return switch (getStatusId()) {
+            case "high_charge_reset" -> ChatFormatting.YELLOW;
+            case "high_charge_waiting" -> ChatFormatting.AQUA;
+            default -> super.getStatusColor();
+        };
     }
 
     private boolean refreshHotBlastModule(boolean force) {
@@ -438,13 +662,13 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
                 hotBlastHeat = boundedHotBlastHeat();
                 return true;
             }
-            data.release(getPos());
+            data.release(getPos(), BlastFurnaceHotBlastModule.ID);
             invalidateHotBlastModule(HotBlastStatus.CONFLICT);
             hotBlastValidatedThisSession = true;
             return false;
         }
 
-        data.release(getPos());
+        data.release(getPos(), BlastFurnaceHotBlastModule.ID);
         if (geometry == BlastFurnaceHotBlastModule.Result.UNLOADED) {
             if (hotBlastValidatedThisSession) {
                 invalidateHotBlastModule(HotBlastStatus.UNLOADED);
@@ -467,6 +691,67 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         if (batchHotBlast && hasActiveBatch()) {
             downgradeHotBlastBatch();
         }
+    }
+
+    private boolean refreshHighChargeModule(boolean force) {
+        if (!(getLevel() instanceof ServerLevel level)) {
+            return currentHighChargeStatus() == HighChargeStatus.VALID;
+        }
+        long now = level.getGameTime();
+        if (lastHighChargeValidationTick == now ||
+                (!force && lastHighChargeValidationTick != Long.MIN_VALUE
+                        && now - lastHighChargeValidationTick < MODULE_VALIDATION_INTERVAL_TICKS)) {
+            return currentHighChargeStatus() == HighChargeStatus.VALID;
+        }
+        lastHighChargeValidationTick = now;
+
+        BlastFurnaceHighChargeModule.Result geometry = BlastFurnaceHighChargeModule.validate(
+                level, getPos(), getFrontFacing());
+        BlastFurnaceHotBlastWorldData data = BlastFurnaceHotBlastWorldData.getOrCreate(level);
+        if (geometry == BlastFurnaceHighChargeModule.Result.VALID) {
+            var result = data.claim(BlastFurnaceHotBlastWorldData.highChargeClaimFor(
+                    getPos(), getFrontFacing()));
+            if (result.success()) {
+                setHighChargeStatus(HighChargeStatus.VALID);
+                highChargeValidatedThisSession = true;
+                requestRecipeSearch();
+                return true;
+            }
+            data.release(getPos(), BlastFurnaceHighChargeModule.ID);
+            highChargeValidatedThisSession = true;
+            invalidateHighChargeModule(HighChargeStatus.CONFLICT);
+            return false;
+        }
+
+        data.release(getPos(), BlastFurnaceHighChargeModule.ID);
+        if (geometry == BlastFurnaceHighChargeModule.Result.UNLOADED) {
+            if (highChargeValidatedThisSession) {
+                invalidateHighChargeModule(HighChargeStatus.UNLOADED);
+            } else {
+                setHighChargeStatus(HighChargeStatus.UNLOADED);
+            }
+            return false;
+        }
+
+        highChargeValidatedThisSession = true;
+        invalidateHighChargeModule(geometry == BlastFurnaceHighChargeModule.Result.MISSING
+                ? HighChargeStatus.MISSING : HighChargeStatus.INVALID);
+        return false;
+    }
+
+    private void invalidateHighChargeModule(HighChargeStatus status) {
+        setHighChargeStatus(status);
+        boolean committed = batchHighCharge && hasActiveBatch()
+                || currentHighChargePhase() == HighChargePhase.FORCED_SECOND;
+        if (!committed) {
+            return;
+        }
+        if (batchHighCharge && hasActiveBatch()) {
+            discardCurrentBatch();
+        }
+        setHighChargePhase(HighChargePhase.RESET);
+        requestRecipeSearch();
+        markDirty();
     }
 
     private void downgradeHotBlastBatch() {
@@ -514,6 +799,54 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         hotBlastStatus = status.ordinal();
     }
 
+    private HighChargeStatus currentHighChargeStatus() {
+        HighChargeStatus[] values = HighChargeStatus.values();
+        return highChargeStatus >= 0 && highChargeStatus < values.length
+                ? values[highChargeStatus] : HighChargeStatus.MISSING;
+    }
+
+    private void setHighChargeStatus(HighChargeStatus status) {
+        highChargeStatus = status.ordinal();
+    }
+
+    private HighChargePhase currentHighChargePhase() {
+        HighChargePhase[] values = HighChargePhase.values();
+        return highChargePhase >= 0 && highChargePhase < values.length
+                ? values[highChargePhase] : HighChargePhase.IDLE;
+    }
+
+    private void setHighChargePhase(HighChargePhase phase) {
+        highChargePhase = phase.ordinal();
+    }
+
+    private boolean isHighChargeCandidate(int parallel) {
+        if (currentHighChargeStatus() != HighChargeStatus.VALID) {
+            return false;
+        }
+        HighChargePhase phase = currentHighChargePhase();
+        return phase == HighChargePhase.FORCED_SECOND
+                || phase == HighChargePhase.IDLE && highChargeEnabled && parallel > NORMAL_MAX_PARALLEL;
+    }
+
+    private static long resetDebtFor(long duration, int parallel) {
+        long excess = Math.max(0L, (long) parallel - NORMAL_MAX_PARALLEL);
+        if (duration <= 0 || excess == 0) {
+            return 0;
+        }
+        long product = duration > Long.MAX_VALUE / excess ? Long.MAX_VALUE : duration * excess;
+        if (product > Long.MAX_VALUE - (NORMAL_MAX_PARALLEL - 1L)) {
+            return Long.MAX_VALUE;
+        }
+        return (product + NORMAL_MAX_PARALLEL - 1) / NORMAL_MAX_PARALLEL;
+    }
+
+    private static long saturatedAdd(long left, long right) {
+        if (right <= 0) {
+            return Math.max(0, left);
+        }
+        return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
+    }
+
     public long getHotBlastHeat() {
         return boundedHotBlastHeat();
     }
@@ -526,9 +859,44 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         return currentHotBlastStatus().key;
     }
 
+    public boolean isHighChargeEnabled() {
+        return highChargeEnabled;
+    }
+
+    public void setHighChargeEnabled(boolean enabled) {
+        if (highChargeEnabled == enabled) {
+            return;
+        }
+        highChargeEnabled = enabled;
+        requestRecipeSearch();
+        markDirty();
+    }
+
+    public String getHighChargeModuleStatusId() {
+        return currentHighChargeStatus().key;
+    }
+
+    public String getHighChargePhaseId() {
+        return currentHighChargePhase().key;
+    }
+
+    public long getHighChargeResetTicksRemaining() {
+        return Math.max(0, highChargeResetTicksRemaining);
+    }
+
+    public boolean isCurrentBatchHighCharge() {
+        return hasActiveBatch() && batchHighCharge;
+    }
+
+    public int getCurrentHighChargeBatchOrdinal() {
+        return isCurrentBatchHighCharge() ? batchHighChargeOrdinal : 0;
+    }
+
     @Override
     protected long batchAuxiliaryPerTickMb(int parallel) {
-        return BLAST_AIR_PER_PARALLEL_MB * parallel;
+        return isHighChargeCandidate(parallel)
+                ? HIGH_CHARGE_AIR_PER_TICK_MB
+                : BLAST_AIR_PER_PARALLEL_MB * parallel;
     }
 
     @Override
@@ -552,9 +920,14 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     public List<UltimateTerminalModuleProvider.Module> terminalModules() {
-        return List.of(new UltimateTerminalModuleProvider.Module(
-                "hot_blast_stoves",
-                "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.label",
-                BlastFurnaceHotBlastModule.terminalRequirements(getPos(), getFrontFacing())));
+        return List.of(
+                new UltimateTerminalModuleProvider.Module(
+                        "hot_blast_stoves",
+                        "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.label",
+                        BlastFurnaceHotBlastModule.terminalRequirements(getPos(), getFrontFacing())),
+                new UltimateTerminalModuleProvider.Module(
+                        "high_charge_tower",
+                        "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status.label",
+                        BlastFurnaceHighChargeModule.terminalRequirements(getPos(), getFrontFacing())));
     }
 }
