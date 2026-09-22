@@ -1292,6 +1292,24 @@ public final class GSELang {
                 "A legacy batch was cancelled. Insert a valid coke oven ingredient once to resume.");
         add("gregsteamexpansion.large_coke_oven.detail.preferred",
                 "A preferred recipe is remembered");
+        add("gregsteamexpansion.large_coke_oven.detail.dry_quench",
+                "Dry Quench Tower: %s · %s · continuity %s/18 portions");
+        add("gregsteamexpansion.large_coke_oven.detail.furnace_base",
+                "Additional Furnace Base: %s · fluid capacity %s mB");
+        add("gregsteamexpansion.large_coke_oven.detail.phase", "Batch phase: %s");
+        add("gregsteamexpansion.large_coke_oven.module.status.missing", "not installed");
+        add("gregsteamexpansion.large_coke_oven.module.status.valid", "valid");
+        add("gregsteamexpansion.large_coke_oven.module.status.invalid", "invalid structure");
+        add("gregsteamexpansion.large_coke_oven.module.status.unloaded", "range not loaded");
+        add("gregsteamexpansion.large_coke_oven.module.status.conflict", "ownership conflict");
+        add("gregsteamexpansion.large_coke_oven.module.dry_quench.tier.cold", "cold start (0.84×)");
+        add("gregsteamexpansion.large_coke_oven.module.dry_quench.tier.stable", "stable (0.80×)");
+        add("gregsteamexpansion.large_coke_oven.module.dry_quench.tier.continuous", "continuous (0.76×)");
+        add("gregsteamexpansion.large_coke_oven.phase.idle", "idle");
+        add("gregsteamexpansion.large_coke_oven.phase.coking", "coking");
+        add("gregsteamexpansion.large_coke_oven.phase.dry_quenching", "dry quenching");
+        add("gregsteamexpansion.machine.large_coke_oven.module.dry_quench", "Dry Quench Tower");
+        add("gregsteamexpansion.machine.large_coke_oven.module.furnace_base", "Additional Furnace Base");
 
         // ---- GUI ----
         add("gregsteamexpansion.large_coke_oven.gui.slot_number", "Slot %s");
@@ -1316,7 +1334,7 @@ public final class GSELang {
     private static void addLargeCokeOvenTooltips() {
         // ---- 控制器 ----
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.summary.0",
-                "A large no-energy coking machine: parallel 6 at fixed 0.5× recipe time, equal to 12 coke ovens at full load.");
+                "A large no-energy coking machine: base parallel 6 at fixed 0.8× recipe time, expandable with two external modules.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.summary.1",
                 "Hold Shift for structure, interface and hazard notes.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.0",
@@ -1328,13 +1346,13 @@ public final class GSELang {
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.3",
                 "Consumes no energy and has no fuel, temperature, warm-up, maintenance or pause.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.4",
-                "Parallel 6 and halved duration never increase yield per input: single-portion inputs and products follow the original coke oven recipes exactly.");
+                "Base operation is parallel 6 at 0.8× duration. The Additional Furnace Base raises parallel to 15 and fluid capacity from 64,000 to 96,000 mB.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.5",
                 "With GTCEu environmental hazards enabled, each completed parallel portion emits 0.1 carbon monoxide.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.6",
-                "Breaking a normal shell halts the in-progress batch and rewinds its progress to 1 tick; the same batch continues after repair. Breaking the controller cancels it, drops items by the settled rules and voids all fluids.");
+                "Breaking the main shell freezes and rewinds progress to 1 tick. Breaking a participating external module cancels an unfinished batch without refund; completed pending products survive.");
         add("gregsteamexpansion.machine.large_coke_oven.tooltip.details.7",
-                "Use the structure preview to inspect layers, candidate hatch positions and error diagnostics.");
+                "The Dry Quench Tower adds a fixed 0.04× dry-quench phase and continuity tiers for 0.84× / 0.80× / 0.76× total duration. Both modules may coexist and appear in structure previews.");
 
         // ---- 大型焦炉仓 ----
         add("gregsteamexpansion.machine.large_coke_oven_hatch.tooltip.summary.0",
@@ -1359,6 +1377,10 @@ public final class GSELang {
         // ---- Jade: 大型焦炉与已归属砖 ----
         add("gregsteamexpansion.jade.large_coke_oven.status", "Status: %s");
         add("gregsteamexpansion.jade.large_coke_oven.detail", "· %s");
+        add("gregsteamexpansion.jade.large_coke_oven.dry_quench",
+                "Dry quench: %s · %s · continuity %s/18");
+        add("gregsteamexpansion.jade.large_coke_oven.furnace_base",
+                "Furnace base: %s · parallel %s · %s mB");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.mode", "Mode: %s");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.facing", "Working face: %s");
         add("gregsteamexpansion.jade.large_coke_oven_hatch.covered", "Cover installed on the front");

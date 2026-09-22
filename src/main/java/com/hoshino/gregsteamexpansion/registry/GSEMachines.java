@@ -782,7 +782,7 @@ public final class GSEMachines {
     // (硬度/抗爆性/挖掘工具/方块声音/正常掉落/最大堆叠 64 完全一致)。
     // ------------------------------------------------------------------
 
-    /** 大型焦炉控制器: 最大并行 6、固定 0.5× 耗时、7×7×5 包围范围。 */
+    /** 大型焦炉控制器: 基础并行 6、固定 0.8× 耗时、7×7×5 主体及可选外挂模块。 */
     public static final MultiblockMachineDefinition LARGE_COKE_OVEN = GSERegistration.REGISTRATE
             .multiblock("large_coke_oven", LargeCokeOvenMachine::new)
             .rotationState(RotationState.NON_Y_AXIS)

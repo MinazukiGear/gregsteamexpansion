@@ -186,7 +186,61 @@ public final class LargeCokeOvenStructures {
         backHatches.put(3, 'O');
         backHatches.put(5, 'F');
         MultiblockShapeInfo automated = buildShapeInfo(definition, backHatches);
-        return List.of(basic, automated);
+        MultiblockShapeInfo dryQuench = buildExtendedShapeInfo(definition, true, false);
+        MultiblockShapeInfo furnaceBase = buildExtendedShapeInfo(definition, false, true);
+        MultiblockShapeInfo combined = buildExtendedShapeInfo(definition, true, true);
+        return List.of(basic, automated, dryQuench, furnaceBase, combined);
+    }
+
+    private static MultiblockShapeInfo buildExtendedShapeInfo(MultiblockMachineDefinition definition,
+                                                               boolean dryQuench, boolean furnaceBase) {
+        int minSide = -3;
+        int maxSide = furnaceBase ? 9 : dryQuench ? 8 : 3;
+        int minBack = furnaceBase ? -3 : 0;
+        int maxBack = furnaceBase ? 7 : 4;
+        int minUp = furnaceBase ? -2 : 0;
+        int maxUp = 6;
+        var builder = MultiblockShapeInfo.builder();
+        for (int back = minBack; back <= maxBack; back++) {
+            String[] rows = new String[maxUp - minUp + 1];
+            for (int up = minUp; up <= maxUp; up++) {
+                StringBuilder row = new StringBuilder(maxSide - minSide + 1);
+                for (int side = minSide; side <= maxSide; side++) {
+                    row.append(extendedSymbol(side, back, up, dryQuench, furnaceBase));
+                }
+                rows[up - minUp] = row.toString();
+            }
+            builder.aisle(rows);
+        }
+        builder
+                .where('B', GTBlocks.CASING_COKE_BRICKS.get())
+                .where('A', Blocks.AIR.defaultBlockState())
+                .where('C', definition, Direction.NORTH)
+                .where('.', BlockInfo.EMPTY);
+        return builder.build();
+    }
+
+    private static char extendedSymbol(int side, int back, int up,
+                                       boolean dryQuench, boolean furnaceBase) {
+        if (furnaceBase && up == -2 && side >= -3 && side <= 9 && back >= -3 && back <= 7) {
+            return 'B';
+        }
+        if (furnaceBase && up == -1 && side >= -3 && side <= 9 && back >= -3 && back <= 7) {
+            return side <= 7 && back >= -2 && back <= 6 ? 'B' : 'A';
+        }
+        if (up >= 0 && up < LAYER_COUNT && back >= 0 && back < DEPTH
+                && side >= -3 && side <= 3) {
+            char body = symbolAt(up, back, side + 3);
+            if (body != '.') return body == 'I' || body == 'W' ? 'B' : body;
+        }
+        if (dryQuench && side >= 4 && side <= 8 && back >= 0 && back <= 4
+                && up >= 0 && up <= 6) {
+            boolean connector = side <= 5 && back == 2 && up == 0;
+            boolean towerBrick = side >= 6 && (up == 0 || up == 6
+                    || side == 6 || side == 8 || back == 0 || back == 4);
+            return connector || towerBrick ? 'B' : 'A';
+        }
+        return '.';
     }
 
     /**

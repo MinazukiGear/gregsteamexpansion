@@ -304,6 +304,11 @@ public final class CokeOvenWorldData extends SavedData {
      */
     @Nullable
     public ConflictResult findConflict(ServerLevel level, Claim mine, @Nullable OwnedCokeOven self) {
+        BlockPos moduleConflict = CokeOvenModuleWorldData.getOrCreate(level)
+                .findConflict(mine.controllerPos, mine.spacingMin, mine.spacingMax);
+        if (moduleConflict != null) {
+            return new ConflictResult(ConflictType.TOO_CLOSE, moduleConflict);
+        }
         for (var entry : claims.entrySet()) {
             Claim other = entry.getValue();
             if (other.controllerPos.equals(mine.controllerPos)) continue;
@@ -318,6 +323,26 @@ public final class CokeOvenWorldData extends SavedData {
                     continue;
                 }
                 return new ConflictResult(conflict, other.controllerPos);
+            }
+        }
+        return null;
+    }
+
+    /** External module box versus foreign coke-oven occupancy and one-block spacing. */
+    @Nullable
+    public ConflictResult findModuleConflict(BlockPos controller, BlockPos min, BlockPos max) {
+        BlockPos spacingMin = expand(min, -1, -1, -1);
+        BlockPos spacingMax = expand(max, 1, 1, 1);
+        for (Claim other : claims.values()) {
+            if (other.controllerPos.equals(controller)) continue;
+            if (boxIntersects(spacingMin, spacingMax, other.occupiedMin, other.occupiedMax)) {
+                return new ConflictResult(ConflictType.TOO_CLOSE, other.controllerPos);
+            }
+            for (long pos : other.extraCoords) {
+                BlockPos extra = BlockPos.of(pos);
+                if (boxIntersects(spacingMin, spacingMax, extra, extra)) {
+                    return new ConflictResult(ConflictType.TOO_CLOSE, other.controllerPos);
+                }
             }
         }
         return null;

@@ -21,11 +21,15 @@ import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenMode;
+import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenModuleWorldData;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenWorldData;
+import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenDryQuenchModule;
+import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenFurnaceBaseModule;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenStructures;
 import com.hoshino.gregsteamexpansion.cokeoven.OwnedCokeOven;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
 import com.gregtechceu.gtceu.utils.GTTransferUtils;
 import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 import com.lowdragmc.lowdraglib.gui.texture.GuiTextureGroup;
@@ -57,6 +61,8 @@ import net.minecraftforge.fluids.FluidActionResult;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.items.IItemHandlerModifiable;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -79,7 +85,8 @@ import java.util.List;
  * </ul>
  */
 public class LargeCokeOvenMachine extends WorkableMultiblockMachine
-        implements IUIMachine, IMachineLife, IEnvironmentalHazardEmitter, OwnedCokeOven {
+        implements IUIMachine, IMachineLife, IEnvironmentalHazardEmitter, OwnedCokeOven,
+        UltimateTerminalModuleProvider {
 
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(
             LargeCokeOvenMachine.class, WorkableMultiblockMachine.MANAGED_FIELD_HOLDER);
@@ -88,6 +95,16 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     public static final int INPUT_SLOTS = 6;
     public static final int OUTPUT_SLOTS = 6;
     public static final int FLUID_TANK_CAPACITY_MB = 64_000;
+    public static final int FURNACE_BASE_FLUID_TANK_CAPACITY_MB = 96_000;
+    private static final int MODULE_VALIDATION_INTERVAL_TICKS = 20;
+
+    public enum ModuleStatus {
+        MISSING,
+        VALID,
+        INVALID,
+        UNLOADED,
+        CONFLICT
+    }
 
     /** 状态优先级 (coke-ovens.md 已确认运行状态集合), 枚举顺序即优先级。 */
     public enum OvenStatus {
@@ -115,6 +132,16 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     public final NotifiableItemStackHandler exportItems;
     @Persisted
     public final NotifiableFluidTank exportFluids;
+
+    @Persisted
+    @DescSynced
+    private ModuleStatus dryQuenchStatus = ModuleStatus.MISSING;
+    @Persisted
+    @DescSynced
+    private ModuleStatus furnaceBaseStatus = ModuleStatus.MISSING;
+    @Persisted
+    @DescSynced
+    private int dryQuenchContinuityPortions;
 
     /** 服务端权威判定并同步的唯一主状态。 */
     @Persisted
@@ -164,6 +191,10 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     private boolean invalidFeedbackArmed;
     /** 控制器拆除结算进行中 (避免拆除路径重复播放失效反馈)。 */
     private boolean removalSettled;
+    private boolean dryQuenchValidatedThisSession;
+    private boolean furnaceBaseValidatedThisSession;
+    private long lastDryQuenchValidationTick = Long.MIN_VALUE;
+    private long lastFurnaceBaseValidationTick = Long.MIN_VALUE;
     /** Standard, creative and ME item interfaces accepted beside the bespoke coke-oven hatches. */
     private final SteamPartCollector standardInterfaces = new SteamPartCollector();
 
@@ -171,7 +202,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
         super(holder, args);
         this.importItems = new NotifiableItemStackHandler(this, INPUT_SLOTS, IO.IN);
         this.exportItems = new NotifiableItemStackHandler(this, OUTPUT_SLOTS, IO.OUT);
-        this.exportFluids = new NotifiableFluidTank(this, 1, FLUID_TANK_CAPACITY_MB, IO.OUT);
+        this.exportFluids = new NotifiableFluidTank(this, 1, FURNACE_BASE_FLUID_TANK_CAPACITY_MB, IO.OUT);
     }
 
     @Override
@@ -193,6 +224,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     public void onLoad() {
         super.onLoad();
         if (!isRemote()) {
+            syncFluidTankCapacity();
             importListenerSubs = importItems.addChangedListener(this::onSharedInventoriesChanged);
             exportItems.addChangedListener(this::onSharedInventoriesChanged);
             exportFluids.addChangedListener(this::onSharedInventoriesChanged);
@@ -233,6 +265,10 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     /** 控制器级常量开销 tick: 状态同步 (10t) + 输出轮询 (5t)。 */
     private void controllerTick() {
         long timer = getOffsetTimer();
+        if (isFormed()) {
+            refreshDryQuenchModule(false);
+            refreshFurnaceBaseModule(false);
+        }
         if (timer % 5 == 0) {
             pollOutputs();
         }
@@ -433,6 +469,8 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
                 onStructureInvalid();
             } else {
                 syncClaimBox(claim);
+                refreshDryQuenchModule(true);
+                refreshFurnaceBaseModule(true);
             }
         }
     }
@@ -464,9 +502,15 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
         boolean wasFormed = isFormed();
         super.onStructureInvalid();
         if (isRemote()) return;
+        boolean rangeLoaded = isStructureRangeLoaded();
         standardInterfaces.clear();
+        if (rangeLoaded && dryQuenchContinuityPortions != 0) {
+            dryQuenchContinuityPortions = 0;
+            markDirty();
+        }
         ovenLogic.rewindBatchForStructureInvalid();
         releaseClaim();
+        releaseModuleClaims();
         if (!syncedClaimBox.isEmpty()) {
             syncedClaimBox = "";
             markDirty();
@@ -474,7 +518,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
         // 首次失效反馈: 一次"有效 → 无效"状态边沿触发; 持续无效期间的相邻更新、
         // 重复结构检查、区块重载、世界重载和服务器重启均不能重复播放; 结构范围
         // 未完全加载本身不播放; 控制器拆除使用自己的更明显反馈。
-        if (wasFormed && invalidFeedbackArmed && isStructureRangeLoaded() && !removalSettled) {
+        if (wasFormed && invalidFeedbackArmed && rangeLoaded && !removalSettled) {
             invalidFeedbackArmed = false;
             playStructureInvalidFeedback();
         }
@@ -551,6 +595,20 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
                 playSpecialClearFeedback();
             }
             releaseClaim();
+            releaseModuleClaims();
+        }
+    }
+
+    @Override
+    @OnlyIn(Dist.CLIENT)
+    public void clientTick() {
+        super.clientTick();
+        syncFluidTankCapacity();
+    }
+
+    private void releaseModuleClaims() {
+        if (getLevel() instanceof ServerLevel serverLevel) {
+            CokeOvenModuleWorldData.getOrCreate(serverLevel).releaseAll(getPos());
         }
     }
 
@@ -800,6 +858,24 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
                 !ovenLogic.getPreferredRecipeId().equals(ovenLogic.getBatchRecipeId())) {
             details.add(Component.translatable("gregsteamexpansion.large_coke_oven.detail.preferred"));
         }
+        if (dryQuenchStatus != ModuleStatus.MISSING) {
+            details.add(Component.translatable("gregsteamexpansion.large_coke_oven.detail.dry_quench",
+                    Component.translatable("gregsteamexpansion.large_coke_oven.module.status."
+                            + dryQuenchStatus.name().toLowerCase(java.util.Locale.ROOT)),
+                    Component.translatable("gregsteamexpansion.large_coke_oven.module.dry_quench.tier."
+                            + getDryQuenchTierId()), getDryQuenchContinuityPortions()));
+        }
+        if (furnaceBaseStatus != ModuleStatus.MISSING) {
+            details.add(Component.translatable("gregsteamexpansion.large_coke_oven.detail.furnace_base",
+                    Component.translatable("gregsteamexpansion.large_coke_oven.module.status."
+                            + furnaceBaseStatus.name().toLowerCase(java.util.Locale.ROOT)),
+                    FormattingUtil.formatNumbers(getEffectiveFluidTankCapacityMb())));
+        }
+        if (ovenLogic.hasActiveBatch() && ovenLogic.isBatchDryQuenchParticipating()) {
+            details.add(Component.translatable("gregsteamexpansion.large_coke_oven.detail.phase",
+                    Component.translatable("gregsteamexpansion.large_coke_oven.phase."
+                            + ovenLogic.getBatchPhaseId())));
+        }
         return details;
     }
 
@@ -816,6 +892,175 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
             case READY -> "ready";
             case IDLE -> "idle";
         };
+    }
+
+    //////////////////////////////////////
+    // ****** 专属外挂模块 ******//
+    //////////////////////////////////////
+
+    public ModuleStatus getDryQuenchStatus() {
+        return dryQuenchStatus;
+    }
+
+    public ModuleStatus getFurnaceBaseStatus() {
+        return furnaceBaseStatus;
+    }
+
+    public boolean isDryQuenchModuleValid() {
+        return dryQuenchStatus == ModuleStatus.VALID;
+    }
+
+    public boolean isDryQuenchModuleReadyForBatch() {
+        return dryQuenchValidatedThisSession && dryQuenchStatus == ModuleStatus.VALID;
+    }
+
+    public boolean isFurnaceBaseModuleValid() {
+        return furnaceBaseStatus == ModuleStatus.VALID;
+    }
+
+    public boolean isFurnaceBaseModuleReadyForBatch() {
+        return furnaceBaseValidatedThisSession && furnaceBaseStatus == ModuleStatus.VALID;
+    }
+
+    public String getDryQuenchTierId() {
+        int portions = getDryQuenchContinuityPortions();
+        return portions >= 18 ? "continuous" : portions >= 6 ? "stable" : "cold";
+    }
+
+    public int getDryQuenchContinuityPortions() {
+        return Math.max(0, Math.min(18, dryQuenchContinuityPortions));
+    }
+
+    public void addDryQuenchContinuity(int portions) {
+        if (!isDryQuenchModuleValid() || portions <= 0) return;
+        dryQuenchContinuityPortions = Math.min(18, getDryQuenchContinuityPortions() + portions);
+        markDirty();
+    }
+
+    public int getEffectiveFluidTankCapacityMb() {
+        boolean moduleAvailable = isRemote()
+                ? isFurnaceBaseModuleValid() : isFurnaceBaseModuleReadyForBatch();
+        return moduleAvailable || ovenLogic.hasExpandedCapacityLease()
+                ? FURNACE_BASE_FLUID_TANK_CAPACITY_MB : FLUID_TANK_CAPACITY_MB;
+    }
+
+    public void syncFluidTankCapacity() {
+        var storage = exportFluids.getStorages()[0];
+        int capacity = getEffectiveFluidTankCapacityMb();
+        if (storage.getCapacity() != capacity) storage.setCapacity(capacity);
+    }
+
+    public int getCurrentParallelLimit() {
+        return isFurnaceBaseModuleReadyForBatch()
+                ? LargeCokeOvenRecipeLogic.FURNACE_BASE_MAX_PARALLEL
+                : LargeCokeOvenRecipeLogic.BASE_MAX_PARALLEL;
+    }
+
+    private boolean refreshDryQuenchModule(boolean force) {
+        if (!(getLevel() instanceof ServerLevel level)) return isDryQuenchModuleValid();
+        long now = level.getGameTime();
+        if (lastDryQuenchValidationTick == now || (!force && lastDryQuenchValidationTick != Long.MIN_VALUE
+                && now - lastDryQuenchValidationTick < MODULE_VALIDATION_INTERVAL_TICKS)) {
+            return isDryQuenchModuleValid();
+        }
+        lastDryQuenchValidationTick = now;
+        var geometry = LargeCokeOvenDryQuenchModule.validate(level, getPos(), getFrontFacing());
+        var moduleData = CokeOvenModuleWorldData.getOrCreate(level);
+        if (geometry == LargeCokeOvenDryQuenchModule.Result.UNLOADED) {
+            dryQuenchStatus = ModuleStatus.UNLOADED;
+            markDirty();
+            return false;
+        }
+        dryQuenchValidatedThisSession = true;
+        if (geometry == LargeCokeOvenDryQuenchModule.Result.VALID) {
+            BlockPos[] bounds = LargeCokeOvenDryQuenchModule.bounds(getPos(), getFrontFacing());
+            var bodyConflict = CokeOvenWorldData.getOrCreate(level)
+                    .findModuleConflict(getPos(), bounds[0], bounds[1]);
+            var result = bodyConflict == null
+                    ? moduleData.claim(CokeOvenModuleWorldData.dryQuenchClaim(getPos(), getFrontFacing()))
+                    : new CokeOvenModuleWorldData.ClaimResult(false, bodyConflict.otherController());
+            if (result.success()) {
+                dryQuenchStatus = ModuleStatus.VALID;
+                markDirty();
+                return true;
+            }
+            moduleData.release(getPos(), LargeCokeOvenDryQuenchModule.ID);
+            invalidateDryQuenchModule(ModuleStatus.CONFLICT);
+            return false;
+        }
+        moduleData.release(getPos(), LargeCokeOvenDryQuenchModule.ID);
+        invalidateDryQuenchModule(geometry == LargeCokeOvenDryQuenchModule.Result.MISSING
+                ? ModuleStatus.MISSING : ModuleStatus.INVALID);
+        return false;
+    }
+
+    private boolean refreshFurnaceBaseModule(boolean force) {
+        if (!(getLevel() instanceof ServerLevel level)) return isFurnaceBaseModuleValid();
+        long now = level.getGameTime();
+        if (lastFurnaceBaseValidationTick == now || (!force && lastFurnaceBaseValidationTick != Long.MIN_VALUE
+                && now - lastFurnaceBaseValidationTick < MODULE_VALIDATION_INTERVAL_TICKS)) {
+            return isFurnaceBaseModuleValid();
+        }
+        lastFurnaceBaseValidationTick = now;
+        var geometry = LargeCokeOvenFurnaceBaseModule.validate(level, getPos(), getFrontFacing());
+        var moduleData = CokeOvenModuleWorldData.getOrCreate(level);
+        if (geometry == LargeCokeOvenFurnaceBaseModule.Result.UNLOADED) {
+            furnaceBaseStatus = ModuleStatus.UNLOADED;
+            syncFluidTankCapacity();
+            markDirty();
+            return false;
+        }
+        furnaceBaseValidatedThisSession = true;
+        if (geometry == LargeCokeOvenFurnaceBaseModule.Result.VALID) {
+            BlockPos[] bounds = LargeCokeOvenFurnaceBaseModule.bounds(getPos(), getFrontFacing());
+            var bodyConflict = CokeOvenWorldData.getOrCreate(level)
+                    .findModuleConflict(getPos(), bounds[0], bounds[1]);
+            var result = bodyConflict == null
+                    ? moduleData.claim(CokeOvenModuleWorldData.furnaceBaseClaim(getPos(), getFrontFacing()))
+                    : new CokeOvenModuleWorldData.ClaimResult(false, bodyConflict.otherController());
+            if (result.success()) {
+                furnaceBaseStatus = ModuleStatus.VALID;
+                syncFluidTankCapacity();
+                markDirty();
+                return true;
+            }
+            moduleData.release(getPos(), LargeCokeOvenFurnaceBaseModule.ID);
+            invalidateFurnaceBaseModule(ModuleStatus.CONFLICT);
+            return false;
+        }
+        moduleData.release(getPos(), LargeCokeOvenFurnaceBaseModule.ID);
+        invalidateFurnaceBaseModule(geometry == LargeCokeOvenFurnaceBaseModule.Result.MISSING
+                ? ModuleStatus.MISSING : ModuleStatus.INVALID);
+        return false;
+    }
+
+    private void invalidateDryQuenchModule(ModuleStatus status) {
+        boolean changed = dryQuenchStatus != status || dryQuenchContinuityPortions != 0;
+        dryQuenchStatus = status;
+        dryQuenchContinuityPortions = 0;
+        if (dryQuenchValidatedThisSession) ovenLogic.cancelForModuleFailure(true);
+        if (changed) markDirty();
+    }
+
+    private void invalidateFurnaceBaseModule(ModuleStatus status) {
+        boolean changed = furnaceBaseStatus != status;
+        furnaceBaseStatus = status;
+        if (furnaceBaseValidatedThisSession) ovenLogic.cancelForModuleFailure(false);
+        syncFluidTankCapacity();
+        if (changed) markDirty();
+    }
+
+    @Override
+    public List<UltimateTerminalModuleProvider.Module> terminalModules() {
+        return List.of(
+                new UltimateTerminalModuleProvider.Module(
+                        LargeCokeOvenDryQuenchModule.ID,
+                        "gregsteamexpansion.machine.large_coke_oven.module.dry_quench",
+                        LargeCokeOvenDryQuenchModule.terminalRequirements(getPos(), getFrontFacing())),
+                new UltimateTerminalModuleProvider.Module(
+                        LargeCokeOvenFurnaceBaseModule.ID,
+                        "gregsteamexpansion.machine.large_coke_oven.module.furnace_base",
+                        LargeCokeOvenFurnaceBaseModule.terminalRequirements(getPos(), getFrontFacing())));
     }
 
     //////////////////////////////////////
@@ -941,7 +1186,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
             return Component.translatable("gregsteamexpansion.large_coke_oven.gui.no_batch").getString();
         }
         return Component.translatable("gregsteamexpansion.large_coke_oven.gui.recipe_line",
-                ovenLogic.getBatchParallel() + "/" + LargeCokeOvenRecipeLogic.MAX_PARALLEL).getString();
+                ovenLogic.getBatchParallel() + "/" + ovenLogic.getBatchParallelLimit()).getString();
     }
 
     private String getProgressHoverText(double percent) {

@@ -1,6 +1,9 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenModuleWorldData;
+import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenDryQuenchModule;
+import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenFurnaceBaseModule;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastModule;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHighChargeModule;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
@@ -967,6 +970,70 @@ public final class GSEStructureFormationTests {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
     public static void largeCokeOvenFormsFromShape(GameTestHelper helper) {
         GSEStructureTestUtils.assertFirstShapeForms(helper, GSEMachines.LARGE_COKE_OVEN);
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    public static void largeCokeOvenExternalModulesValidateInEveryDirection(GameTestHelper helper) {
+        BlockPos controller = helper.absolutePos(new BlockPos(16, 5, 16));
+        var dryRequirements = LargeCokeOvenDryQuenchModule.terminalRequirements(controller, Direction.NORTH);
+        var baseRequirements = LargeCokeOvenFurnaceBaseModule.terminalRequirements(controller, Direction.NORTH);
+        helper.assertTrue(dryRequirements.size() == 175
+                        && dryRequirements.stream().filter(requirement -> !requirement.air()).count() == 92,
+                "Dry Quench Tower material or strict-air count changed");
+        helper.assertTrue(baseRequirements.size() == 286
+                        && baseRequirements.stream().filter(requirement -> !requirement.air()).count() == 242,
+                "Additional Furnace Base material or strict-air count changed");
+
+        CokeOvenModuleWorldData ownership = CokeOvenModuleWorldData.getOrCreate(helper.getLevel());
+        ownership.releaseAll(controller);
+        helper.assertTrue(ownership.claim(CokeOvenModuleWorldData.dryQuenchClaim(
+                        controller, Direction.NORTH)).success(),
+                "Dry Quench Tower ownership claim failed");
+        helper.assertTrue(ownership.claim(CokeOvenModuleWorldData.furnaceBaseClaim(
+                        controller, Direction.NORTH)).success(),
+                "Same-controller right and down modules must coexist");
+        ownership.releaseAll(controller);
+
+        for (Direction front : Direction.Plane.HORIZONTAL) {
+            clearCokeOvenModuleTestArea(helper, controller, front);
+            LargeCokeOvenDryQuenchModule.place(helper.getLevel(), controller, front);
+            helper.assertTrue(LargeCokeOvenDryQuenchModule.validate(helper.getLevel(), controller, front)
+                            == LargeCokeOvenDryQuenchModule.Result.VALID,
+                    "Dry Quench Tower rejected facing " + front);
+            BlockPos dryQuenchAir = moduleLocal(controller, front, 4, 0, 0);
+            helper.getLevel().setBlockAndUpdate(dryQuenchAir, Blocks.STONE.defaultBlockState());
+            helper.assertTrue(LargeCokeOvenDryQuenchModule.validate(helper.getLevel(), controller, front)
+                            == LargeCokeOvenDryQuenchModule.Result.INVALID,
+                    "Dry Quench Tower accepted blocked strict air facing " + front);
+
+            clearCokeOvenModuleTestArea(helper, controller, front);
+            LargeCokeOvenFurnaceBaseModule.place(helper.getLevel(), controller, front);
+            helper.assertTrue(LargeCokeOvenFurnaceBaseModule.validate(helper.getLevel(), controller, front)
+                            == LargeCokeOvenFurnaceBaseModule.Result.VALID,
+                    "Additional Furnace Base rejected facing " + front);
+            BlockPos furnaceBaseAir = moduleLocal(controller, front, 8, 0, -1);
+            helper.getLevel().setBlockAndUpdate(furnaceBaseAir, Blocks.STONE.defaultBlockState());
+            helper.assertTrue(LargeCokeOvenFurnaceBaseModule.validate(helper.getLevel(), controller, front)
+                            == LargeCokeOvenFurnaceBaseModule.Result.INVALID,
+                    "Additional Furnace Base accepted blocked strict air facing " + front);
+        }
+        helper.succeed();
+    }
+
+    private static BlockPos moduleLocal(BlockPos controller, Direction front,
+                                        int side, int back, int up) {
+        return controller.relative(front.getClockWise(), side)
+                .relative(front.getOpposite(), back).above(up);
+    }
+
+    private static void clearCokeOvenModuleTestArea(GameTestHelper helper, BlockPos controller,
+                                                     Direction front) {
+        for (var requirement : LargeCokeOvenDryQuenchModule.terminalRequirements(controller, front)) {
+            helper.getLevel().setBlockAndUpdate(requirement.pos(), Blocks.AIR.defaultBlockState());
+        }
+        for (var requirement : LargeCokeOvenFurnaceBaseModule.terminalRequirements(controller, front)) {
+            helper.getLevel().setBlockAndUpdate(requirement.pos(), Blocks.AIR.defaultBlockState());
+        }
     }
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 300)

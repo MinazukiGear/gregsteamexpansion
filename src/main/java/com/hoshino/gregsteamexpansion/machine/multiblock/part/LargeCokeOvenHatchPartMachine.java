@@ -332,6 +332,12 @@ public class LargeCokeOvenHatchPartMachine extends MultiblockPartMachine {
         return oven.exportFluids.getStorages()[0].getFluid().copy();
     }
 
+    public int getFluidCapacityForDisplay() {
+        var oven = getConnectedOven();
+        return oven == null ? LargeCokeOvenMachine.FLUID_TANK_CAPACITY_MB
+                : oven.getEffectiveFluidTankCapacityMb();
+    }
+
     //////////////////////////////////////
     // ******* 客户端渲染数据 *******//
     //////////////////////////////////////

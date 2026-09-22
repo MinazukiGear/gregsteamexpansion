@@ -56,8 +56,11 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
     protected static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(
             LargeCokeOvenRecipeLogic.class, RecipeLogic.MANAGED_FIELD_HOLDER);
 
-    public static final int DATA_VERSION = 1;
-    public static final int MAX_PARALLEL = 6;
+    public static final int DATA_VERSION = 2;
+    public static final int BASE_MAX_PARALLEL = 6;
+    public static final int FURNACE_BASE_MAX_PARALLEL = 15;
+    /** Legacy name retained for callers that mean the module-free denominator. */
+    public static final int MAX_PARALLEL = BASE_MAX_PARALLEL;
 
     /** 最近成功配方 (持久化; 空闲重载后仍先尝试)。 */
     @Persisted
@@ -80,6 +83,12 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
     @Persisted
     @DescSynced
     private int batchTotalDuration;
+    @Persisted
+    @DescSynced
+    private int batchCokingDuration;
+    @Persisted
+    @DescSynced
+    private int batchDryQuenchDuration;
     /** 批次进度 (失效回退至 1 tick; 不用上游 progress 字段)。 */
     @Persisted
     @DescSynced
@@ -96,6 +105,15 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
     @Persisted
     @DescSynced
     private boolean batchCompleted;
+    @Persisted
+    @DescSynced
+    private boolean batchDryQuenchParticipating;
+    @Persisted
+    @DescSynced
+    private boolean batchFurnaceBaseParticipating;
+    @Persisted
+    @DescSynced
+    private boolean expandedCapacityLease;
     /** 一氧化碳危害已随本批次结算 (0.1 × p, 一次性)。 */
     @Persisted
     private boolean hazardSettled;
@@ -153,6 +171,28 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
         return batchTotalDuration;
     }
 
+    public int getBatchParallelLimit() {
+        return batchFurnaceBaseParticipating ? FURNACE_BASE_MAX_PARALLEL : BASE_MAX_PARALLEL;
+    }
+
+    public boolean isBatchDryQuenchParticipating() {
+        return batchDryQuenchParticipating;
+    }
+
+    public boolean isBatchFurnaceBaseParticipating() {
+        return batchFurnaceBaseParticipating;
+    }
+
+    public boolean hasExpandedCapacityLease() {
+        return expandedCapacityLease;
+    }
+
+    public String getBatchPhaseId() {
+        if (batchRecipe == null || batchCompleted) return "idle";
+        return batchDryQuenchParticipating && batchProgress >= batchCokingDuration
+                ? "dry_quenching" : "coking";
+    }
+
     @Nullable
     public ResourceLocation getBatchRecipeId() {
         return batchRecipeId;
@@ -186,10 +226,18 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
     @Override
     public void onMachineLoad() {
         super.onMachineLoad();
+        if (dataVersion < DATA_VERSION && batchRecipe != null) {
+            batchCokingDuration = batchTotalDuration;
+            batchDryQuenchDuration = 0;
+            batchDryQuenchParticipating = false;
+            batchFurnaceBaseParticipating = false;
+            expandedCapacityLease = false;
+        }
         if (dataVersion < DATA_VERSION) {
             dataVersion = DATA_VERSION;
             getMachine().markDirty();
         }
+        getMachine().syncFluidTankCapacity();
     }
 
     /** 供状态判定: 是否存在"识别得到原料但一份都开不了"的输入不足情形。 */
@@ -216,6 +264,12 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
 
         if (batchRecipe != null) {
             if (!batchCompleted) {
+                if ((batchDryQuenchParticipating && !oven.isDryQuenchModuleReadyForBatch())
+                        || (batchFurnaceBaseParticipating && !oven.isFurnaceBaseModuleReadyForBatch())) {
+                    setStatus(Status.WAITING);
+                    isActive = false;
+                    return;
+                }
                 tickWorking();
             } else {
                 tickPendingCommit();
@@ -241,15 +295,17 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
             setStatus(Status.WORKING);
             isActive = true;
         }
+        if (!hazardSettled && batchProgress >= batchCokingDuration) {
+            hazardSettled = true;
+            getMachine().emitCarbonMonoxideHazard(0.1f * batchParallel);
+        }
         if (batchProgress >= batchTotalDuration) {
-            // 完成点一次性事件: 危害按完成份数 0.1 × p; 完成反馈单次。
-            if (!hazardSettled) {
-                hazardSettled = true;
-                getMachine().emitCarbonMonoxideHazard(0.1f * batchParallel);
-            }
             if (!feedbackDone) {
                 feedbackDone = true;
                 getMachine().playBatchCompletionFeedback();
+            }
+            if (batchDryQuenchParticipating) {
+                getMachine().addDryQuenchContinuity(batchParallel);
             }
             batchCompleted = true;
             // 等待输出不再是加工: 上游状态切 WAITING 让炉火循环声与工作表现
@@ -280,13 +336,19 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
         batchRecipeId = null;
         batchParallel = 0;
         batchTotalDuration = 0;
+        batchCokingDuration = 0;
+        batchDryQuenchDuration = 0;
         batchProgress = 0;
         snapshotItems = new ArrayList<>();
         snapshotFluids = new ArrayList<>();
         batchCompleted = false;
         hazardSettled = false;
         feedbackDone = false;
+        batchDryQuenchParticipating = false;
+        batchFurnaceBaseParticipating = false;
+        expandedCapacityLease = false;
         consumedInputs = new ArrayList<>();
+        getMachine().syncFluidTankCapacity();
     }
 
     //////////////////////////////////////
@@ -304,7 +366,7 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
 
         // 从最大并行向下尝试: 每个候选并行先乘配方、预抽概率快照、无副作用模拟。
         int inputPortions = countInputPortions(chosen);
-        int upper = Math.min(MAX_PARALLEL, inputPortions);
+        int upper = Math.min(oven.getCurrentParallelLimit(), inputPortions);
         for (int p = Math.max(upper, 0); p >= 1; p--) {
             GTRecipe multiplied = chosen.copy(com.gregtechceu.gtceu.api.recipe.content.ContentModifier.multiplier(p));
             // 概率输出在开工时预抽一次并写入精确快照 (p 份合并判定)。
@@ -492,7 +554,22 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
         batchRecipe = multiplied;
         batchRecipeId = original.getId();
         batchParallel = parallel;
-        batchTotalDuration = Math.max(1, (original.duration + 1) / 2); // ceil(÷2)
+        batchDryQuenchParticipating = getMachine().isDryQuenchModuleReadyForBatch();
+        batchFurnaceBaseParticipating = getMachine().isFurnaceBaseModuleReadyForBatch();
+        expandedCapacityLease = batchFurnaceBaseParticipating;
+        getMachine().syncFluidTankCapacity();
+        if (batchDryQuenchParticipating) {
+            int multiplier = getMachine().getDryQuenchContinuityPortions() >= 18 ? 760
+                    : getMachine().getDryQuenchContinuityPortions() >= 6 ? 800 : 840;
+            batchTotalDuration = ceilPermille(original.duration, multiplier);
+            batchDryQuenchDuration = Math.max(1, ceilPermille(original.duration, 40));
+            batchDryQuenchDuration = Math.min(batchTotalDuration, batchDryQuenchDuration);
+            batchCokingDuration = batchTotalDuration - batchDryQuenchDuration;
+        } else {
+            batchTotalDuration = Math.max(1, ceilPermille(original.duration, 800));
+            batchCokingDuration = batchTotalDuration;
+            batchDryQuenchDuration = 0;
+        }
         batchProgress = 0;
         batchCompleted = false;
         hazardSettled = false;
@@ -502,6 +579,10 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
         consumedInputs = consumed;
         GregSteamExpansion.LOGGER.debug("[Large Coke Oven] batch #{} started: {} x{} ({} ticks)",
                 batchSeq, original.getId(), parallel, batchTotalDuration);
+    }
+
+    private static int ceilPermille(int value, int permille) {
+        return (int) Math.max(1L, ((long) value * permille + 999L) / 1000L);
     }
 
     /** 记录本批次实际扣取的原物品 (拆除结算时按原始身份掉落)。 */
@@ -533,6 +614,11 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
     private boolean fitsOutputs(List<ItemStack> items, List<FluidStack> fluids) {
         var oven = getMachine();
         if (!PendingOutputBuffer.itemsFit(items, oven.getStandardOutputBuses(), oven.exportItems)) return false;
+        int fluidAmount = oven.getExportFluid().getAmount();
+        for (FluidStack stack : fluids) {
+            if (!stack.isEmpty()) fluidAmount += stack.getAmount();
+        }
+        if (fluidAmount > oven.getEffectiveFluidTankCapacityMb()) return false;
         for (FluidStack stack : fluids) {
             if (stack.isEmpty()) continue;
             if (oven.exportFluids.fillInternal(stack,
@@ -540,6 +626,18 @@ public class LargeCokeOvenRecipeLogic extends RecipeLogic {
                     < stack.getAmount()) return false;
         }
         return true;
+    }
+
+    /** Loaded invalid/conflicting participating modules destroy unfinished work without refund. */
+    public void cancelForModuleFailure(boolean dryQuench) {
+        if (batchRecipe == null || batchCompleted) return;
+        boolean participating = dryQuench ? batchDryQuenchParticipating : batchFurnaceBaseParticipating;
+        if (!participating) return;
+        clearBatch();
+        setStatus(Status.IDLE);
+        isActive = false;
+        lastSelectionOutcome = SelectionOutcome.NONE;
+        getMachine().markDirty();
     }
 
     /** 原子提交: 先整体模拟再整体执行, 任一类失败则两类都不写入。 */

@@ -217,9 +217,20 @@ final class CokeOvenJadeProviders {
                 tooltip.add(line("detail", details.get(0).getString()));
             }
             if (oven.getOvenLogic().hasActiveBatch()) {
+                int limit = oven.getOvenLogic().getBatchParallelLimit();
                 addRatioBar(tooltip, oven.getOvenLogic().getBatchParallel(),
-                        LargeCokeOvenRecipeLogic.MAX_PARALLEL,
-                        parallelText(oven.getOvenLogic().getBatchParallel(), LargeCokeOvenRecipeLogic.MAX_PARALLEL));
+                        limit, parallelText(oven.getOvenLogic().getBatchParallel(), limit));
+            }
+            if (oven.getDryQuenchStatus() != LargeCokeOvenMachine.ModuleStatus.MISSING) {
+                tooltip.add(line("dry_quench",
+                        moduleStatus(oven.getDryQuenchStatus()),
+                        Component.translatable("gregsteamexpansion.large_coke_oven.module.dry_quench.tier."
+                                + oven.getDryQuenchTierId()), oven.getDryQuenchContinuityPortions()));
+            }
+            if (oven.getFurnaceBaseStatus() != LargeCokeOvenMachine.ModuleStatus.MISSING) {
+                tooltip.add(line("furnace_base", moduleStatus(oven.getFurnaceBaseStatus()),
+                        oven.getCurrentParallelLimit(),
+                        FormattingUtil.formatNumbers(oven.getEffectiveFluidTankCapacityMb())));
             }
             if ("working".equals(statusId)) {
                 int progress = oven.getOvenLogic().getBatchProgress();
@@ -237,6 +248,11 @@ final class CokeOvenJadeProviders {
                 case "working" -> "gtceu.multiblock.running";
                 default -> "gregsteamexpansion.large_coke_oven.status." + statusId;
             };
+        }
+
+        private static Component moduleStatus(LargeCokeOvenMachine.ModuleStatus status) {
+            return Component.translatable("gregsteamexpansion.large_coke_oven.module.status."
+                    + status.name().toLowerCase(java.util.Locale.ROOT));
         }
 
         private static Component line(String name, Object... arguments) {
@@ -282,7 +298,7 @@ final class CokeOvenJadeProviders {
             if (fluid != null) {
                 data.putString("fluidName", fluid.isEmpty() ? "" : Component.Serializer.toJson(fluid.getDisplayName()));
                 data.putLong("fluidAmount", fluid.getAmount());
-                data.putLong("fluidCapacity", LargeCokeOvenMachine.FLUID_TANK_CAPACITY_MB);
+                data.putLong("fluidCapacity", hatch.getFluidCapacityForDisplay());
             }
             serverData.put(DATA_KEY, data);
         }

@@ -705,19 +705,19 @@ def main() -> int:
             (8, 64),
         ),
         (
-            "large coke-oven parallel cap",
+            "large coke-oven parallel caps",
             captured_integers(
                 "docs/design/coke-ovens.md",
-                r"大型焦炉的最大并行固定为 `(\d+)`，Easy",
-                "large coke-oven parallel design",
+                r"无附加炉组基座时最大并行为 `(\d+)`；基座有效时为 `(\d+)`",
+                "large coke-oven parallel designs",
             ),
             captured_integers(
                 "src/main/java/com/hoshino/gregsteamexpansion/machine/multiblock/"
                 "largecokeoven/LargeCokeOvenRecipeLogic.java",
-                r"MAX_PARALLEL\s*=\s*(\d+);",
-                "large coke-oven parallel code",
+                r"BASE_MAX_PARALLEL\s*=\s*(\d+);[\s\S]*?FURNACE_BASE_MAX_PARALLEL\s*=\s*(\d+);",
+                "large coke-oven parallel codes",
             ),
-            (6,),
+            (6, 15),
         ),
         (
             "large steam blast-furnace parallel caps",
