@@ -8,6 +8,7 @@ import com.gregtechceu.gtceu.api.pattern.predicates.SimplePredicate;
 import com.gregtechceu.gtceu.api.pattern.util.RelativeDirection;
 import com.gregtechceu.gtceu.api.block.MetaMachineBlock;
 import com.gregtechceu.gtceu.common.block.CoilBlock;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -314,7 +315,8 @@ public final class UltimateStructurePlanner {
     }
 
     private static ModuleSelection selectedModule(MetaMachine machine, TerminalBuildProfile profile) {
-        if (!(machine instanceof UltimateTerminalModuleProvider provider)) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()
+                || !(machine instanceof UltimateTerminalModuleProvider provider)) {
             return new ModuleSelection(ModuleChoice.empty(), null);
         }
         List<UltimateTerminalModuleProvider.Module> modules = provider.terminalModules().stream()

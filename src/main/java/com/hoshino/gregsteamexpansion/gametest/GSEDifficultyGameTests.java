@@ -189,6 +189,8 @@ public final class GSEDifficultyGameTests {
                 "Restart loaded " + difficulty + " instead of expected difficulty " + expected);
         assertExpectedBoolean(helper, "ore plant", GSEDifficultyConfig.orePlantEnabled(),
                 System.getenv("GSE_EXPECTED_ORE_PLANT_ENABLED"));
+        assertExpectedBoolean(helper, "external modules", GSEDifficultyConfig.externalModulesEnabled(),
+                System.getenv("GSE_EXPECTED_EXTERNAL_MODULES_ENABLED"));
         assertExpectedBoolean(helper, "fluid drill", GSEDifficultyConfig.fluidDrillEnabled(),
                 System.getenv("GSE_EXPECTED_FLUID_DRILL_ENABLED"));
         assertExpectedWeights(helper, "ore plant", GSEDifficultyConfig.orePlantWeightEntries(),

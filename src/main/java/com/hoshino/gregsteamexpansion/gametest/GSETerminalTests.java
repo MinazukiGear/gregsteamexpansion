@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.mojang.authlib.GameProfile;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomModules;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
@@ -289,6 +290,13 @@ public final class GSETerminalTests {
         UltimateStructurePlanner.Plan partial = UltimateStructurePlanner.plan(
                 helper.getLevel(), controllerPos, baseProfile, false);
         helper.assertTrue(partial.valid(), "Partial-module boiler-room plan failed: " + partial.error());
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            helper.assertTrue(partial.module().selected() == UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
+                            && partial.module().options().isEmpty(),
+                    "Config-disabled terminal exposed a partial external module");
+            helper.succeed();
+            return;
+        }
         helper.assertTrue(partial.module().selected() == UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
                         && partial.module().options().equals(java.util.List.of(
                                 "gregsteamexpansion.machine.boiler_room.module.water_softener")),

@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.integration.jade;
 import com.gregtechceu.gtceu.api.blockentity.MetaMachineBlockEntity;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.client.cokeoven.OwnedBrickClient;
 import com.hoshino.gregsteamexpansion.machine.multiblock.cokeoven.GSECokeOvenMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.largecokeoven.LargeCokeOvenMachine;
@@ -213,7 +214,7 @@ final class CokeOvenJadeProviders {
             String statusId = oven.getStatusId();
             tooltip.add(line("status", Component.translatable(statusKey(statusId))));
             var details = oven.getStatusDetails();
-            if (!details.isEmpty()) {
+            if (GSEDifficultyConfig.externalModulesEnabled() && !details.isEmpty()) {
                 tooltip.add(line("detail", details.get(0).getString()));
             }
             if (oven.getOvenLogic().hasActiveBatch()) {
@@ -221,13 +222,17 @@ final class CokeOvenJadeProviders {
                 addRatioBar(tooltip, oven.getOvenLogic().getBatchParallel(),
                         limit, parallelText(oven.getOvenLogic().getBatchParallel(), limit));
             }
-            if (oven.getDryQuenchStatus() != LargeCokeOvenMachine.ModuleStatus.MISSING) {
+            if (!GSEDifficultyConfig.externalModulesEnabled()) {
+                tooltip.add(line("detail", Component.translatable(
+                        "gregsteamexpansion.machine.external_modules.disabled_by_config")));
+            } else if (oven.getDryQuenchStatus() != LargeCokeOvenMachine.ModuleStatus.MISSING) {
                 tooltip.add(line("dry_quench",
                         moduleStatus(oven.getDryQuenchStatus()),
                         Component.translatable("gregsteamexpansion.large_coke_oven.module.dry_quench.tier."
                                 + oven.getDryQuenchTierId()), oven.getDryQuenchContinuityPortions()));
             }
-            if (oven.getFurnaceBaseStatus() != LargeCokeOvenMachine.ModuleStatus.MISSING) {
+            if (GSEDifficultyConfig.externalModulesEnabled()
+                    && oven.getFurnaceBaseStatus() != LargeCokeOvenMachine.ModuleStatus.MISSING) {
                 tooltip.add(line("furnace_base", moduleStatus(oven.getFurnaceBaseStatus()),
                         oven.getCurrentParallelLimit(),
                         FormattingUtil.formatNumbers(oven.getEffectiveFluidTankCapacityMb())));

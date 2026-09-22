@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
@@ -114,6 +115,27 @@ public final class GSEBlastFurnaceTests {
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 400)
     public static void highChargeCycleLocksDebtAndResetsAtomically(GameTestHelper h) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
+                LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
+                BlastFurnaceHighChargeModule.place(h.getLevel(), machine.getPos(), machine.getFrontFacing());
+                BlastFurnaceHotBlastModule.place(h.getLevel(), machine.getPos(), machine.getFrontFacing());
+                set(machine, "hotBlastHeat", 12_345L);
+                set(machine, "highChargePhase", 2);
+                set(machine, "highChargeResetTicksRemaining", 17L);
+                h.assertTrue(!(boolean) call(machine, "refreshHighChargeModule", true)
+                                && !(boolean) call(machine, "refreshHotBlastModule", true),
+                        "Config-disabled blast-furnace modules were validated");
+                h.assertTrue(machine.maximumParallel() == LargeSteamBlastFurnaceMachine.NORMAL_MAX_PARALLEL
+                                && machine.terminalModules().isEmpty(),
+                        "Config-disabled blast furnace exposed module parallelism or terminal blueprints");
+                tick(machine);
+                h.assertTrue(machine.getHotBlastHeat() == 12_345L
+                                && machine.getHighChargeResetTicksRemaining() == 17L,
+                        "Config-disabled blast furnace mutated dormant module state");
+            });
+            return;
+        }
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
             configureBlastFurnaceFullLoadHatches(h, machine);
@@ -258,6 +280,10 @@ public final class GSEBlastFurnaceTests {
 
     @GameTest(template = "empty_32x32x32", timeoutTicks = 400)
     public static void hotBlastModuleCyclesHeatAndFallsBackOnDamage(GameTestHelper h) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            h.succeed();
+            return;
+        }
         var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
         var controller = GSEStructureTestUtils.placeShape(h, definition,
                 definition.getMatchingShapes().get(0), new BlockPos(16, 16, 8), Direction.NORTH);
@@ -455,7 +481,15 @@ public final class GSEBlastFurnaceTests {
                     "Controller GUI did not expose locked parallel as 4 / 96");
             h.assertTrue(!labelText(ui.getFlatWidgetCollection(), 104, 42).isBlank(),
                     "Controller GUI omitted the proficiency row");
-            String intakeText = labelText(ui.getFlatWidgetCollection(), 104, 122);
+            int intakeRowY = GSEDifficultyConfig.externalModulesEnabled() ? 122 : 82;
+            if (!GSEDifficultyConfig.externalModulesEnabled()) {
+                h.assertTrue(labelText(ui.getFlatWidgetCollection(), 104, 52).equals(
+                                Component.translatable(
+                                        "gregsteamexpansion.machine.external_modules.disabled_by_config")
+                                        .getString()),
+                        "Controller GUI omitted the global external-module disabled notice");
+            }
+            String intakeText = labelText(ui.getFlatWidgetCollection(), 104, intakeRowY);
             h.assertTrue(intakeText.equals(call(machine, "intakeText")),
                     "Controller GUI intake row diverged from the intake snapshot");
             h.assertTrue(!intakeText.equals("—"), "Controller GUI omitted its required intake row");

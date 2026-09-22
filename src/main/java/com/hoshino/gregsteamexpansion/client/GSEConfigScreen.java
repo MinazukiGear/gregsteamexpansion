@@ -24,9 +24,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class GSEConfigScreen extends Screen {
     private static final int PANEL_HALF_WIDTH = 155;
-    private static final int ENABLED_ROW_Y = 96;
-    private static final int DIFFICULTY_ROW_Y = 126;
-    private static final int TERMINAL_ROW_Y = 156;
+    private static final int ENABLED_ROW_Y = 86;
+    private static final int DIFFICULTY_ROW_Y = 111;
+    private static final int MODULES_ROW_Y = 136;
+    private static final int TERMINAL_ROW_Y = 161;
     private static final int FOOTER_Y = 52;
     private static final int FOOTER_BUTTON_WIDTH = 100;
 
@@ -38,6 +39,8 @@ public final class GSEConfigScreen extends Screen {
             Component.translatable("config.gregsteamexpansion.screen.reset");
     private static final Component TERMINAL_LABEL =
             Component.translatable("config.gregsteamexpansion.screen.ultimate_terminal");
+    private static final Component MODULES_LABEL =
+            Component.translatable("config.gregsteamexpansion.screen.external_modules_enabled");
     private static final Component CONFIGURE_LABEL =
             Component.translatable("config.gregsteamexpansion.screen.configure");
     private static final Component RESTART_HINT =
@@ -49,12 +52,15 @@ public final class GSEConfigScreen extends Screen {
     private final Screen parent;
     private final boolean initialSetup;
     private boolean enabledValue;
+    private boolean modulesEnabledValue;
     private Difficulty value;
 
     @Nullable
     private Button valueButton;
     @Nullable
     private Button enabledButton;
+    @Nullable
+    private Button modulesEnabledButton;
 
     public GSEConfigScreen(@Nullable Screen parent) {
         this(parent, false);
@@ -70,6 +76,7 @@ public final class GSEConfigScreen extends Screen {
                 ? GSEDifficultyState.isEnabled() : GSEDifficultyConfig.capturedDifficultyEnabled();
         this.value = GSEDifficultyAuthority.isExternallyManaged()
                 ? GSEDifficultyState.resolved() : GSEDifficultyConfig.capturedDifficulty();
+        this.modulesEnabledValue = GSEDifficultyConfig.externalModulesEnabled();
     }
 
     public static GSEConfigScreen initialSetup(Screen parent) {
@@ -91,6 +98,9 @@ public final class GSEConfigScreen extends Screen {
             this.valueButton.active = enabledValue;
         }
         if (!initialSetup) {
+            this.modulesEnabledButton = this.addRenderableWidget(
+                    Button.builder(modulesEnabledLabel(), button -> toggleModulesEnabled())
+                            .bounds(this.width / 2 + 5, MODULES_ROW_Y, 150, 20).build());
             this.addRenderableWidget(Button.builder(CONFIGURE_LABEL,
                             button -> {
                                 if (this.minecraft != null) {
@@ -101,14 +111,19 @@ public final class GSEConfigScreen extends Screen {
         }
 
         int footerY = this.height - FOOTER_Y;
-        if (!externallyManaged) {
+        if (!externallyManaged || !initialSetup) {
             this.addRenderableWidget(Button.builder(RESET_LABEL, button -> {
-                        enabledValue = false;
-                        value = Difficulty.NORMAL;
+                        if (!externallyManaged) {
+                            enabledValue = false;
+                            value = Difficulty.NORMAL;
+                        }
+                        if (!initialSetup) {
+                            modulesEnabledValue = true;
+                        }
                         refreshButtons();
                     }).bounds(left, footerY, FOOTER_BUTTON_WIDTH, 20).build());
         }
-        if (!initialSetup && !externallyManaged) {
+        if (!initialSetup) {
             this.addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), button -> this.onClose())
                     .bounds(this.width / 2 - 51, footerY, FOOTER_BUTTON_WIDTH, 20).build());
         }
@@ -124,10 +139,13 @@ public final class GSEConfigScreen extends Screen {
                             this.minecraft.stop();
                         }
                     } else {
-                        GSEDifficultyConfig.setDifficultySettings(enabledValue, value);
+                        if (!externallyManaged) {
+                            GSEDifficultyConfig.setDifficultySettings(enabledValue, value);
+                        }
+                        GSEDifficultyConfig.setExternalModulesEnabled(modulesEnabledValue);
                         this.onClose();
                     }
-                }).bounds(initialSetup || externallyManaged
+                }).bounds(initialSetup
                                 ? this.width / 2 - FOOTER_BUTTON_WIDTH / 2 : this.width / 2 + 53,
                         footerY, FOOTER_BUTTON_WIDTH, 20).build());
     }
@@ -145,6 +163,14 @@ public final class GSEConfigScreen extends Screen {
             this.valueButton.setMessage(valueLabel());
             this.valueButton.active = enabledValue;
         }
+        if (this.modulesEnabledButton != null) {
+            this.modulesEnabledButton.setMessage(modulesEnabledLabel());
+        }
+    }
+
+    private void toggleModulesEnabled() {
+        modulesEnabledValue = !modulesEnabledValue;
+        refreshButtons();
     }
 
     private void cycleValue() {
@@ -161,6 +187,10 @@ public final class GSEConfigScreen extends Screen {
 
     private Component enabledLabel() {
         return Component.translatable(enabledValue ? "options.on" : "options.off");
+    }
+
+    private Component modulesEnabledLabel() {
+        return Component.translatable(modulesEnabledValue ? "options.on" : "options.off");
     }
 
     @Override
@@ -196,6 +226,8 @@ public final class GSEConfigScreen extends Screen {
                     enabledValue ? 0xFFFFFF : 0x808080);
         }
         if (!initialSetup) {
+            graphics.drawString(this.font, MODULES_LABEL,
+                    this.width / 2 - PANEL_HALF_WIDTH, MODULES_ROW_Y + 6, 0xFFFFFF);
             graphics.drawString(this.font, TERMINAL_LABEL,
                     this.width / 2 - PANEL_HALF_WIDTH, TERMINAL_ROW_Y + 6, 0xFFFFFF);
         }

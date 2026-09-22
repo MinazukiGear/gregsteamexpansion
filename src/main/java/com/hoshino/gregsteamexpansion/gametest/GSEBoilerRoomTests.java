@@ -2,6 +2,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.Difficulty;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomModules;
 import com.hoshino.gregsteamexpansion.machine.multiblock.BoilerRoomModuleWorldData;
@@ -122,6 +123,22 @@ public final class GSEBoilerRoomTests {
                 definition.getMatchingShapes().get(0));
         h.assertTrue(m != null, "Combined preview controller missing");
         BoilerRoomWaterSoftenerModule.place(h.getLevel(), m.getPos(), m.getFrontFacing(), tier);
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            h.startSequence()
+                    .thenWaitUntil(() -> h.assertTrue(m.isFormed(),
+                            "Config-disabled boiler room did not form without its module"))
+                    .thenExecute(() -> {
+                        setLong(m, "waterSoftenerDoseUnits", 12_345L);
+                        call(m, "refreshModules", true);
+                        h.assertTrue(m.getWaterSoftenerStatusId().equals("missing")
+                                        && m.terminalModules().isEmpty(),
+                                "Config-disabled boiler room exposed its water softener");
+                        h.assertTrue(m.getWaterSoftenerDoseUnits() == 12_345L,
+                                "Config-disabled boiler room cleared dormant softener state");
+                    })
+                    .thenSucceed();
+            return;
+        }
         h.startSequence()
                 .thenWaitUntil(() -> h.assertTrue(m.isFormed(), "Combined boiler room did not form"))
                 .thenWaitUntil(() -> h.assertTrue(m.getWaterSoftenerStatusId().equals("ready"),

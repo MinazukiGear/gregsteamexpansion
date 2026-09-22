@@ -55,7 +55,7 @@
 ## 启动期权威性
 
 - 工作强度是进程级启动设置，同一客户端进程或专用服务端进程中的所有世界共享同一个启用状态与档位；存档不再保存或决定档位。
-- 独立安装时唯一权威来源是 `config/gregsteamexpansion-common.toml`：`difficultyEnabled` 默认为 `false`；`difficulty` 合法值为 `EASY`、`NORMAL`、`EXPERT`，默认 `NORMAL`。装有 GTSF Core 时权威改为 `config/gtsfcore-common.toml`。
+- 独立安装时难度权威来源是 `config/gregsteamexpansion-common.toml`：`difficultyEnabled` 默认为 `false`；`difficulty` 合法值为 `EASY`、`NORMAL`、`EXPERT`，默认 `NORMAL`。同一文件的独立全局键 `externalModulesEnabled` 默认 `true`，不受 GTSF Core 难度权威接管。
 - Forge 首次加载本模组配置时捕获开关与档位。开关启用时，立即应用本模组档位和 GTCEu 启动期配方难度预设；开关关闭时，本模组配方选择使用 `Normal` 基线，通用难度倍率为 `1×`，大型蒸汽电路组装机专精使用内置 Normal 参数，并保留 GTCEu 自己或整合包提供的配置值。
 - 客户端第一次安装本模组且 `difficultySetupCompleted=false` 时，在首个标题界面前显示首次设置页。页面默认选择关闭，允许选择是否启用和启用后的档位；保存会写入配置并退出游戏，下一次完整启动后生效。专用服务端无图形界面，直接按默认关闭启动，可编辑配置后重启。
 - 运行中通过 Mods 配置界面或直接编辑文件只修改磁盘配置；文件监视器触发的重载事件仅记录重启提示，不改变本次进程的档位、GTCEu 开关或已加载配方。
@@ -67,7 +67,7 @@
 ### 客户端进入校验
 
 - 客户端在完成登录、进入世界的第一时间（首个游戏阶段网络包）声明本地启动开关与档位；服务端与自己的启动设置精确比较。双方均关闭时忽略未生效的档位值。
-- 开关不一致，或双方启用但档位、所选档位任一参数不一致时，服务端立即断开客户端。档位参数以包含 12 个数值项、5 个本模组配方布尔项与 19 个 GTCEu 配方布尔项的 SHA-256 指纹比较；客户端修改本地配置并完整重启后才能重新连接。
+- 开关不一致，或双方启用但档位、所选档位任一参数不一致时，服务端立即断开客户端。有效档位参数、水垢全局参数与 `externalModulesEnabled` 共同进入 SHA-256 配置指纹；客户端修改本地配置并完整重启后才能重新连接。
 - 连接校验只判断兼容性，不修改任一侧配置或运行状态；恶意、缺失或无效的档位值一律按不匹配处理。
 - 专用服务端对每个客户端执行该校验。单人游戏的客户端与集成服务端共用同一个启动配置，仍走相同的声明与同步路径。
 - 校验通过后服务端把档位同步给客户端，用于客户端机器构造、窗口标题与显示；同步不构成运行中切换。
@@ -103,7 +103,7 @@
 
 ### 配置、日志与玩家说明
 
-- 独立配置文件为 `config/gregsteamexpansion-common.toml`：`difficultyEnabled` 控制总开关，`difficulty` 取值 `EASY`、`NORMAL`（默认）、`EXPERT`。游戏内保存后必须完整重启客户端；专用服务端编辑后必须完整重启服务端。
+- 独立配置文件为 `config/gregsteamexpansion-common.toml`：`difficultyEnabled` 控制难度总开关，`difficulty` 取值 `EASY`、`NORMAL`（默认）、`EXPERT`；`externalModulesEnabled` 独立控制大型机器外挂模块，默认 `true`。游戏内保存后必须完整重启客户端；专用服务端编辑后必须完整重启服务端。
 - 独立态每档参数位于 `difficultyProfiles.easy`、`difficultyProfiles.normal`、`difficultyProfiles.expert`。装有 GTSF Core 时，同结构参数迁至 `gtsfcore-common.toml`，GSE 文件中的对应值无效。所有有效参数只在进程启动时捕获。
 - 首版不提供任何查询或修改档位的命令；档位状态通过服务端日志与配置文件注释说明。
 - 启动日志必须记录已捕获开关与档位；启用时另记录 GTCEu 预设类别与 `casingsPerCraft`，关闭时明确记录未改写 GTCEu。运行中重载配置时输出“本次进程忽略、重启后生效”的警告。

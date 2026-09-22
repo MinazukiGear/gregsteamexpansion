@@ -27,6 +27,7 @@ import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenDryQuenchModule;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenFurnaceBaseModule;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenStructures;
 import com.hoshino.gregsteamexpansion.cokeoven.OwnedCokeOven;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
@@ -858,6 +859,12 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
                 !ovenLogic.getPreferredRecipeId().equals(ovenLogic.getBatchRecipeId())) {
             details.add(Component.translatable("gregsteamexpansion.large_coke_oven.detail.preferred"));
         }
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            details.add(Component.translatable(
+                    "gregsteamexpansion.machine.external_modules.disabled_by_config")
+                    .withStyle(ChatFormatting.YELLOW));
+            return details;
+        }
         if (dryQuenchStatus != ModuleStatus.MISSING) {
             details.add(Component.translatable("gregsteamexpansion.large_coke_oven.detail.dry_quench",
                     Component.translatable("gregsteamexpansion.large_coke_oven.module.status."
@@ -907,19 +914,21 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     }
 
     public boolean isDryQuenchModuleValid() {
-        return dryQuenchStatus == ModuleStatus.VALID;
+        return GSEDifficultyConfig.externalModulesEnabled() && dryQuenchStatus == ModuleStatus.VALID;
     }
 
     public boolean isDryQuenchModuleReadyForBatch() {
-        return dryQuenchValidatedThisSession && dryQuenchStatus == ModuleStatus.VALID;
+        return GSEDifficultyConfig.externalModulesEnabled()
+                && dryQuenchValidatedThisSession && dryQuenchStatus == ModuleStatus.VALID;
     }
 
     public boolean isFurnaceBaseModuleValid() {
-        return furnaceBaseStatus == ModuleStatus.VALID;
+        return GSEDifficultyConfig.externalModulesEnabled() && furnaceBaseStatus == ModuleStatus.VALID;
     }
 
     public boolean isFurnaceBaseModuleReadyForBatch() {
-        return furnaceBaseValidatedThisSession && furnaceBaseStatus == ModuleStatus.VALID;
+        return GSEDifficultyConfig.externalModulesEnabled()
+                && furnaceBaseValidatedThisSession && furnaceBaseStatus == ModuleStatus.VALID;
     }
 
     public String getDryQuenchTierId() {
@@ -957,6 +966,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     }
 
     private boolean refreshDryQuenchModule(boolean force) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) return false;
         if (!(getLevel() instanceof ServerLevel level)) return isDryQuenchModuleValid();
         long now = level.getGameTime();
         if (lastDryQuenchValidationTick == now || (!force && lastDryQuenchValidationTick != Long.MIN_VALUE
@@ -995,6 +1005,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
     }
 
     private boolean refreshFurnaceBaseModule(boolean force) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) return false;
         if (!(getLevel() instanceof ServerLevel level)) return isFurnaceBaseModuleValid();
         long now = level.getGameTime();
         if (lastFurnaceBaseValidationTick == now || (!force && lastFurnaceBaseValidationTick != Long.MIN_VALUE
@@ -1052,6 +1063,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
 
     @Override
     public List<UltimateTerminalModuleProvider.Module> terminalModules() {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) return List.of();
         return List.of(
                 new UltimateTerminalModuleProvider.Module(
                         LargeCokeOvenDryQuenchModule.ID,

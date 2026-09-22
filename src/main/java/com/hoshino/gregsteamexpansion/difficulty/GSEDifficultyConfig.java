@@ -51,6 +51,17 @@ public final class GSEDifficultyConfig {
                     "  difficultyEnabled / difficulty 配置后手动设为 true。")
             .define("difficultySetupCompleted", false);
 
+    private static final ForgeConfigSpec.BooleanValue EXTERNAL_MODULES_ENABLED = BUILDER
+            .comment(
+                    "Global enable toggle for large-machine external modules (default: true).",
+                    "  false = module structures remain in the world, but controllers do not validate,",
+                    "          claim, expose or apply them. Committed module work is frozen until the",
+                    "          setting is enabled again and the module validates after a full restart.",
+                    "  大型机器外挂模块系统总开关（默认开启）。关闭时保留世界结构和持久化状态，",
+                    "  但控制器不验证、不认领、不展示也不应用模块；已承诺模块事务冻结，重新开启并",
+                    "  完整重启、校验模块后继续。修改后必须完整重启。")
+            .define("externalModulesEnabled", true);
+
     private static final Map<Difficulty, ProfileValues> DIFFICULTY_PROFILES = defineDifficultyProfiles();
 
     // ------------------------------------------------------------------
@@ -110,6 +121,7 @@ public final class GSEDifficultyConfig {
     private static volatile Difficulty capturedDifficulty = Difficulty.NORMAL;
     private static volatile Map<Difficulty, GSEDifficultyProfile> capturedProfiles = defaultProfiles();
     private static volatile boolean capturedSetupCompleted;
+    private static volatile boolean capturedExternalModulesEnabled = true;
     private static volatile ModConfig loadedConfig;
     // 旗舰机器捕获值: 仅在 Loading 时应用 (重启生效口径, 同 capturedDifficulty)。
     private static volatile boolean capturedOrePlantEnabled = true;
@@ -154,6 +166,11 @@ public final class GSEDifficultyConfig {
         return capturedBoilerRoomDescalingDurationTicks;
     }
 
+    /** Process-wide external-module gate captured during config loading. */
+    public static boolean externalModulesEnabled() {
+        return capturedExternalModulesEnabled;
+    }
+
     /** Includes global boiler-scale settings in the multiplayer startup identity. */
     public static String configurationFingerprint(Difficulty difficulty) {
         return configurationFingerprint(capturedProfile(difficulty));
@@ -161,7 +178,8 @@ public final class GSEDifficultyConfig {
 
     /** Includes GSE-owned global settings in the effective profile's multiplayer identity. */
     public static String configurationFingerprint(GSEDifficultyProfile profile) {
-        String value = profile.fingerprint() + "|" + capturedBoilerRoomWaterScaleEnabled + "|"
+        String value = profile.fingerprint() + "|" + capturedExternalModulesEnabled + "|"
+                + capturedBoilerRoomWaterScaleEnabled + "|"
                 + capturedBoilerRoomDescalingAcidMb + "|" + capturedBoilerRoomDescalingDurationTicks;
         try {
             return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
@@ -198,6 +216,7 @@ public final class GSEDifficultyConfig {
             capturedDifficulty = DIFFICULTY.get();
             capturedProfiles = captureProfiles();
             capturedSetupCompleted = DIFFICULTY_SETUP_COMPLETED.get();
+            capturedExternalModulesEnabled = EXTERNAL_MODULES_ENABLED.get();
             capturedOrePlantEnabled = ORE_PLANT_ENABLED.get();
             capturedFluidDrillEnabled = FLUID_DRILL_ENABLED.get();
             capturedOrePlantWeights = java.util.List.copyOf(ORE_PLANT_WEIGHTS.get());
@@ -208,11 +227,11 @@ public final class GSEDifficultyConfig {
             GSEDifficultyAuthority.resolveStandalone(
                     capturedDifficultyEnabled, capturedDifficulty, capturedProfile(capturedDifficulty));
             GregSteamExpansion.LOGGER.info(
-                    "[Difficulty] Standalone config captured as {} with tier {}; effective authority {}; flagship machines: ore plant {}, fluid drill {}; circuit assembler specialization: {}%, +{}x.",
+                    "[Difficulty] Standalone config captured as {} with tier {}; effective authority {}; external modules {}; flagship machines: ore plant {}, fluid drill {}; circuit assembler specialization: {}%, +{}x.",
                     capturedDifficultyEnabled ? "enabled" : "disabled", capturedDifficulty,
                     GSEDifficultyAuthority.isExternallyManaged()
                             ? GSEDifficultyAuthority.externalOwnerModId() : GregSteamExpansion.MOD_ID,
-                    capturedOrePlantEnabled, capturedFluidDrillEnabled,
+                    capturedExternalModulesEnabled, capturedOrePlantEnabled, capturedFluidDrillEnabled,
                     GSEDifficultyState.circuitAssemblerBonusChancePercent(false),
                     GSEDifficultyState.circuitAssemblerBonusMultiplier(false));
         }
@@ -224,13 +243,14 @@ public final class GSEDifficultyConfig {
                 GregSteamExpansion.LOGGER.warn(
                         "[Difficulty] GSE difficulty settings changed while {} is authoritative; " +
                                 "difficultyEnabled, difficulty and difficultyProfiles are ignored. " +
-                                "Machine settings still require a full restart (ore plant {}, fluid drill {}).",
+                                "Machine settings still require a full restart (external modules {}, ore plant {}, fluid drill {}).",
                         GSEDifficultyAuthority.externalOwnerModId(),
-                        ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
+                        EXTERNAL_MODULES_ENABLED.get(), ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
             } else {
                 GregSteamExpansion.LOGGER.warn(
-                        "[Difficulty] config changed while running (enabled {}, difficulty {}, ore plant {}, fluid drill {}); it is ignored until the next full restart.",
-                        DIFFICULTY_ENABLED.get(), DIFFICULTY.get(), ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
+                        "[Difficulty] config changed while running (enabled {}, difficulty {}, external modules {}, ore plant {}, fluid drill {}); it is ignored until the next full restart.",
+                        DIFFICULTY_ENABLED.get(), DIFFICULTY.get(), EXTERNAL_MODULES_ENABLED.get(),
+                        ORE_PLANT_ENABLED.get(), FLUID_DRILL_ENABLED.get());
             }
         }
     }
@@ -243,6 +263,12 @@ public final class GSEDifficultyConfig {
     public static void setDifficultySettings(boolean enabled, Difficulty difficulty) {
         DIFFICULTY_ENABLED.set(enabled);
         DIFFICULTY.set(difficulty);
+        save();
+    }
+
+    /** Writes the startup-only external-module switch without changing the captured value. */
+    public static void setExternalModulesEnabled(boolean enabled) {
+        EXTERNAL_MODULES_ENABLED.set(enabled);
         save();
     }
 

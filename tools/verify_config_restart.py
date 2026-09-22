@@ -91,6 +91,7 @@ PHASES = (
         "name": "easy",
         "difficulty": "EASY",
         "ore_enabled": False,
+        "external_modules_enabled": False,
         "fluid_enabled": True,
         "ore_weights": ("minecraft:iron_ore|7|2",),
         "fluid_weights": ("minecraft:water|9",),
@@ -108,6 +109,7 @@ PHASES = (
         "name": "normal",
         "difficulty": "NORMAL",
         "ore_enabled": True,
+        "external_modules_enabled": True,
         "fluid_enabled": True,
         "ore_weights": (),
         "fluid_weights": (),
@@ -125,6 +127,7 @@ PHASES = (
         "name": "expert",
         "difficulty": "EXPERT",
         "ore_enabled": True,
+        "external_modules_enabled": True,
         "fluid_enabled": False,
         "ore_weights": ("minecraft:gold_ore|3|8",),
         "fluid_weights": ("minecraft:lava|5",),
@@ -193,15 +196,10 @@ def write_config(phase: dict[str, object]) -> None:
             f'difficulty = "{phase["difficulty"]}"',
             "difficultyEnabled = true",
             "difficultySetupCompleted = true",
-            "machines.boiler_room.waterScale.enabled = true",
-            "machines.boiler_room.waterScale.descalingAcidMb = 8000",
-            "machines.boiler_room.waterScale.descalingDurationTicks = 3200",
+            f'externalModulesEnabled = {str(phase["external_modules_enabled"]).lower()}',
             "",
-        ]
-        + profile_lines(phase, "EASY")
-        + profile_lines(phase, "NORMAL")
-        + profile_lines(phase, "EXPERT")
-        + [
+            "[machines]",
+            "",
             "[machines.large_steam_ore_plant]",
             f'enabled = {str(phase["ore_enabled"]).lower()}',
             f'weights = {toml_list(phase["ore_weights"])}',
@@ -210,7 +208,19 @@ def write_config(phase: dict[str, object]) -> None:
             f'enabled = {str(phase["fluid_enabled"]).lower()}',
             f'weights = {toml_list(phase["fluid_weights"])}',
             "",
+            "[machines.boiler_room]",
+            "",
+            "[machines.boiler_room.waterScale]",
+            "enabled = true",
+            "descalingAcidMb = 8000",
+            "descalingDurationTicks = 3200",
+            "",
+            "[difficultyProfiles]",
+            "",
         ]
+        + profile_lines(phase, "EASY")
+        + profile_lines(phase, "NORMAL")
+        + profile_lines(phase, "EXPERT")
     )
     CONFIG_PATH.write_text(
         "\n".join(lines),
@@ -224,6 +234,9 @@ def run_phase(phase: dict[str, object], command: list[str]) -> None:
     environment = os.environ.copy()
     environment["GSE_EXPECTED_DIFFICULTY"] = str(phase["difficulty"])
     environment["GSE_EXPECTED_ORE_PLANT_ENABLED"] = str(phase["ore_enabled"]).lower()
+    environment["GSE_EXPECTED_EXTERNAL_MODULES_ENABLED"] = str(
+        phase["external_modules_enabled"]
+    ).lower()
     environment["GSE_EXPECTED_FLUID_DRILL_ENABLED"] = str(phase["fluid_enabled"]).lower()
     environment["GSE_EXPECTED_ORE_PLANT_WEIGHTS"] = ";".join(phase["ore_weights"])
     environment["GSE_EXPECTED_FLUID_DRILL_WEIGHTS"] = ";".join(phase["fluid_weights"])

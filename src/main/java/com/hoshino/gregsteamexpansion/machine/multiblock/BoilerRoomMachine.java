@@ -277,6 +277,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     @Override
     public List<UltimateTerminalModuleProvider.Module> terminalModules() {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) return List.of();
         if (!(getLevel() instanceof ServerLevel level)) return List.of();
         return BoilerRoomModules.ALL.stream()
                 .filter(module -> BoilerRoomModules.countPresent(
@@ -374,6 +375,12 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     public boolean isForceCooling() { return forceCoolingTicksRemaining > 0; }
 
+    private boolean hasFrozenModuleTransaction() {
+        return !GSEDifficultyConfig.externalModulesEnabled()
+                && (atomizerBatchLocked || isForceCooling() || automaticWashPhase != AUTO_IDLE
+                || isDescaling() && (descalingMode != DESCALING_COLD || acidRecoveryEligible));
+    }
+
     public long getSteamBufferAmount() { return Math.max(0, steamBufferAmount); }
 
     public boolean isWaterSoftenerAppliedLastCycle() {
@@ -428,7 +435,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     public void onStructureFormed() {
         super.onStructureFormed();
         collectBoilerParts();
-        if (getLevel() instanceof ServerLevel level) {
+        if (GSEDifficultyConfig.externalModulesEnabled() && getLevel() instanceof ServerLevel level) {
             BoilerRoomModuleWorldData.getOrCreate(level).claimBody(
                     BoilerRoomModules.bodyClaim(getPos(), getFrontFacing()));
         }
@@ -459,6 +466,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     private void refreshModules(boolean force) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) return;
         if (!(getLevel() instanceof ServerLevel level)) return;
         long now = level.getGameTime();
         if (!force && lastModuleValidationTick != Long.MIN_VALUE
@@ -481,12 +489,24 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
                 data.release(getPos(), descriptor.id());
             }
             ModuleRuntime old = modules.put(descriptor.id(), new ModuleRuntime(next, port));
-            if (old != null && old.status() == BoilerRoomModules.Status.VALID
-                    && next != BoilerRoomModules.Status.VALID
-                    && next != BoilerRoomModules.Status.UNLOADED) {
+            boolean confirmedInvalid = next != BoilerRoomModules.Status.VALID
+                    && next != BoilerRoomModules.Status.UNLOADED;
+            boolean lostRuntimeModule = old != null && old.status() == BoilerRoomModules.Status.VALID;
+            if (confirmedInvalid && (lostRuntimeModule || old == null && hasPersistedModuleState(descriptor))) {
                 onModuleInvalidated(descriptor);
             }
         }
+    }
+
+    private boolean hasPersistedModuleState(BoilerRoomModules.Descriptor descriptor) {
+        if (descriptor == BoilerRoomModules.WATER_SOFTENER) return waterSoftenerDoseUnits > 0;
+        if (descriptor == BoilerRoomModules.COOLING_TANK) return isForceCooling();
+        if (descriptor == BoilerRoomModules.AUTO_WASH_STATION) return automaticWashPhase == AUTO_COOLING;
+        if (descriptor == BoilerRoomModules.HOT_ACID_FACILITY) {
+            return descalingMode == DESCALING_HOT && isDescaling();
+        }
+        if (descriptor == BoilerRoomModules.BUFFER_TANK) return steamBufferAmount > 0;
+        return descriptor == BoilerRoomModules.ATOMIZATION_ROOM && atomizerBatchLocked;
     }
 
     private void onModuleInvalidated(BoilerRoomModules.Descriptor descriptor) {
@@ -511,6 +531,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     private BoilerRoomModules.Status moduleStatus(BoilerRoomModules.Descriptor descriptor) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) return BoilerRoomModules.Status.MISSING;
         ModuleRuntime runtime = modules.get(descriptor.id());
         return runtime == null ? BoilerRoomModules.Status.MISSING : runtime.status();
     }
@@ -522,6 +543,7 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     private List<IRecipeHandler<?>> moduleHandlers(BoilerRoomModules.Descriptor descriptor,
                                                    IO io, boolean item) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) return List.of();
         ModuleRuntime runtime = modules.get(descriptor.id());
         if (runtime == null || runtime.status() != BoilerRoomModules.Status.VALID || runtime.port() == null) {
             return List.of();
@@ -881,6 +903,9 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
 
     @Override
     public boolean onWorking() {
+        if (!GSEDifficultyConfig.externalModulesEnabled() && atomizerBatchLocked) {
+            return false;
+        }
         boolean working = super.onWorking();
         if (working) {
             if (roomTemperature < getMaxTemperature()) {
@@ -959,6 +984,11 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         // while part chunks reconnect. In both cases the capability map is not
         // safe to use yet, even when a chunk loader keeps the whole range loaded.
         if (isStructureTemporarilyUnavailable()) {
+            cycleSteamGenerated = 0;
+            return;
+        }
+
+        if (hasFrozenModuleTransaction()) {
             cycleSteamGenerated = 0;
             return;
         }
@@ -1496,6 +1526,12 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     }
 
     private void addModuleDisplayText(List<Component> textList) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            textList.add(Component.translatable(
+                    "gregsteamexpansion.machine.external_modules.disabled_by_config")
+                    .withStyle(ChatFormatting.YELLOW));
+            return;
+        }
         for (BoilerRoomModules.Descriptor module : BoilerRoomModules.ALL) {
             if (module == BoilerRoomModules.WATER_SOFTENER) continue;
             BoilerRoomModules.Status status = moduleStatus(module);
@@ -1571,6 +1607,11 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
         public void handleRecipeWorking() {
             if (room.scrappedByScale) {
                 setWaiting(Component.translatable("gregsteamexpansion.machine.boiler_room.water_scale.scrapped"));
+                return;
+            }
+            if (room.hasFrozenModuleTransaction()) {
+                setWaiting(Component.translatable(
+                        "gregsteamexpansion.machine.external_modules.disabled_by_config"));
                 return;
             }
             if (room.isDescaling()) {

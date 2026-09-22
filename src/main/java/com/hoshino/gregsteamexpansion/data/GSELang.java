@@ -938,6 +938,8 @@ public final class GSELang {
 
         add("config.gregsteamexpansion.screen.title", "Greg Steam Expansion Config");
         add("config.gregsteamexpansion.screen.difficulty_enabled", "Enable difficulty system");
+        add("config.gregsteamexpansion.screen.external_modules_enabled",
+                "Enable large-machine external modules");
         add("config.gregsteamexpansion.screen.difficulty", "Work intensity (difficulty)");
         add("config.gregsteamexpansion.screen.external_authority", "Difficulty is managed by GTSF Core.");
         add("config.gregsteamexpansion.screen.external_difficulty", "Effective difficulty: %s");
@@ -951,6 +953,9 @@ public final class GSELang {
         add("config.gregsteamexpansion.screen.configure", "Configure...");
         add("config.gregsteamexpansion.screen.restart",
                 "Saved to the config file; restart the client before it takes effect.");
+        add("gregsteamexpansion.machine.external_modules.disabled_by_config",
+                "External modules are disabled by configuration; committed module work remains frozen");
+        add("gregsteamexpansion.machine.external_modules.label", "External modules");
         add("config.gregsteamexpansion.screen.reset", "Reset to Default");
         add("config.gregsteamexpansion.screen.ultimate_terminal.title", "Ultimate Terminal Config");
         add("config.gregsteamexpansion.screen.ultimate_terminal.blocks_per_tick", "Block operations per tick (1-256)");

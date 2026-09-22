@@ -8,6 +8,7 @@ import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.api.recipe.GTRecipeType;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
@@ -202,6 +203,9 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     public int maximumParallel() {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            return NORMAL_MAX_PARALLEL;
+        }
         HighChargePhase phase = currentHighChargePhase();
         return currentHighChargeStatus() == HighChargeStatus.VALID
                 && (phase == HighChargePhase.FORCED_SECOND
@@ -331,6 +335,13 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     protected int appendAdditionalInfoRows(DraggableScrollableWidgetGroup scroll, int y) {
         y = SteamProcessorUI.tooltipRow(scroll, y, PROFICIENCY_UI_PREFIX + "label",
                 this::proficiencyText, this::proficiencyTooltips);
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            return SteamProcessorUI.infoRow(scroll, y,
+                    "gregsteamexpansion.machine.external_modules.label",
+                    () -> Component.translatable(
+                            "gregsteamexpansion.machine.external_modules.disabled_by_config").getString(),
+                    ChatFormatting.YELLOW);
+        }
         y = SteamProcessorUI.infoRow(scroll, y,
                 "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.label",
                 this::hotBlastStatusText, net.minecraft.ChatFormatting.WHITE);
@@ -353,6 +364,9 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     protected void appendControllerButtons(ModularUI ui, int uiHeight) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            return;
+        }
         ui.widget(new ToggleButtonWidget(28, uiHeight - 24, 18, 18, GuiTextures.BUTTON_BATCH,
                 this::isHighChargeEnabled, this::setHighChargeEnabled).setHoverTooltips(
                 Component.translatable(
@@ -458,7 +472,7 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     @Override
     public void onStructureFormed() {
         super.onStructureFormed();
-        if (getLevel() instanceof ServerLevel level) {
+        if (GSEDifficultyConfig.externalModulesEnabled() && getLevel() instanceof ServerLevel level) {
             BlastFurnaceHotBlastWorldData.getOrCreate(level).claimBody(
                     BlastFurnaceHotBlastWorldData.bodyClaimFor(getPos(), getFrontFacing()));
         }
@@ -468,6 +482,9 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     protected void onProcessorServerTick() {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            return;
+        }
         refreshHotBlastModule(false);
         refreshHighChargeModule(batchHighCharge || currentHighChargePhase() == HighChargePhase.FORCED_SECOND);
     }
@@ -477,7 +494,8 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
             GTRecipe recipe, int parallel, SteamThrottle.LockedEconomics normal) {
         // The processor refreshes the optional structure before recipe search each server tick.
         // Keep candidate economics pure because parallel fitting may evaluate this hook repeatedly.
-        if (isHighChargeCandidate(parallel) || currentHotBlastStatus() != HotBlastStatus.VALID) {
+        if (!GSEDifficultyConfig.externalModulesEnabled() || isHighChargeCandidate(parallel)
+                || currentHotBlastStatus() != HotBlastStatus.VALID) {
             return normal;
         }
         long hotTotal = percentCeil(normal.totalSteamMb(), HOT_BLAST_STEAM_PERCENT);
@@ -494,6 +512,13 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
                                           SteamThrottle.LockedEconomics selected) {
         batchNormalSteamTotalMb = normal.totalSteamMb();
         batchNormalSteamPerTickMb = normal.steamPerTickMb();
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            batchHotBlast = false;
+            batchHotBlastModuleParticipating = false;
+            batchHotBlastHeatTotal = 0;
+            batchHotBlastHeatPerTick = 0;
+            return;
+        }
         if (isHighChargeCandidate(parallel)) {
             batchHotBlast = false;
             batchHotBlastModuleParticipating = false;
@@ -511,6 +536,10 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     protected boolean beforeBatchTick(GTRecipe recipe, int parallel, int progress) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()
+                && (batchHotBlastModuleParticipating || batchHighCharge)) {
+            return false;
+        }
         if (batchHighCharge && currentHighChargeStatus() == HighChargeStatus.UNLOADED
                 && !highChargeValidatedThisSession) {
             return false;
@@ -576,6 +605,10 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     protected boolean runControllerPhaseTick() {
+        if (!GSEDifficultyConfig.externalModulesEnabled()
+                && currentHighChargePhase() != HighChargePhase.IDLE) {
+            return true;
+        }
         if (currentHighChargePhase() != HighChargePhase.RESET) {
             return false;
         }
@@ -600,7 +633,8 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     protected long controllerPhaseSteamDemandPerTick() {
-        return currentHighChargePhase() == HighChargePhase.RESET
+        return GSEDifficultyConfig.externalModulesEnabled()
+                && currentHighChargePhase() == HighChargePhase.RESET
                 && highChargeResetTicksRemaining > 0 ? HIGH_CHARGE_STEAM_PER_TICK_MB : 0;
     }
 
@@ -640,6 +674,9 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     }
 
     private boolean refreshHotBlastModule(boolean force) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            return false;
+        }
         if (!(getLevel() instanceof ServerLevel level)) {
             return currentHotBlastStatus() == HotBlastStatus.VALID;
         }
@@ -694,6 +731,9 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     }
 
     private boolean refreshHighChargeModule(boolean force) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            return false;
+        }
         if (!(getLevel() instanceof ServerLevel level)) {
             return currentHighChargeStatus() == HighChargeStatus.VALID;
         }
@@ -820,7 +860,8 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     }
 
     private boolean isHighChargeCandidate(int parallel) {
-        if (currentHighChargeStatus() != HighChargeStatus.VALID) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()
+                || currentHighChargeStatus() != HighChargeStatus.VALID) {
             return false;
         }
         HighChargePhase phase = currentHighChargePhase();
@@ -864,6 +905,9 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
     }
 
     public void setHighChargeEnabled(boolean enabled) {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            return;
+        }
         if (highChargeEnabled == enabled) {
             return;
         }
@@ -920,6 +964,7 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
 
     @Override
     public List<UltimateTerminalModuleProvider.Module> terminalModules() {
+        if (!GSEDifficultyConfig.externalModulesEnabled()) return List.of();
         return List.of(
                 new UltimateTerminalModuleProvider.Module(
                         "hot_blast_stoves",
