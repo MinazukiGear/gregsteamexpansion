@@ -1,6 +1,7 @@
 package com.hoshino.gregsteamexpansion.gametest;
 
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.AbstractSteamProcessorMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHighChargeModule;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastModule;
@@ -508,10 +509,10 @@ public final class GSESteamEngineTests {
                 "Hot-blast controller was not restored after server restart");
         LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) loaded;
         h.assertTrue(BlastFurnaceHotBlastModule.validate(level, controllerPos, Direction.NORTH)
-                        == BlastFurnaceHotBlastModule.Result.VALID,
+                        == ModuleStructure.Result.VALID,
                 "Hot-blast ordinary-block module did not survive server restart");
         h.assertTrue(BlastFurnaceHighChargeModule.validate(level, controllerPos, Direction.NORTH)
-                        == BlastFurnaceHighChargeModule.Result.VALID,
+                        == ModuleStructure.Result.VALID,
                 "High-charge ordinary-block module did not survive server restart");
         eq(h, machine.getHotBlastHeat(), HOT_BLAST_RESTART_HEAT,
                 "Hot-blast heat did not survive server restart");

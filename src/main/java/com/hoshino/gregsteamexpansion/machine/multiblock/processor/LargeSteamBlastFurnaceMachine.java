@@ -10,6 +10,7 @@ import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.utils.FormattingUtil;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamBudget;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamThrottle;
@@ -688,10 +689,10 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         }
         lastHotBlastValidationTick = now;
 
-        BlastFurnaceHotBlastModule.Result geometry = BlastFurnaceHotBlastModule.validate(
+        ModuleStructure.Result geometry = BlastFurnaceHotBlastModule.validate(
                 level, getPos(), getFrontFacing());
         BlastFurnaceHotBlastWorldData data = BlastFurnaceHotBlastWorldData.getOrCreate(level);
-        if (geometry == BlastFurnaceHotBlastModule.Result.VALID) {
+        if (geometry == ModuleStructure.Result.VALID) {
             var result = data.claim(BlastFurnaceHotBlastWorldData.claimFor(getPos(), getFrontFacing()));
             if (result.success()) {
                 setHotBlastStatus(HotBlastStatus.VALID);
@@ -706,7 +707,7 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         }
 
         data.release(getPos(), BlastFurnaceHotBlastModule.ID);
-        if (geometry == BlastFurnaceHotBlastModule.Result.UNLOADED) {
+        if (geometry == ModuleStructure.Result.UNLOADED) {
             if (hotBlastValidatedThisSession) {
                 invalidateHotBlastModule(HotBlastStatus.UNLOADED);
             } else {
@@ -716,7 +717,7 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         }
 
         hotBlastValidatedThisSession = true;
-        invalidateHotBlastModule(geometry == BlastFurnaceHotBlastModule.Result.MISSING
+        invalidateHotBlastModule(geometry == ModuleStructure.Result.MISSING
                 ? HotBlastStatus.MISSING : HotBlastStatus.INVALID);
         return false;
     }
@@ -745,10 +746,10 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         }
         lastHighChargeValidationTick = now;
 
-        BlastFurnaceHighChargeModule.Result geometry = BlastFurnaceHighChargeModule.validate(
+        ModuleStructure.Result geometry = BlastFurnaceHighChargeModule.validate(
                 level, getPos(), getFrontFacing());
         BlastFurnaceHotBlastWorldData data = BlastFurnaceHotBlastWorldData.getOrCreate(level);
-        if (geometry == BlastFurnaceHighChargeModule.Result.VALID) {
+        if (geometry == ModuleStructure.Result.VALID) {
             var result = data.claim(BlastFurnaceHotBlastWorldData.highChargeClaimFor(
                     getPos(), getFrontFacing()));
             if (result.success()) {
@@ -764,7 +765,7 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         }
 
         data.release(getPos(), BlastFurnaceHighChargeModule.ID);
-        if (geometry == BlastFurnaceHighChargeModule.Result.UNLOADED) {
+        if (geometry == ModuleStructure.Result.UNLOADED) {
             if (highChargeValidatedThisSession) {
                 invalidateHighChargeModule(HighChargeStatus.UNLOADED);
             } else {
@@ -774,7 +775,7 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
         }
 
         highChargeValidatedThisSession = true;
-        invalidateHighChargeModule(geometry == BlastFurnaceHighChargeModule.Result.MISSING
+        invalidateHighChargeModule(geometry == ModuleStructure.Result.MISSING
                 ? HighChargeStatus.MISSING : HighChargeStatus.INVALID);
         return false;
     }

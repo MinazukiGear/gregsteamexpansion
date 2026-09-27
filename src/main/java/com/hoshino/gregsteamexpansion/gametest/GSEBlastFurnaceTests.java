@@ -3,6 +3,7 @@ package com.hoshino.gregsteamexpansion.gametest;
 import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyState;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamProcessorUI;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamExhaustHatchMachine;
@@ -90,7 +91,7 @@ public final class GSEBlastFurnaceTests {
             BlockPos facingController = controller.relative(facing, 7);
             BlastFurnaceHighChargeModule.place(h.getLevel(), facingController, facing);
             h.assertTrue(BlastFurnaceHighChargeModule.validate(h.getLevel(), facingController, facing)
-                            == BlastFurnaceHighChargeModule.Result.VALID,
+                            == ModuleStructure.Result.VALID,
                     "BF-T-10 failed its " + facing + " rotated geometry");
         }
 

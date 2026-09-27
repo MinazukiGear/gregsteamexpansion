@@ -1,5 +1,7 @@
 package com.hoshino.gregsteamexpansion.terminal;
 
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 
@@ -16,6 +18,14 @@ public interface UltimateTerminalModuleProvider {
     String CHANNEL_ID = "module";
 
     List<Module> terminalModules();
+
+    static List<Requirement> fromStructure(List<ModuleStructure.Requirement> requirements) {
+        return requirements.stream()
+                .map(requirement -> requirement.air()
+                        ? Requirement.air(requirement.pos())
+                        : Requirement.solid(requirement.pos(), requirement.block()))
+                .toList();
+    }
 
     record Module(String id, String translationKey, List<Requirement> requirements) {
         public Module {

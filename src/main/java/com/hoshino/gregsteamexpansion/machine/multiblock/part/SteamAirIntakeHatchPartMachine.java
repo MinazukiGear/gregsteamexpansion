@@ -190,7 +190,9 @@ public class SteamAirIntakeHatchPartMachine extends MultiblockPartMachine implem
 
     private IntakeStatus computeStatus() {
         Level level = getLevel();
-        if (level == null || level.dimension() != Level.OVERWORLD) {
+        if (level == null || (level.dimension() != Level.OVERWORLD
+                && !level.dimension().location().equals(
+                        net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("gtsfcore", "aidny")))) {
             return IntakeStatus.WRONG_DIMENSION;
         }
         if (!isFrontClear(level)) {

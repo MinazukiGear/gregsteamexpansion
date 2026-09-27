@@ -1,6 +1,9 @@
 package com.hoshino.gregsteamexpansion.machine.multiblock.processor;
 
 import com.gregtechceu.gtceu.common.data.GTBlocks;
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure;
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure.Requirement;
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure.Result;
 import com.hoshino.gregsteamexpansion.registry.GSEProcessorPatterns;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
 
@@ -8,9 +11,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.hoshino.gregsteamexpansion.machine.module.ModuleStructure.local;
 
 /** Fixed ordinary-block geometry of the large steam blast furnace's twin hot-blast stoves. */
 public final class BlastFurnaceHotBlastModule {
@@ -23,51 +29,19 @@ public final class BlastFurnaceHotBlastModule {
     public static final int MODULE_FRONT_OFFSET = 13;
     public static final int MODULE_REAR_OFFSET = 17;
 
-    public enum Result {
-        VALID,
-        MISSING,
-        INVALID,
-        UNLOADED
-    }
-
     private BlastFurnaceHotBlastModule() {}
 
     public static Result validate(ServerLevel level, BlockPos controller, Direction front) {
-        List<Requirement> requirements = requirements(controller, front);
-        for (Requirement requirement : requirements) {
-            if (!level.hasChunkAt(requirement.pos())) {
-                return Result.UNLOADED;
-            }
-        }
-
-        int present = 0;
-        boolean valid = true;
         BlockPos connector = local(controller, front, 0, MAIN_REAR_OFFSET, 1);
-        for (Requirement requirement : requirements) {
-            Block block = level.getBlockState(requirement.pos()).getBlock();
-            if (!requirement.pos().equals(connector) && block != net.minecraft.world.level.block.Blocks.AIR) {
-                present++;
-            }
-            if (requirement.air()) {
-                valid &= level.getBlockState(requirement.pos()).isAir();
-            } else {
-                valid &= block == requirement.block();
-            }
-        }
-        if (valid) {
-            return Result.VALID;
-        }
-        return present == 0 ? Result.MISSING : Result.INVALID;
+        return ModuleStructure.validate(level, requirements(controller, front),
+                (requirement, state) -> !requirement.pos().equals(connector) && !state.is(Blocks.AIR));
     }
 
     /** Full 7×5×9 module box; claims include the deliberate air between the towers. */
     public static BlockPos[] bounds(BlockPos controller, Direction front) {
-        BlockPos a = local(controller, front, -3, MODULE_FRONT_OFFSET, 0);
-        BlockPos b = local(controller, front, 3, MODULE_REAR_OFFSET, HEIGHT - 1);
-        return new BlockPos[] {
-                new BlockPos(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ())),
-                new BlockPos(Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()), Math.max(a.getZ(), b.getZ()))
-        };
+        return ModuleStructure.orderedBounds(
+                local(controller, front, -3, MODULE_FRONT_OFFSET, 0),
+                local(controller, front, 3, MODULE_REAR_OFFSET, HEIGHT - 1));
     }
 
     /** Ordinary industrial-casing junction used only as the claim's stable geometric key. */
@@ -77,24 +51,13 @@ public final class BlastFurnaceHotBlastModule {
 
     /** Places the exact structure for GameTest fixtures and future blueprint helpers. */
     public static void place(ServerLevel level, BlockPos controller, Direction front) {
-        for (Requirement requirement : requirements(controller, front)) {
-            if (requirement.air()) {
-                level.setBlockAndUpdate(requirement.pos(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
-            } else {
-                level.setBlockAndUpdate(requirement.pos(), requirement.block().defaultBlockState());
-            }
-        }
+        ModuleStructure.place(level, requirements(controller, front));
     }
 
     /** Exact terminal blueprint, including the two strict-air combustion cores. */
     public static List<UltimateTerminalModuleProvider.Requirement> terminalRequirements(
             BlockPos controller, Direction front) {
-        return requirements(controller, front).stream()
-                .map(requirement -> requirement.air()
-                        ? UltimateTerminalModuleProvider.Requirement.air(requirement.pos())
-                        : UltimateTerminalModuleProvider.Requirement.solid(
-                                requirement.pos(), requirement.block()))
-                .toList();
+        return UltimateTerminalModuleProvider.fromStructure(requirements(controller, front));
     }
 
     private static List<Requirement> requirements(BlockPos controller, Direction front) {
@@ -161,12 +124,4 @@ public final class BlastFurnaceHotBlastModule {
     private static Requirement air(BlockPos controller, Direction front, int side, int back, int up) {
         return new Requirement(local(controller, front, side, back, up), net.minecraft.world.level.block.Blocks.AIR, true);
     }
-
-    private static BlockPos local(BlockPos controller, Direction front, int side, int back, int up) {
-        Direction rear = front.getOpposite();
-        Direction right = front.getClockWise();
-        return controller.relative(right, side).relative(rear, back).above(up);
-    }
-
-    private record Requirement(BlockPos pos, Block block, boolean air) {}
 }

@@ -4,6 +4,7 @@ import com.hoshino.gregsteamexpansion.GregSteamExpansion;
 import com.hoshino.gregsteamexpansion.cokeoven.CokeOvenModuleWorldData;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenDryQuenchModule;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenFurnaceBaseModule;
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHotBlastModule;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.BlastFurnaceHighChargeModule;
 import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
@@ -149,7 +150,7 @@ public final class GSEStructureFormationTests {
         }
         helper.assertTrue(BlastFurnaceHotBlastModule.validate(
                         helper.getLevel(), machine.getPos(), machine.getFrontFacing())
-                        == BlastFurnaceHotBlastModule.Result.VALID,
+                        == ModuleStructure.Result.VALID,
                 "Combined preview does not match the runtime module validator");
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
@@ -171,7 +172,7 @@ public final class GSEStructureFormationTests {
         }
         helper.assertTrue(BlastFurnaceHighChargeModule.validate(
                         helper.getLevel(), machine.getPos(), machine.getFrontFacing())
-                        == BlastFurnaceHighChargeModule.Result.VALID,
+                        == ModuleStructure.Result.VALID,
                 "High-charge preview does not match the runtime module validator");
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
@@ -998,23 +999,23 @@ public final class GSEStructureFormationTests {
             clearCokeOvenModuleTestArea(helper, controller, front);
             LargeCokeOvenDryQuenchModule.place(helper.getLevel(), controller, front);
             helper.assertTrue(LargeCokeOvenDryQuenchModule.validate(helper.getLevel(), controller, front)
-                            == LargeCokeOvenDryQuenchModule.Result.VALID,
+                            == ModuleStructure.Result.VALID,
                     "Dry Quench Tower rejected facing " + front);
             BlockPos dryQuenchAir = moduleLocal(controller, front, 4, 0, 0);
             helper.getLevel().setBlockAndUpdate(dryQuenchAir, Blocks.STONE.defaultBlockState());
             helper.assertTrue(LargeCokeOvenDryQuenchModule.validate(helper.getLevel(), controller, front)
-                            == LargeCokeOvenDryQuenchModule.Result.INVALID,
+                            == ModuleStructure.Result.INVALID,
                     "Dry Quench Tower accepted blocked strict air facing " + front);
 
             clearCokeOvenModuleTestArea(helper, controller, front);
             LargeCokeOvenFurnaceBaseModule.place(helper.getLevel(), controller, front);
             helper.assertTrue(LargeCokeOvenFurnaceBaseModule.validate(helper.getLevel(), controller, front)
-                            == LargeCokeOvenFurnaceBaseModule.Result.VALID,
+                            == ModuleStructure.Result.VALID,
                     "Additional Furnace Base rejected facing " + front);
             BlockPos furnaceBaseAir = moduleLocal(controller, front, 8, 0, -1);
             helper.getLevel().setBlockAndUpdate(furnaceBaseAir, Blocks.STONE.defaultBlockState());
             helper.assertTrue(LargeCokeOvenFurnaceBaseModule.validate(helper.getLevel(), controller, front)
-                            == LargeCokeOvenFurnaceBaseModule.Result.INVALID,
+                            == ModuleStructure.Result.INVALID,
                     "Additional Furnace Base accepted blocked strict air facing " + front);
         }
         helper.succeed();

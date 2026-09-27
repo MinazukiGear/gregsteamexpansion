@@ -28,6 +28,7 @@ import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenFurnaceBaseModule;
 import com.hoshino.gregsteamexpansion.cokeoven.LargeCokeOvenStructures;
 import com.hoshino.gregsteamexpansion.cokeoven.OwnedCokeOven;
 import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.LargeCokeOvenHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.SteamPartCollector;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
@@ -976,13 +977,13 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
         lastDryQuenchValidationTick = now;
         var geometry = LargeCokeOvenDryQuenchModule.validate(level, getPos(), getFrontFacing());
         var moduleData = CokeOvenModuleWorldData.getOrCreate(level);
-        if (geometry == LargeCokeOvenDryQuenchModule.Result.UNLOADED) {
+        if (geometry == ModuleStructure.Result.UNLOADED) {
             dryQuenchStatus = ModuleStatus.UNLOADED;
             markDirty();
             return false;
         }
         dryQuenchValidatedThisSession = true;
-        if (geometry == LargeCokeOvenDryQuenchModule.Result.VALID) {
+        if (geometry == ModuleStructure.Result.VALID) {
             BlockPos[] bounds = LargeCokeOvenDryQuenchModule.bounds(getPos(), getFrontFacing());
             var bodyConflict = CokeOvenWorldData.getOrCreate(level)
                     .findModuleConflict(getPos(), bounds[0], bounds[1]);
@@ -999,7 +1000,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
             return false;
         }
         moduleData.release(getPos(), LargeCokeOvenDryQuenchModule.ID);
-        invalidateDryQuenchModule(geometry == LargeCokeOvenDryQuenchModule.Result.MISSING
+        invalidateDryQuenchModule(geometry == ModuleStructure.Result.MISSING
                 ? ModuleStatus.MISSING : ModuleStatus.INVALID);
         return false;
     }
@@ -1015,14 +1016,14 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
         lastFurnaceBaseValidationTick = now;
         var geometry = LargeCokeOvenFurnaceBaseModule.validate(level, getPos(), getFrontFacing());
         var moduleData = CokeOvenModuleWorldData.getOrCreate(level);
-        if (geometry == LargeCokeOvenFurnaceBaseModule.Result.UNLOADED) {
+        if (geometry == ModuleStructure.Result.UNLOADED) {
             furnaceBaseStatus = ModuleStatus.UNLOADED;
             syncFluidTankCapacity();
             markDirty();
             return false;
         }
         furnaceBaseValidatedThisSession = true;
-        if (geometry == LargeCokeOvenFurnaceBaseModule.Result.VALID) {
+        if (geometry == ModuleStructure.Result.VALID) {
             BlockPos[] bounds = LargeCokeOvenFurnaceBaseModule.bounds(getPos(), getFrontFacing());
             var bodyConflict = CokeOvenWorldData.getOrCreate(level)
                     .findModuleConflict(getPos(), bounds[0], bounds[1]);
@@ -1040,7 +1041,7 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
             return false;
         }
         moduleData.release(getPos(), LargeCokeOvenFurnaceBaseModule.ID);
-        invalidateFurnaceBaseModule(geometry == LargeCokeOvenFurnaceBaseModule.Result.MISSING
+        invalidateFurnaceBaseModule(geometry == ModuleStructure.Result.MISSING
                 ? ModuleStatus.MISSING : ModuleStatus.INVALID);
         return false;
     }

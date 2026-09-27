@@ -10,6 +10,7 @@ import com.gregtechceu.gtceu.api.machine.trait.RecipeHandlerList;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.machine.multiblock.part.SteamHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.module.ModuleStructure;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamFluidHatchPartMachine;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
 
@@ -114,14 +115,9 @@ public final class BoilerRoomModules {
         }
 
         public BlockPos[] bounds(BlockPos controller, Direction front) {
-            BlockPos a = local(controller, front, minSide, minBack, minUp);
-            BlockPos b = local(controller, front, maxSide, maxBack, maxUp);
-            return new BlockPos[] {
-                    new BlockPos(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()),
-                            Math.min(a.getZ(), b.getZ())),
-                    new BlockPos(Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()),
-                            Math.max(a.getZ(), b.getZ()))
-            };
+            return ModuleStructure.orderedBounds(
+                    local(controller, front, minSide, minBack, minUp),
+                    local(controller, front, maxSide, maxBack, maxUp));
         }
     }
 
@@ -219,11 +215,10 @@ public final class BoilerRoomModules {
     }
 
     public static BoilerRoomModuleWorldData.Claim bodyClaim(BlockPos controller, Direction front) {
-        BlockPos a = local(controller, front, -3, 0, -3);
-        BlockPos b = local(controller, front, 3, 10, 3);
-        return new BoilerRoomModuleWorldData.Claim(controller.immutable(), "__body", "body", controller,
-                new BlockPos(Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ())),
-                new BlockPos(Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()), Math.max(a.getZ(), b.getZ())));
+        BlockPos[] bounds = ModuleStructure.orderedBounds(
+                local(controller, front, -3, 0, -3), local(controller, front, 3, 10, 3));
+        return new BoilerRoomModuleWorldData.Claim(controller, BoilerRoomModuleWorldData.BODY_ID,
+                "body", controller, bounds[0], bounds[1]);
     }
 
     public static List<UltimateTerminalModuleProvider.Requirement> terminalRequirements(
@@ -375,6 +370,6 @@ public final class BoilerRoomModules {
     }
 
     public static BlockPos local(BlockPos controller, Direction front, int side, int back, int up) {
-        return controller.relative(front.getClockWise(), side).relative(front.getOpposite(), back).above(up);
+        return ModuleStructure.local(controller, front, side, back, up);
     }
 }

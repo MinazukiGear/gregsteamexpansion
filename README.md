@@ -49,7 +49,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（172 个，见下）
+.\gradlew.bat runGameTestServer     # 运行全部 GameTest（176 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -71,6 +71,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 | `GSEBoilerRoomTests` | 四档进气条带位置/数量、非法仓室拒绝、多进气室汇总供气与不足不扣、仪表同步、状态提示、原生/GTM Things 物品输入、完整燃料启动链，以及水垢阈值/累计/酸洗/NBT/报废与稀盐酸配方 |
 | `GSESteamTankTests` | 大型蒸汽储罐可变尺寸/容量、共享存量与标准蒸汽过滤、阀门主动输入/输出及 ME 接口类相邻流体库存兼容（3 个） |
 | `GSEDifficultyGameTests` | 启动档位、可配置难度参数、GTCEu 配方映射、旗舰机器开关和权重表 |
+| `GSEExternalModuleTests` | 外挂模块公共结构校验、机器族归属策略、NBT/旧格式迁移、认领原子性和区块清理（4 个） |
 | `GSERecipeOptimizationTests` | 配方缓存失效与空闲机器唤醒 |
 | `GSESteamEngineTests` | 蒸汽处理机的状态边界、批次结算、输入与流体容量、持久化及大型供汽仓超频锁定（10 个） |
 | `GSECrusherTests` | 蒸汽破碎机的状态边界、持久化、搜索唤醒、批次结算、并行容量、GUI/Jade 及超频锁定（6 个） |
