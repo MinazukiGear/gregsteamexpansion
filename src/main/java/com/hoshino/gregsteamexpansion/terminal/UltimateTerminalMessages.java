@@ -27,7 +27,7 @@ import java.util.function.Supplier;
 
 /** Authenticated terminal preview/configuration protocol with bounded snapshot payloads. */
 public final class UltimateTerminalMessages {
-    private static final String PROTOCOL = "5";
+    private static final String PROTOCOL = "6";
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             GregSteamExpansion.id("ultimate_terminal"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
@@ -298,19 +298,31 @@ public final class UltimateTerminalMessages {
     }
 
     private static void writeModule(FriendlyByteBuf buf, UltimateTerminalSnapshot.ModuleInfo value) {
-        buf.writeVarInt(value.selected());
-        buf.writeVarInt(value.options().size());
-        for (String option : value.options()) buf.writeUtf(option, 128);
+        buf.writeVarInt(value.slots().size());
+        for (var slot : value.slots()) {
+            buf.writeUtf(slot.slot(), 25);
+            buf.writeVarInt(slot.selected());
+            buf.writeVarInt(slot.options().size());
+            for (String option : slot.options()) buf.writeUtf(option, 128);
+        }
     }
 
     private static UltimateTerminalSnapshot.ModuleInfo readModule(FriendlyByteBuf buf) {
-        int selected = buf.readVarInt();
-        int size = bounded(buf.readVarInt(), UltimateTerminalConfig.MAX_CHANNEL_OPTIONS);
-        List<String> options = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) options.add(buf.readUtf(128));
-        return new UltimateTerminalSnapshot.ModuleInfo(
-                Math.max(UltimateTerminalConfig.AUTO_CHANNEL_SELECTION,
-                        Math.min(selected, size - 1)), List.copyOf(options));
+        int slots = bounded(buf.readVarInt(), UltimateTerminalConfig.MAX_CHANNEL_OPTIONS * 2);
+        List<UltimateTerminalSnapshot.ModuleSlotInfo> choices = new ArrayList<>(slots);
+        int totalOptions = 0;
+        for (int index = 0; index < slots; index++) {
+            String id = buf.readUtf(25);
+            int selected = buf.readVarInt();
+            int size = bounded(buf.readVarInt(), UltimateTerminalConfig.MAX_CHANNEL_OPTIONS);
+            totalOptions += size;
+            bounded(totalOptions, UltimateTerminalConfig.MAX_CHANNEL_OPTIONS);
+            List<String> options = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) options.add(buf.readUtf(128));
+            choices.add(new UltimateTerminalSnapshot.ModuleSlotInfo(id,
+                    Math.max(-2, Math.min(selected, size - 1)), List.copyOf(options)));
+        }
+        return new UltimateTerminalSnapshot.ModuleInfo(List.copyOf(choices));
     }
 
     private static int bounded(int value, int maximum) {

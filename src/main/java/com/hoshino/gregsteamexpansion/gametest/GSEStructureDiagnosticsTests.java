@@ -277,19 +277,25 @@ public final class GSEStructureDiagnosticsTests {
     @Nullable
     private static StructureProblem recheckAndDiagnose(GameTestHelper helper,
                                                        MultiblockControllerMachine controller) {
-        // 异步检查可能已经把完整结构判为成型; 诊断对成型机器一律返回空, 所以先复位。
-        if (controller.isFormed()) {
-            controller.onStructureInvalid();
-        }
-        helper.assertTrue(!controller.getPattern().checkPatternAt(controller.getMultiblockState(), true),
-                "A deliberately damaged structure must not match its pattern");
+        var lock = controller.getPatternLock();
+        lock.lock();
+        try {
+            // Keep invalidation, the manual check and its diagnostic atomic with the async worker.
+            if (controller.isFormed()) {
+                controller.onStructureInvalid();
+            }
+            helper.assertTrue(!GSEStructureTestUtils.checkPattern(controller),
+                    "A deliberately damaged structure must not match its pattern");
 
-        Optional<StructureProblem> problem = StructureDiagnostics.describe(controller);
-        if (problem.isEmpty()) {
-            helper.fail("No structure diagnosis was produced for an invalid structure");
-            return null;
+            Optional<StructureProblem> problem = StructureDiagnostics.describe(controller);
+            if (problem.isEmpty()) {
+                helper.fail("No structure diagnosis was produced for an invalid structure");
+                return null;
+            }
+            return problem.get();
+        } finally {
+            lock.unlock();
         }
-        return problem.get();
     }
 
     @Nullable

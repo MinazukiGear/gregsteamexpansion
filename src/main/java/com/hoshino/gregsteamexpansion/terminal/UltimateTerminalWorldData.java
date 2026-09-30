@@ -2,12 +2,15 @@ package com.hoshino.gregsteamexpansion.terminal;
 
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.machine.feature.multiblock.IMultiController;
+import com.hoshino.gregsteamexpansion.difficulty.GSEDifficultyConfig;
 import com.hoshino.gregsteamexpansion.terminal.compat.UltimateTerminalAECompat;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -21,6 +24,7 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -40,7 +44,7 @@ import java.util.UUID;
 /** Persistent owner projects, transaction escrow and rate-limited construction jobs. */
 public final class UltimateTerminalWorldData extends SavedData {
     private static final String DATA_NAME = "gregsteamexpansion_ultimate_terminal";
-    private static final int DATA_VERSION = 4;
+    private static final int DATA_VERSION = 7;
     public static final int MAX_TARGETS = 16;
 
     public enum JobState {
@@ -50,6 +54,25 @@ public final class UltimateTerminalWorldData extends SavedData {
         FAILED,
         COMPLETE
     }
+
+    /** Material transport is separate from the persistent transaction ledger. */
+    public interface MaterialNetwork {
+        long available(ServerPlayer player, ItemStack stack);
+        long extract(ServerPlayer player, ItemStack stack, long amount);
+        long insert(ServerPlayer player, ItemStack stack, long amount);
+    }
+
+    private static final MaterialNetwork WIRELESS_AE = new MaterialNetwork() {
+        public long available(ServerPlayer player, ItemStack stack) {
+            return TerminalCompatibility.isAvailable() ? UltimateTerminalAECompat.available(player, stack) : 0;
+        }
+        public long extract(ServerPlayer player, ItemStack stack, long amount) {
+            return TerminalCompatibility.isAvailable() ? UltimateTerminalAECompat.extract(player, stack, amount, false) : 0;
+        }
+        public long insert(ServerPlayer player, ItemStack stack, long amount) {
+            return TerminalCompatibility.isAvailable() ? UltimateTerminalAECompat.insert(player, stack, amount, false) : 0;
+        }
+    };
 
     public record Target(ResourceKey<net.minecraft.world.level.Level> dimension, BlockPos pos) {
         CompoundTag save() {
@@ -187,18 +210,29 @@ public final class UltimateTerminalWorldData extends SavedData {
     private static final class TargetWork {
         final Target target;
         final List<UltimateStructurePlanner.Placement> operations;
+        final List<Long> requiredAir;
         final List<Long> changed = new ArrayList<>();
+        final Map<Long, BlockChange> journal = new LinkedHashMap<>();
+        @Nullable CompoundTag controller;
+        boolean controllerInvalidated;
         int cursor;
 
         TargetWork(Target target, List<UltimateStructurePlanner.Placement> operations) {
+            this(target, operations, List.of());
+        }
+
+        TargetWork(Target target, List<UltimateStructurePlanner.Placement> operations, List<Long> requiredAir) {
             this.target = target;
             this.operations = new ArrayList<>(operations);
+            this.requiredAir = List.copyOf(requiredAir);
         }
 
         CompoundTag save() {
             CompoundTag tag = new CompoundTag();
             tag.put("target", target.save());
             tag.putInt("cursor", cursor);
+            if (controller != null) tag.put("controller", controller.copy());
+            tag.putBoolean("controllerInvalidated", controllerInvalidated);
             ListTag ops = new ListTag();
             for (var operation : operations) {
                 CompoundTag entry = new CompoundTag();
@@ -211,6 +245,16 @@ public final class UltimateTerminalWorldData extends SavedData {
             }
             tag.put("operations", ops);
             tag.putLongArray("changed", changed);
+            tag.putLongArray("requiredAir", requiredAir);
+            ListTag changes = new ListTag();
+            journal.forEach((pos, change) -> {
+                CompoundTag entry = new CompoundTag();
+                entry.putLong("pos", pos);
+                entry.put("before", NbtUtils.writeBlockState(change.before()));
+                entry.put("placed", NbtUtils.writeBlockState(change.placed()));
+                changes.add(entry);
+            });
+            tag.put("journal", changes);
             return tag;
         }
 
@@ -224,12 +268,24 @@ public final class UltimateTerminalWorldData extends SavedData {
                         entry.contains("replaced", Tag.TAG_COMPOUND)
                                 ? ItemStack.of(entry.getCompound("replaced")) : ItemStack.EMPTY));
             }
-            TargetWork work = new TargetWork(Target.load(tag.getCompound("target")), operations);
+            List<Long> requiredAir = java.util.Arrays.stream(tag.getLongArray("requiredAir")).boxed().toList();
+            TargetWork work = new TargetWork(Target.load(tag.getCompound("target")), operations, requiredAir);
+            if (tag.contains("controller", Tag.TAG_COMPOUND)) work.controller = tag.getCompound("controller").copy();
+            work.controllerInvalidated = tag.getBoolean("controllerInvalidated");
             work.cursor = tag.getInt("cursor");
             for (long pos : tag.getLongArray("changed")) work.changed.add(pos);
+            ListTag changes = tag.getList("journal", Tag.TAG_COMPOUND);
+            for (int i = 0; i < changes.size(); i++) {
+                CompoundTag entry = changes.getCompound(i);
+                work.journal.put(entry.getLong("pos"), new BlockChange(
+                        NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(), entry.getCompound("before")),
+                        NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(), entry.getCompound("placed"))));
+            }
             return work;
         }
     }
+
+    private record BlockChange(BlockState before, BlockState placed) {}
 
     private static final class Job {
         final UltimateTerminalMode mode;
@@ -290,16 +346,25 @@ public final class UltimateTerminalWorldData extends SavedData {
     }
 
     private final Map<UUID, Project> projects = new LinkedHashMap<>();
+    private final MaterialNetwork materialNetwork;
 
     public static UltimateTerminalWorldData get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
                 UltimateTerminalWorldData::load, UltimateTerminalWorldData::new, DATA_NAME);
     }
 
-    private UltimateTerminalWorldData() {}
+    private UltimateTerminalWorldData() { this(WIRELESS_AE); }
+
+    private UltimateTerminalWorldData(MaterialNetwork materialNetwork) {
+        this.materialNetwork = java.util.Objects.requireNonNull(materialNetwork);
+    }
 
     public static UltimateTerminalWorldData load(CompoundTag tag) {
-        UltimateTerminalWorldData data = new UltimateTerminalWorldData();
+        return load(tag, WIRELESS_AE);
+    }
+
+    public static UltimateTerminalWorldData load(CompoundTag tag, MaterialNetwork materialNetwork) {
+        UltimateTerminalWorldData data = new UltimateTerminalWorldData(materialNetwork);
         ListTag list = tag.getList("projects", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             CompoundTag entry = list.getCompound(i);
@@ -339,10 +404,10 @@ public final class UltimateTerminalWorldData extends SavedData {
         return target == null ? project.defaultProfile : profileFor(player.server, project, target, create);
     }
 
-    private static TerminalBuildProfile profileFor(MinecraftServer server, Project project,
-                                                   Target target, boolean create) {
+    private TerminalBuildProfile profileFor(MinecraftServer server, Project project,
+                                            Target target, boolean create) {
         TerminalBuildProfile override = project.overrides.get(target.key());
-        if (override != null) return override;
+        if (override != null) return migrateModuleProfile(server, target, override);
         ServerLevel level = server.getLevel(target.dimension());
         String templateKey = target.key();
         if (level != null && level.hasChunkAt(target.pos())) {
@@ -350,11 +415,29 @@ public final class UltimateTerminalWorldData extends SavedData {
             if (id != null) templateKey = id.toString();
         }
         TerminalBuildProfile template = project.templates.get(templateKey);
-        if (template == null && create) {
+        if (template == null) {
             template = project.defaultProfile.copy();
-            project.templates.put(templateKey, template);
+            migrateModuleProfile(server, target, template);
+            // A legacy default index has a different meaning for each machine catalogue.
+            // Persist its migration per machine instead of rewriting the shared default.
+            if (create || template.channelSelection(UltimateTerminalModuleProvider.CHANNEL_ID)
+                    != project.defaultProfile.channelSelection(UltimateTerminalModuleProvider.CHANNEL_ID)) {
+                project.templates.put(templateKey, template);
+                setDirty();
+            }
+            return template;
         }
-        return template != null ? template : project.defaultProfile;
+        return migrateModuleProfile(server, target, template);
+    }
+
+    private TerminalBuildProfile migrateModuleProfile(MinecraftServer server, Target target,
+                                                       TerminalBuildProfile profile) {
+        ServerLevel level = server.getLevel(target.dimension());
+        if (profile.channelSelection(UltimateTerminalModuleProvider.CHANNEL_ID) >= 0
+                && GSEDifficultyConfig.externalModulesEnabled() && level != null && level.hasChunkAt(target.pos())
+                && MetaMachine.getMachine(level, target.pos()) instanceof UltimateTerminalModuleProvider provider
+                && profile.migrateModules(provider.legacyTerminalModules())) setDirty();
+        return profile;
     }
 
     public PreviewData preview(ServerPlayer player) {
@@ -411,14 +494,14 @@ public final class UltimateTerminalWorldData extends SavedData {
         return requirements;
     }
 
-    private static List<MaterialView> materialViews(ServerPlayer player, List<ItemStack> requirements,
+    private List<MaterialView> materialViews(ServerPlayer player, List<ItemStack> requirements,
                                                     boolean useAE) {
         List<MaterialView> views = new ArrayList<>();
         boolean unlimitedMaterials = hasUnlimitedMaterials(player);
         for (ItemStack requirement : requirements) {
             long inventory = unlimitedMaterials ? 0 : countInventory(player, requirement);
             long network = !unlimitedMaterials && useAE
-                    ? UltimateTerminalAECompat.available(player, requirement) : 0;
+                    ? materialNetwork.available(player, requirement) : 0;
             views.add(new MaterialView(requirement.copy(), requirement.getCount(), inventory, network));
         }
         views.sort(java.util.Comparator
@@ -490,7 +573,7 @@ public final class UltimateTerminalWorldData extends SavedData {
     }
     public void setChannel(ServerPlayer player, String channelId, int selection) {
         boolean structureSize = channelId.equals(UltimateTerminalStructureVariants.CHANNEL_ID);
-        boolean module = channelId.equals(UltimateTerminalModuleProvider.CHANNEL_ID);
+        boolean module = UltimateTerminalModuleProvider.isModuleChannel(channelId);
         if (!structureSize && !module && !channelId.equals("coil")
                 && UltimateTerminalConfig.channel(channelId) == null) return;
         Project project = project(player.getUUID());
@@ -501,8 +584,20 @@ public final class UltimateTerminalWorldData extends SavedData {
         TerminalBuildProfile profile = profileFor(player.server, project, target, true);
         UltimateStructurePlanner.Plan plan = UltimateStructurePlanner.plan(level, target.pos(), profile,
                 project.mode == UltimateTerminalMode.UPGRADE);
+        if (module) {
+            String slot = channelId.substring(UltimateTerminalModuleProvider.CHANNEL_PREFIX.length());
+            var choice = plan.module().slots().stream().filter(value -> value.slot().equals(slot)).findFirst().orElse(null);
+            if (choice == null || selection < -1 || selection >= choice.options().size()) return;
+            var machine = MetaMachine.getMachine(level, target.pos());
+            if (!(machine instanceof UltimateTerminalModuleProvider provider)) return;
+            var options = provider.terminalModules().stream().limit(UltimateTerminalConfig.MAX_CHANNEL_OPTIONS)
+                    .filter(value -> value.slot().equals(slot)).toList();
+            if (selection >= options.size()) return;
+            profile.setModule(slot, selection < 0 ? null : options.get(selection).id());
+            setDirty();
+            return;
+        }
         int maximumIndex = structureSize ? plan.structure().options().size() - 1
-                : module ? plan.module().options().size() - 1
                 : plan.channels().stream().filter(choice -> choice.id().equals(channelId))
                         .mapToInt(choice -> choice.options().size() - 1).findFirst().orElse(-1);
         if (maximumIndex < 0) return;
@@ -572,10 +667,12 @@ public final class UltimateTerminalWorldData extends SavedData {
                 UltimateStructurePlanner.Plan plan = UltimateStructurePlanner.planDismantle(level, target.pos(),
                         profileFor(player.server, project, target, false));
                 if (!plan.valid()) {
-                    player.displayClientMessage(Component.literal(plan.error()), false);
+                    player.displayClientMessage(UltimateStructurePlanner.errorComponent(plan.error()), false);
                     return false;
                 }
-                works.add(new TargetWork(target, plan.placements()));
+                TargetWork work = new TargetWork(target, plan.placements());
+                work.controller = controllerIdentity(level, target.pos());
+                works.add(work);
             }
             project.job = new Job(project.mode, works, new ArrayList<>(), false);
         } else {
@@ -587,15 +684,17 @@ public final class UltimateTerminalWorldData extends SavedData {
                         profile,
                         project.mode == UltimateTerminalMode.UPGRADE);
                 if (!plan.valid()) {
-                    player.displayClientMessage(Component.literal(plan.error()), false);
+                    player.displayClientMessage(UltimateStructurePlanner.errorComponent(plan.error()), false);
                     return false;
                 }
-                works.add(new TargetWork(target, plan.placements()));
+                TargetWork work = new TargetWork(target, plan.placements(), plan.requiredAir());
+                work.controller = controllerIdentity(level, target.pos());
+                works.add(work);
                 for (var placement : plan.placements()) mergeRequirement(requirements, placement.stack(), 1);
             }
             boolean unlimitedMaterials = hasUnlimitedMaterials(player);
             List<ItemStack> escrow = unlimitedMaterials
-                    ? new ArrayList<>() : reserve(player, requirements, project.useAE);
+                    ? new ArrayList<>() : reserve(player, requirements, project);
             if (escrow == null) {
                 player.displayClientMessage(Component.translatable(
                         "gregsteamexpansion.ultimate_terminal.materials_missing"), false);
@@ -621,7 +720,7 @@ public final class UltimateTerminalWorldData extends SavedData {
             Job job = project.job;
             if (job == null || (job.state != JobState.RUNNING && job.state != JobState.PAUSED)) continue;
             if (player == null) {
-                job.state = JobState.PAUSED;
+                pause(job);
                 continue;
             }
             used += tickProject(server, player, project, budget - used);
@@ -635,6 +734,31 @@ public final class UltimateTerminalWorldData extends SavedData {
         return project == null ? 0 : tickProject(player.server, player, project, budget);
     }
 
+    /** A player break/place revokes ownership even if the replacement has the same block state. */
+    public void invalidateOwnership(ResourceKey<net.minecraft.world.level.Level> dimension, BlockPos pos) {
+        long encoded = pos.asLong();
+        boolean changed = false;
+        for (Project project : projects.values()) {
+            for (var entry : project.ownedPositions.entrySet()) {
+                if (entry.getKey().startsWith(dimension.location() + "#")) {
+                    changed |= entry.getValue().removeIf(block -> block.pos() == encoded);
+                }
+            }
+            if (project.job == null) continue;
+            for (TargetWork work : project.job.targets) {
+                if (work.target.dimension().equals(dimension)) {
+                    changed |= work.changed.remove(encoded);
+                    work.journal.remove(encoded);
+                    if (isActive(project.job) && work.target.pos().equals(pos) && !work.controllerInvalidated) {
+                        work.controllerInvalidated = true;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if (changed) setDirty();
+    }
+
     private int tickProject(MinecraftServer server, ServerPlayer player, Project project, int budget) {
         Job job = project.job;
         if (job == null || (job.state != JobState.RUNNING && job.state != JobState.PAUSED)
@@ -642,10 +766,29 @@ public final class UltimateTerminalWorldData extends SavedData {
         TargetWork work = job.targets.get(job.targetIndex);
         ServerLevel level = server.getLevel(work.target.dimension());
         if (level == null || player.level() != level || !level.hasChunkAt(work.target.pos())) {
-            job.state = JobState.PAUSED;
+            pause(job);
             return 0;
         }
-        job.state = JobState.RUNNING;
+        if (!validateController(level, work)) {
+            failCurrent(player, project, job, work, "controller_changed");
+            return 0;
+        }
+        if (job.state != JobState.RUNNING) {
+            job.state = JobState.RUNNING;
+            setDirty();
+        }
+        for (long encoded : work.requiredAir) {
+            BlockPos air = BlockPos.of(encoded);
+            if (!level.hasChunkAt(air)) {
+                job.state = JobState.PAUSED;
+                setDirty();
+                return 0;
+            }
+            if (!level.getBlockState(air).isAir()) {
+                failCurrent(player, project, job, work, "module_air_obstructed");
+                return 0;
+            }
+        }
         int used = 0;
         while (used < budget && work.cursor < work.operations.size()) {
             if (!level.hasChunkAt(work.operations.get(work.cursor).pos())) {
@@ -666,7 +809,15 @@ public final class UltimateTerminalWorldData extends SavedData {
             setDirty();
         }
         if (job.state == JobState.RUNNING && work.cursor >= work.operations.size()) {
-            if (job.mode != UltimateTerminalMode.DISMANTLE && !validateOperations(level, work)) {
+            // Earlier chunks may have unloaded while later operations were executing.
+            // Completion must obey the same no-forced-loading rule as placement.
+            if (work.operations.stream().anyMatch(operation -> !level.hasChunkAt(operation.pos()))) {
+                pause(job);
+                return used;
+            }
+            if (!validateController(level, work)) {
+                failCurrent(player, project, job, work, "controller_changed");
+            } else if (job.mode != UltimateTerminalMode.DISMANTLE && !validateOperations(level, work)) {
                 failCurrent(player, project, job, work, "structure_invalid");
             } else {
                 if (job.mode == UltimateTerminalMode.DISMANTLE) {
@@ -690,8 +841,33 @@ public final class UltimateTerminalWorldData extends SavedData {
         return used;
     }
 
+    @Nullable
+    private static CompoundTag controllerIdentity(ServerLevel level, BlockPos pos) {
+        if (!(MetaMachine.getMachine(level, pos) instanceof IMultiController controller)) return null;
+        var machine = controller.self();
+        CompoundTag identity = new CompoundTag();
+        identity.putString("machine", machine.getDefinition().getId().toString());
+        identity.putString("front", machine.getFrontFacing().getSerializedName());
+        identity.putString("up", machine.getUpwardsFacing().getSerializedName());
+        identity.putBoolean("flipped", machine.isFlipped());
+        return identity;
+    }
+
+    private boolean validateController(ServerLevel level, TargetWork work) {
+        if (work.controllerInvalidated) return false;
+        CompoundTag current = controllerIdentity(level, work.target.pos());
+        if (current == null) return false;
+        if (work.controller == null) {
+            // Old queues did not record orientation; bind once without discarding their escrow.
+            work.controller = current;
+            setDirty();
+        }
+        return work.controller.equals(current);
+    }
+
     private static boolean placeOne(ServerLevel level, ServerPlayer player, Job job, TargetWork work) {
         var operation = work.operations.get(work.cursor);
+        BlockState before = level.getBlockState(operation.pos());
         boolean replacing = !operation.replaced().isEmpty();
         if (replacing) {
             if (level.getBlockEntity(operation.pos()) != null
@@ -711,8 +887,8 @@ public final class UltimateTerminalWorldData extends SavedData {
                         operation.pos(), false));
         InteractionResult result = blockItem.place(context);
         if (result == InteractionResult.FAIL || level.isEmptyBlock(operation.pos())) {
-            if (replacing && operation.replaced().getItem() instanceof BlockItem oldBlock) {
-                level.setBlockAndUpdate(operation.pos(), oldBlock.getBlock().defaultBlockState());
+            if (replacing) {
+                level.setBlockAndUpdate(operation.pos(), before);
             }
             if (!job.unlimitedMaterials) addSplit(job.escrow, operation.stack().copyWithCount(1));
             return false;
@@ -721,6 +897,7 @@ public final class UltimateTerminalWorldData extends SavedData {
             addSplit(job.recovered, operation.replaced().copyWithCount(1));
         }
         work.changed.add(operation.pos().asLong());
+        work.journal.put(operation.pos().asLong(), new BlockChange(before, level.getBlockState(operation.pos())));
         return true;
     }
 
@@ -737,6 +914,9 @@ public final class UltimateTerminalWorldData extends SavedData {
     }
 
     private static boolean validateOperations(ServerLevel level, TargetWork work) {
+        for (long encoded : work.requiredAir) {
+            if (!level.getBlockState(BlockPos.of(encoded)).isAir()) return false;
+        }
         for (var operation : work.operations) {
             if (level.getBlockState(operation.pos()).getBlock().asItem() != operation.stack().getItem()) return false;
         }
@@ -746,17 +926,24 @@ public final class UltimateTerminalWorldData extends SavedData {
     private void failCurrent(ServerPlayer player, Project project, Job job, TargetWork work, String reason) {
         ServerLevel level = player.server.getLevel(work.target.dimension());
         if (level != null && job.mode != UltimateTerminalMode.DISMANTLE) {
-            for (int i = 0; i < work.cursor; i++) {
+            for (int i = work.cursor - 1; i >= 0; i--) {
                 var operation = work.operations.get(i);
-                if (level.getBlockEntity(operation.pos()) == null) {
-                    if (operation.replaced().getItem() instanceof BlockItem oldBlock) {
-                        level.setBlockAndUpdate(operation.pos(), oldBlock.getBlock().defaultBlockState());
-                        consume(job.recovered, operation.replaced());
-                    } else {
-                        level.setBlockAndUpdate(operation.pos(), Blocks.AIR.defaultBlockState());
-                    }
+                // Never load a chunk to roll back, overwrite another block, or refund a block
+                // already mined by a player. Legacy jobs use their recorded block item.
+                BlockChange change = work.journal.get(operation.pos().asLong());
+                if (!work.changed.contains(operation.pos().asLong()) || !level.hasChunkAt(operation.pos())
+                        || level.getBlockEntity(operation.pos()) != null) continue;
+                BlockState current = level.getBlockState(operation.pos());
+                if (change != null ? current != change.placed()
+                        : current.getBlock().asItem() != operation.stack().getItem()) continue;
+                BlockState restore = change != null ? change.before()
+                        : operation.replaced().getItem() instanceof BlockItem oldBlock
+                                ? oldBlock.getBlock().defaultBlockState() : Blocks.AIR.defaultBlockState();
+                if (!level.setBlockAndUpdate(operation.pos(), restore)) continue;
+                if (!job.unlimitedMaterials) {
+                    if (!operation.replaced().isEmpty()) consume(job.recovered, operation.replaced());
+                    addSplit(job.escrow, operation.stack().copyWithCount(1));
                 }
-                if (!job.unlimitedMaterials) addSplit(job.escrow, operation.stack().copyWithCount(1));
             }
         }
         job.state = JobState.FAILED;
@@ -764,7 +951,7 @@ public final class UltimateTerminalWorldData extends SavedData {
         deliver(player, job.escrow, project.useAE, project.pending);
         deliver(player, job.recovered, project.useAE, project.pending);
         player.displayClientMessage(Component.translatable(
-                "gregsteamexpansion.ultimate_terminal.job_failed", reason), false);
+                "gregsteamexpansion.ultimate_terminal.job_failed", UltimateStructurePlanner.errorComponent(reason)), false);
         setDirty();
     }
 
@@ -777,10 +964,11 @@ public final class UltimateTerminalWorldData extends SavedData {
     }
 
     @Nullable
-    private static List<ItemStack> reserve(ServerPlayer player, List<ItemStack> requirements, boolean useAE) {
+    private List<ItemStack> reserve(ServerPlayer player, List<ItemStack> requirements, Project project) {
+        boolean useAE = project.useAE;
         for (ItemStack requirement : requirements) {
             long inventory = countInventory(player, requirement);
-            long network = useAE ? UltimateTerminalAECompat.available(player, requirement) : 0;
+            long network = useAE ? materialNetwork.available(player, requirement) : 0;
             if (inventory + network < requirement.getCount()) return null;
         }
         List<ItemStack> escrow = new ArrayList<>();
@@ -795,13 +983,13 @@ public final class UltimateTerminalWorldData extends SavedData {
                 remaining -= amount;
             }
             if (remaining > 0 && useAE) {
-                long extracted = UltimateTerminalAECompat.extract(player, requirement, remaining, false);
+                long extracted = materialNetwork.extract(player, requirement, remaining);
                 if (extracted > 0) addSplit(escrow, requirement.copyWithCount((int) extracted));
                 remaining -= (int) extracted;
             }
             if (remaining > 0) {
-                List<ItemStack> pending = new ArrayList<>();
-                deliver(player, escrow, useAE, pending);
+                deliver(player, escrow, useAE, project.pending);
+                setDirty();
                 return null;
             }
         }
@@ -832,7 +1020,7 @@ public final class UltimateTerminalWorldData extends SavedData {
         return job != null && (job.state == JobState.RUNNING || job.state == JobState.PAUSED);
     }
 
-    private static void deliver(ServerPlayer player, List<ItemStack> source, boolean useAE,
+    private void deliver(ServerPlayer player, List<ItemStack> source, boolean useAE,
                                 List<ItemStack> pending) {
         List<ItemStack> copy = new ArrayList<>(source);
         source.clear();
@@ -840,10 +1028,17 @@ public final class UltimateTerminalWorldData extends SavedData {
             ItemStack remaining = original.copy();
             player.getInventory().add(remaining);
             if (!remaining.isEmpty() && useAE) {
-                long inserted = UltimateTerminalAECompat.insert(player, remaining, remaining.getCount(), false);
+                long inserted = materialNetwork.insert(player, remaining, remaining.getCount());
                 remaining.shrink((int) inserted);
             }
             if (!remaining.isEmpty()) addSplit(pending, remaining);
+        }
+    }
+
+    private void pause(Job job) {
+        if (job.state != JobState.PAUSED) {
+            job.state = JobState.PAUSED;
+            setDirty();
         }
     }
 

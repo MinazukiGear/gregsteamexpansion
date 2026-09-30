@@ -40,9 +40,10 @@ public record UltimateTerminalSnapshot(
     public record StructureInfo(int selected, List<String> options) {
         public static StructureInfo empty() { return new StructureInfo(0, List.of()); }
     }
-    public record ModuleInfo(int selected, List<String> options) {
+    public record ModuleSlotInfo(String slot, int selected, List<String> options) {}
+    public record ModuleInfo(List<ModuleSlotInfo> slots) {
         public static ModuleInfo empty() {
-            return new ModuleInfo(UltimateTerminalConfig.AUTO_CHANNEL_SELECTION, List.of());
+            return new ModuleInfo(List.of());
         }
     }
 
@@ -79,8 +80,8 @@ public record UltimateTerminalSnapshot(
                 .toList();
         StructureInfo structure = new StructureInfo(preview.plan().structure().selected(),
                 preview.plan().structure().options());
-        ModuleInfo module = new ModuleInfo(preview.plan().module().selected(),
-                preview.plan().module().options());
+        ModuleInfo module = new ModuleInfo(preview.plan().module().slots().stream()
+                .map(value -> new ModuleSlotInfo(value.slot(), value.selected(), value.options())).toList());
         return new UltimateTerminalSnapshot(revision, targets, preview.selectedTarget(), target.dimension(),
                 target.pos(), cells, selectedMaterials, batchMaterials, candidates,
                 channels, structure, module, preview.targetOverride(), preview.unlimitedMaterials(),

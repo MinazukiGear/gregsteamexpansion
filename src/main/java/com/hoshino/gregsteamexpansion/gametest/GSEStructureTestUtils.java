@@ -32,6 +32,28 @@ public final class GSEStructureTestUtils {
 
     private GSEStructureTestUtils() {}
 
+    /** Manual checks share the controller state with GTCEu's asynchronous pattern worker. */
+    public static boolean checkPattern(MultiblockControllerMachine controller) {
+        var lock = controller.getPatternLock();
+        lock.lock();
+        try {
+            return controller.getPattern().checkPatternAt(controller.getMultiblockState(), true);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** Keep a fixture's mutate/check/reform sequence atomic relative to the async pattern worker. */
+    public static void withPatternLock(MultiblockControllerMachine controller, Runnable checks) {
+        var lock = controller.getPatternLock();
+        lock.lock();
+        try {
+            checks.run();
+        } finally {
+            lock.unlock();
+        }
+    }
+
     /** Places one registered machine block and returns its typed runtime instance. */
     public static <T extends MetaMachine> T placeMachine(GameTestHelper helper, MachineDefinition definition,
                                                          BlockPos pos) {
@@ -69,7 +91,7 @@ public final class GSEStructureTestUtils {
             helper.fail("No pattern registered for " + definition.getId());
             return;
         }
-        if (!pattern.checkPatternAt(controller.getMultiblockState(), true)) {
+        if (!checkPattern(controller)) {
             helper.fail("Preview shape for " + definition.getId() + " does not match its pattern: "
                     + describeError(helper, controller));
             return;
@@ -97,7 +119,7 @@ public final class GSEStructureTestUtils {
             helper.fail("No usable pattern registered for " + definition.getId());
             return;
         }
-        if (!controller.getPattern().checkPatternAt(controller.getMultiblockState(), true)) {
+        if (!checkPattern(controller)) {
             helper.fail("Baseline preview shape for " + definition.getId() + " does not match: "
                     + describeError(helper, controller));
             return;
@@ -134,7 +156,7 @@ public final class GSEStructureTestUtils {
             replacementState = replacementState.setValue(replacementRotation.property, Direction.NORTH);
         }
         helper.setBlock(replacementPos, replacementState);
-        boolean matched = controller.getPattern().checkPatternAt(controller.getMultiblockState(), true);
+        boolean matched = checkPattern(controller);
         if (matched != expectedMatch) {
             helper.fail("Replacement " + replacement.getId() + (expectedMatch ? " was rejected by " : " was accepted by ")
                     + definition.getId() + ": " + describeError(helper, controller));

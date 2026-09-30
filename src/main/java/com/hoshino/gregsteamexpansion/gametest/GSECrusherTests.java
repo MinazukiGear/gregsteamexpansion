@@ -22,7 +22,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -35,17 +34,16 @@ import snownee.jade.api.IServerDataProvider;
 import static com.hoshino.gregsteamexpansion.gametest.GSESteamEngineTestSupport.*;
 
 /** Runtime contracts for small and large steam crushers. */
-@GameTestHolder(GregSteamExpansion.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class GSECrusherTests {
     private GSECrusherTests() {}
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void crusherStateBoundaries(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_CRUSHER, m -> stateBoundaries(h, m));
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void crusherPersistedStateRoundTrip(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_CRUSHER, m -> {
             set(m, "workingEnabled", false);
@@ -95,7 +93,7 @@ public final class GSECrusherTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void crusherPendingAndSettlement(GameTestHelper h) {
         formed(h, GSEMachines.STEAM_CRUSHER, m -> {
             assertCrusherSearchWakeup(h, m);
@@ -104,17 +102,17 @@ public final class GSECrusherTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void crusherParallelCapacity(GameTestHelper h) {
         formed(h, GSEMachines.STEAM_CRUSHER, m -> parallelCapacity(h, m));
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void crusherMultiProductCapacityCompetition(GameTestHelper h) {
         formed(h, GSEMachines.STEAM_CRUSHER, m -> multiProductCapacityCompetition(h, m));
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void largeSteamOverclockLocksOnlyAtCrusherBatchStart(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_CRUSHER, m -> {
             AbstractSteamCrusherMachine crusher = (AbstractSteamCrusherMachine) m;

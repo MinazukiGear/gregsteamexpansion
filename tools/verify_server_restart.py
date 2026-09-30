@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify processor persistence across two independent GameTest server processes."""
+"""Verify machine and terminal transaction persistence across two independent server processes."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def gradle_command(offline: bool) -> list[str]:
     wrapper = ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew")
-    command = [str(wrapper), "--no-daemon", "runGameTestServer"]
+    command = [str(wrapper), "--no-daemon", "-PgseVerificationRun=server-restart", "runGameTestServer"]
     if offline:
         command.append("--offline")
     command.append("--stacktrace")

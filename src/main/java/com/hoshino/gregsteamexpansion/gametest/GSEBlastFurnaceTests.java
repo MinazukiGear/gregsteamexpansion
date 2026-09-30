@@ -53,7 +53,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -68,12 +67,11 @@ import snownee.jade.api.ITooltip;
 import static com.hoshino.gregsteamexpansion.gametest.GSESteamEngineTestSupport.*;
 
 /** Runtime contracts for the large steam blast furnace. */
-@GameTestHolder(GregSteamExpansion.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class GSEBlastFurnaceTests {
     private GSEBlastFurnaceTests() {}
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 100)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 100)
     public static void highChargeTowerGeometryAndClaimsAreExact(GameTestHelper h) {
         BlockPos controller = h.absolutePos(new BlockPos(16, 2, 16));
         var requirements = BlastFurnaceHighChargeModule.terminalRequirements(controller, Direction.NORTH);
@@ -114,7 +112,7 @@ public final class GSEBlastFurnaceTests {
         h.succeed();
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 400)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 400)
     public static void highChargeCycleLocksDebtAndResetsAtomically(GameTestHelper h) {
         if (!GSEDifficultyConfig.externalModulesEnabled()) {
             formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
@@ -279,7 +277,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 400)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 400)
     public static void hotBlastModuleCyclesHeatAndFallsBackOnDamage(GameTestHelper h) {
         if (!GSEDifficultyConfig.externalModulesEnabled()) {
             h.succeed();
@@ -383,7 +381,7 @@ public final class GSEBlastFurnaceTests {
                 .thenSucceed();
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastAirAndSteamAreAtomic(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, m -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) m;
@@ -420,7 +418,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void advancedExhaustReducesNewBlastBatchSteamDemand(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -449,7 +447,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceGuiAndJadeExposeAirShortfall(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -551,7 +549,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceDistinguishesBlockedExhaustAndSteamShortage(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -619,7 +617,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnacePersistsAndAtomicallyDeliversRealPendingOutput(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -749,7 +747,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceControllerRemovalDropsOnlyPendingItems(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -815,7 +813,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceParallelUsesTightestLimit(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -869,7 +867,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceProficiencyLocksNextBatchAndResetsOnRecipeChange(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -937,7 +935,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceProficiencyPersistsWithoutChangingJade(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -977,7 +975,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void legacyBlastBatchKeepsLockedDurationAndSeedsProficiency(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -1006,7 +1004,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnacePrefersLastRecipeAfterReload(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -1057,7 +1055,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceClosesWroughtIronAndSteelChain(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -1110,7 +1108,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceFullLoadUsesFourLargeSuppliesAndEightIntakes(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -1143,7 +1141,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceEightIntakesSustainFullLoad(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_BLAST_FURNACE, controller -> {
             LargeSteamBlastFurnaceMachine machine = (LargeSteamBlastFurnaceMachine) controller;
@@ -1185,7 +1183,7 @@ public final class GSEBlastFurnaceTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void blastFurnaceAcceptsCapabilityInputPart(GameTestHelper h) {
         var definition = GSEMachines.LARGE_STEAM_BLAST_FURNACE;
         var m = GSEStructureTestUtils.placeShape(h, definition, definition.getMatchingShapes().get(0));

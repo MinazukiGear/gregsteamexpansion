@@ -97,6 +97,10 @@ public final class GregSteamExpansion {
         // 结构诊断调试指令 /gse structure (structure-diagnostics.md 通道 T6)。
         MinecraftForge.EVENT_BUS.addListener(GSECommands::onRegisterCommands);
         MinecraftForge.EVENT_BUS.addListener(UltimateTerminalEvents::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                UltimateTerminalEvents::onBlockBreak);
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+                UltimateTerminalEvents::onBlockPlace);
     }
 
     public static net.minecraft.resources.ResourceLocation id(String path) {
@@ -158,6 +162,21 @@ public final class GregSteamExpansion {
 
     private static void validateDevelopmentRuntime() {
         if (FMLEnvironment.production) {
+            return;
+        }
+
+        String smokeProfile = System.getProperty("gse.dependencySmokeProfile");
+        if (smokeProfile != null) {
+            String smokeDirectory = System.getProperty("gse.dependencySmokeDirectory");
+            if (!FMLEnvironment.dist.isDedicatedServer()
+                    || !Boolean.getBoolean("forge.gameTestServer")
+                    || !List.of("core", "ae2", "full").contains(smokeProfile)
+                    || smokeDirectory == null
+                    || !java.nio.file.Path.of("").toAbsolutePath().normalize()
+                            .equals(java.nio.file.Path.of(smokeDirectory).toAbsolutePath().normalize())) {
+                throw new IllegalStateException("Dependency smoke runtime requires its isolated GameTest directory");
+            }
+            LOGGER.info("Isolated dependency smoke runtime: {}", smokeProfile);
             return;
         }
 

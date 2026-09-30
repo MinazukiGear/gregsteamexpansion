@@ -970,10 +970,12 @@ public class LargeSteamBlastFurnaceMachine extends AbstractSteamProcessorMachine
                 new UltimateTerminalModuleProvider.Module(
                         "hot_blast_stoves",
                         "gregsteamexpansion.machine.large_steam_blast_furnace.hot_blast.status.label",
+                        "back",
                         BlastFurnaceHotBlastModule.terminalRequirements(getPos(), getFrontFacing())),
                 new UltimateTerminalModuleProvider.Module(
                         "high_charge_tower",
                         "gregsteamexpansion.machine.large_steam_blast_furnace.high_charge.status.label",
+                        "top",
                         BlastFurnaceHighChargeModule.terminalRequirements(getPos(), getFrontFacing())));
     }
 }

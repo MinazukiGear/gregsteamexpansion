@@ -278,14 +278,20 @@ public class BoilerRoomMachine extends LargeBoilerMachine implements IMachineLif
     @Override
     public List<UltimateTerminalModuleProvider.Module> terminalModules() {
         if (!GSEDifficultyConfig.externalModulesEnabled()) return List.of();
-        if (!(getLevel() instanceof ServerLevel level)) return List.of();
         return BoilerRoomModules.ALL.stream()
-                .filter(module -> BoilerRoomModules.countPresent(
-                        level, getPos(), getFrontFacing(), tierIndex, module) > 0)
                 .map(module -> new UltimateTerminalModuleProvider.Module(
-                        module.id(), module.translationKey(), BoilerRoomModules.terminalRequirements(
+                        module.id(), module.translationKey(), module.face().id(), BoilerRoomModules.terminalRequirements(
                                 getPos(), getFrontFacing(), tierIndex, module)))
                 .toList();
+    }
+
+    @Override
+    public List<UltimateTerminalModuleProvider.Module> legacyTerminalModules() {
+        if (!(getLevel() instanceof ServerLevel level)) return List.of();
+        return terminalModules().stream().filter(module -> BoilerRoomModules.ALL.stream()
+                .filter(descriptor -> descriptor.id().equals(module.id()))
+                .anyMatch(descriptor -> BoilerRoomModules.countPresent(
+                        level, getPos(), getFrontFacing(), tierIndex, descriptor) > 0)).toList();
     }
 
     public int getRoomTemperature() {

@@ -15,7 +15,6 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
 import snownee.jade.api.BlockAccessor;
@@ -26,12 +25,11 @@ import java.util.List;
 import static com.hoshino.gregsteamexpansion.gametest.GSESteamEngineTestSupport.*;
 
 /** Runtime contracts for steam-powered void producers. */
-@GameTestHolder(GregSteamExpansion.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class GSEVoidProducerTests {
     private GSEVoidProducerTests() {}
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void voidProducerStateBoundaries(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> {
             if (assertDisabledOrePlantStaysIdle(h, m)) return;
@@ -39,7 +37,7 @@ public final class GSEVoidProducerTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void voidProducerPersistedStateRoundTrip(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> {
             set(m, "workingEnabled", false);
@@ -97,7 +95,7 @@ public final class GSEVoidProducerTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void voidPendingRecovery(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> {
             if (assertDisabledOrePlantStaysIdle(h, m)) return;
@@ -121,7 +119,7 @@ public final class GSEVoidProducerTests {
         });
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 300)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 300)
     public static void largeSteamOverclockLocksOnlyAtVoidCycleStart(GameTestHelper h) {
         formed(h, GSEMachines.LARGE_STEAM_ORE_PLANT, m -> {
             if (assertDisabledOrePlantStaysIdle(h, m)) return;

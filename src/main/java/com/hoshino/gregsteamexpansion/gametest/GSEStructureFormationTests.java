@@ -190,7 +190,7 @@ public final class GSEStructureFormationTests {
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
                         "Baseline blast-furnace fixture did not form"))
-                .thenExecute(() -> {
+                .thenExecute(() -> GSEStructureTestUtils.withPatternLock(machine, () -> {
                     List<BlockPos> intakes = new java.util.ArrayList<>();
                     List<BlockPos> exhausts = new java.util.ArrayList<>();
                     List<BlockPos> bricks = new java.util.ArrayList<>();
@@ -277,7 +277,7 @@ public final class GSEStructureFormationTests {
                     machine.onStructureFormed();
                     helper.assertTrue(machine.isFormed(),
                             "Blast furnace remained invalid after restoring its legal interfaces");
-                })
+                }))
                 .thenSucceed();
     }
 

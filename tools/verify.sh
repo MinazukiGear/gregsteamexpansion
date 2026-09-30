@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # Local mirror of the CI gate (.github/workflows/build.yml).
 #
-# Runs the same steps in the same order so a green local run implies a green
-# CI run, short of dependency-download differences. `runGameTestServer` boots
+# Runs the same checks in the same order; remote CI confirms its own runner
+# environment and dependency downloads. `runGameTestServer` boots
 # a real dedicated server and takes minutes; the datagen step rewrites
 # src/generated/resources in place and fails if that produces a diff.
 #
-# Usage: tools/verify.sh [--no-datagen]
+# Usage: tools/verify.sh [--offline] [--no-datagen]
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 GRADLE_ARGS=(--no-daemon)
+RESTART_ARGS=()
 RUN_DATAGEN=1
 for arg in "$@"; do
     case "$arg" in
+        --offline) GRADLE_ARGS+=(--offline); RESTART_ARGS=(--offline) ;;
         --no-datagen) RUN_DATAGEN=0 ;;
         -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
         *) echo "unknown option: $arg" >&2; exit 2 ;;
@@ -40,7 +42,7 @@ fi
 GRADLE_ARGS+=("-PassetPythonExecutable=$ASSET_PYTHON")
 
 # Windows checkouts use gradlew.bat; everything else uses gradlew.
-if [ -f ./gradlew.bat ]; then
+if [[ "${OS:-}" == "Windows_NT" ]]; then
     GRADLE=./gradlew.bat
 else
     GRADLE=./gradlew
@@ -52,7 +54,16 @@ step "compile"
 "$GRADLE" "${GRADLE_ARGS[@]}" compileJava
 
 step "gametest"
-"$GRADLE" "${GRADLE_ARGS[@]}" runGameTestServer
+"$GRADLE" "${GRADLE_ARGS[@]}" -PgseVerificationRun=gametest runGameTestServer
+
+step "server restart persistence"
+"$ASSET_PYTHON" tools/verify_server_restart.py "${RESTART_ARGS[@]}"
+
+step "configuration restart (Easy, Normal, Expert)"
+"$ASSET_PYTHON" tools/verify_config_restart.py "${RESTART_ARGS[@]}"
+
+step "optional dependency runtimes (core, AE2, complete)"
+"$ASSET_PYTHON" tools/verify_dependency_runtime.py "${RESTART_ARGS[@]}"
 
 if [ "$RUN_DATAGEN" -eq 1 ]; then
     step "datagen freshness"

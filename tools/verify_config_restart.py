@@ -11,7 +11,8 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parent.parent
-CONFIG_PATH = ROOT / "run" / "config" / "gregsteamexpansion-common.toml"
+CONFIG_PATH = ROOT / "build" / "verification" / "config-restart" / "config" / "gregsteamexpansion-common.toml"
+TEMPLATE_PATH = ROOT / "build" / "verification" / "gametest" / "config" / "gregsteamexpansion-common.toml"
 PROFILE_DEFAULTS = {
     "EASY": (
         (2, 5.0, 2, 40, 2, 50, 2.0, 3.0, 0.0, 0, 0, 0, 2.0, 4, 100, 7,
@@ -146,7 +147,7 @@ PHASES = (
 
 def gradle_command(offline: bool) -> list[str]:
     wrapper = ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew")
-    command = [str(wrapper), "--no-daemon", "runGameTestServer"]
+    command = [str(wrapper), "--no-daemon", "-PgseVerificationRun=config-restart", "runGameTestServer"]
     if offline:
         command.append("--offline")
     command.append("--stacktrace")
@@ -189,8 +190,7 @@ def profile_lines(phase: dict[str, object], difficulty: str) -> list[str]:
     return lines
 
 
-def write_config(phase: dict[str, object]) -> None:
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+def config_lines(phase: dict[str, object]) -> list[str]:
     lines = (
         [
             f'difficulty = "{phase["difficulty"]}"',
@@ -222,15 +222,47 @@ def write_config(phase: dict[str, object]) -> None:
         + profile_lines(phase, "NORMAL")
         + profile_lines(phase, "EXPERT")
     )
-    CONFIG_PATH.write_text(
-        "\n".join(lines),
-        encoding="utf-8",
-        newline="\n",
-    )
+    return lines
 
 
-def run_phase(phase: dict[str, object], command: list[str]) -> None:
-    write_config(phase)
+def merge_config_template(template: str, phase: dict[str, object]) -> str:
+    """Preserve Forge's comments so startup correction cannot race its file watcher."""
+    overrides: dict[tuple[str, ...], str] = {}
+    section: tuple[str, ...] = ()
+    for line in config_lines(phase):
+        stripped = line.strip()
+        if stripped.startswith("["):
+            section = tuple(stripped[1:-1].split("."))
+        elif "=" in stripped:
+            key, value = stripped.split("=", 1)
+            overrides[(*section, key.strip())] = value.strip()
+
+    section = ()
+    merged = []
+    for line in template.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("["):
+            section = tuple(stripped[1:-1].split("."))
+        elif stripped and not stripped.startswith("#") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            path = (*section, key)
+            if path in overrides:
+                indent = line[:len(line) - len(line.lstrip())]
+                line = f"{indent}{key} = {overrides.pop(path)}"
+        merged.append(line)
+    if overrides:
+        missing = ", ".join(".".join(path) for path in overrides)
+        raise ValueError(f"Generated config template is stale; rerun the main GameTest suite. Missing: {missing}")
+    return "\n".join(merged) + "\n"
+
+
+def write_config(phase: dict[str, object], template: str) -> None:
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(merge_config_template(template, phase), encoding="utf-8", newline="\n")
+
+
+def run_phase(phase: dict[str, object], command: list[str], template: str) -> None:
+    write_config(phase, template)
     environment = os.environ.copy()
     environment["GSE_EXPECTED_DIFFICULTY"] = str(phase["difficulty"])
     environment["GSE_EXPECTED_ORE_PLANT_ENABLED"] = str(phase["ore_enabled"]).lower()
@@ -278,8 +310,17 @@ def main() -> int:
     original = CONFIG_PATH.read_bytes() if CONFIG_PATH.exists() else None
 
     try:
+        if TEMPLATE_PATH.exists():
+            template = TEMPLATE_PATH.read_text(encoding="utf-8")
+        else:
+            # A standalone invocation may precede the main suite. Generate a
+            # complete default config first; do not borrow a developer's run/.
+            print("\n=== Configuration template bootstrap ===", flush=True)
+            CONFIG_PATH.unlink(missing_ok=True)
+            subprocess.run(command, cwd=ROOT, check=True)
+            template = CONFIG_PATH.read_text(encoding="utf-8")
         for phase in PHASES:
-            run_phase(phase, command)
+            run_phase(phase, command, template)
     except subprocess.CalledProcessError as error:
         print(
             f"Configuration restart verification failed during a Gradle run "

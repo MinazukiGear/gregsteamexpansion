@@ -15,6 +15,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -55,6 +56,17 @@ public final class UltimateStructurePlanner {
 
     private UltimateStructurePlanner() {}
 
+    public static Component errorComponent(String error) {
+        String[] details = error.split("[@:]", 2);
+        return switch (details[0]) {
+            case "module_overlap", "module_collision", "module_unavailable" -> Component.translatable(
+                    "gregsteamexpansion.ultimate_terminal.error." + details[0], details.length > 1 ? details[1] : "");
+            case "module_legacy_unavailable", "module_air_obstructed", "controller_changed" -> Component.translatable(
+                    "gregsteamexpansion.ultimate_terminal.error." + details[0]);
+            default -> Component.literal(error);
+        };
+    }
+
     public record Placement(BlockPos pos, ItemStack stack, ItemStack replaced) {
         public Placement(BlockPos pos, ItemStack stack) {
             this(pos, stack, ItemStack.EMPTY);
@@ -83,9 +95,11 @@ public final class UltimateStructurePlanner {
         }
     }
 
-    public record ModuleChoice(int selected, List<String> options) {
+    public record ModuleSlotChoice(String slot, int selected, List<String> options) {}
+
+    public record ModuleChoice(List<ModuleSlotChoice> slots) {
         static ModuleChoice empty() {
-            return new ModuleChoice(UltimateTerminalConfig.AUTO_CHANNEL_SELECTION, List.of());
+            return new ModuleChoice(List.of());
         }
     }
 
@@ -94,6 +108,11 @@ public final class UltimateStructurePlanner {
                        StructureChoice structure, ModuleChoice module, String error) {
         public boolean valid() {
             return error == null;
+        }
+
+        public List<Long> requiredAir() {
+            return cells.stream().filter(cell -> cell.expected().isEmpty() && cell.status() == CellStatus.SATISFIED)
+                    .map(cell -> cell.pos().asLong()).distinct().toList();
         }
 
         static Plan failed(String error) {
@@ -129,6 +148,9 @@ public final class UltimateStructurePlanner {
             current = plan(level, controllerPos, profile, false, repetitions, formed);
         }
         if (current.cells().isEmpty() && current.error() != null) return current;
+        if (current.error() != null && (current.error().startsWith("module_overlap")
+                || current.error().startsWith("module_unavailable")
+                || current.error().startsWith("module_legacy_unavailable"))) return current;
         List<Placement> removals = new ArrayList<>();
         List<Cell> cells = new ArrayList<>();
         for (Cell cell : current.cells()) {
@@ -165,6 +187,7 @@ public final class UltimateStructurePlanner {
             Map<SimplePredicate, Integer> global = new IdentityHashMap<>();
             List<Placement> placements = new ArrayList<>();
             List<Cell> cells = new ArrayList<>();
+            Set<BlockPos> bodyPositions = new HashSet<>();
             Map<ResourceLocation, Integer> remainingRequests = new TreeMap<>(profile.partTargets());
             Map<ResourceLocation, CandidateAccumulator> candidateStats = new TreeMap<>();
             String firstError = null;
@@ -185,6 +208,7 @@ public final class UltimateStructurePlanner {
                             TraceabilityPredicate predicate = matches[aisle][yIndex][xIndex];
                             BlockPos relative = relativeOffset(x, y, z, front, up, flipped, dirs);
                             BlockPos pos = controllerPos.offset(relative);
+                            if (!predicate.isAny()) bodyPositions.add(pos.immutable());
                             if (predicate.isController || pos.equals(controllerPos) || predicate.isAir() || predicate.isAny()) {
                                 continue;
                             }
@@ -263,8 +287,12 @@ public final class UltimateStructurePlanner {
                 return accumulator != null && !accumulator.configurable;
             });
             ModuleSelection module = selectedModule(machine, profile);
-            String moduleError = appendModule(level, module.selected(), placements, cells);
-            if (firstError == null) firstError = moduleError;
+            String moduleError = module.error() != null ? module.error()
+                    : appendModules(level, module.selected(), bodyPositions, placements, cells);
+            if (moduleError != null && (module.error() != null || firstError == null
+                    || moduleError.startsWith("module_overlap"))) {
+                firstError = moduleError;
+            }
             for (var entry : remainingRequests.entrySet()) {
                 if (entry.getValue() > 0 && firstError == null) {
                     firstError = "requested_part_unavailable:" + entry.getKey() + ":" + entry.getValue();
@@ -317,30 +345,81 @@ public final class UltimateStructurePlanner {
     private static ModuleSelection selectedModule(MetaMachine machine, TerminalBuildProfile profile) {
         if (!GSEDifficultyConfig.externalModulesEnabled()
                 || !(machine instanceof UltimateTerminalModuleProvider provider)) {
-            return new ModuleSelection(ModuleChoice.empty(), null);
+            return new ModuleSelection(ModuleChoice.empty(), List.of(), null);
         }
         List<UltimateTerminalModuleProvider.Module> modules = provider.terminalModules().stream()
                 .limit(UltimateTerminalConfig.MAX_CHANNEL_OPTIONS).toList();
-        if (modules.isEmpty()) return new ModuleSelection(ModuleChoice.empty(), null);
-        int configured = profile.channelSelection(UltimateTerminalModuleProvider.CHANNEL_ID);
-        int selected = configured < 0 ? UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
-                : Math.min(configured, modules.size() - 1);
-        ModuleChoice choice = new ModuleChoice(selected,
-                modules.stream().map(UltimateTerminalModuleProvider.Module::translationKey).toList());
-        return new ModuleSelection(choice, selected < 0 ? null : modules.get(selected));
+        TerminalBuildProfile resolved = profile.copy();
+        if (resolved.channelSelection(UltimateTerminalModuleProvider.CHANNEL_ID) >= 0) {
+            resolved.migrateModules(provider.legacyTerminalModules());
+        }
+        String error = resolved.channelSelection(UltimateTerminalModuleProvider.CHANNEL_ID) >= 0
+                ? "module_legacy_unavailable" : null;
+        Map<String, List<UltimateTerminalModuleProvider.Module>> slots = new TreeMap<>();
+        Set<String> ids = new HashSet<>();
+        for (var module : modules) {
+            if (!ids.add(module.id())) throw new IllegalArgumentException("Duplicate terminal module ID");
+            slots.computeIfAbsent(module.slot(), ignored -> new ArrayList<>()).add(module);
+        }
+        resolved.moduleSelections().keySet().forEach(slot -> slots.computeIfAbsent(slot, ignored -> new ArrayList<>()));
+        List<ModuleSlotChoice> choices = new ArrayList<>();
+        List<UltimateTerminalModuleProvider.Module> selected = new ArrayList<>();
+        for (var entry : slots.entrySet()) {
+            String configured = resolved.moduleSelections().get(entry.getKey());
+            int index = UltimateTerminalConfig.AUTO_CHANNEL_SELECTION;
+            for (int i = 0; i < entry.getValue().size(); i++) {
+                if (entry.getValue().get(i).id().equals(configured)) {
+                    index = i;
+                    selected.add(entry.getValue().get(i));
+                    break;
+                }
+            }
+            if (configured != null && index < 0) {
+                index = -2; // Retain removed IDs and let the player explicitly clear this slot.
+                if (error == null) error = "module_unavailable:" + configured;
+            }
+            choices.add(new ModuleSlotChoice(entry.getKey(), index, entry.getValue().stream()
+                    .map(UltimateTerminalModuleProvider.Module::translationKey).toList()));
+        }
+        return new ModuleSelection(new ModuleChoice(List.copyOf(choices)), List.copyOf(selected), error);
     }
 
-    private static String appendModule(ServerLevel level,
-                                       UltimateTerminalModuleProvider.Module module,
+    private static String appendModules(ServerLevel level,
+                                       List<UltimateTerminalModuleProvider.Module> modules,
+                                       Set<BlockPos> bodyPositions,
                                        List<Placement> placements,
                                        List<Cell> cells) {
-        if (module == null) return null;
-        Set<BlockPos> occupied = new HashSet<>();
-        cells.forEach(cell -> occupied.add(cell.pos()));
+        Map<BlockPos, UltimateTerminalModuleProvider.Requirement> requirements = new LinkedHashMap<>();
+        Map<BlockPos, String> owners = new HashMap<>();
+        Map<BlockPos, Cell> bodyCells = new HashMap<>();
+        cells.forEach(cell -> bodyCells.put(cell.pos(), cell));
+        for (var module : modules) {
+            for (var requirement : module.requirements()) {
+                BlockPos pos = requirement.pos();
+                var previous = requirements.putIfAbsent(pos, requirement);
+                Cell body = bodyCells.get(pos);
+                // A matching ordinary body block may be the module's attachment junction.
+                // The body already accounts for it; air, controllers and skipped hatches cannot be shared.
+                boolean incompatibleBody = bodyPositions.contains(pos) && (requirement.air() || body == null
+                        || body.expected().isEmpty() || body.expected().getItem() != requirement.block().asItem());
+                if (incompatibleBody || previous != null
+                        && (!module.id().equals(owners.get(pos)) || previous.air() != requirement.air()
+                                || previous.block() != requirement.block())) {
+                    cells.removeIf(cell -> cell.pos().equals(pos));
+                    cells.add(new Cell(pos, requirement.air() ? ItemStack.EMPTY
+                            : requirement.block().asItem().getDefaultInstance(), CellStatus.CONFLICT));
+                    return "module_overlap@" + pos.toShortString();
+                }
+                owners.put(pos, module.id());
+            }
+        }
         String firstError = null;
-        for (UltimateTerminalModuleProvider.Requirement requirement : module.requirements()) {
+        for (UltimateTerminalModuleProvider.Requirement requirement : requirements.values()) {
             BlockPos pos = requirement.pos();
-            if (!occupied.add(pos)) continue;
+            if (bodyPositions.contains(pos)) continue;
+            // Functional module ports follow the terminal's fixed no-hatch policy.
+            // Their coordinates still participate in composition conflict checks above.
+            if (requirement.block() instanceof MetaMachineBlock) continue;
             if (!level.hasChunkAt(pos)) {
                 ItemStack expected = requirement.air() ? ItemStack.EMPTY
                         : requirement.block().asItem().getDefaultInstance();
@@ -352,6 +431,8 @@ public final class UltimateStructurePlanner {
                 if (!level.getBlockState(pos).isAir()) {
                     cells.add(new Cell(pos, ItemStack.EMPTY, CellStatus.CONFLICT));
                     if (firstError == null) firstError = "module_air_obstructed@" + pos.toShortString();
+                } else {
+                    cells.add(new Cell(pos, ItemStack.EMPTY, CellStatus.SATISFIED));
                 }
                 continue;
             }
@@ -726,7 +807,7 @@ public final class UltimateStructurePlanner {
     private record PatternSelection(BlockPattern pattern, StructureChoice choice) {}
 
     private record ModuleSelection(ModuleChoice choice,
-                                   UltimateTerminalModuleProvider.Module selected) {}
+                                   List<UltimateTerminalModuleProvider.Module> selected, String error) {}
 
     private static final class CandidateAccumulator {
         final ItemStack stack;

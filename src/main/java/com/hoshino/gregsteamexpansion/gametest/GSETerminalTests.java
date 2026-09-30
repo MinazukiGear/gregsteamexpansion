@@ -11,6 +11,8 @@ import com.hoshino.gregsteamexpansion.terminal.TerminalBuildProfile;
 import com.hoshino.gregsteamexpansion.terminal.UltimateStructurePlanner;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalConfig;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalModuleProvider;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalSnapshot;
+import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalMessages;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalStructureVariants;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalWorldData;
 
@@ -22,6 +24,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
@@ -154,7 +157,7 @@ public final class GSETerminalTests {
         var controller = GSEStructureTestUtils.placeShape(helper, GSEMachines.STEAM_CRUSHER, shapes.get(0));
         helper.assertTrue(controller != null, "Steam crusher controller was not placed");
         if (controller == null) return;
-        helper.assertTrue(controller.getPattern().checkPatternAt(controller.getMultiblockState(), true),
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(controller),
                 "Manually placed steam crusher did not form");
 
         BlockPos controllerPos = helper.absolutePos(CONTROLLER);
@@ -279,9 +282,11 @@ public final class GSETerminalTests {
         UltimateStructurePlanner.Plan base = UltimateStructurePlanner.plan(
                 helper.getLevel(), controllerPos, baseProfile, false);
         helper.assertTrue(base.valid(), "Base boiler-room plan failed: " + base.error());
-        helper.assertTrue(base.module().selected() == UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
-                        && base.module().options().isEmpty(),
-                "An absent boiler-room module was exposed by the terminal");
+        helper.assertTrue(GSEDifficultyConfig.externalModulesEnabled()
+                        ? base.module().slots().size() == 5 && base.module().slots().stream()
+                                .mapToInt(slot -> slot.options().size()).sum() == 9
+                        : base.module().slots().isEmpty(),
+                "The terminal did not expose all implemented boiler modules by installation face");
 
         BlockPos partialSoftener = BoilerRoomModules.local(
                 controllerPos, machine.getFrontFacing(), -6, 2, -3);
@@ -291,27 +296,249 @@ public final class GSETerminalTests {
                 helper.getLevel(), controllerPos, baseProfile, false);
         helper.assertTrue(partial.valid(), "Partial-module boiler-room plan failed: " + partial.error());
         if (!GSEDifficultyConfig.externalModulesEnabled()) {
-            helper.assertTrue(partial.module().selected() == UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
-                            && partial.module().options().isEmpty(),
+            helper.assertTrue(partial.module().slots().isEmpty(),
                     "Config-disabled terminal exposed a partial external module");
             helper.succeed();
             return;
         }
-        helper.assertTrue(partial.module().selected() == UltimateTerminalConfig.AUTO_CHANNEL_SELECTION
-                        && partial.module().options().equals(java.util.List.of(
-                                "gregsteamexpansion.machine.boiler_room.module.water_softener")),
-                "The partially built water softener was not exposed at channel value 0");
+        var left = partial.module().slots().stream().filter(slot -> slot.slot().equals("left")).findFirst().orElseThrow();
+        helper.assertTrue(left.selected() == -1 && left.options().get(0).equals(
+                        "gregsteamexpansion.machine.boiler_room.module.water_softener"),
+                "The left slot did not expose the water softener in deterministic order");
 
         TerminalBuildProfile moduleProfile = new TerminalBuildProfile();
         moduleProfile.setChannel(UltimateTerminalModuleProvider.CHANNEL_ID, 0, 0);
         UltimateStructurePlanner.Plan withModule = UltimateStructurePlanner.plan(
                 helper.getLevel(), controllerPos, moduleProfile, false);
         helper.assertTrue(withModule.valid(), "Selected boiler-room module plan failed: " + withModule.error());
-        helper.assertTrue(withModule.module().selected() == 0,
-                "The first implemented module did not occupy channel value 0");
-        helper.assertTrue(withModule.placements().size() == partial.placements().size() + 62
-                        && withModule.cells().size() == partial.cells().size() + 63,
-                "Selecting the partial water softener did not append its exact 63-block blueprint");
+        helper.assertTrue(withModule.module().slots().stream().anyMatch(slot -> slot.slot().equals("left")
+                        && slot.selected() == 0), "The old single-module selection did not resolve to the left slot");
+        helper.assertTrue(moduleProfile.migrateModules(machine.legacyTerminalModules())
+                        && moduleProfile.moduleSelections().get("left").equals(BoilerRoomModules.SOFTENER),
+                "The old boiler module index did not migrate to its stable identity");
+        helper.assertTrue(withModule.placements().size() == partial.placements().size() + 61
+                        && withModule.cells().size() == partial.cells().size() + machine.terminalModules().stream()
+                                .filter(module -> module.id().equals(BoilerRoomModules.SOFTENER))
+                                .findFirst().orElseThrow().requirements().size() - 1,
+                "Selecting the partial water softener did not reserve its manual port or count ordinary blocks exactly");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void moduleSelectionsPersistByIdAndRespectBoilerFaces(GameTestHelper helper) {
+        BoilerRoomMachine machine = GSEStructureTestUtils.placeMachine(
+                helper, GSEMachines.BOILER_ROOM_BRONZE, new BlockPos(16, 12, 8));
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            helper.assertTrue(machine.terminalModules().isEmpty(), "Disabled modules remained selectable");
+            helper.succeed();
+            return;
+        }
+        BlockPos pos = machine.getPos();
+        // The old boiler catalogue contained only physically present modules.
+        var oldRight = BoilerRoomModules.terminalRequirements(pos, machine.getFrontFacing(),
+                BoilerRoomMachine.BRONZE_TIER, BoilerRoomModules.COOLING_TANK).stream()
+                .filter(requirement -> !requirement.air()).findFirst().orElseThrow();
+        helper.getLevel().setBlockAndUpdate(oldRight.pos(), oldRight.block().defaultBlockState());
+        var legacyCatalogue = machine.legacyTerminalModules();
+        helper.assertTrue(!legacyCatalogue.isEmpty() && legacyCatalogue.get(0).slot().equals("right"),
+                "Legacy fixture did not reproduce a filtered right-only catalogue");
+        TerminalBuildProfile profile = new TerminalBuildProfile();
+        profile.setChannel(UltimateTerminalModuleProvider.CHANNEL_ID, 0, 8);
+        helper.assertTrue(profile.migrateModules(legacyCatalogue)
+                        && profile.moduleSelections().get("right").equals(legacyCatalogue.get(0).id()),
+                "Legacy index zero incorrectly became the first module of the new full catalogue");
+        var player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
+                UUID.fromString("13f14af6-bbb5-44cc-a890-7d7f247d7bb8"), "[GSE legacy modules]"));
+        var data = UltimateTerminalWorldData.load(new CompoundTag());
+        helper.assertTrue(data.addTarget(player, helper.getLevel().dimension(), pos), "Legacy target was rejected");
+        CompoundTag saved = data.save(new CompoundTag());
+        TerminalBuildProfile legacyDefault = new TerminalBuildProfile();
+        legacyDefault.setChannel(UltimateTerminalModuleProvider.CHANNEL_ID, 0, 8);
+        saved.getList("projects", net.minecraft.nbt.Tag.TAG_COMPOUND).getCompound(0).getCompound("data")
+                .put("defaultProfile", legacyDefault.save());
+        data = UltimateTerminalWorldData.load(saved);
+        helper.assertTrue(data.preview(player).profile().moduleSelections().equals(
+                        java.util.Map.of("right", legacyCatalogue.get(0).id())),
+                "Legacy shared default did not migrate into the boiler template");
+        helper.getLevel().setBlockAndUpdate(oldRight.pos(), Blocks.AIR.defaultBlockState());
+
+        profile.setModule("left", BoilerRoomModules.SOFTENER);
+        profile.setModule("right", BoilerRoomModules.FORCE_COOLING);
+        profile.setModule("back", BoilerRoomModules.FORCED_DRAFT);
+        profile.setModule("down", BoilerRoomModules.ACID_RECOVERY);
+        profile.setModule("top", BoilerRoomModules.AUTO_ACID);
+        TerminalBuildProfile restored = TerminalBuildProfile.load(profile.save());
+        helper.assertTrue(restored.moduleSelections().equals(profile.moduleSelections())
+                        && restored.copy().moduleSelections().equals(profile.moduleSelections()),
+                "Five stable module identities did not survive save/load and copying");
+        var plan = UltimateStructurePlanner.plan(helper.getLevel(), pos, restored, false);
+        helper.assertTrue(plan.valid() && plan.module().slots().stream().allMatch(slot -> slot.selected() >= 0),
+                "Five compatible boiler faces did not form one blueprint: " + plan.error());
+        helper.assertTrue(plan.placements().stream().map(UltimateStructurePlanner.Placement::pos).distinct().count()
+                        == plan.placements().size(), "Module composition duplicated materials or placements");
+        helper.assertTrue(plan.placements().stream().noneMatch(placement ->
+                        ((net.minecraft.world.item.BlockItem) placement.stack().getItem()).getBlock()
+                                instanceof com.gregtechceu.gtceu.api.block.MetaMachineBlock),
+                "A module functional port bypassed the terminal's no-hatch policy");
+        restored.setModule("left", BoilerRoomModules.ATOMIZER);
+        helper.assertTrue(restored.moduleSelections().size() == 5
+                        && restored.moduleSelections().get("left").equals(BoilerRoomModules.ATOMIZER),
+                "Selecting a same-face module did not replace the previous choice");
+        restored.setModule("left", null);
+        helper.assertTrue(restored.moduleSelections().size() == 4
+                        && !restored.moduleSelections().containsKey("left"), "Clearing one face lost other module choices");
+        helper.assertTrue(UltimateTerminalConfig.parseChannel("module.left=minecraft:stone,minecraft:glass") == null,
+                "A user material channel shadowed an installation-face channel");
+        GSEStructureTestUtils.placeMachine(helper, GSEMachines.LARGE_STEAM_BLAST_FURNACE, new BlockPos(16, 12, 8));
+        helper.assertTrue(data.preview(player).profile().moduleSelections().equals(
+                        java.util.Map.of("back", "hot_blast_stoves")),
+                "Migrating the boiler template rewrote the legacy default for other machine types");
+        CompoundTag defaultAfter = data.save(new CompoundTag()).getList("projects", net.minecraft.nbt.Tag.TAG_COMPOUND)
+                .getCompound(0).getCompound("data").getCompound("defaultProfile");
+        helper.assertTrue(TerminalBuildProfile.load(defaultAfter).channelSelection("module") == 0,
+                "Per-machine migration consumed the shared legacy default index");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void combinedBlastFurnaceModulesBuildAndResumeWithAirGuards(GameTestHelper helper) {
+        var machine = GSEStructureTestUtils.placeMachine(helper, GSEMachines.LARGE_STEAM_BLAST_FURNACE,
+                new BlockPos(16, 3, 8));
+        if (!GSEDifficultyConfig.externalModulesEnabled()) {
+            helper.assertTrue(((UltimateTerminalModuleProvider) machine).terminalModules().isEmpty(),
+                    "Disabled blast-furnace modules remained selectable");
+            helper.succeed();
+            return;
+        }
+        var player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(
+                UUID.fromString("b73379aa-173b-4813-82fc-6f62b4135b8b"), "[GSE combined terminal]"));
+        player.getAbilities().instabuild = true;
+        player.getInventory().clearContent();
+        UltimateTerminalWorldData original = UltimateTerminalWorldData.load(new CompoundTag());
+        helper.assertTrue(original.addTarget(player, helper.getLevel().dimension(), machine.getPos()),
+                "Combined-module target was rejected");
+        original.setChannel(player, "module.back", 0);
+        original.setChannel(player, "module.top", 0);
+        var preview = original.preview(player);
+        var plan = preview.plan();
+        helper.assertTrue(plan.valid() && plan.module().slots().size() == 2
+                        && plan.module().slots().stream().allMatch(slot -> slot.selected() == 0),
+                "Rear hot-blast stoves and top charge tower did not compose: " + plan.error());
+        helper.assertTrue(!plan.requiredAir().isEmpty(), "Combined blueprint discarded strict air requirements");
+        helper.assertTrue(preview.profile().moduleSelections().equals(java.util.Map.of(
+                        "back", "hot_blast_stoves", "top", "high_charge_tower")),
+                "Server channel requests did not persist stable module IDs");
+        helper.assertTrue(original.start(player), "Combined creative build failed to start");
+        original.tickPlayer(player, 7);
+        UltimateTerminalWorldData restored = UltimateTerminalWorldData.load(original.save(new CompoundTag()));
+        for (int i = 0; i < 64 && restored.state(player.getUUID()) != UltimateTerminalWorldData.JobState.COMPLETE; i++) {
+            restored.tickPlayer(player, 256);
+        }
+        helper.assertTrue(restored.state(player.getUUID()) == UltimateTerminalWorldData.JobState.COMPLETE,
+                "Serialized combined build did not resume and complete");
+        helper.assertTrue(plan.placements().stream().allMatch(placement ->
+                        helper.getLevel().getBlockState(placement.pos()).getBlock().asItem() == placement.stack().getItem()),
+                "Combined job omitted body or module blocks");
+        helper.assertTrue(player.getInventory().isEmpty() && restored.pendingCount(player.getUUID()) == 0,
+                "Combined creative job generated material refunds");
+
+        var missing = plan.placements().stream().limit(2).toList();
+        missing.forEach(placement -> helper.getLevel().setBlockAndUpdate(placement.pos(), Blocks.AIR.defaultBlockState()));
+        helper.assertTrue(restored.start(player), "Combined repair fixture could not start");
+        restored.tickPlayer(player, 1);
+        UltimateTerminalWorldData resumed = UltimateTerminalWorldData.load(restored.save(new CompoundTag()));
+        BlockPos air = BlockPos.of(plan.requiredAir().get(0));
+        helper.getLevel().setBlockAndUpdate(air, Blocks.STONE.defaultBlockState());
+        resumed.tickPlayer(player, 256);
+        helper.assertTrue(resumed.state(player.getUUID()) == UltimateTerminalWorldData.JobState.FAILED,
+                "An obstruction in persisted strict air did not fail resumed work");
+        helper.assertTrue(missing.stream().allMatch(placement -> helper.getLevel().isEmptyBlock(placement.pos()))
+                        && helper.getLevel().getBlockState(air).is(Blocks.STONE),
+                "Air-guard failure did not roll back own work or removed the external obstruction");
+        resumed.clear(player.getUUID());
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 200)
+    public static void moduleLayoutsRejectOverlapsAndBoundNetworkChoices(GameTestHelper helper) throws Exception {
+        BlockPos pos = helper.absolutePos(new BlockPos(2, 2, 2));
+        var first = new UltimateTerminalModuleProvider.Module("first", "test.first", "back",
+                java.util.List.of(UltimateTerminalModuleProvider.Requirement.solid(pos, Blocks.STONE)));
+        TerminalBuildProfile saturated = new TerminalBuildProfile();
+        for (int i = 0; i < UltimateTerminalConfig.MAX_CHANNEL_OPTIONS; i++) saturated.setModule("slot_" + i, "old_" + i);
+        saturated.setChannel("module", 0, 0);
+        helper.assertTrue(!saturated.migrateModules(java.util.List.of(first))
+                        && saturated.moduleSelections().size() == UltimateTerminalConfig.MAX_CHANNEL_OPTIONS,
+                "Legacy migration overflowed the persistent module slot limit");
+        var second = new UltimateTerminalModuleProvider.Module("second", "test.second", "top",
+                java.util.List.of(UltimateTerminalModuleProvider.Requirement.air(pos)));
+        var merge = UltimateStructurePlanner.class.getDeclaredMethod("appendModules", ServerLevel.class,
+                java.util.List.class, java.util.Set.class, java.util.List.class, java.util.List.class);
+        merge.setAccessible(true);
+        String overlap = (String) merge.invoke(null, helper.getLevel(), java.util.List.of(first, second),
+                java.util.Set.of(), new java.util.ArrayList<>(), new java.util.ArrayList<>());
+        helper.assertTrue(overlap != null && overlap.startsWith("module_overlap"),
+                "Conflicting solid/air module requirements were silently deduplicated");
+        overlap = (String) merge.invoke(null, helper.getLevel(), java.util.List.of(first), java.util.Set.of(pos),
+                new java.util.ArrayList<>(), new java.util.ArrayList<>());
+        helper.assertTrue(overlap != null && overlap.startsWith("module_overlap"),
+                "A module could overwrite a reserved body position");
+        var body = new java.util.ArrayList<UltimateStructurePlanner.Cell>();
+        body.add(new UltimateStructurePlanner.Cell(pos, Blocks.STONE.asItem().getDefaultInstance(),
+                UltimateStructurePlanner.CellStatus.MISSING));
+        var mergedPlacements = new java.util.ArrayList<UltimateStructurePlanner.Placement>();
+        mergedPlacements.add(new UltimateStructurePlanner.Placement(pos, Blocks.STONE.asItem().getDefaultInstance()));
+        helper.assertTrue(merge.invoke(null, helper.getLevel(), java.util.List.of(first), java.util.Set.of(pos),
+                        mergedPlacements, body) == null && mergedPlacements.size() == 1 && body.size() == 1,
+                "A compatible body junction was rejected or counted twice");
+        var duplicate = new UltimateTerminalModuleProvider.Module("second", "test.second", "top",
+                first.requirements());
+        overlap = (String) merge.invoke(null, helper.getLevel(), java.util.List.of(first, duplicate), java.util.Set.of(),
+                new java.util.ArrayList<>(), new java.util.ArrayList<>());
+        helper.assertTrue(overlap != null && overlap.startsWith("module_overlap"),
+                "Two exclusive modules could share a physical block");
+
+        var write = UltimateTerminalMessages.class.getDeclaredMethod("writeModule",
+                net.minecraft.network.FriendlyByteBuf.class, UltimateTerminalSnapshot.ModuleInfo.class);
+        var read = UltimateTerminalMessages.class.getDeclaredMethod("readModule", net.minecraft.network.FriendlyByteBuf.class);
+        write.setAccessible(true);
+        read.setAccessible(true);
+        var buffer = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+        try {
+            var choices = new UltimateTerminalSnapshot.ModuleInfo(java.util.List.of(
+                    new UltimateTerminalSnapshot.ModuleSlotInfo("back", 0, java.util.List.of("test.first")),
+                    new UltimateTerminalSnapshot.ModuleSlotInfo("top", -2, java.util.List.of())));
+            write.invoke(null, buffer, choices);
+            helper.assertTrue(choices.equals(read.invoke(null, buffer)), "Grouped module snapshot lost selections in transit");
+            buffer.clear();
+            buffer.writeVarInt(UltimateTerminalConfig.MAX_CHANNEL_OPTIONS * 2 + 1);
+            try {
+                read.invoke(null, buffer);
+                helper.fail("An oversized module snapshot was accepted");
+            } catch (java.lang.reflect.InvocationTargetException exception) {
+                helper.assertTrue(exception.getCause() instanceof IllegalArgumentException,
+                        "Oversized module snapshot failed for an unexpected reason");
+            }
+        } finally {
+            buffer.release();
+        }
+        var machine = GSEStructureTestUtils.placeMachine(helper, GSEMachines.LARGE_STEAM_BLAST_FURNACE, CONTROLLER);
+        TerminalBuildProfile unknown = new TerminalBuildProfile();
+        unknown.setModule("back", "removed_module");
+        var invalid = UltimateStructurePlanner.plan(helper.getLevel(), machine.getPos(), unknown, false);
+        helper.assertTrue(!GSEDifficultyConfig.externalModulesEnabled() || !invalid.valid()
+                        && invalid.error().startsWith("module_unavailable"), "Removed module ID silently selected a different module");
+        helper.assertTrue(TerminalBuildProfile.load(unknown.save()).moduleSelections().equals(unknown.moduleSelections()),
+                "Unknown or disabled module identity was discarded instead of retained");
+        var cokeOven = GSEStructureTestUtils.placeMachine(helper, GSEMachines.LARGE_COKE_OVEN, CONTROLLER);
+        TerminalBuildProfile cokeProfile = new TerminalBuildProfile();
+        ((UltimateTerminalModuleProvider) cokeOven).terminalModules().forEach(module ->
+                cokeProfile.setModule(module.slot(), module.id()));
+        var cokePlan = UltimateStructurePlanner.plan(helper.getLevel(), cokeOven.getPos(), cokeProfile, false);
+        helper.assertTrue(cokePlan.valid(), "Coke oven dry-quench and foundation modules did not compose: " + cokePlan.error());
+        helper.assertTrue(!GSEDifficultyConfig.externalModulesEnabled() || cokePlan.module().slots().size() == 2
+                        && cokePlan.module().slots().stream().allMatch(slot -> slot.selected() == 0),
+                "Coke oven module choices lost one installation face");
         helper.succeed();
     }
 

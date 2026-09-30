@@ -5,6 +5,7 @@ import json
 import re
 import sys
 from collections import Counter
+from fractions import Fraction
 from pathlib import Path
 
 
@@ -626,6 +627,29 @@ def check_contract(
         raise ContractError(f"{name}: code has {implemented}, expected {expected}")
 
 
+def check_coke_oven_readme_baseline() -> None:
+    match = re.search(
+        r"无外挂时最大并行 `(\d+)`、固定 `([\d.]+)×` 原配方耗时",
+        source("README.md"),
+    )
+    if match is None:
+        raise ContractError("README: large coke-oven baseline summary was not found")
+    documented = (int(match[1]), Fraction(match[2]))
+    relative = (
+        "src/main/java/com/hoshino/gregsteamexpansion/machine/multiblock/"
+        "largecokeoven/LargeCokeOvenRecipeLogic.java"
+    )
+    parallel = captured_integers(relative, r"\bBASE_MAX_PARALLEL\s*=\s*(\d+);", "coke-oven baseline parallel")[0]
+    duration = captured_integers(
+        relative,
+        r"else\s*\{\s*batchTotalDuration\s*=\s*Math\.max\(1,\s*ceilPermille\(original\.duration,\s*(\d+)\)\);",
+        "coke-oven baseline duration",
+    )[0]
+    if documented != (parallel, Fraction(duration, 1000)):
+        raise ContractError("README: large coke-oven parallel/duration differs from its no-module implementation")
+    print(f"ok: large coke-oven README baseline = {parallel} parallel / {duration}/1000 duration")
+
+
 def main() -> int:
     crusher_doc = "docs/design/steam-crushers.md"
     crusher_code = "src/main/java/com/hoshino/gregsteamexpansion/registry/GSECrusherPatterns.java"
@@ -749,6 +773,10 @@ def main() -> int:
     ]
 
     errors = []
+    try:
+        check_coke_oven_readme_baseline()
+    except ContractError as error:
+        errors.append(str(error))
     try:
         check_game_test_inventory()
     except ContractError as error:

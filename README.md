@@ -2,7 +2,7 @@
 
 基于 Minecraft 1.20.1 Forge 与 GregTech CEu Modern 的蒸汽时代扩展附属模组。
 
-> **⚠ 测试版（Alpha）**：全部机器均已通过基础游戏内运行测试，但完整生存流程、存档重载、异常恢复与跨模组自动化仍在持续验证。内容、数值、资源 ID 与接口仍可能变动，不建议用于重要存档。当前测试版本见 [Releases](https://github.com/MinazukiGear/gregsteamexpansion/releases)。
+> **测试版（Beta）**：首个 beta 为 `0.1.0-beta.1`，发布记录见[版本说明](docs/releases/v0.1.0-beta.1.md)。机器基础运行、生存材料事务、服务器重启恢复和可选依赖加载纳入自动验证；大型整合环境仍在持续验证。当前安装包见 [Releases](https://github.com/MinazukiGear/gregsteamexpansion/releases)。
 >
 > **⚠ 本项目大量使用 AI 辅助开发**：代码、设计文档、语言条目与部分贴图资源均在 AI 协助下完成，全部产出经人工审核后合入。使用的模型包括 **Hy4 preview**、**GLM-5.3-Flash**、**GPT-5.6-Sol** 与 **GPT-6-Astra**。AI 生成的数值、结构规则与接口约定一律以 `docs/design/` 中标注为"已定案"的章节为准，未标注的内容不代表最终设计。欢迎审阅源码与反馈问题。
 
@@ -15,14 +15,14 @@
 - **大型蓄热蒸汽熔炉**：可变尺寸（7×7 / 11×11 / 15×15，高度 6–18）纯蒸汽多方块熔炉，含强制预热、温度体系、并行批次加工、配方模式切换与控制器运行信息页。
 - **蒸汽粉碎机 / 大型蒸汽粉碎机 / 电力粉碎机**：独立于研磨机的第一段矿物处理多方块（蒸汽双机）与 MV–UV 分级单方块电力机器，共享矿石粉碎迁移配方（矿石主产物 4× 基线 × 难度倍率），支持 EMI 结构预览。
 - **普通焦炉与焦炉仓**：接管 `gtceu:coke_oven` 注册身份并覆盖上游获取配方；可在 `0–5` 个接口配额内混用三模式焦炉仓、创造/标准/ME 物品接口与 ME 样板总成。
-- **大型焦炉与大型焦炉仓**：独立注册为 `gregsteamexpansion:large_coke_oven` 与 `gregsteamexpansion:large_coke_oven_hatch`，不复用上游普通焦炉身份。`7×7×5` 完整包围范围，三炉室 + 顶部砖制进料斗，需 `3–5` 个合法接口并满足物品输入、物品输出和流体输出；物品方向可使用自有仓、创造/标准/ME 总线或 ME 样板总成。最大并行 `6`、固定 `0.5×` 原配方耗时、不消耗任何能源，满载吞吐等同 12 台普通焦炉。含一氧化碳环境危害、所有权互斥、批次结算与三炉门同步渲染。
+- **大型焦炉与大型焦炉仓**：独立注册为 `gregsteamexpansion:large_coke_oven` 与 `gregsteamexpansion:large_coke_oven_hatch`，不复用上游普通焦炉身份。`7×7×5` 完整包围范围，三炉室 + 顶部砖制进料斗，需 `3–5` 个合法接口并满足物品输入、物品输出和流体输出；物品方向可使用自有仓、创造/标准/ME 总线或 ME 样板总成。无外挂时最大并行 `6`、固定 `0.8×` 原配方耗时、不消耗任何能源，满载吞吐等同 7.5 台普通焦炉。干法熄焦塔按连续生产将总耗时调整为 `0.84× / 0.80× / 0.76×`；附加炉组基座将最大并行提升至 `15`，两者可共存。含一氧化碳环境危害、所有权互斥、批次结算与三炉门同步渲染。
 - **轻量蒸汽多方块家族**：蒸汽压缩机（C1a）、蒸汽提取机（C1b）、蒸汽锻压机（B6）——紧凑结构（前两者 3×3×3，锻压机 3×3×5）、并行 8、LV 电压门、无排气仓。
 - **大型蒸汽处理厂家族**：洗矿厂（S1，并行 64）、研磨厂（A4，球形 7×7×7）、化学浸洗厂（B4）、搅拌机（B3）、蒸汽离心机与大型蒸汽离心机（C0）、大型蒸汽热力离心机（C0b）——全配方运行对应 GTCEu 类型，越级以蒸汽消耗平衡，大型机配蒸汽排气仓。
 - **大型蒸汽组装机 / 大型蒸汽电路组装机**（B1/B2）：运行 `assembler` / `circuit_assembler` 全类型；控制器组装机槽位（1–4 台同等级电力组装机，不可混装）解锁配方等级并提升并行至 2/4/8/16，次线性蒸汽/耗时阶梯，Easy 档产出 2×。电路组装机另有一个不消耗参照物的电路专精槽：匹配配方耗时与总耗汽增加 50%，并按启动档位获得额外目标电路，默认 Easy `100% / +7×`、Normal `50% / +3×`、Expert `25% / +1×`。
-- **大型蒸汽高炉**（G1，旗舰）：运行 `primitive_blast_furnace` 全类型的原始高炉上位多方块。`13×13` 底、`15` 高的三段收分巨塔，主体以高炉砖（`gtceu:firebricks`，与原始高炉同款材质）砌成，辅以 121 格焦炭砖炉床与工业蒸汽机械方块骨架；并行 `96`（全模组最高），连续完成同一精确配方可把耗时从新手档逐级降至精通档（默认 Easy `75%→45%`、Normal `80%→50%`、Expert `90%→60%`）。满载需 `19,200 mB/t` 蒸汽（恰 16 个供给仓）与全部 8 个鼓风口的鼓风空气（4 mB/t/并行；蒸汽进气室必需化，家族首个必需进气室机型）——极高造价与极大的结构换取极高效率。
-- **锻铁大宗配方注入**（随 G1 落地）：向 `primitive_blast_furnace` 类型 add-only 注入 3 条"铁粉 + 燃料粉 → 锻铁"配方，原始高炉同步可用，补足上游仅有铁粒零散路线（铁粒烧锻铁粒为上游既有 `gtceu:wrought_iron_nugget`，本模组不重复添加）的锻铁产能缺口。
-- **锅炉房**（青铜/钢/钛/钨钢四档，S2）：仅协同燃烧的产汽终端，蒸汽进气室硬性前置（助燃空气 50/100/200/400 mB/t 逐档递增），产汽逐档上位于同档大型锅炉；液体燃料白名单由数据包加载时注入。带可配置水垢机制：舒适/压榨档按 24/8 小时等效满载寿命分档减产，第三档向所有者在线团队发聊天警告，满垢永久报废；可停机冷却后用稀盐酸酸洗。
-- **终极终端**：在同时安装 AE2 与 GTM Things 时启用的高级结构工程终端。它直接识别运行时实现 GTCEu `IMultiController` 的任意控制器，不限制 `gtceu`、GSE 或第三方附属模组命名空间；可为最多 16 个同维度目标建立持久任务，按控制器公开的 `BlockPattern` 补建、修复，或安全拆除已成型及未成型结构中仍匹配蓝图的普通方块。内置结构尺寸、外挂模块、线圈与配置选材信道都在独立“信道”页以下拉栏选择；当前支持大型蒸汽高炉双塔热风炉组，以及锅炉房现场已完整或部分搭建的九项模块蓝图。终端固定不放置仓室；生存模式材料先从玩家物品栏、再从已绑定的 AE2 无线终端网络原子预留，创造模式则无视两处数量直接放置；服务器默认每刻最多处理 32 个方块。
+- **大型蒸汽高炉**（G1，旗舰）：运行 `primitive_blast_furnace` 全类型的原始高炉上位多方块。`13×13` 底、`15` 高的三段收分巨塔，主体以高炉砖（`gtceu:firebricks`，与原始高炉同款材质）砌成，辅以 121 格焦炭砖炉床与工业蒸汽机械方块骨架；普通批次并行 `96`（高位加料塔可临时提升至 `192`，完成双批次后需支付蒸汽与鼓风复位成本），连续完成同一精确配方可把耗时从新手档逐级降至精通档（默认 Easy `75%→45%`、Normal `80%→50%`、Expert `90%→60%`）。满载需 `19,200 mB/t` 蒸汽（恰 16 个供给仓）与全部 8 个鼓风口的鼓风空气（4 mB/t/并行；蒸汽进气室必需化，家族首个必需进气室机型）——极高造价与极大的结构换取极高效率。
+- **锻铁大宗配方注入**（随 G1 落地）：向 `primitive_blast_furnace` 类型 add-only 注入 3 条"铁粉 + 燃料粉 → 锻铁"配方，仅大型蒸汽高炉执行这三条新增配方，上游原始高炉仍执行原有钢配方，补足上游仅有铁粒零散路线（铁粒烧锻铁粒为上游既有 `gtceu:wrought_iron_nugget`，本模组不重复添加）的锻铁产能缺口。
+- **锅炉房**（青铜/钢/钛/钨钢四档，S2）：仅协同燃烧的产汽终端，蒸汽进气室硬性前置（助燃空气 50/100/200/400 mB/t 逐档递增），产汽逐档上位于同档大型锅炉；液体燃料白名单由数据包加载时注入。带可配置水垢机制：Easy / Normal / Expert 默认按 720 / 24 / 8 小时等效满载寿命分档减产，第三档向所有者在线团队发聊天警告，满垢永久报废；可停机冷却后用稀盐酸酸洗。
+- **终极终端**：在同时安装 AE2 与 GTM Things 时启用的高级结构工程终端。它直接识别运行时实现 GTCEu `IMultiController` 的任意控制器，不限制 `gtceu`、GSE 或第三方附属模组命名空间；可为最多 16 个同维度目标建立持久任务，按控制器公开的 `BlockPattern` 补建、修复，或安全拆除已成型及未成型结构中仍匹配蓝图的普通方块。内置结构尺寸、外挂模块、线圈与配置选材信道都在独立“信道”页以下拉栏选择；当前支持高炉两项、锅炉房九项与大型焦炉两项外挂蓝图，按安装面组合多个模块，同面互斥并预检空间冲突。模块配置保存稳定 ID，施工队列持久保存严格空气要求。终端固定不放置仓室；生存模式材料先从玩家物品栏、再从已绑定的 AE2 无线终端网络原子预留，创造模式则无视两处数量直接放置；服务器默认每刻最多处理 32 个方块。
 - **大型蒸汽采矿厂 / 大型蒸汽流体钻井**（F1/F2 旗舰）：纯虚空生产机器——采矿厂 4 工位每 200 tick 按权重抽取粗矿 ×8/抽（满速 12,000 mB/t），流体钻井 2 泵位抽主世界油类流体 2,000 mB/抽（满速 6,000 mB/t）；产出倍率 Easy 4× / Normal 2× / Expert 1×；配置开关与可覆盖权重表见 `machines.large_steam_ore_plant.*` / `machines.large_steam_fluid_drill.*`（重启生效，禁用时机器不可运行）。
 - **可选全局工作强度机制**：默认关闭；启用后可选 Easy / Normal / Expert，影响产量、预热成本、蒸汽消耗等数值。三档的全部运行时参数、5 个本模组配方加难开关和 19 个 GTCEu 配方开关均可由整合包作者分别配置；本模组非控制器方块产量与 `gtceuCasingsPerCraft` 统一。首次启动可在游戏内选择，保存并完整重启后生效；关闭时所有难度倍率为 `1×`，且不接管 GTCEu 难度配置。
 
@@ -31,6 +31,8 @@
 截至 2026-09-13，使用者已确认全部机器能够在游戏内正常运行；这代表基础运行冒烟测试通过，不等同于各设计文档中的存档、异常状态、兼容性和数值边界清单已经全部验收。对应清单位于各设计文档末尾，设计状态、代码入口与当前待办汇总见 [设计文档索引](docs/design/README.md)。
 
 2026-09-15，使用者在 Expert 开发客户端中确认 B1 大型蒸汽组装机与 B2 大型蒸汽电路组装机的本轮验收成功；本轮覆盖生存链衔接以及两台机器的结构、槽位、界面和实际运行主路径。未逐项反馈的存档、异常状态与跨模组组合仍保留在各自清单中。
+
+玩家建设顺序见[蒸汽工厂成长指南](docs/guides/steam-progression.md)；三档默认配方成本、并行与专精收益、预热和复位成本见[蒸汽经济基线](docs/balance/steam-economy.md)。经济报告可从当前代码与生成配方重复导出，并纳入构建校验。
 
 ## 开发环境
 
@@ -49,7 +51,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat runGameTestServer     # 运行全部 GameTest（176 个，见下）
+.\gradlew.bat -PgseVerificationRun=gametest runGameTestServer # 运行全部 GameTest（187 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -82,7 +84,11 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 | `GSEAutomationInterfaceTests` | 蒸汽破碎机、处理机、化学浸洗机、离心机及两类焦炉的创造/ME/样板总成输入输出接口兼容，以及 ME 输出总成的自动输出唤醒（7 个） |
 | `GSESteamEngineTestSupport` | 运行态测试共享夹具：真实结构成型、蒸汽/输出操作、输入总线、状态保存、批次边界、GUI/Jade 和反射适配 |
 | `GSEStructureDiagnosticsTests` | 缺块/数量/一致性诊断、候选去重截断、哨兵状态安全、NBT 传输及成型后清除（7 个） |
-| `GSETerminalTests` | 终极终端配置 NBT 往返、全息蓝图状态分类、已成型与未成型结构拆除、结构尺寸/外挂模块/无仓室规划、创造模式无限材料，以及原生 GTCEu 控制器通用兼容（8 个） |
+| `GSETerminalTests` | 终极终端配置 NBT 往返、全息蓝图状态分类、已成型与未成型结构拆除、结构尺寸/无仓室规划、多面模块组合、稳定 ID 迁移、布局冲突与网络边界、队列续作与空气占用回滚、创造模式无限材料，以及原生 GTCEu 控制器通用兼容（11 个） |
+| `GSETerminalTransactionTests` | 生存材料托管、取料失败退款、离线/维度/未加载暂停、外部方块归属、精确状态升级回滚及控制器变更停止施工（5 个） |
+| `GSETerminalRestartTests` | 真实区块卸载与双 JVM 多模块生存施工续作，含托管材料、严格空气、回滚日志和待领退款（1 个） |
+| `GSETerminalAEIntegrationTests` | 真实 AE 无线接入点、网络与存储单元上的背包混合取料、满背包退款、纯 AE 重试及断链保护（1 个） |
+| `GSEDependencySmokeTests` | 必需前置加载、可选依赖组合、终端条件配方/缺依赖提示/拒绝使用，以及核心蒸汽机器成型（1 个；亦在三种隔离运行组合中单独执行） |
 | `GSEStructureTestUtils` | 结构辅助：用机器注册的 `MultiblockShapeInfo` 反铺方块，再用图案校验 |
 
 > `src/test` 为空目录，本项目**不使用 JUnit**；`build` 任务中的 `-x test` 是 Forge MDK 模板遗留，
@@ -91,11 +97,12 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 提交前跑一遍完整门禁：
 
 ```powershell
-.\gradlew.bat compileJava runGameTestServer build   # 最小集
+.\gradlew.bat -PgseVerificationRun=gametest compileJava runGameTestServer build # 快速回归
 bash tools/verify.sh                                # 与 CI 完全一致的完整门禁
 ```
 
-处理机控制器以及大型蒸汽高炉外挂模块的跨服务器进程持久化使用专用双阶段验证。
+处理机控制器以及大型蒸汽高炉外挂模块的跨服务器进程持久化使用专用双阶段验证，
+测试世界位于 `build/verification/server-restart/`。
 脚本先启动一个 GameTest 服务器写入并落盘批次、待输出、热风炉储热和高装料周期状态，
 再启动全新的服务器进程读取、核对并清理测试区块：
 
@@ -105,18 +112,30 @@ python tools/verify_server_restart.py --offline     # 依赖已缓存时可离�
 ```
 
 启动配置的跨进程重启验证会依次运行 Easy、Normal 与 Expert 三套临时配置，核对 GTCEu
-难度预设、旗舰机器开关和权重表，并在结束或失败后恢复原配置：
+难度预设、自定义 profile、外挂总开关、旗舰机器开关和权重表，并在结束或失败后恢复
+`build/verification/config-restart/` 中原有测试配置：
 
 ```powershell
 python tools/verify_config_restart.py
 python tools/verify_config_restart.py --offline
 ```
 
+可选依赖验证依次启动仅必需前置、AE2 + GuideME、AE2 + GuideME + GTM Things 三种服务器，
+每种只执行依赖冒烟测试，使用独立的 `build/verification/dependency-{core,ae2,full}/`。
+三种组合均不加载 Jade、EMI、FTB 或精妙系列开发辅助模组；正常开发启动仍保留完整依赖保护。
+
+```powershell
+python tools/verify_dependency_runtime.py
+python tools/verify_dependency_runtime.py --offline
+```
+
 `tools/verify.sh` 是 `.github/workflows/build.yml` 的本地镜像，依次执行编译 →
-GameTest → datagen 新鲜度（`runData` 后不应产生 git diff）→ 构建。Gradle `check` 会在构建中
+GameTest → 服务器重启 → 三档配置重启 → 三种依赖组合 → datagen 新鲜度（`runData` 后不应产生 git diff）→ 构建。
+自动验证使用 `build/verification/`，不改动 `run/` 下的开发存档和配置。Gradle `check` 会在构建中
 隔离生成并逐像素核对程序化 PNG、逐字节核对其他生成资产，同时检查 `en_us`/`zh_cn` 键集合及所有已注册 Jade UID 的
 配置翻译，并抽样核对设计文档与代码中的结构尺寸、并行上限及获取配方科技阶段边界。CI 在 push 与 PR 上执行同一组
-步骤，因此本地通过即可认为 CI 会通过。
+步骤；远端结果仍以 GitHub Actions 为准。发布前人工验收范围与本轮结果见
+[P0 发布验收记录](docs/releases/p0-validation-2026-09-30.md)；最新终端材料安全与存档续作见[P3 记录](docs/releases/p3-terminal-transactions-2026-09-30.md)。自动通过不代表人工体验验收已完成。
 
 仓库中的程序化贴图与 GameTest 空结构统一由 Python 3.10+ 生成。在仓库根目录安装固定版本
 依赖并运行统一入口；脚本顺序、输出归属等约定见 [`tools/README.md`](tools/README.md)：

@@ -1069,10 +1069,12 @@ public class LargeCokeOvenMachine extends WorkableMultiblockMachine
                 new UltimateTerminalModuleProvider.Module(
                         LargeCokeOvenDryQuenchModule.ID,
                         "gregsteamexpansion.machine.large_coke_oven.module.dry_quench",
+                        "right",
                         LargeCokeOvenDryQuenchModule.terminalRequirements(getPos(), getFrontFacing())),
                 new UltimateTerminalModuleProvider.Module(
                         LargeCokeOvenFurnaceBaseModule.ID,
                         "gregsteamexpansion.machine.large_coke_oven.module.furnace_base",
+                        "down",
                         LargeCokeOvenFurnaceBaseModule.terminalRequirements(getPos(), getFrontFacing())));
     }
 

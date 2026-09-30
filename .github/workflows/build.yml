@@ -16,7 +16,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
@@ -63,7 +63,16 @@ jobs:
       # only place that exercises machine behaviour, so it gates the build.
       # ForgeGradle derives the task name from the `gameTestServer` run config.
       - name: GameTest
-        run: ./gradlew --no-daemon runGameTestServer
+        run: ./gradlew --no-daemon -PgseVerificationRun=gametest runGameTestServer
+
+      - name: Server restart persistence
+        run: python tools/verify_server_restart.py
+
+      - name: Configuration restart (Easy, Normal, Expert)
+        run: python tools/verify_config_restart.py
+
+      - name: Optional dependency runtimes (core, AE2, complete)
+        run: python tools/verify_dependency_runtime.py
 
       # datagen output is committed under src/generated/resources, so a
       # drifting GSELang/recipe generator must fail the build rather than be

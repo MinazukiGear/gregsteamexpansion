@@ -143,7 +143,7 @@ public final class GSEBoilerRoomTests {
                 .thenWaitUntil(() -> h.assertTrue(m.isFormed(), "Combined boiler room did not form"))
                 .thenWaitUntil(() -> h.assertTrue(m.getWaterSoftenerStatusId().equals("ready"),
                         "Tier " + tier + " softener did not validate; status="
-                                + m.getWaterSoftenerStatusId()))
+                                + m.getWaterSoftenerStatusId() + softenerConflictDescription(h, m)))
                 .thenExecute(() -> {
                     h.assertTrue(BoilerRoomWaterSoftenerModule.validate(
                                     h.getLevel(), m.getPos(), m.getFrontFacing(), tier)
@@ -198,6 +198,31 @@ public final class GSEBoilerRoomTests {
                             "Damaged softener retained its charge or valid status");
                 })
                 .thenSucceed();
+    }
+
+    private static String softenerConflictDescription(GameTestHelper h, BoilerRoomMachine machine) {
+        if (!machine.getWaterSoftenerStatusId().equals("conflict")) return "";
+        var mine = BoilerRoomModuleWorldData.waterSoftenerClaim(machine.getPos(), machine.getFrontFacing());
+        StringBuilder description = new StringBuilder("; controller=").append(machine.getPos());
+        var claims = BoilerRoomModuleWorldData.getOrCreate(h.getLevel()).save(new CompoundTag())
+                .getList("claims", net.minecraft.nbt.Tag.TAG_COMPOUND);
+        for (int index = 0; index < claims.size(); index++) {
+            var claim = claims.getCompound(index);
+            BlockPos min = BlockPos.of(claim.getLong("min"));
+            BlockPos max = BlockPos.of(claim.getLong("max"));
+            if (mine.min().getX() > max.getX() || mine.max().getX() < min.getX()
+                    || mine.min().getY() > max.getY() || mine.max().getY() < min.getY()
+                    || mine.min().getZ() > max.getZ() || mine.max().getZ() < min.getZ()) continue;
+            BlockPos owner = BlockPos.of(claim.getLong("controller"));
+            if (owner.equals(machine.getPos())) continue;
+            description.append("; overlap=").append(claim.getString("module")).append("@").append(owner)
+                    .append(" loaded=").append(h.getLevel().hasChunkAt(owner));
+            if (h.getLevel().hasChunkAt(owner)) {
+                var other = MetaMachine.getMachine(h.getLevel(), owner);
+                description.append(" machine=").append(other == null ? "missing" : other.getDefinition().getId());
+            }
+        }
+        return description.toString();
     }
 
     private static int countBlocks(com.gregtechceu.gtceu.api.pattern.MultiblockShapeInfo shape,
@@ -513,7 +538,7 @@ public final class GSEBoilerRoomTests {
     }
 
     private static void matches(GameTestHelper h, MultiblockControllerMachine m, boolean expected, String name) {
-        h.assertTrue(m.getPattern().checkPatternAt(m.getMultiblockState(), true) == expected,
+        h.assertTrue(GSEStructureTestUtils.checkPattern(m) == expected,
                 name + (expected ? " did not form" : " incorrectly formed"));
     }
 

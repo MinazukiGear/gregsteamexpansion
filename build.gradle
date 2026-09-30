@@ -16,6 +16,24 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(17)
 }
 
+// Verification worlds must never reuse a developer's client saves or configs.
+// Ordinary IDE/client launches retain the complete fixture runtime and run/.
+def dependencySmokeProfile = providers.gradleProperty('gseDependencySmoke').orNull
+if (dependencySmokeProfile != null && !(dependencySmokeProfile in ['core', 'ae2', 'full'])) {
+    throw new GradleException('gseDependencySmoke must be core, ae2, or full')
+}
+def verificationRun = providers.gradleProperty('gseVerificationRun').orNull
+if (verificationRun != null && !(verificationRun in ['gametest', 'server-restart', 'config-restart'])) {
+    throw new GradleException('gseVerificationRun must be gametest, server-restart, or config-restart')
+}
+if (dependencySmokeProfile != null && verificationRun != null) {
+    throw new GradleException('Dependency smoke tests select their own isolated verification directory')
+}
+def verificationDirectory = dependencySmokeProfile != null
+        ? file("build/verification/dependency-${dependencySmokeProfile}")
+        : file("build/verification/${verificationRun ?: 'gametest'}")
+def mountOptionalDevMods = dependencySmokeProfile == null
+
 minecraft {
     mappings channel: mapping_channel, version: mapping_version
     copyIdeResources = true
@@ -48,7 +66,13 @@ minecraft {
         }
 
         gameTestServer {
-            property 'forge.enabledGameTestNamespaces', mod_id
+            workingDirectory verificationDirectory
+            property 'forge.enabledGameTestNamespaces', dependencySmokeProfile != null
+                    ? "${mod_id}_smoke" : "${mod_id},${mod_id}_smoke"
+            if (dependencySmokeProfile != null) {
+                property 'gse.dependencySmokeProfile', dependencySmokeProfile
+                property 'gse.dependencySmokeDirectory', verificationDirectory.absolutePath
+            }
         }
 
         data {
@@ -150,9 +174,10 @@ dependencies {
     // The mod is required on dedicated servers too, so development server
     // runs must be able to boot. Client-only dev aids (EMI, JECh, Modern UI)
     // crash a dedicated server during mod construction; mount them only when
-    // the invocation targets a client run. Jade has a common side and stays
-    // mounted everywhere.
-    def mountClientDevAids = gradle.startParameter.taskNames.any { it.toLowerCase().contains('client') }
+    // the invocation targets an ordinary client run. Jade stays on ordinary
+    // runtimes, while dependency smoke runs omit all development aids.
+    def mountClientDevAids = mountOptionalDevMods &&
+            gradle.startParameter.taskNames.any { it.toLowerCase().contains('client') }
 
     // EMI is only a development runtime aid for browsing content in test clients.
     // The API is compile-only so GSEEmiPlugin can hide the legacy upstream steam
@@ -170,7 +195,9 @@ dependencies {
     // It remains optional for published builds and is not declared in mods.toml.
     jadeApi("curse.maven:jade-324717:${jade_file_id}") { transitive = false }
     compileOnly files(configurations.jadeApi)
-    runtimeOnly(fg.deobf("curse.maven:jade-324717:${jade_file_id}")) { transitive = false }
+    if (mountOptionalDevMods) {
+        runtimeOnly(fg.deobf("curse.maven:jade-324717:${jade_file_id}")) { transitive = false }
+    }
 
     // JECh adds Chinese pinyin matching to search fields in the development client.
     // It is client-only tooling and is not included in published artifacts.
@@ -184,10 +211,12 @@ dependencies {
     // Sophisticated Core) exist only so the test client can exercise the crafting
     // station against placeable backpacks and storage containers in-game. They
     // are not dependencies of the addon and are not declared in mods.toml.
-    runtimeOnly(fg.deobf("curse.maven:puzzles-lib-495476:${puzzles_file_id}")) { transitive = false }
-    runtimeOnly(fg.deobf("curse.maven:sophisticated-core-618298:${sophisticated_core_file_id}")) { transitive = false }
-    runtimeOnly(fg.deobf("curse.maven:sophisticated-backpacks-422301:${sophisticated_backpacks_file_id}")) { transitive = false }
-    runtimeOnly(fg.deobf("curse.maven:sophisticated-storage-619320:${sophisticated_storage_file_id}")) { transitive = false }
+    if (mountOptionalDevMods) {
+        runtimeOnly(fg.deobf("curse.maven:puzzles-lib-495476:${puzzles_file_id}")) { transitive = false }
+        runtimeOnly(fg.deobf("curse.maven:sophisticated-core-618298:${sophisticated_core_file_id}")) { transitive = false }
+        runtimeOnly(fg.deobf("curse.maven:sophisticated-backpacks-422301:${sophisticated_backpacks_file_id}")) { transitive = false }
+        runtimeOnly(fg.deobf("curse.maven:sophisticated-storage-619320:${sophisticated_storage_file_id}")) { transitive = false }
+    }
 
     // Modern UI re-skins vanilla and modded GUIs in the development client so
     // the crafting station screen can be checked under a global UI overhaul.
@@ -227,16 +256,18 @@ dependencies {
     // GTM Things mounts third-party GTCEu addon machines for cross-addon checks.
     // Its mods.toml hard-requires AE2 >= 15.4.2, and this AE2 version requires
     // GuideME >= 20.1.7. CurseMaven does not resolve these mod dependencies
-    // automatically. Keep all three on every development runtime: unlike the
-    // client-only aids above, they support dedicated servers, and unconditional
-    // mounting also keeps ForgeGradle's generated IntelliJ launch classpath from
-    // silently omitting saved-world block registries.
-    runtimeOnly(fg.deobf("curse.maven:applied-energistics-2-223794:${ae2_file_id}")) { transitive = false }
+    // automatically. Ordinary development runs keep the complete set to protect
+    // saved-world registries; isolated dependency smoke runs select the subset.
+    if (dependencySmokeProfile != 'core') {
+        runtimeOnly(fg.deobf("curse.maven:applied-energistics-2-223794:${ae2_file_id}")) { transitive = false }
+        runtimeOnly(fg.deobf("curse.maven:guideme-1173950:${guideme_file_id}")) { transitive = false }
+    }
     // Compile against AE2 only inside the isolated terminal compatibility
     // package. The published addon keeps AE2 optional.
     compileOnly(fg.deobf("curse.maven:applied-energistics-2-223794:${ae2_file_id}")) { transitive = false }
-    runtimeOnly(fg.deobf("curse.maven:guideme-1173950:${guideme_file_id}")) { transitive = false }
-    runtimeOnly(fg.deobf("curse.maven:gtmthings-1104310:${gtmthings_file_id}")) { transitive = false }
+    if (dependencySmokeProfile == null || dependencySmokeProfile == 'full') {
+        runtimeOnly(fg.deobf("curse.maven:gtmthings-1104310:${gtmthings_file_id}")) { transitive = false }
+    }
 
     // ExtendedAE-Plus (EAEP) is mounted only in the development client for
     // interoperability checks. CurseMaven does not resolve mod relations, so
@@ -450,6 +481,20 @@ def checkDesignContracts = tasks.register('checkDesignContracts', Exec) {
     }
 }
 
+def checkSteamEconomy = tasks.register('checkSteamEconomy', Exec) {
+    group = 'verification'
+    description = 'Checks reproducible default steam economy reports against local sources and recipes.'
+    workingDir rootDir
+    environment 'PYTHONDONTWRITEBYTECODE', '1'
+    inputs.file('tools/export_steam_economy.py')
+    inputs.files(fileTree('docs/balance') { include 'steam-economy.*' })
+    inputs.files(fileTree('src/main/java/com/hoshino/gregsteamexpansion') { include '**/*.java' })
+    inputs.files(fileTree('src/generated/resources/data/gregsteamexpansion/recipes') { include '**/*.json' })
+    doFirst {
+        commandLine assetPythonExecutable.get(), 'tools/export_steam_economy.py', '--check'
+    }
+}
+
 def checkMixinPackageBoundaries = tasks.register('checkMixinPackageBoundaries') {
     group = 'verification'
     description = 'Rejects nested or anonymous runtime classes in the protected Mixin package.'
@@ -479,5 +524,5 @@ def checkMixinPackageBoundaries = tasks.register('checkMixinPackageBoundaries') 
 }
 
 tasks.named('check').configure {
-    dependsOn checkLanguageKeys, checkGeneratedAssets, checkDesignContracts, checkMixinPackageBoundaries
+    dependsOn checkLanguageKeys, checkGeneratedAssets, checkDesignContracts, checkSteamEconomy, checkMixinPackageBoundaries
 }

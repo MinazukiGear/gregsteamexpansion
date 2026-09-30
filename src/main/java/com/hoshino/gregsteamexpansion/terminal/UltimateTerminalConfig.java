@@ -116,6 +116,7 @@ public final class UltimateTerminalConfig {
         String id = configured.substring(0, separator).trim().toLowerCase(Locale.ROOT);
         if (!id.matches("[a-z0-9_.-]{1,32}") || id.equals("coil")
                 || id.equals(UltimateTerminalModuleProvider.CHANNEL_ID)
+                || UltimateTerminalModuleProvider.isModuleChannel(id)
                 || id.equals(UltimateTerminalStructureVariants.CHANNEL_ID)) return null;
         List<ResourceLocation> blocks = new ArrayList<>();
         for (String token : configured.substring(separator + 1).split(",")) {

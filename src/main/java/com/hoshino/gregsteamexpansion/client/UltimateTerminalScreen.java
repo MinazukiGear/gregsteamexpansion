@@ -199,7 +199,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
         int x = leftPos + 14;
         int y = topPos + 55;
         int structureRows = snapshot.structure().options().isEmpty() ? 0 : 1;
-        int moduleRows = snapshot.module().options().isEmpty() ? 0 : 1;
+        int moduleRows = snapshot.module().slots().size();
         int totalRows = structureRows + moduleRows + snapshot.channels().size();
         channelPage = Math.min(channelPage, Math.max(0, (totalRows - 1) / 6));
         if (buildOpenDropdown(snapshot, x)) return;
@@ -213,12 +213,14 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
                 addRenderableWidget(dropdownButton(x + 132, y + row * 23, 176,
                         UltimateTerminalStructureVariants.CHANNEL_ID, selected));
             } else if (index < structureRows + moduleRows) {
-                var module = snapshot.module();
+                var module = snapshot.module().slots().get(index - structureRows);
                 Component selected = module.selected() >= 0 && module.selected() < module.options().size()
                         ? Component.translatable(module.options().get(module.selected()))
-                        : Component.translatable("gregsteamexpansion.ultimate_terminal.channel.none");
+                        : Component.translatable(module.selected() == -2
+                                ? "gregsteamexpansion.ultimate_terminal.channel.unavailable"
+                                : "gregsteamexpansion.ultimate_terminal.channel.none");
                 addRenderableWidget(dropdownButton(x + 132, y + row * 23, 176,
-                        UltimateTerminalModuleProvider.CHANNEL_ID, selected));
+                        UltimateTerminalModuleProvider.CHANNEL_PREFIX + module.slot(), selected));
             } else {
                 var channel = snapshot.channels().get(index - structureRows - moduleRows);
                 ItemStack selected = channel.selected() >= 0 && channel.selected() < channel.options().size()
@@ -252,10 +254,16 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             options = snapshot.structure().options().stream()
                     .map(value -> (Component) Component.literal(value)).toList();
             firstSelection = 0;
-        } else if (openDropdown.equals(UltimateTerminalModuleProvider.CHANNEL_ID)) {
+        } else if (UltimateTerminalModuleProvider.isModuleChannel(openDropdown)) {
+            String slot = openDropdown.substring(UltimateTerminalModuleProvider.CHANNEL_PREFIX.length());
+            var module = snapshot.module().slots().stream().filter(value -> value.slot().equals(slot)).findFirst().orElse(null);
+            if (module == null) {
+                openDropdown = null;
+                return false;
+            }
             java.util.ArrayList<Component> values = new java.util.ArrayList<>();
             values.add(Component.translatable("gregsteamexpansion.ultimate_terminal.channel.none"));
-            snapshot.module().options().forEach(key -> values.add(Component.translatable(key)));
+            module.options().forEach(key -> values.add(Component.translatable(key)));
             options = List.copyOf(values);
             firstSelection = UltimateTerminalConfig.AUTO_CHANNEL_SELECTION;
         } else {
@@ -401,7 +409,8 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             long conflict = snapshot.cells().stream().filter(cell -> cell.status() == UltimateStructurePlanner.CellStatus.CONFLICT).count();
             graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.summary",
                     snapshot.cells().size(), missing, conflict), 14, 190, conflict > 0 ? 0xFFFF5555 : 0xFFAAAAAA, false);
-            if (!snapshot.error().isBlank()) graphics.drawString(font, snapshot.error(), 14, 216, 0xFFFF5555, false);
+            if (!snapshot.error().isBlank()) graphics.drawString(font,
+                    UltimateStructurePlanner.errorComponent(snapshot.error()), 14, 216, 0xFFFF5555, false);
         }
     }
 
@@ -458,8 +467,8 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             Component name;
             if (openDropdown.equals(UltimateTerminalStructureVariants.CHANNEL_ID)) {
                 name = Component.translatable("gregsteamexpansion.ultimate_terminal.channel.structure_size");
-            } else if (openDropdown.equals(UltimateTerminalModuleProvider.CHANNEL_ID)) {
-                name = Component.translatable("gregsteamexpansion.ultimate_terminal.channel.module");
+            } else if (UltimateTerminalModuleProvider.isModuleChannel(openDropdown)) {
+                name = moduleSlotName(openDropdown.substring(UltimateTerminalModuleProvider.CHANNEL_PREFIX.length()));
             } else if (openDropdown.equals("coil")) {
                 name = Component.translatable("gregsteamexpansion.ultimate_terminal.channel.coil");
             } else {
@@ -469,7 +478,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
             return;
         }
         int structureRows = snapshot.structure().options().isEmpty() ? 0 : 1;
-        int moduleRows = snapshot.module().options().isEmpty() ? 0 : 1;
+        int moduleRows = snapshot.module().slots().size();
         int totalRows = structureRows + moduleRows + snapshot.channels().size();
         int start = channelPage * 6;
         for (int row = 0; row < 6 && start + row < totalRows; row++) {
@@ -480,7 +489,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
                         14, 60 + row * 23, 0xFF55FFFF, false);
             } else if (index < structureRows + moduleRows) {
                 graphics.drawString(font,
-                        Component.translatable("gregsteamexpansion.ultimate_terminal.channel.module"),
+                        moduleSlotName(snapshot.module().slots().get(index - structureRows).slot()),
                         14, 60 + row * 23, 0xFF55FFFF, false);
             } else {
                 var channel = snapshot.channels().get(index - structureRows - moduleRows);
@@ -498,5 +507,14 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
                 14, 60, 0xFFAAAAAA, false);
         graphics.drawString(font, Component.translatable("gregsteamexpansion.ultimate_terminal.channels.legend"),
                 14, 216, 0xFF888888, false);
+    }
+
+    private static Component moduleSlotName(String slot) {
+        return switch (slot) {
+            case "left", "right", "back", "top", "down", "legacy" -> Component.translatable(
+                    "gregsteamexpansion.ultimate_terminal.module_slot." + slot);
+            default -> Component.translatable("gregsteamexpansion.ultimate_terminal.channel.module")
+                    .append(" (" + slot + ")");
+        };
     }
 }

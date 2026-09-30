@@ -51,7 +51,6 @@ import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler.FluidAction;
-import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.ForgeRegistries;
 
@@ -67,7 +66,6 @@ import snownee.jade.api.ITooltip;
 import snownee.jade.api.Identifiers;
 import snownee.jade.api.callback.JadeTooltipCollectedCallback;
 
-@GameTestHolder(GregSteamExpansion.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class GSESteamHatchTests {
     private static final BlockPos HATCH_POS = new BlockPos(0, 0, 0);
@@ -79,7 +77,7 @@ public final class GSESteamHatchTests {
     // Steam-era hatches (machines-and-hatches.md 实现验收)
     // ------------------------------------------------------------------
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void steamHatchesRegisterWithCorrectAbilities(GameTestHelper helper) {
         // machines-and-hatches.md 实现验收 1/3: each hatch registers into its
         // own ability, and the legacy upstream steam input hatch can no longer
@@ -117,7 +115,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void furnaceSteamSourceExtensionStaysExplicitAndInactive(GameTestHelper helper) {
         // large-heat-storage-steam-furnace.md future extension contract: the
         // declaration can express every reserved property, while no current
@@ -164,7 +162,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void steamSupplyHatchStoresOnlyStandardSteam(GameTestHelper helper) {
         // machines-and-hatches.md 实现验收 4: 32,000 mB steam in, the 32,001st
         // rejected, other fluids always rejected, and nothing drains back out.
@@ -198,7 +196,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void largeSteamSupplyHatchAppliesLargeMachineRules(GameTestHelper helper) {
         LargeSteamSupplyHatchPartMachine hatch = GSEStructureTestUtils.placeMachine(
                 helper, GSEMachines.LARGE_STEAM_SUPPLY_HATCH, HATCH_POS);
@@ -273,7 +271,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void advancedSteamExhaustHatchDiscountAndRecipe(GameTestHelper helper) {
         AdvancedSteamExhaustHatchMachine hatch = GSEStructureTestUtils.placeMachine(
                 helper, GSEMachines.ADVANCED_STEAM_EXHAUST_HATCH, HATCH_POS);
@@ -311,7 +309,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void largeSteamOverclockLocksNextExecutionEconomics(GameTestHelper helper) {
         LargeSteamOverclock.LockedEconomics normal = LargeSteamOverclock.lock(601, 400, false, true);
         helper.assertTrue(!normal.active() && normal.durationTicks() == 601 && normal.steamPerTickMb() == 400,
@@ -357,7 +355,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void steamFluidHatchesFollowDirectionSemantics(GameTestHelper helper) {
         // machines-and-hatches.md 实现验收 2/3: one fixed 16,000 mB tank per
         // hatch; the input hatch fills from outside and refuses extraction,
@@ -379,7 +377,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void steamFluidHatchSwapIOPreservesContentAndFacing(GameTestHelper helper) {
         // machines-and-hatches.md 实现验收 6: world screwdriver swap converts
         // between the two hatches while keeping fluid and facings.
@@ -413,7 +411,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void steamFluidHatchSwapFailureRollsBackAtomically(GameTestHelper helper) {
         // machines-and-hatches.md 实现验收 6: if any replacement state cannot
         // be created, the original hatch and all of its state must survive.
@@ -463,7 +461,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 100)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 100)
     @SuppressWarnings("unchecked")
     public static void steamAirIntakeCollectsWhileUnformed(GameTestHelper helper) {
         // The intake begins collecting as soon as the placed block is loaded;
@@ -518,7 +516,7 @@ public final class GSESteamHatchTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void legacySteamHatchPlacementConvertsInPlace(GameTestHelper helper) {
         // machines-and-hatches.md 禁用范围 4/旧存档迁移: placing a legacy item
         // must never produce a legacy block — the placement converts 1:1.
@@ -539,7 +537,7 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void legacySteamHatchWorldMigrationPreservesOverflow(GameTestHelper helper) {
         // machines-and-hatches.md 旧存档迁移: exercise the same block-entity
         // migration called after a legacy chunk loads, including over-cap steam.
@@ -637,7 +635,7 @@ public final class GSESteamHatchTests {
         }
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)
     public static void legacySteamHatchItemsConvertOneToOne(GameTestHelper helper) {
         // machines-and-hatches.md 旧存档迁移: dropped entities and loaded
         // containers share the same exact-ID, count-preserving conversion.
