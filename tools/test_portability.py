@@ -9,11 +9,29 @@ from unittest.mock import patch
 import zipfile
 
 import check_portability as audit
+import generate_assets as assets
 import verification_common as invocation
 import verify as gate
 
 
 class PortabilityTests(unittest.TestCase):
+    def test_animation_newlines_match_but_content_and_binary_changes_do_not(self):
+        with tempfile.TemporaryDirectory(prefix="gse-animation-") as directory:
+            root = Path(directory)
+            generated = root / "generated.mcmeta"
+            committed = root / "committed.mcmeta"
+            metadata = b'{\n  "animation": {"frametime": 6}\n}\n'
+            generated.write_bytes(metadata.replace(b"\n", b"\r\n"))
+            committed.write_bytes(metadata)
+            self.assertTrue(assets.generated_asset_matches(generated, committed))
+            committed.write_bytes(metadata.replace(b"6", b"7"))
+            self.assertFalse(assets.generated_asset_matches(generated, committed))
+            generated = root / "generated.nbt"
+            committed = root / "committed.nbt"
+            generated.write_bytes(b"binary\r\n")
+            committed.write_bytes(b"binary\n")
+            self.assertFalse(assets.generated_asset_matches(generated, committed))
+
     def test_fresh_fixture_archives_only_its_world_and_keeps_configs(self):
         with tempfile.TemporaryDirectory(prefix="gse-world-") as directory, \
                 patch.object(invocation, "ROOT", Path(directory)), \

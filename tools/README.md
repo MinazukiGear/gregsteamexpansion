@@ -36,8 +36,10 @@ run directly while editing one texture.
 Generated PNG and GameTest structure files are committed. Gradle `check`,
 `tools/verify.sh`, and CI run the isolated freshness check and reject missing or
 stale outputs. PNG files are compared by decoded mode, dimensions and pixels so
-equivalent zlib streams produced on Windows and Linux do not fail the gate;
-non-image outputs such as GameTest NBT remain byte-exact.
+equivalent zlib streams produced on Windows and Linux do not fail the gate.
+Animation `.mcmeta` compares UTF-8 text with normalized line endings so Git's
+CRLF-to-LF checkout does not cause false stale reports; animation parameters
+must still match. Other outputs, including GameTest NBT, remain byte-exact.
 
 ## Design contract verification
 

@@ -60,7 +60,9 @@ def generated_asset_matches(generated: Path, committed: Path) -> bool:
     Pillow delegates PNG compression to the platform zlib build.  Equal images
     can therefore have different IDAT streams on Windows and Linux.  Minecraft
     consumes the decoded pixels, so PNG freshness is defined by mode, size and
-    pixel bytes.  Non-image outputs such as GameTest NBT remain byte-exact.
+    pixel bytes. Animation metadata compares UTF-8 text with universal newline
+    handling because Git normalizes generated Windows CRLF to LF on checkout.
+    All other outputs, including GameTest NBT, remain byte-exact.
     """
     if generated.suffix.lower() == ".png":
         from PIL import Image
@@ -73,6 +75,8 @@ def generated_asset_matches(generated: Path, committed: Path) -> bool:
                 and generated_image.size == committed_image.size
                 and generated_image.tobytes() == committed_image.tobytes()
             )
+    if generated.suffix.lower() == ".mcmeta":
+        return generated.read_text("utf-8") == committed.read_text("utf-8")
     return generated.read_bytes() == committed.read_bytes()
 
 
@@ -112,7 +116,8 @@ def check_generated_assets() -> int:
 
         print(
             f"\nGenerated assets are current: {len(generated_files)} files "
-            f"from {generator_count} scripts (PNG pixels; other files byte-exact)."
+            f"from {generator_count} scripts "
+            "(PNG pixels; animation metadata text; other files byte-exact)."
         )
         return 0
 

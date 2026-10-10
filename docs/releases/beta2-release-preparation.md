@@ -54,9 +54,9 @@ db9694e47b620ac7520bcd32b18eefae0a255a12372de4684e9adf6152d7b098
 
 ## GitHub 状态
 
-准备时只读核对：`v0.1.0-beta.2` Release 不存在；本地也没有同名标签。当前 `main` 基础提交为 `7316d3c50d8192423208d6de4beb834198043052`，本次候选代码仍在工作区，不能用基础提交直接创建 beta.2 标签。
+首次候选源码已提交并推送为 `5062726b68bebcf4dcbf58e957e68bf1d38297b4`，[首次四平台运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38041574230)已触发。标签应指向最终通过四平台门禁的候选提交，不使用此前 beta.1 基础提交 `7316d3c50d8192423208d6de4beb834198043052`。当前尚未创建 beta.2 标签或 Release。
 
-GitHub 最近构建仍对应上述旧提交：[最近运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/36696193904) 在服务器重启阶段失败，同提交的[此前运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/36693485749)成功。这两次结果均不能替代当前 beta.2 候选的 CI。
+跟进时在本地复现了干净 Windows 检出的动画元数据误报：生成文件使用 CRLF，Git 检出使用 LF，旧的字节比较会认为资源过期。后续修正只让 `.mcmeta` 使用 UTF-8 文本换行规范化比较，动画参数仍须一致，NBT 等其他产物仍按字节比较。工具夹具由 8 项增至 9 项，标准 Git 检出的 90 项资产比对通过；生产源码、资源与冻结 JAR 均未改动。修正提交将重新运行四平台完整门禁，最终结果在发布后补录。
 
 ## 发布顺序
 
