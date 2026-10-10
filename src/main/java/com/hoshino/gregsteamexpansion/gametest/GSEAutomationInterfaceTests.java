@@ -96,18 +96,22 @@ public final class GSEAutomationInterfaceTests {
         var outputs = List.of(
                 requiredBlock(h, "gtceu:me_output_bus"),
                 requiredBlock(h, "gtmthings:me_export_buffer"));
-        for (var output : outputs) {
-            h.getLevel().setBlockAndUpdate(outputPos, output.defaultBlockState());
-            for (var input : inputs) {
-                if (m.isFormed()) m.onStructureInvalid();
-                h.getLevel().setBlockAndUpdate(inputPos, input.defaultBlockState());
-                h.assertTrue(m.checkPattern(), definition.getId() + " rejected input "
-                        + ForgeRegistries.BLOCKS.getKey(input) + " with output "
-                        + ForgeRegistries.BLOCKS.getKey(output));
-                m.onStructureFormed();
-                h.assertTrue(m.isFormed(), definition.getId() + " did not form after compatibility match");
+        // The async GTCEu worker shares this match context. Keep each sequence
+        // atomic and force the pattern check after changing fixture blocks.
+        GSEStructureTestUtils.withPatternLock(m, () -> {
+            for (var output : outputs) {
+                h.getLevel().setBlockAndUpdate(outputPos, output.defaultBlockState());
+                for (var input : inputs) {
+                    if (m.isFormed()) m.onStructureInvalid();
+                    h.getLevel().setBlockAndUpdate(inputPos, input.defaultBlockState());
+                    h.assertTrue(GSEStructureTestUtils.checkPattern(m), definition.getId() + " rejected input "
+                            + ForgeRegistries.BLOCKS.getKey(input) + " with output "
+                            + ForgeRegistries.BLOCKS.getKey(output));
+                    m.onStructureFormed();
+                    h.assertTrue(m.isFormed(), definition.getId() + " did not form after compatibility match");
+                }
             }
-        }
+        });
         h.succeed();
     }
 
@@ -125,20 +129,22 @@ public final class GSEAutomationInterfaceTests {
             }
         }
         h.assertTrue(hatches.size() == 3, "Automated coke-oven fixture must contain three bespoke hatches");
-        if (m.isFormed()) m.onStructureInvalid();
-        var fluidMachine = MetaMachine.getMachine(h.getLevel(), hatches.get(2));
-        h.assertTrue(fluidMachine instanceof LargeCokeOvenHatchPartMachine,
-                "Remaining coke-oven fluid hatch machine missing");
-        set(fluidMachine, "mode", CokeOvenMode.FLUID_OUTPUT);
-        h.getLevel().setBlockAndUpdate(hatches.get(0),
-                requiredBlock(h, "gtceu:me_pattern_buffer").defaultBlockState());
-        h.getLevel().setBlockAndUpdate(hatches.get(1),
-                requiredBlock(h, "gtmthings:me_export_buffer").defaultBlockState());
-        h.assertTrue(m.checkPattern(), "Large coke oven rejected ME pattern input and ME output");
-        m.onStructureFormed();
-        h.assertTrue(m.isFormed(), "Large coke oven did not form with automation item interfaces");
-        h.assertTrue(m.getStandardOutputBuses().size() == 1,
-                "Large coke oven did not collect its ME output bus");
+        GSEStructureTestUtils.withPatternLock(m, () -> {
+            if (m.isFormed()) m.onStructureInvalid();
+            var fluidMachine = MetaMachine.getMachine(h.getLevel(), hatches.get(2));
+            h.assertTrue(fluidMachine instanceof LargeCokeOvenHatchPartMachine,
+                    "Remaining coke-oven fluid hatch machine missing");
+            set(fluidMachine, "mode", CokeOvenMode.FLUID_OUTPUT);
+            h.getLevel().setBlockAndUpdate(hatches.get(0),
+                    requiredBlock(h, "gtceu:me_pattern_buffer").defaultBlockState());
+            h.getLevel().setBlockAndUpdate(hatches.get(1),
+                    requiredBlock(h, "gtmthings:me_export_buffer").defaultBlockState());
+            h.assertTrue(GSEStructureTestUtils.checkPattern(m), "Large coke oven rejected ME pattern input and ME output");
+            m.onStructureFormed();
+            h.assertTrue(m.isFormed(), "Large coke oven did not form with automation item interfaces");
+            h.assertTrue(m.getStandardOutputBuses().size() == 1,
+                    "Large coke oven did not collect its ME output bus");
+        });
         h.succeed();
     }
 
@@ -163,20 +169,22 @@ public final class GSEAutomationInterfaceTests {
         var outputs = List.of(
                 requiredBlock(h, "gtceu:me_output_bus"),
                 requiredBlock(h, "gtmthings:me_export_buffer"));
-        for (var output : outputs) {
-            h.getLevel().setBlockAndUpdate(hatches.get(1), output.defaultBlockState());
-            for (var input : inputs) {
-                if (m.isFormed()) m.onStructureInvalid();
-                h.getLevel().setBlockAndUpdate(hatches.get(0), input.defaultBlockState());
-                h.assertTrue(m.checkPattern(), "Regular coke oven rejected input "
-                        + ForgeRegistries.BLOCKS.getKey(input) + " with output "
-                        + ForgeRegistries.BLOCKS.getKey(output));
-                m.onStructureFormed();
-                h.assertTrue(m.isFormed(), "Regular coke oven did not form after compatibility match");
-                h.assertTrue(m.getStandardOutputBuses().size() == 1,
-                        "Regular coke oven did not collect its automation output bus");
+        GSEStructureTestUtils.withPatternLock(m, () -> {
+            for (var output : outputs) {
+                h.getLevel().setBlockAndUpdate(hatches.get(1), output.defaultBlockState());
+                for (var input : inputs) {
+                    if (m.isFormed()) m.onStructureInvalid();
+                    h.getLevel().setBlockAndUpdate(hatches.get(0), input.defaultBlockState());
+                    h.assertTrue(GSEStructureTestUtils.checkPattern(m), "Regular coke oven rejected input "
+                            + ForgeRegistries.BLOCKS.getKey(input) + " with output "
+                            + ForgeRegistries.BLOCKS.getKey(output));
+                    m.onStructureFormed();
+                    h.assertTrue(m.isFormed(), "Regular coke oven did not form after compatibility match");
+                    h.assertTrue(m.getStandardOutputBuses().size() == 1,
+                            "Regular coke oven did not collect its automation output bus");
+                }
             }
-        }
+        });
         h.succeed();
     }
 

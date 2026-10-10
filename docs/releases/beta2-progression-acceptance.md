@@ -58,13 +58,13 @@ GuideME 兼容修复后，core / AE2 / full 三种独立服务器组合各通过
 
 本轮不修改配方生成源或语言数据，未重跑 `runData` 或双 JVM 世界续作；这些项目的 2026-10-09 完整门禁证据保留在原记录中。
 
-本轮验收包已冻结为本地发布候选：[`gregsteamexpansion-0.1.0-beta.2.jar`](../../dist/0.1.0-beta.2/gregsteamexpansion-0.1.0-beta.2.jar)，`1,614,677` 字节，SHA-256：
+本轮使用者验收包保留在本地历史目录：[`gregsteamexpansion-0.1.0-beta.2.jar`](../../dist/0.1.0-beta.2/history/pre-ci-fixture-fix/gregsteamexpansion-0.1.0-beta.2.jar)，`1,614,677` 字节，SHA-256：
 
 ```text
 564fbb1aa00064dd9f7cd91266d3747c94880a96ba616111ebed8061db3b79be
 ```
 
-版本仍为 `0.1.0-beta.2`，本轮 Java 变更包括获取路线/配方同步验收测试、GuideME 开发客户端兼容、客户端配方查询表与 EMI 预览 ID 修复，玩法与配方数值保持不变。2026-10-09 的原始门禁 JAR 已在 `build/verification/artifacts/2026-10-09/` 保留，哈希与旧记录一致；当前包尚未发布，后续门禁和附件核对见[发布准备记录](beta2-release-preparation.md)。
+版本仍为 `0.1.0-beta.2`，本轮 Java 变更包括获取路线/配方同步验收测试、GuideME 开发客户端兼容、客户端配方查询表与 EMI 预览 ID 修复，玩法与配方数值保持不变。2026-10-09 的原始门禁 JAR 已在 `build/verification/artifacts/2026-10-09/` 保留，哈希与旧记录一致。后续 CI 仅修正自动化 GameTest 的检查竞争并重建候选；新包与本轮验收包的运行时代码及资源字节一致，实际附件与最终门禁见[发布准备记录](beta2-release-preparation.md)。这项比对不伪称使用者重新运行过新测试类的包。
 
 ## 独立客户端环境
 

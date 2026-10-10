@@ -6,16 +6,16 @@
 
 发布目录为 `dist/0.1.0-beta.2/`，已加入 Git 忽略；与世界、配置和验证日志分开。目录中提供：
 
-- `gregsteamexpansion-0.1.0-beta.2.jar`：冻结的验收候选，`1,614,677` 字节。
+- `gregsteamexpansion-0.1.0-beta.2.jar`：修正 CI 夹具后重建的发布候选，`1,615,055` 字节。
 - `SHA256SUMS.txt`：对上述 JAR 的 SHA-256 校验。
 - `release-notes.md`：可粘贴到 GitHub Release 的更新说明。
 - `verification-summary.json`：本地验证与候选来源摘要；保留在发布准备目录，不作为玩家安装所需文件。
-- `build-inputs.sha256`：674 项工作区源码、构建配置与工具输入的逐项哈希，供后续候选提交核对；同样保留在本地。
+- `build-inputs.sha256`：首次完整本地门禁的 674 项输入哈希；最终提交输入及后续修正另存 `committed-inputs.json` 和验证摘要，同样保留在本地。
 
 候选 JAR SHA-256：
 
 ```text
-564fbb1aa00064dd9f7cd91266d3747c94880a96ba616111ebed8061db3b79be
+cc849f8f57bbad0825ad2bc0d9409e4b8150c03f5e85f63910252f8cabbb6263
 ```
 
 附件命名沿用 beta.1 的 JAR 与 `SHA256SUMS.txt`。构建目录还有旧版本 JAR，上传时只选择发布目录中的本次候选，勿使用 `build/libs/*.jar` 通配符。
@@ -28,7 +28,7 @@
 python tools/verify.py --offline
 ```
 
-2026-10-10 完整门禁通过，退出码 `0`，末尾为 `All gates passed.`。日志保存在 `.tmp/beta2-release-full-gate.log`，结果与来源写入 `dist/0.1.0-beta.2/verification-summary.json`。
+2026-10-10 首次完整本地门禁通过，退出码 `0`，末尾为 `All gates passed.`。日志保存在 `.tmp/beta2-release-full-gate.log`，结果与来源写入 `dist/0.1.0-beta.2/verification-summary.json`。以下表格保留当时结果；后续 CI 夹具修正、候选重建与最终四平台结果另列。
 
 | 检查 | 最终结果 |
 |---|---|
@@ -40,23 +40,27 @@ python tools/verify.py --offline
 | 数据生成 | 成功，既有生成资源内容未变（忽略本机 `.cache`） |
 | 构建与静态门禁 | 设计、Mixin 边界、语言、资源、造价和 Java 17 包检查通过 |
 
-冻结候选另经 JAR 静态检查：414 个 Java 17 类、427 项源码资源、322 项 UTF-8 JSON/元数据。构建检查还确认 929 个语言键、15 个 Jade UID 翻译、14 个资产脚本的 90 项产物，以及 4 档造价报告、每档 34 项获取材料。
+重建候选通过 JAR 静态检查：414 个 Java 17 类、427 项源码资源、322 项 UTF-8 JSON/元数据。构建检查还确认 929 个语言键、15 个 Jade UID 翻译、14 个资产脚本的 90 项产物，以及 4 档造价报告、每档 34 项获取材料。
 
 验证前后的 674 项源码、构建配置和工具输入逐项一致。原开发配置、选项未改动；配置重启夹具恢复到验证前不存在配置文件的状态。原世界 46 个文件与备份 SHA-256 均未改变；人工验收使用的副本不计入此项原世界核对。
 
-本机同一工作区的最终构建与冻结候选已逐项比较：954 个 ZIP 条目的名称集合一致，除 manifest 的 `Implementation-Timestamp` 外，条目内容完全一致。冻结候选保留验收时哈希，继续作为本次发布附件；最终重建包的 SHA-256 为：
+首次完整本地门禁重建包与原验收包的 954 个 ZIP 条目仅有 manifest 的 `Implementation-Timestamp` 差异，该次重建包 SHA-256 为：
 
 ```text
 db9694e47b620ac7520bcd32b18eefae0a255a12372de4684e9adf6152d7b098
 ```
 
-两次构建时间分别为 `2026-10-10T16:15:52+0800` 和 `2026-10-10T17:22:02+0800`。此比对限于本地重建，远端 CI 另按候选提交记录。不要将重建包的哈希写入冻结候选的校验文件。
+两次构建时间分别为 `2026-10-10T16:15:52+0800` 和 `2026-10-10T17:22:02+0800`。原验收包 SHA-256 为 `564fbb1aa00064dd9f7cd91266d3747c94880a96ba616111ebed8061db3b79be`，与校验文件、当时摘要一同保留在 `dist/0.1.0-beta.2/history/pre-ci-fixture-fix/`。
+
+Windows ARM64 随后暴露自动化 GameTest 的结构检查竞争。修正后重新运行本机 191 项 GameTest 与构建，退出码 `0`，日志为 `.tmp/beta2-ci-pattern-fixture-fix.log`。当前发布候选与原验收包逐项比较，只有 `GSEAutomationInterfaceTests.class` 和构建时间戳不同，全部运行时代码及资源字节一致；配置与原世界也保持不变。当前 `SHA256SUMS.txt` 已对应重建候选 `cc849f…`，不再使用原验收包哈希。
 
 ## GitHub 状态
 
 首次候选源码已提交并推送为 `5062726b68bebcf4dcbf58e957e68bf1d38297b4`，[首次四平台运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38041574230)已触发。标签应指向最终通过四平台门禁的候选提交，不使用此前 beta.1 基础提交 `7316d3c50d8192423208d6de4beb834198043052`。当前尚未创建 beta.2 标签或 Release。
 
-跟进时在本地复现了干净 Windows 检出的动画元数据误报：生成文件使用 CRLF，Git 检出使用 LF，旧的字节比较会认为资源过期。后续修正只让 `.mcmeta` 使用 UTF-8 文本换行规范化比较，动画参数仍须一致，NBT 等其他产物仍按字节比较。工具夹具由 8 项增至 9 项，标准 Git 检出的 90 项资产比对通过；生产源码、资源与冻结 JAR 均未改动。修正提交将重新运行四平台完整门禁，最终结果在发布后补录。
+跟进时在本地复现了干净 Windows 检出的动画元数据误报：生成文件使用 CRLF，Git 检出使用 LF，旧的字节比较会认为资源过期。修正只让 `.mcmeta` 使用 UTF-8 文本换行规范化比较，动画参数仍须一致，NBT 等其他产物仍按字节比较。工具夹具由 8 项增至 9 项，标准 Git 检出的 90 项资产比对通过，该项不改变安装包。
+
+`0c7548a3c56d0c27440fe40d431031c78dd1ab34` 的[第二次运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38042027063)中，Windows ARM64 默认套件的 191 项里有 1 项小型离心机自动化检查失败。已核对 GTCEu 7.5.3 的异步检查与锁实现，将自动化夹具的替换、强制检查及成型序列放在同一控制器锁内，保留全部接口组合和断言。后续提交将重新运行四平台完整门禁，最终结果在发布后补录。
 
 ## 发布顺序
 
