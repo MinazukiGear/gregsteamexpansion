@@ -391,6 +391,16 @@ public final class GSEGameTests {
 
         List<GTRecipe> migrated = manager.getAllRecipesFor(GSERecipeTypes.ORE_CRUSHING_RECIPES);
         helper.assertTrue(!migrated.isEmpty(), "Ore-crushing migration published no recipes");
+        helper.assertTrue(manager.getAllRecipesFor(GTRecipeTypes.MACERATOR_RECIPES).stream()
+                        .anyMatch(recipe -> recipe.recipeCategory
+                                == com.gregtechceu.gtceu.common.data.GTRecipeCategories.ORE_CRUSHING),
+                "Post-sync fixture lacks the retained upstream ore-processing category");
+        int recipeCount = manager.getRecipes().size();
+        com.hoshino.gregsteamexpansion.migration.OreCrushingMigration.onRecipesUpdated(
+                new net.minecraftforge.client.event.RecipesUpdatedEvent(manager));
+        helper.assertTrue(manager.getRecipes().size() == recipeCount
+                        && manager.getAllRecipesFor(GSERecipeTypes.ORE_CRUSHING_RECIPES).size() == migrated.size(),
+                "Client sync duplicated or removed already-migrated recipes");
         java.util.Set<ResourceLocation> managerIds = new java.util.HashSet<>();
         for (GTRecipe recipe : migrated) {
             ResourceLocation id = recipe.getId();

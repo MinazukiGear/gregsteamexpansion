@@ -48,8 +48,13 @@ public final class GSELang {
         add("gregsteamexpansion.ultimate_terminal.error.module_legacy_unavailable", "Old module choice cannot be restored; select again or clear");
         add("gregsteamexpansion.ultimate_terminal.error.module_air_obstructed", "Required module air space is occupied");
         add("gregsteamexpansion.ultimate_terminal.error.controller_changed", "The target controller was removed, replaced or rotated");
+        add("gregsteamexpansion.ultimate_terminal.error.operation_failed", "A planned block could not be placed or removed; the job stopped and materials were settled");
+        add("gregsteamexpansion.ultimate_terminal.error.structure_invalid", "Completed blocks no longer match the plan; the current target was rolled back");
         add("gregsteamexpansion.ultimate_terminal.job_complete", "Terminal job completed");
+        add("gregsteamexpansion.ultimate_terminal.job_cancelled", "Terminal job cancelled; unused materials and eligible rollback returns were returned. Collect any that did not fit.");
         add("gregsteamexpansion.ultimate_terminal.start", "Start queue");
+        add("gregsteamexpansion.ultimate_terminal.cancel", "Cancel queue");
+        add("gregsteamexpansion.ultimate_terminal.cancel.tooltip", "Cancel the queue and return unused materials. Construction rolls back the current target; completed targets and external changes stay. Dismantling stops without rebuilding removed blocks.");
         add("gregsteamexpansion.ultimate_terminal.clear", "Clear targets");
         add("gregsteamexpansion.ultimate_terminal.collect", "Collect returns");
         add("gregsteamexpansion.ultimate_terminal.mode.build", "Mode: Build");
@@ -105,6 +110,7 @@ public final class GSELang {
         add("gregsteamexpansion.ultimate_terminal.state.paused", "Paused");
         add("gregsteamexpansion.ultimate_terminal.state.failed", "Failed");
         add("gregsteamexpansion.ultimate_terminal.state.complete", "Complete");
+        add("gregsteamexpansion.ultimate_terminal.state.cancelled", "Cancelled");
 
         // EMI power display (miscellaneous.md EMI 功耗显示): combined body line
         // with the actual EU/t plus the amperage and tier the upstream view

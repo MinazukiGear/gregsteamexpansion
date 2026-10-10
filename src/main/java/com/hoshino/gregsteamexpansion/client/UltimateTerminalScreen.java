@@ -12,6 +12,7 @@ import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalWorldData;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -23,6 +24,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Locale;
 
 /** Engineering console for targets, hologram controls, materials, channels and block quotas. */
 public final class UltimateTerminalScreen extends AbstractContainerScreen<UltimateTerminalMenu> {
@@ -41,6 +43,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
     private Button overrideButton;
     private Button displayButton;
     private Button materialScopeButton;
+    private Button cancelButton;
 
     public UltimateTerminalScreen(UltimateTerminalMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -62,13 +65,14 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
         overrideButton = null;
         displayButton = null;
         materialScopeButton = null;
+        cancelButton = null;
         int x = leftPos + 10;
         int y = topPos + 25;
         for (Page candidate : Page.values()) {
             Page selectedPage = candidate;
             addRenderableWidget(localButton(x + candidate.ordinal() * 64, y, 60,
                     Component.translatable("gregsteamexpansion.ultimate_terminal.tab."
-                            + candidate.name().toLowerCase()), () -> {
+                            + candidate.name().toLowerCase(Locale.ROOT)), () -> {
                         page = selectedPage;
                         openDropdown = null;
                         rebuildPage();
@@ -111,6 +115,8 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
                 Component.translatable("gregsteamexpansion.ultimate_terminal.clear")));
         addRenderableWidget(menuButton(x + 108, topPos + 202, 100, UltimateTerminalMenu.BUTTON_START,
                 Component.translatable("gregsteamexpansion.ultimate_terminal.start")));
+        cancelButton = addRenderableWidget(menuButton(x + 216, topPos + 202, 100,
+                UltimateTerminalMenu.BUTTON_CANCEL, Component.translatable("gregsteamexpansion.ultimate_terminal.cancel")));
     }
 
     private void buildPreview() {
@@ -137,6 +143,8 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
                 () -> UltimateTerminalMessages.requestFromClient(menu.containerId)));
         addRenderableWidget(menuButton(x, topPos + 202, 150, UltimateTerminalMenu.BUTTON_COLLECT,
                 Component.translatable("gregsteamexpansion.ultimate_terminal.collect")));
+        cancelButton = addRenderableWidget(menuButton(x + 158, topPos + 202, 150,
+                UltimateTerminalMenu.BUTTON_CANCEL, Component.translatable("gregsteamexpansion.ultimate_terminal.cancel")));
     }
 
     private void buildMaterials() {
@@ -320,8 +328,11 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
     }
 
     private Button menuButton(int x, int y, int width, int id, Component label) {
-        return Button.builder(label, ignored -> minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id))
+        Button button = Button.builder(label, ignored -> minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id))
                 .bounds(x, y, width, 20).build();
+        if (id == UltimateTerminalMenu.BUTTON_CANCEL) button.setTooltip(Tooltip.create(Component.translatable(
+                "gregsteamexpansion.ultimate_terminal.cancel.tooltip")));
+        return button;
     }
 
     private Button localButton(int x, int y, int width, Component label, Runnable action) {
@@ -336,10 +347,12 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
     }
 
     private void refreshLabels() {
+        if (cancelButton != null) cancelButton.active = menu.state() == UltimateTerminalWorldData.JobState.RUNNING.ordinal()
+                || menu.state() == UltimateTerminalWorldData.JobState.PAUSED.ordinal();
         if (modeButton != null) {
             int modeId = Math.max(0, Math.min(UltimateTerminalMode.values().length - 1, menu.mode()));
             modeButton.setMessage(Component.translatable("gregsteamexpansion.ultimate_terminal.mode."
-                    + UltimateTerminalMode.values()[modeId].name().toLowerCase()));
+                    + UltimateTerminalMode.values()[modeId].name().toLowerCase(Locale.ROOT)));
         }
         if (aeButton != null) aeButton.setMessage(Component.translatable(
                 "gregsteamexpansion.ultimate_terminal.ae", onOff(menu.useAE())));
@@ -348,7 +361,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
                         : "gregsteamexpansion.ultimate_terminal.profile.template"));
         if (displayButton != null) displayButton.setMessage(Component.translatable(
                 "gregsteamexpansion.ultimate_terminal.display."
-                        + UltimateTerminalClientState.displayMode().name().toLowerCase()));
+                        + UltimateTerminalClientState.displayMode().name().toLowerCase(Locale.ROOT)));
         if (materialScopeButton != null) materialScopeButton.setMessage(Component.translatable(
                 UltimateTerminalClientState.batchMaterials()
                         ? "gregsteamexpansion.ultimate_terminal.materials.batch"
@@ -387,7 +400,7 @@ public final class UltimateTerminalScreen extends AbstractContainerScreen<Ultima
         int state = Math.max(0, Math.min(UltimateTerminalWorldData.JobState.values().length - 1, menu.state()));
         Component status = Component.translatable("gregsteamexpansion.ultimate_terminal.status",
                 Component.translatable("gregsteamexpansion.ultimate_terminal.state."
-                        + UltimateTerminalWorldData.JobState.values()[state].name().toLowerCase()));
+                        + UltimateTerminalWorldData.JobState.values()[state].name().toLowerCase(Locale.ROOT)));
         graphics.drawString(font, status, imageWidth - 12 - font.width(status), 10, 0xFFAAAAAA, false);
     }
 

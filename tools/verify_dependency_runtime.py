@@ -4,13 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import os
-from pathlib import Path
 import subprocess
 import sys
 
+from verification_common import ROOT, archive_fixture_world, gradle_command
 
-ROOT = Path(__file__).resolve().parent.parent
 PROFILES = ("core", "ae2", "full")
 
 
@@ -19,13 +17,11 @@ def main() -> int:
     parser.add_argument("--offline", action="store_true", help="use cached Gradle dependencies")
     parser.add_argument("--profile", choices=PROFILES, help="verify only one runtime combination")
     args = parser.parse_args()
-    wrapper = ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew")
     try:
         for profile in (args.profile,) if args.profile else PROFILES:
-            command = [str(wrapper), "--no-daemon", f"-PgseDependencySmoke={profile}", "runGameTestServer"]
-            if args.offline:
-                command.append("--offline")
-            command.append("--stacktrace")
+            archive_fixture_world(f"dependency-{profile}")
+            command = gradle_command(f"-PgseDependencySmoke={profile}", "runGameTestServer",
+                                     offline=args.offline)
             print(f"\n=== Optional dependency runtime: {profile} ===", flush=True)
             subprocess.run(command, cwd=ROOT, check=True)
     except subprocess.CalledProcessError as error:

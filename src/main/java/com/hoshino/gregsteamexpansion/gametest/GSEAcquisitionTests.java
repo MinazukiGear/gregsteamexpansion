@@ -6,10 +6,16 @@ import com.hoshino.gregsteamexpansion.registry.GSEBlocks;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 
 import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
+import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
+import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
+import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
+import com.gregtechceu.gtceu.common.data.GTMachines;
+import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.data.machines.GTMultiMachines;
+import com.gregtechceu.gtceu.common.machine.multiblock.primitive.PrimitiveBlastFurnaceMachine;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -113,7 +119,7 @@ public final class GSEAcquisitionTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 100)
+    @GameTest(template = "empty_32x32x32", timeoutTicks = 2_100)
     public static void acquisitionIngredientsResolveWithoutInternalDeadlocks(GameTestHelper helper) {
         var recipeManager = helper.getLevel().getRecipeManager();
         var registryAccess = helper.getLevel().registryAccess();
@@ -150,7 +156,119 @@ public final class GSEAcquisitionTests {
             helper.assertTrue(isAcquisitionDependencyResolvable(output, acquisitionRoutes, resolved, new HashSet<>()),
                     "Acquisition dependency is cyclic or has no crafting route: " + outputId);
         }
-        helper.succeed();
+        assertEarlyProgressionRoutes(helper);
+
+        // Execute the upstream bootstrap route, not a synthetic short recipe or
+        // a GSE blast furnace which already requires steel to craft. Fixtures
+        // supply iron/charcoal and the brick structure; this is not a timed
+        // survival playthrough or a measurement of mining/crafting effort.
+        var definition = GTMultiMachines.PRIMITIVE_BLAST_FURNACE;
+        var furnace = (PrimitiveBlastFurnaceMachine) GSEStructureTestUtils.placeShape(
+                helper, definition, definition.getMatchingShapes().get(0));
+        helper.assertTrue(furnace != null, "Primitive first-steel furnace was not placed");
+        ItemStack steel = ChemicalHelper.get(TagPrefix.ingot, GTMaterials.Steel);
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(furnace.isFormed(), "Primitive first-steel furnace did not form"))
+                .thenExecute(() -> {
+                    furnace.importItems.setStackInSlot(0, new ItemStack(Items.IRON_INGOT));
+                    furnace.importItems.setStackInSlot(1, new ItemStack(Items.CHARCOAL, 2));
+                })
+                .thenWaitUntil(() -> helper.assertTrue(furnace.getRecipeLogic().isWorking(),
+                        "Primitive first-steel recipe did not start"))
+                .thenExecute(() -> {
+                    GTRecipe expected = loadedGTRecipe(helper, "primitive_blast_furnace/steel_from_charcoal_gem");
+                    GTRecipe running = furnace.getRecipeLogic().getLastRecipe();
+                    helper.assertTrue(running != null && running.getId().equals(expected.getId())
+                                    && running.duration == expected.duration,
+                            "First-steel fixture substituted or shortened the upstream recipe");
+                    GregSteamExpansion.LOGGER.info("[Progression] First steel running recipe={}, durationTicks={}.",
+                            running.getId(), running.duration);
+                })
+                .thenWaitUntil(() -> helper.assertTrue(furnace.exportItems.getStackInSlot(0).is(steel.getItem()),
+                        "Iron and charcoal did not produce the first steel through the upstream furnace"))
+                .thenExecute(() -> {
+                    helper.assertTrue(furnace.exportItems.getStackInSlot(0).getCount() == 1,
+                            "Bootstrap steel output was not exactly one ingot");
+                    helper.assertTrue(furnace.importItems.getStackInSlot(0).isEmpty()
+                                    && furnace.importItems.getStackInSlot(1).isEmpty(),
+                            "Bootstrap steel did not consume the supplied iron and two charcoal");
+                    GregSteamExpansion.LOGGER.info("[Progression] First steel completed using upstream iron + two charcoal, without steam or electricity.");
+                })
+                .thenSucceed();
+    }
+
+    private static void assertEarlyProgressionRoutes(GameTestHelper helper) {
+        CraftingRecipe primitive = craftingRoute(helper, GTMultiMachines.PRIMITIVE_BLAST_FURNACE.asStack());
+        for (Ingredient ingredient : primitive.getIngredients()) {
+            if (ingredient.isEmpty()) continue;
+            helper.assertTrue(java.util.Arrays.stream(ingredient.getItems()).anyMatch(candidate ->
+                            !GregSteamExpansion.MOD_ID.equals(ForgeRegistries.ITEMS.getKey(candidate.getItem()).getNamespace())
+                                    && ChemicalHelper.getMaterialStack(candidate).material() != GTMaterials.Steel),
+                    "Primitive bootstrap controller has a steel/GSE-only ingredient: " + primitive.getId());
+        }
+
+        CraftingRecipe crusher = craftingRoute(helper, GSEMachines.STEAM_CRUSHER.asStack());
+        ItemStack hpMacerator = GTMachines.STEAM_MACERATOR.right().asStack();
+        ItemStack grindingHead = new ItemStack(ForgeRegistries.ITEMS.getValue(
+                GregSteamExpansion.gtceuId("diamond_grinding_head")));
+        helper.assertTrue(hasIngredient(crusher, hpMacerator) && hasIngredient(crusher, grindingHead),
+                "Crusher no longer follows the audited HP macerator/grinding-head upgrade route");
+        helper.assertTrue(hasIngredient(craftingRoute(helper, hpMacerator),
+                        ChemicalHelper.get(TagPrefix.plate, GTMaterials.Steel)),
+                "HP macerator no longer requires the audited first-steel plate");
+        helper.assertTrue(hasIngredient(craftingRoute(helper, grindingHead),
+                        ChemicalHelper.get(TagPrefix.plateDouble, GTMaterials.Steel)),
+                "Diamond grinding head no longer requires the audited double steel plate");
+
+        GTRecipe coke = loadedGTRecipe(helper, "coke_oven/coal_to_coke");
+        GTRecipe fuel = loadedGTRecipe(helper, "steam_boiler/gtceu_creosote");
+        var cokeFluids = coke.outputs.getOrDefault(FluidRecipeCapability.CAP, List.of());
+        var fuelFluids = fuel.inputs.getOrDefault(FluidRecipeCapability.CAP, List.of());
+        helper.assertTrue(coke.duration > 0 && fuel.duration > 1
+                        && cokeFluids.size() == 1 && fuelFluids.size() == 1,
+                "Coke/creosote bootstrap recipes changed shape");
+        var creosoteOutput = FluidRecipeCapability.CAP.of(cokeFluids.get(0).content);
+        var creosoteInput = FluidRecipeCapability.CAP.of(fuelFluids.get(0).content);
+        helper.assertTrue(creosoteOutput.getAmount() > 0 && creosoteInput.getAmount() > 0
+                        && !cokeFluids.get(0).isChanced()
+                        && creosoteOutput.test(GTMaterials.Creosote.getFluid(1))
+                        && creosoteInput.test(GTMaterials.Creosote.getFluid(1)),
+                "Coke oven and mixed boiler no longer share the audited creosote fuel");
+        helper.assertTrue(fuel.inputs.getOrDefault(ItemRecipeCapability.CAP, List.of()).isEmpty(),
+                "Creosote boiler route unexpectedly also requires a solid fuel input");
+        // HP mixed boilers halve the loaded fuel duration. Keep the model's
+        // ideal supply comparison tied to real loaded amounts and durations.
+        int hpFuelTicks = fuel.duration / 2;
+        long fourHpOvens = ((long) 4 * creosoteInput.getAmount() * coke.duration
+                + (long) hpFuelTicks * creosoteOutput.getAmount() - 1)
+                / ((long) hpFuelTicks * creosoteOutput.getAmount());
+        GregSteamExpansion.LOGGER.info(
+                "[Progression] difficultyEnabled={}, primitiveController={}, crusher={}, coalCokeTicks={}, creosoteOutputMb={}, boilerFuelMb={}, lpFuelTicks={}, hpFuelTicks={}, idealCokeOvensForFourHp={}.",
+                GSEDifficultyState.isEnabled(), primitive.getId(), crusher.getId(), coke.duration,
+                creosoteOutput.getAmount(), creosoteInput.getAmount(), fuel.duration, hpFuelTicks, fourHpOvens);
+        helper.assertTrue(GTRecipeTypes.STEAM_BOILER_RECIPES == fuel.getType(),
+                "Audited creosote fuel no longer belongs to steam boilers");
+    }
+
+    private static CraftingRecipe craftingRoute(GameTestHelper helper, ItemStack result) {
+        return helper.getLevel().getRecipeManager().getRecipes().stream()
+                .filter(CraftingRecipe.class::isInstance).map(CraftingRecipe.class::cast)
+                .filter(recipe -> recipe.getResultItem(helper.getLevel().registryAccess()).is(result.getItem()))
+                .filter(recipe -> recipe.getId().getNamespace().equals("gtceu")
+                        || recipe.getId().getNamespace().equals(GregSteamExpansion.MOD_ID))
+                .sorted(java.util.Comparator.comparing(recipe -> recipe.getId().toString()))
+                .findFirst().orElseThrow(() -> new AssertionError("No crafting route for "
+                        + ForgeRegistries.ITEMS.getKey(result.getItem())));
+    }
+
+    private static boolean hasIngredient(CraftingRecipe recipe, ItemStack item) {
+        return recipe.getIngredients().stream().anyMatch(ingredient -> ingredient.test(item));
+    }
+
+    private static GTRecipe loadedGTRecipe(GameTestHelper helper, String path) {
+        Recipe<?> recipe = helper.getLevel().getRecipeManager().byKey(GregSteamExpansion.gtceuId(path)).orElse(null);
+        helper.assertTrue(recipe instanceof GTRecipe, "Missing loaded upstream progression recipe: " + path);
+        return (GTRecipe) recipe;
     }
 
     @GameTest(template = "empty", timeoutTicks = 20)

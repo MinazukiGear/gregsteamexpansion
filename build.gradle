@@ -1,7 +1,7 @@
 plugins {
     id 'eclipse'
     id 'idea'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'net.minecraftforge.gradle' version '6.0.54'
     id 'org.spongepowered.mixin' version '0.7.38'
 }
 
@@ -18,6 +18,11 @@ java {
 
 // Verification worlds must never reuse a developer's client saves or configs.
 // Ordinary IDE/client launches retain the complete fixture runtime and run/.
+// Acceptance clients opt into a separate directory with the same registry set.
+def acceptanceClient = providers.gradleProperty('gseAcceptanceClient').orNull
+if (acceptanceClient != null && !(acceptanceClient in ['true', 'false'])) {
+    throw new GradleException('gseAcceptanceClient must be true or false')
+}
 def dependencySmokeProfile = providers.gradleProperty('gseDependencySmoke').orNull
 if (dependencySmokeProfile != null && !(dependencySmokeProfile in ['core', 'ae2', 'full'])) {
     throw new GradleException('gseDependencySmoke must be core, ae2, or full')
@@ -57,6 +62,8 @@ minecraft {
         }
 
         client {
+            workingDirectory acceptanceClient == 'true'
+                    ? project.file('build/verification/client-acceptance') : project.file('run')
             property 'forge.enabledGameTestNamespaces', mod_id
         }
 
@@ -177,7 +184,7 @@ dependencies {
     // the invocation targets an ordinary client run. Jade stays on ordinary
     // runtimes, while dependency smoke runs omit all development aids.
     def mountClientDevAids = mountOptionalDevMods &&
-            gradle.startParameter.taskNames.any { it.toLowerCase().contains('client') }
+            gradle.startParameter.taskNames.any { it.toLowerCase(Locale.ROOT).contains('client') }
 
     // EMI is only a development runtime aid for browsing content in test clients.
     // The API is compile-only so GSEEmiPlugin can hide the legacy upstream steam
@@ -288,6 +295,8 @@ dependencies {
 
 tasks.named('processResources', ProcessResources).configure {
     dependsOn tasks.named('compileJava')
+    // Datagen's bookkeeping contains checkout-specific paths, not game data.
+    exclude '.cache/**'
 
     // The client mixins target Minecraft classes, so production needs the
     // refmap the Mixin annotation processor writes next to the compile output.
@@ -311,6 +320,7 @@ tasks.named('processResources', ProcessResources).configure {
     ]
 
     inputs.properties replaceProperties
+    filteringCharset = 'UTF-8'
 
     filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
         expand replaceProperties + [project: project]
@@ -361,8 +371,8 @@ def checkLanguageKeys = tasks.register('checkLanguageKeys') {
     inputs.files(enUsFile, zhCnFile, jadeSources)
 
     doLast {
-        def enUs = new groovy.json.JsonSlurper().parse(enUsFile) as Map
-        def zhCn = new groovy.json.JsonSlurper().parse(zhCnFile) as Map
+        def enUs = new groovy.json.JsonSlurper().parse(enUsFile, 'UTF-8') as Map
+        def zhCn = new groovy.json.JsonSlurper().parse(zhCnFile, 'UTF-8') as Map
         def errors = []
 
         def missingZh = (enUs.keySet() - zhCn.keySet()).sort()
@@ -437,7 +447,38 @@ def checkLanguageKeys = tasks.register('checkLanguageKeys') {
 
 def assetPythonExecutable = providers.gradleProperty('assetPythonExecutable')
         .orElse(providers.environmentVariable('GSE_ASSET_PYTHON'))
-        .orElse('python')
+
+// Probe at task execution time: many Unix systems only provide python3, while
+// Windows may provide python or the py launcher. Respect explicit overrides.
+def resolvedAssetPython = null
+def resolveAssetPython = {
+    if (resolvedAssetPython != null) {
+        return resolvedAssetPython
+    }
+    def candidates = assetPythonExecutable.present ? [assetPythonExecutable.get()] :
+            (System.getProperty('os.name').startsWith('Windows')
+                    ? ['python', 'py', 'python3'] : ['python3', 'python'])
+    for (candidate in candidates) {
+        try {
+            def probe = new ByteArrayOutputStream()
+            def result = project.exec {
+                commandLine candidate, '-c',
+                        'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'
+                standardOutput = probe
+                errorOutput = probe
+                ignoreExitValue = true
+            }
+            if (result.exitValue == 0) {
+                resolvedAssetPython = candidate
+                return candidate
+            }
+        } catch (org.gradle.process.internal.ExecException ignored) {
+            // Try the next executable, but never replace an explicit override.
+        }
+    }
+    throw new GradleException('Python 3.10+ was not found. Set GSE_ASSET_PYTHON or ' +
+            '-PassetPythonExecutable to an existing interpreter; see tools/README.md.')
+}
 
 tasks.register('genAssets', Exec) {
     group = 'generation'
@@ -449,7 +490,7 @@ tasks.register('genAssets', Exec) {
     })
     outputs.upToDateWhen { false }
     doFirst {
-        commandLine assetPythonExecutable.get(), 'tools/generate_assets.py'
+        commandLine resolveAssetPython(), 'tools/generate_assets.py'
     }
 }
 
@@ -462,7 +503,7 @@ def checkGeneratedAssets = tasks.register('checkGeneratedAssets', Exec) {
         include 'gen_*.py', 'generate_assets.py', 'requirements.txt'
     })
     doFirst {
-        commandLine assetPythonExecutable.get(), 'tools/generate_assets.py', '--check'
+        commandLine resolveAssetPython(), 'tools/generate_assets.py', '--check'
     }
 }
 
@@ -477,7 +518,7 @@ def checkDesignContracts = tasks.register('checkDesignContracts', Exec) {
     inputs.files(fileTree('src/main/java/com/hoshino/gregsteamexpansion') { include '**/*.java' })
     inputs.files(fileTree('src/generated/resources/data/gregsteamexpansion/recipes') { include '**/*.json' })
     doFirst {
-        commandLine assetPythonExecutable.get(), 'tools/check_design_contracts.py'
+        commandLine resolveAssetPython(), 'tools/check_design_contracts.py'
     }
 }
 
@@ -491,7 +532,7 @@ def checkSteamEconomy = tasks.register('checkSteamEconomy', Exec) {
     inputs.files(fileTree('src/main/java/com/hoshino/gregsteamexpansion') { include '**/*.java' })
     inputs.files(fileTree('src/generated/resources/data/gregsteamexpansion/recipes') { include '**/*.json' })
     doFirst {
-        commandLine assetPythonExecutable.get(), 'tools/export_steam_economy.py', '--check'
+        commandLine resolveAssetPython(), 'tools/export_steam_economy.py', '--check'
     }
 }
 
@@ -523,6 +564,29 @@ def checkMixinPackageBoundaries = tasks.register('checkMixinPackageBoundaries') 
     }
 }
 
+def checkPortableResources = tasks.register('checkPortableResources', Exec) {
+    group = 'verification'
+    description = 'Checks UTF-8, resource path case, model references and locale-independent identifiers.'
+    workingDir rootDir
+    environment 'PYTHONDONTWRITEBYTECODE', '1'
+    doFirst {
+        commandLine resolveAssetPython(), 'tools/check_portability.py'
+    }
+}
+
+def checkPortableJar = tasks.register('checkPortableJar', Exec) {
+    group = 'verification'
+    description = 'Checks the reobfuscated JAR for Java 17 bytecode, resources and native binaries.'
+    dependsOn tasks.named('reobfJar')
+    workingDir rootDir
+    environment 'PYTHONDONTWRITEBYTECODE', '1'
+    doFirst {
+        commandLine resolveAssetPython(), 'tools/check_portability.py', '--jar',
+                tasks.named('jar', Jar).get().archiveFile.get().asFile.absolutePath
+    }
+}
+
 tasks.named('check').configure {
-    dependsOn checkLanguageKeys, checkGeneratedAssets, checkDesignContracts, checkSteamEconomy, checkMixinPackageBoundaries
+    dependsOn checkLanguageKeys, checkGeneratedAssets, checkDesignContracts, checkSteamEconomy,
+            checkMixinPackageBoundaries, checkPortableResources, checkPortableJar
 }

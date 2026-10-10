@@ -154,7 +154,7 @@
       "hardMultiRecipes": true
     },
     "OFF": {
-      "gtceuCasingsPerCraft": 1,
+      "gtceuCasingsPerCraft": 2,
       "steamOutputMultiplier": 1,
       "singleblockSteamCacheMultiplier": 1,
       "preheatCostPercent": 100,
@@ -204,6 +204,387 @@
     }
   },
   "materials": {
+    "OFF": {
+      "gregsteamexpansion:advanced_steam_exhaust_hatch": {
+        "recipe": "advanced_steam_exhaust_hatch",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:steam_exhaust_hatch": 1,
+          "item:gtceu:bronze_drum": 4,
+          "tag:gtceu:circuits/hv": 4
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:boiler_room_bronze": {
+        "recipe": "boiler_room_bronze",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:hp_steam_mixed_fuel_boiler": 1,
+          "item:gtceu:bronze_large_boiler": 1,
+          "item:gtceu:bronze_plate": 7
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:boiler_room_steel": {
+        "recipe": "boiler_room_steel",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:hp_steam_mixed_fuel_boiler": 1,
+          "item:gtceu:steel_large_boiler": 1,
+          "item:gtceu:steel_plate": 7
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:boiler_room_titanium": {
+        "recipe": "boiler_room_titanium",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:hp_steam_mixed_fuel_boiler": 1,
+          "item:gtceu:titanium_large_boiler": 1,
+          "item:gtceu:titanium_plate": 7
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:boiler_room_tungstensteel": {
+        "recipe": "boiler_room_tungstensteel",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:hp_steam_mixed_fuel_boiler": 1,
+          "item:gtceu:tungsten_steel_plate": 7,
+          "item:gtceu:tungstensteel_large_boiler": 1
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:bronze_component": {
+        "recipe": "bronze_component_standard",
+        "output": 1,
+        "materials": {
+          "item:gtceu:bronze_frame": 1,
+          "item:gtceu:bronze_plate": 4,
+          "item:gtceu:copper_spring": 2
+        },
+        "tools": {
+          "tag:gtceu:tools/crafting_hammers": 1,
+          "tag:gtceu:tools/crafting_wrenches": 1
+        }
+      },
+      "gregsteamexpansion:hp_steam_mixed_fuel_boiler": {
+        "recipe": "hp_steam_mixed_fuel_boiler",
+        "output": 1,
+        "materials": {
+          "item:gtceu:double_steel_plate": 4,
+          "item:gtceu:hp_steam_liquid_boiler": 1,
+          "item:gtceu:hp_steam_solid_boiler": 1,
+          "item:gtceu:steel_quadruple_fluid_pipe": 2
+        },
+        "tools": {
+          "tag:gtceu:tools/crafting_wrenches": 1
+        }
+      },
+      "gtceu:industrial_steam_casing": {
+        "recipe": "industrial_steam_casing_count_2",
+        "output": 2,
+        "materials": {
+          "item:gtceu:brass_plate": 6,
+          "item:gtceu:bronze_frame": 1
+        },
+        "tools": {
+          "tag:gtceu:tools/crafting_hammers": 1,
+          "tag:gtceu:tools/crafting_wrenches": 1
+        }
+      },
+      "gregsteamexpansion:large_heat_storage_steam_furnace": {
+        "recipe": "large_heat_storage_steam_furnace",
+        "output": 1,
+        "materials": {
+          "item:gtceu:double_steel_plate": 4,
+          "item:gtceu:hp_steam_furnace": 2,
+          "item:gtceu:steam_oven": 1,
+          "item:gtceu:steel_huge_fluid_pipe": 2
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_assembler": {
+        "recipe": "large_steam_assembler",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 2,
+          "item:gregsteamexpansion:steam_assembly_block": 1,
+          "item:gtceu:bronze_gear": 2,
+          "item:gtceu:bronze_plate": 4
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_blast_furnace": {
+        "recipe": "large_steam_blast_furnace",
+        "output": 1,
+        "materials": {
+          "item:gtceu:double_steel_plate": 4,
+          "item:gtceu:primitive_blast_furnace": 1,
+          "item:gtceu:steel_brick_casing": 4
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_centrifuge": {
+        "recipe": "large_steam_centrifuge",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 2,
+          "item:gregsteamexpansion:steam_centrifuge": 1,
+          "item:gregsteamexpansion:steam_mixing_block": 1,
+          "item:gtceu:bronze_gear": 2,
+          "item:gtceu:bronze_plate": 3
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_circuit_assembler": {
+        "recipe": "large_steam_circuit_assembler",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 2,
+          "item:gregsteamexpansion:steam_circuit_assembly_block": 1,
+          "item:gtceu:bronze_plate": 4,
+          "item:gtceu:rubber_plate": 2
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_crusher": {
+        "recipe": "large_steam_crusher",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:steam_crusher": 1,
+          "item:gtceu:double_steel_plate": 4,
+          "item:gtceu:steel_buzz_saw_blade": 1,
+          "item:gtceu:steel_gear": 2,
+          "item:gtceu:steel_rotor": 1
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_fluid_drill": {
+        "recipe": "large_steam_fluid_drill",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 2,
+          "item:gtceu:double_steel_plate": 4,
+          "item:gtceu:steel_frame": 2,
+          "item:gtceu:steel_pipe_casing": 1
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_macerator": {
+        "recipe": "large_steam_macerator",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 2,
+          "item:gregsteamexpansion:steam_grinding_block": 1,
+          "item:gtceu:bronze_gear": 1,
+          "item:gtceu:bronze_plate": 4,
+          "item:gtceu:hp_steam_macerator": 1
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_mixer": {
+        "recipe": "large_steam_mixer",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 4,
+          "item:gregsteamexpansion:steam_mixing_block": 1,
+          "item:gtceu:bronze_plate": 2,
+          "item:gtceu:bronze_rotor": 2
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_ore_plant": {
+        "recipe": "large_steam_ore_plant",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 2,
+          "item:gregsteamexpansion:steam_grinding_block": 1,
+          "item:gtceu:double_steel_plate": 4,
+          "item:gtceu:steel_frame": 2
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_ore_washer": {
+        "recipe": "large_steam_ore_washer",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 2,
+          "item:gregsteamexpansion:steam_mixing_block": 1,
+          "item:gtceu:bronze_plate": 4,
+          "item:gtceu:bronze_rotor": 2
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_supply_hatch": {
+        "recipe": "large_steam_supply_hatch",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:steam_supply_hatch": 1,
+          "item:gtceu:bronze_drum": 4,
+          "tag:gtceu:circuits/hv": 4
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_tank": {
+        "recipe": "large_steam_tank",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:steam_supply_hatch": 1,
+          "item:gtceu:bronze_drum": 1,
+          "item:gtceu:steam_machine_casing": 2
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:large_steam_thermal_centrifuge": {
+        "recipe": "large_steam_thermal_centrifuge",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 2,
+          "item:gregsteamexpansion:steam_mixing_block": 1,
+          "item:gtceu:bronze_firebox_casing": 2,
+          "item:gtceu:bronze_plate": 4
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:lp_steam_mixed_fuel_boiler": {
+        "recipe": "lp_steam_mixed_fuel_boiler",
+        "output": 1,
+        "materials": {
+          "item:gtceu:bronze_quadruple_fluid_pipe": 2,
+          "item:gtceu:double_bronze_plate": 4,
+          "item:gtceu:lp_steam_liquid_boiler": 1,
+          "item:gtceu:lp_steam_solid_boiler": 1
+        },
+        "tools": {
+          "tag:gtceu:tools/crafting_wrenches": 1
+        }
+      },
+      "gregsteamexpansion:steam_assembly_block": {
+        "recipe": "steam_assembly_block_standard_count_2",
+        "output": 2,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 1,
+          "item:gtceu:bronze_gear": 2,
+          "item:gtceu:bronze_plate": 4
+        },
+        "tools": {
+          "tag:gtceu:tools/crafting_hammers": 1,
+          "tag:gtceu:tools/crafting_wrenches": 1
+        }
+      },
+      "gregsteamexpansion:steam_centrifuge": {
+        "recipe": "steam_centrifuge",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:steam_mixing_block": 1,
+          "item:gtceu:bronze_gear": 1,
+          "item:gtceu:bronze_plate": 7
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:steam_chemical_bath": {
+        "recipe": "steam_chemical_bath",
+        "output": 1,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 1,
+          "item:gtceu:bronze_plate": 4,
+          "tag:c:glass": 4
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:steam_circuit_assembly_block": {
+        "recipe": "steam_circuit_assembly_block_standard_count_2",
+        "output": 2,
+        "materials": {
+          "item:gregsteamexpansion:bronze_component": 1,
+          "item:gtceu:bronze_gear": 2,
+          "item:gtceu:bronze_plate": 2,
+          "item:gtceu:rubber_plate": 2
+        },
+        "tools": {
+          "tag:gtceu:tools/crafting_wire_cutters": 1,
+          "tag:gtceu:tools/crafting_wrenches": 1
+        }
+      },
+      "gregsteamexpansion:steam_compressor": {
+        "recipe": "steam_compressor",
+        "output": 1,
+        "materials": {
+          "item:gtceu:bronze_plate": 7,
+          "item:gtceu:small_bronze_gear": 1,
+          "item:minecraft:piston": 1
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:steam_crusher": {
+        "recipe": "steam_crusher",
+        "output": 1,
+        "materials": {
+          "item:gtceu:bronze_plate": 4,
+          "item:gtceu:bronze_rotor": 2,
+          "item:gtceu:diamond_grinding_head": 1,
+          "item:gtceu:hp_steam_macerator": 1
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:steam_extractor": {
+        "recipe": "steam_extractor",
+        "output": 1,
+        "materials": {
+          "item:gtceu:bronze_pipe_casing": 1,
+          "item:gtceu:bronze_plate": 7,
+          "item:gtceu:small_bronze_gear": 1
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:steam_forge": {
+        "recipe": "steam_forge",
+        "output": 1,
+        "materials": {
+          "item:gtceu:bronze_plate": 7,
+          "item:gtceu:small_bronze_gear": 1,
+          "item:minecraft:piston": 1
+        },
+        "tools": {}
+      },
+      "gregsteamexpansion:steam_grinding_block": {
+        "recipe": "steam_grinding_block_standard_count_2",
+        "output": 2,
+        "materials": {
+          "item:gtceu:bronze_plate": 4,
+          "item:gtceu:diamond_grinding_head": 1,
+          "item:gtceu:small_bronze_gear": 2
+        },
+        "tools": {
+          "tag:gtceu:tools/crafting_hammers": 1,
+          "tag:gtceu:tools/crafting_wrenches": 1
+        }
+      },
+      "gregsteamexpansion:steam_mixing_block": {
+        "recipe": "steam_mixing_block_standard_count_2",
+        "output": 2,
+        "materials": {
+          "item:gtceu:bronze_gear": 1,
+          "item:gtceu:bronze_plate": 4,
+          "item:gtceu:bronze_rotor": 2
+        },
+        "tools": {
+          "tag:gtceu:tools/crafting_hammers": 1,
+          "tag:gtceu:tools/crafting_wrenches": 1
+        }
+      },
+      "gregsteamexpansion:steam_supply_hatch": {
+        "recipe": "steam_supply_hatch",
+        "output": 1,
+        "materials": {
+          "item:gtceu:bronze_drum": 1,
+          "item:gtceu:bronze_normal_fluid_pipe": 2,
+          "item:gtceu:bronze_plate": 6
+        },
+        "tools": {}
+      }
+    },
     "EASY": {
       "gregsteamexpansion:advanced_steam_exhaust_hatch": {
         "recipe": "advanced_steam_exhaust_hatch",
@@ -2460,6 +2841,7 @@
     }
   ],
   "source_fingerprints": {
+    "gradle.properties": "1f5c73a4346469c501becff6805716197372c8c018e0964087714340bb058470",
     "src/generated/resources/data/gregsteamexpansion/recipes/shaped/advanced_steam_exhaust_hatch.json": "8f1c9c128c5b4427525eb20af80ca26d22f2357a1c7a7fa85eb0916c3199a882",
     "src/generated/resources/data/gregsteamexpansion/recipes/shaped/boiler_room_bronze.json": "91bafa6e2bf5f3fe8979812a94fda02f344884c5c698c3af20e60e5ca32fe208",
     "src/generated/resources/data/gregsteamexpansion/recipes/shaped/boiler_room_steel.json": "e3fee0179b195ce08c8ac6fd207c00b7dd008014838200a4f00de85aafd734c0",
@@ -2553,6 +2935,6 @@
     "src/main/java/com/hoshino/gregsteamexpansion/machine/multiblock/voidproducer/LargeSteamFluidDrillMachine.java": "491e67e0c02efa1ed8af1b2f2295e480d64799e38b98beb86331a90fd25bf089",
     "src/main/java/com/hoshino/gregsteamexpansion/machine/multiblock/voidproducer/LargeSteamOrePlantMachine.java": "399ead694d4058ae9900bb21fb519a387cbb881725a7b1380f959d7383c390fb",
     "src/main/java/com/hoshino/gregsteamexpansion/machine/steam/MixedFuelBoilerMachine.java": "27e83713cf738d2516bc2318ba76ac6458a7151abc5ec2fa1eecd185c7a83d8f",
-    "src/main/java/com/hoshino/gregsteamexpansion/migration/OreCrushingMigration.java": "015357c3f8d2f5a7c16476a7321381e24d468a199ba93c62892e35cab9a25a29"
+    "src/main/java/com/hoshino/gregsteamexpansion/migration/OreCrushingMigration.java": "0772432bd10722c093d293faad5a8dd2129dfea2707d86e3095e9e229bdbd142"
   }
 }

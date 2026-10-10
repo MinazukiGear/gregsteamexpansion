@@ -26,6 +26,8 @@ run-data
 __pycache__/
 *.py[cod]
 /.tmp/
+/.venv/
+/dist/
 /src/generated/resources/.cache/
 /.workbuddy/
 

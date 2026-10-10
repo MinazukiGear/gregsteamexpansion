@@ -17,6 +17,7 @@
         "RecipeLogicMixin"
     ],
     "client": [
+        "GuideMEClientMixin",
         "MinecraftMixin",
         "WorldListEntryMixin",
         "GTRecipeWidgetMixin"

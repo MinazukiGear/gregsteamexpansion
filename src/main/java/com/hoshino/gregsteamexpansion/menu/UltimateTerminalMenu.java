@@ -22,6 +22,7 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
     public static final int BUTTON_AE = 8;
     public static final int BUTTON_COLLECT = 9;
     public static final int BUTTON_OVERRIDE = 10;
+    public static final int BUTTON_CANCEL = 11;
 
     private final Player player;
     private int targetCount;
@@ -125,6 +126,7 @@ public final class UltimateTerminalMenu extends AbstractContainerMenu {
             case BUTTON_AE -> data.toggleAE(player.getUUID());
             case BUTTON_COLLECT -> data.collectPending(serverPlayer);
             case BUTTON_OVERRIDE -> data.toggleTargetOverride(serverPlayer);
+            case BUTTON_CANCEL -> data.cancel(serverPlayer);
             default -> { return false; }
         }
         UltimateTerminalMessages.forceFull(serverPlayer);

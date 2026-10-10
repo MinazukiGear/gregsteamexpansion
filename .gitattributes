@@ -14,6 +14,10 @@ gradlew text eol=lf
 *.mcmeta text eol=lf
 *.json text eol=lf
 *.md text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.nix text eol=lf
 
 *.jar binary
 src/generated/**/.cache/cache text eol=lf

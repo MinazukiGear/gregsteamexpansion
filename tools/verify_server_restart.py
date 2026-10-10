@@ -9,17 +9,14 @@ from pathlib import Path
 import subprocess
 import sys
 
+from verification_common import archive_fixture_world, gradle_command as wrapper_command
+
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def gradle_command(offline: bool) -> list[str]:
-    wrapper = ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew")
-    command = [str(wrapper), "--no-daemon", "-PgseVerificationRun=server-restart", "runGameTestServer"]
-    if offline:
-        command.append("--offline")
-    command.append("--stacktrace")
-    return command
+    return wrapper_command("-PgseVerificationRun=server-restart", "runGameTestServer", offline=offline)
 
 
 def run_phase(phase: str, command: list[str]) -> None:
@@ -42,6 +39,7 @@ def main() -> int:
     command = gradle_command(args.offline)
 
     try:
+        archive_fixture_world("server-restart")
         run_phase("seed", command)
         run_phase("verify", command)
     except subprocess.CalledProcessError as error:

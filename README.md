@@ -3,6 +3,10 @@
 基于 Minecraft 1.20.1 Forge 与 GregTech CEu Modern 的蒸汽时代扩展附属模组。
 
 > **测试版（Beta）**：首个 beta 为 `0.1.0-beta.1`，发布记录见[版本说明](docs/releases/v0.1.0-beta.1.md)。机器基础运行、生存材料事务、服务器重启恢复和可选依赖加载纳入自动验证；大型整合环境仍在持续验证。当前安装包见 [Releases](https://github.com/MinazukiGear/gregsteamexpansion/releases)。
+
+当前发布候选为 `0.1.0-beta.2`，聚焦跨平台门禁、终端多人公平施工、安全取消和客户端配方显示修复；尚未发布，更新内容见[版本说明](docs/releases/v0.1.0-beta.2.md)，候选附件与验证状态见[发布准备记录](docs/releases/beta2-release-preparation.md)。
+
+本轮生存路线、终端多人交互、客户端与旧存档人工验收已由使用者确认完成，结果及当前开发包见[beta.2 验收记录](docs/releases/beta2-progression-acceptance.md)。远端 CI 与其他平台实机验证仍单独记录。
 >
 > **⚠ 本项目大量使用 AI 辅助开发**：代码、设计文档、语言条目与部分贴图资源均在 AI 协助下完成，全部产出经人工审核后合入。使用的模型包括 **Hy4 preview**、**GLM-5.3-Flash**、**GPT-5.6-Sol** 与 **GPT-6-Astra**。AI 生成的数值、结构规则与接口约定一律以 `docs/design/` 中标注为"已定案"的章节为准，未标注的内容不代表最终设计。欢迎审阅源码与反馈问题。
 
@@ -51,12 +55,16 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat -PgseVerificationRun=gametest runGameTestServer # 运行全部 GameTest（187 个，见下）
+.\gradlew.bat -PgseVerificationRun=gametest runGameTestServer # 运行全部 GameTest（191 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
 
 若系统默认 Java 不是 17，先设置 `$env:JAVA_HOME` 指向 JDK 17。
+
+Windows x64/arm64、Linux x64 与 macOS arm64 使用同一个模组 JAR；运行前仍需匹配
+Java、启动器与上游原生库架构。跨平台环境、Linux 发行版/NixOS 说明、实测边界和游戏内检查步骤见
+[平台兼容性说明](docs/platform-compatibility.md)。完整验证现在也可直接运行 `python tools/verify.py`，Windows 无需 Git Bash。
 
 ### 测试与 CI
 
@@ -86,6 +94,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 | `GSEStructureDiagnosticsTests` | 缺块/数量/一致性诊断、候选去重截断、哨兵状态安全、NBT 传输及成型后清除（7 个） |
 | `GSETerminalTests` | 终极终端配置 NBT 往返、全息蓝图状态分类、已成型与未成型结构拆除、结构尺寸/无仓室规划、多面模块组合、稳定 ID 迁移、布局冲突与网络边界、队列续作与空气占用回滚、创造模式无限材料，以及原生 GTCEu 控制器通用兼容（11 个） |
 | `GSETerminalTransactionTests` | 生存材料托管、取料失败退款、离线/维度/未加载暂停、外部方块归属、精确状态升级回滚及控制器变更停止施工（5 个） |
+| `GSETerminalSchedulingTests` | 全服预算共享、小/奇数预算轮转、三人暂停公平分配、失败后重启、取消保留已完成目标与持久退款守恒（4 个） |
 | `GSETerminalRestartTests` | 真实区块卸载与双 JVM 多模块生存施工续作，含托管材料、严格空气、回滚日志和待领退款（1 个） |
 | `GSETerminalAEIntegrationTests` | 真实 AE 无线接入点、网络与存储单元上的背包混合取料、满背包退款、纯 AE 重试及断链保护（1 个） |
 | `GSEDependencySmokeTests` | 必需前置加载、可选依赖组合、终端条件配方/缺依赖提示/拒绝使用，以及核心蒸汽机器成型（1 个；亦在三种隔离运行组合中单独执行） |
@@ -99,6 +108,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat -PgseVerificationRun=gametest compileJava runGameTestServer build # 快速回归
 bash tools/verify.sh                                # 与 CI 完全一致的完整门禁
+python tools/verify.py                              # 同一门禁，跨平台且无需 Bash
 ```
 
 处理机控制器以及大型蒸汽高炉外挂模块的跨服务器进程持久化使用专用双阶段验证，
@@ -129,12 +139,13 @@ python tools/verify_dependency_runtime.py
 python tools/verify_dependency_runtime.py --offline
 ```
 
-`tools/verify.sh` 是 `.github/workflows/build.yml` 的本地镜像，依次执行编译 →
-GameTest → 服务器重启 → 三档配置重启 → 三种依赖组合 → datagen 新鲜度（`runData` 后不应产生 git diff）→ 构建。
+`tools/verify.py` 是 `.github/workflows/build.yml` 的统一入口，`tools/verify.sh` 保留为兼容入口，依次执行编译 →
+GameTest → 服务器重启 → 三档配置重启 → 三种依赖组合 → datagen 新鲜度（`runData` 前后生成资源内容应一致，保留已有开发修改）→ 构建。
 自动验证使用 `build/verification/`，不改动 `run/` 下的开发存档和配置。Gradle `check` 会在构建中
 隔离生成并逐像素核对程序化 PNG、逐字节核对其他生成资产，同时检查 `en_us`/`zh_cn` 键集合及所有已注册 Jade UID 的
-配置翻译，并抽样核对设计文档与代码中的结构尺寸、并行上限及获取配方科技阶段边界。CI 在 push 与 PR 上执行同一组
-步骤；远端结果仍以 GitHub Actions 为准。发布前人工验收范围与本轮结果见
+配置翻译，并抽样核对设计文档与代码中的结构尺寸、并行上限及获取配方科技阶段边界。构建还检查资源路径大小写、UTF-8、
+模型/贴图引用和发布 JAR 的 Java 17 字节码、资源完整性、原生文件与数据生成缓存。CI 配置覆盖四个目标系统/架构；
+远端结果仍以实际 GitHub Actions 执行为准，CI 服务端检查不能替代客户端验收。发布前人工验收范围与本轮结果见
 [P0 发布验收记录](docs/releases/p0-validation-2026-09-30.md)；最新终端材料安全与存档续作见[P3 记录](docs/releases/p3-terminal-transactions-2026-09-30.md)。自动通过不代表人工体验验收已完成。
 
 仓库中的程序化贴图与 GameTest 空结构统一由 Python 3.10+ 生成。在仓库根目录安装固定版本
@@ -154,7 +165,7 @@ python tools/generate_assets.py --check
 
 - Mod ID：`gregsteamexpansion`
 - 入口类：`com.hoshino.gregsteamexpansion.GregSteamExpansion`
-- 当前开发版本：`0.1.0-alpha.6`（测试版；上一发布标签为 [`v0.1.0-alpha.5`](https://github.com/MinazukiGear/gregsteamexpansion/releases/tag/v0.1.0-alpha.5)）
+- 当前发布候选：`0.1.0-beta.2`（尚未发布；更新说明见 [beta.2](docs/releases/v0.1.0-beta.2.md)）
 - 许可：代码与功能性资源 LGPL-3.0（`LICENSE.txt`）；`textures/` 图像素材 CC BY-NC-SA 4.0，禁止商用（`LICENSE-ASSETS.txt`）
 
 ## 致谢

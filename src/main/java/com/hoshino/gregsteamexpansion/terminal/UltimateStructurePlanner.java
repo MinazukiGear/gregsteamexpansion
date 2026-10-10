@@ -61,7 +61,8 @@ public final class UltimateStructurePlanner {
         return switch (details[0]) {
             case "module_overlap", "module_collision", "module_unavailable" -> Component.translatable(
                     "gregsteamexpansion.ultimate_terminal.error." + details[0], details.length > 1 ? details[1] : "");
-            case "module_legacy_unavailable", "module_air_obstructed", "controller_changed" -> Component.translatable(
+            case "module_legacy_unavailable", "module_air_obstructed", "controller_changed",
+                    "operation_failed", "structure_invalid" -> Component.translatable(
                     "gregsteamexpansion.ultimate_terminal.error." + details[0]);
             default -> Component.literal(error);
         };

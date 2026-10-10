@@ -1,0 +1,68 @@
+# beta.2 发布准备
+
+当前目标为 `v0.1.0-beta.2` 预发布。本地候选附件与完整门禁已就绪，当前尚未创建此版本的 GitHub Release 或 Git 标签。本轮人工验收已由使用者确认完成，详细结果见[验收记录](beta2-progression-acceptance.md)。
+
+## 候选附件
+
+发布目录为 `dist/0.1.0-beta.2/`，已加入 Git 忽略；与世界、配置和验证日志分开。目录中提供：
+
+- `gregsteamexpansion-0.1.0-beta.2.jar`：冻结的验收候选，`1,614,677` 字节。
+- `SHA256SUMS.txt`：对上述 JAR 的 SHA-256 校验。
+- `release-notes.md`：可粘贴到 GitHub Release 的更新说明。
+- `verification-summary.json`：本地验证与候选来源摘要；保留在发布准备目录，不作为玩家安装所需文件。
+- `build-inputs.sha256`：674 项工作区源码、构建配置与工具输入的逐项哈希，供后续候选提交核对；同样保留在本地。
+
+候选 JAR SHA-256：
+
+```text
+564fbb1aa00064dd9f7cd91266d3747c94880a96ba616111ebed8061db3b79be
+```
+
+附件命名沿用 beta.1 的 JAR 与 `SHA256SUMS.txt`。构建目录还有旧版本 JAR，上传时只选择发布目录中的本次候选，勿使用 `build/libs/*.jar` 通配符。
+
+## 最终代码门禁
+
+使用已有 Zulu JDK 17、Python 3.12.14 与 Pillow 12.3.0，在当前工作区执行：
+
+```powershell
+python tools/verify.py --offline
+```
+
+2026-10-10 完整门禁通过，退出码 `0`，末尾为 `All gates passed.`。日志保存在 `.tmp/beta2-release-full-gate.log`，结果与来源写入 `dist/0.1.0-beta.2/verification-summary.json`。
+
+| 检查 | 最终结果 |
+|---|---|
+| Python 工具负向夹具 | 8/8 |
+| 默认 GameTest | 191/191 |
+| 独立 JVM 服务器重启 | 写入 191/191，恢复 191/191 |
+| Easy、Normal、Expert 启动配置 | 每档 191/191 |
+| 仅核心、AE2、完整可选依赖 | 每组加载检查 1/1 |
+| 数据生成 | 成功，既有生成资源内容未变（忽略本机 `.cache`） |
+| 构建与静态门禁 | 设计、Mixin 边界、语言、资源、造价和 Java 17 包检查通过 |
+
+冻结候选另经 JAR 静态检查：414 个 Java 17 类、427 项源码资源、322 项 UTF-8 JSON/元数据。构建检查还确认 929 个语言键、15 个 Jade UID 翻译、14 个资产脚本的 90 项产物，以及 4 档造价报告、每档 34 项获取材料。
+
+验证前后的 674 项源码、构建配置和工具输入逐项一致。原开发配置、选项未改动；配置重启夹具恢复到验证前不存在配置文件的状态。原世界 46 个文件与备份 SHA-256 均未改变；人工验收使用的副本不计入此项原世界核对。
+
+本机同一工作区的最终构建与冻结候选已逐项比较：954 个 ZIP 条目的名称集合一致，除 manifest 的 `Implementation-Timestamp` 外，条目内容完全一致。冻结候选保留验收时哈希，继续作为本次发布附件；最终重建包的 SHA-256 为：
+
+```text
+db9694e47b620ac7520bcd32b18eefae0a255a12372de4684e9adf6152d7b098
+```
+
+两次构建时间分别为 `2026-10-10T16:15:52+0800` 和 `2026-10-10T17:22:02+0800`。此比对限于本地重建，远端 CI 另按候选提交记录。不要将重建包的哈希写入冻结候选的校验文件。
+
+## GitHub 状态
+
+准备时只读核对：`v0.1.0-beta.2` Release 不存在；本地也没有同名标签。当前 `main` 基础提交为 `7316d3c50d8192423208d6de4beb834198043052`，本次候选代码仍在工作区，不能用基础提交直接创建 beta.2 标签。
+
+GitHub 最近构建仍对应上述旧提交：[最近运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/36696193904) 在服务器重启阶段失败，同提交的[此前运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/36693485749)成功。这两次结果均不能替代当前 beta.2 候选的 CI。
+
+## 发布顺序
+
+1. 复核更新说明、候选附件及本地完整门禁结果。
+2. 将本次候选源码提交并推送，运行当前四平台 CI，记录候选提交 SHA 与每项结果；失败时先处理并重新验证。
+3. 在通过门禁的候选提交上创建 `v0.1.0-beta.2` 标签与 GitHub Release，勾选预发布，使用 `release-notes.md`，仅附本次 JAR 和 `SHA256SUMS.txt`。
+4. 下载已上传附件核对哈希，记录发布 URL，再将 README 和版本说明中的“尚未发布”改为实际发布状态。
+
+Windows x64 开发客户端的人工结果已确认；其他平台的实机客户端与大型整合环境继续单独验证。CI 服务端检查不扩展为客户端实测结论。

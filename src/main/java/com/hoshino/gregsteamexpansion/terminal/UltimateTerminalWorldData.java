@@ -52,7 +52,8 @@ public final class UltimateTerminalWorldData extends SavedData {
         RUNNING,
         PAUSED,
         FAILED,
-        COMPLETE
+        COMPLETE,
+        CANCELLED
     }
 
     /** Material transport is separate from the persistent transaction ledger. */
@@ -347,6 +348,8 @@ public final class UltimateTerminalWorldData extends SavedData {
 
     private final Map<UUID, Project> projects = new LinkedHashMap<>();
     private final MaterialNetwork materialNetwork;
+    // Scheduling order is transient; persisted queues and material escrow stay unchanged.
+    @Nullable private UUID lastScheduleStart;
 
     public static UltimateTerminalWorldData get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
@@ -712,20 +715,48 @@ public final class UltimateTerminalWorldData extends SavedData {
 
     public int tick(MinecraftServer server, int budget) {
         if (budget <= 0) return 0;
+        List<UUID> owners = new ArrayList<>(projects.keySet());
+        int previous = owners.indexOf(lastScheduleStart);
+        if (previous >= 0) java.util.Collections.rotate(owners, -(previous + 1));
+        owners.removeIf(owner -> !isActive(projects.get(owner).job));
         int used = 0;
-        for (var entry : projects.entrySet()) {
-            if (used >= budget) break;
-            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            Project project = entry.getValue();
-            Job job = project.job;
-            if (job == null || (job.state != JobState.RUNNING && job.state != JobState.PAUSED)) continue;
-            if (player == null) {
-                pause(job);
-                continue;
+        boolean started = false;
+        while (used < budget && !owners.isEmpty()) {
+            List<UUID> continuing = new ArrayList<>();
+            int allowance = Math.max(1, (budget - used) / owners.size());
+            for (int i = 0; i < owners.size() && used < budget; i++) {
+                UUID owner = owners.get(i);
+                Project project = projects.get(owner);
+                ServerPlayer player = server.getPlayerList().getPlayer(owner);
+                if (player == null) {
+                    pause(project.job);
+                    continue;
+                }
+                int spent = tickProject(server, player, project, Math.min(allowance, budget - used));
+                used += spent;
+                if (spent > 0) {
+                    // Rotate the first progressing owner each tick, so indivisible
+                    // budget remainders do not always favour the same last owner.
+                    if (!started) {
+                        lastScheduleStart = owner;
+                        started = true;
+                    }
+                    if (isActive(project.job)) continuing.add(owner);
+                }
             }
-            used += tickProject(server, player, project, budget - used);
+            // Redistribute unused shares only to owners that made progress. A blocked
+            // project is checked once per tick and never spins while others are waiting.
+            owners = continuing;
         }
         return used;
+    }
+
+    public boolean cancel(ServerPlayer player) {
+        Project project = project(player.getUUID());
+        Job job = project.job;
+        if (!isActive(job) || job.targetIndex >= job.targets.size()) return false;
+        stopCurrent(player, project, job, job.targets.get(job.targetIndex), JobState.CANCELLED, "cancelled");
+        return true;
     }
 
     public int tickPlayer(ServerPlayer player, int budget) {
@@ -924,6 +955,11 @@ public final class UltimateTerminalWorldData extends SavedData {
     }
 
     private void failCurrent(ServerPlayer player, Project project, Job job, TargetWork work, String reason) {
+        stopCurrent(player, project, job, work, JobState.FAILED, reason);
+    }
+
+    private void stopCurrent(ServerPlayer player, Project project, Job job, TargetWork work,
+                             JobState state, String reason) {
         ServerLevel level = player.server.getLevel(work.target.dimension());
         if (level != null && job.mode != UltimateTerminalMode.DISMANTLE) {
             for (int i = work.cursor - 1; i >= 0; i--) {
@@ -946,12 +982,14 @@ public final class UltimateTerminalWorldData extends SavedData {
                 }
             }
         }
-        job.state = JobState.FAILED;
+        job.state = state;
         job.failure = reason;
         deliver(player, job.escrow, project.useAE, project.pending);
         deliver(player, job.recovered, project.useAE, project.pending);
-        player.displayClientMessage(Component.translatable(
-                "gregsteamexpansion.ultimate_terminal.job_failed", UltimateStructurePlanner.errorComponent(reason)), false);
+        player.displayClientMessage(state == JobState.CANCELLED
+                ? Component.translatable("gregsteamexpansion.ultimate_terminal.job_cancelled")
+                : Component.translatable("gregsteamexpansion.ultimate_terminal.job_failed",
+                        UltimateStructurePlanner.errorComponent(reason)), false);
         setDirty();
     }
 

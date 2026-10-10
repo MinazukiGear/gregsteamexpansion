@@ -98,6 +98,12 @@ def profiles():
             for name, token in zip(fields, tokens)
         }
     result["OFF"] = result["NORMAL"].copy()
+    # Disabled integration preserves GTCEu's setting, independently of GSE's
+    # Normal profile. This report uses the pinned upstream default (2); packs
+    # with a changed gtceu.yaml must recalculate their structure quantities.
+    if match("gradle.properties", r"(?m)^gtceu_version=([^\r\n]+)\r?$").strip() != "7.5.3":
+        raise ValueError("Review disabled-difficulty casing defaults for the new GTCEu version")
+    result["OFF"]["gtceuCasingsPerCraft"] = Fraction(2)
     for name in ("steamOutputMultiplier", "singleblockSteamCacheMultiplier",
                  "oreCrushingMultiplier", "boilerRoomSteamOutputMultiplier",
                  "assemblerOutputMultiplier", "voidProducerOutputMultiplier"):
@@ -106,6 +112,7 @@ def profiles():
                          preheatIntervalTicks=Fraction(5), processingSteamPercent=Fraction(100))
     state = JAVA + "difficulty/GSEDifficultyState.java"
     guard(state, "startupProfile = enabled ? profile : GSEDifficultyProfile.defaults(Difficulty.NORMAL);")
+    guard(state, "ConfigHolder.init(); return ConfigHolder.INSTANCE.recipes.casingsPerCraft;")
     for name in ("steamOutputMultiplier", "boilerRoomSteamOutputMultiplier", "assemblerOutputMultiplier"):
         guard(state, f"return isEnabled(remote) ? (float) currentProfile(remote).{name}() : 1.0F;")
     guard(state, "return isEnabled(remote) ? currentProfile(remote).voidProducerOutputMultiplier() : 1;")
@@ -244,8 +251,7 @@ def build_model():
             output = parallel * crusher_items
             model["crushers"].append(dict(tier=tier, machine=label, parallel=parallel,
                 steam_per_tick=rate, output_per_tick=output / duration, steam_per_item=rate * duration / output))
-        if tier != "OFF":
-            model["materials"][tier] = recipe_costs(profile)
+        model["materials"][tier] = recipe_costs(profile)
         for parallel in (1, 2, 4, 8, 16):
             duration = ceil(100 * duration_factor * time_scale(parallel))
             rate = ceil(32 * steam_per_eu * steam_scale(parallel))
@@ -341,16 +347,18 @@ def render(m):
     parts += ["\n## 获取成本与阶段\n",
         "表中材料为一次手工合成的直接输入；工具单列在 JSON 中，只占槽并产生耐久损耗，不作为消耗材料计数。"
         "控制器产 1，结构外壳、接口、升级槽中的电力机器和工具损耗另计，不能把控制器价格当整机造价。"
-        "核心部件的条件配方已按三档默认开关与外壳产量选择。原料使用注册名，避免翻译歧义。\n"]
+        "核心部件的条件配方已按四种模式选择；关闭难度使用 GSE Normal 的默认配方开关，"
+        "外壳产量按 GTCEu 7.5.3 默认的 2 件计算，服务器修改上游配置后须另算。"
+        "原料使用注册名，避免翻译歧义。\n"]
     def materials(cost):
         return "、".join(f"{count}×`{key.split(':', 1)[1]}`" for key, count in cost["materials"].items())
     parts.append(table(["档位", "核心部件", "每次产量", "直接材料"], [
         [LABELS[t], item.split(":", 1)[1], c["output"], materials(c)]
-        for t in TIERS[1:] for item, c in m["materials"][t].items()
+        for t in TIERS for item, c in m["materials"][t].items()
         if c["recipe"].startswith(("bronze_component", "industrial_steam_casing", "steam_grinding_block",
                                     "steam_assembly_block", "steam_circuit_assembly_block", "steam_mixing_block"))]))
     parts.append("")
-    parts.append(table(["控制器/接口（三档相同）", "直接材料"], [
+    parts.append(table(["控制器/接口（四种模式相同）", "直接材料"], [
         [item.split(":", 1)[1], materials(c)] for item, c in m["materials"]["NORMAL"].items()
         if c["recipe"] in ACQUISITIONS]))
     parts += ["\n## 基础产汽、通用处理与采矿\n",
@@ -495,7 +503,7 @@ def main():
                 path.write_text(text, encoding="utf-8", newline="\n")
         if stale:
             raise ValueError("stale economy reports: " + ", ".join(stale) + "; run tools/export_steam_economy.py")
-        print(f"Steam economy {'verified' if args.check else 'exported'}: 4 modes, 3 recipe profiles, "
+        print(f"Steam economy {'verified' if args.check else 'exported'}: 4 modes, 4 recipe profiles, "
               f"{len(model['materials']['NORMAL'])} acquisition items/profile.")
         return 0
     except (ValueError, KeyError, OSError) as error:

@@ -23,10 +23,16 @@
 
 ## 获取成本与阶段
 
-表中材料为一次手工合成的直接输入；工具单列在 JSON 中，只占槽并产生耐久损耗，不作为消耗材料计数。控制器产 1，结构外壳、接口、升级槽中的电力机器和工具损耗另计，不能把控制器价格当整机造价。核心部件的条件配方已按三档默认开关与外壳产量选择。原料使用注册名，避免翻译歧义。
+表中材料为一次手工合成的直接输入；工具单列在 JSON 中，只占槽并产生耐久损耗，不作为消耗材料计数。控制器产 1，结构外壳、接口、升级槽中的电力机器和工具损耗另计，不能把控制器价格当整机造价。核心部件的条件配方已按四种模式选择；关闭难度使用 GSE Normal 的默认配方开关，外壳产量按 GTCEu 7.5.3 默认的 2 件计算，服务器修改上游配置后须另算。原料使用注册名，避免翻译歧义。
 
 | 档位 | 核心部件 | 每次产量 | 直接材料 |
 | --- | --- | --- | --- |
+| 关闭难度 | bronze_component | 1 | 1×`gtceu:bronze_frame`、4×`gtceu:bronze_plate`、2×`gtceu:copper_spring` |
+| 关闭难度 | industrial_steam_casing | 2 | 6×`gtceu:brass_plate`、1×`gtceu:bronze_frame` |
+| 关闭难度 | steam_assembly_block | 2 | 1×`gregsteamexpansion:bronze_component`、2×`gtceu:bronze_gear`、4×`gtceu:bronze_plate` |
+| 关闭难度 | steam_circuit_assembly_block | 2 | 1×`gregsteamexpansion:bronze_component`、2×`gtceu:bronze_gear`、2×`gtceu:bronze_plate`、2×`gtceu:rubber_plate` |
+| 关闭难度 | steam_grinding_block | 2 | 4×`gtceu:bronze_plate`、1×`gtceu:diamond_grinding_head`、2×`gtceu:small_bronze_gear` |
+| 关闭难度 | steam_mixing_block | 2 | 1×`gtceu:bronze_gear`、4×`gtceu:bronze_plate`、2×`gtceu:bronze_rotor` |
 | Easy | bronze_component | 1 | 1×`gtceu:bronze_frame`、4×`gtceu:bronze_plate`、2×`gtceu:copper_spring` |
 | Easy | industrial_steam_casing | 2 | 6×`gtceu:brass_plate`、1×`gtceu:bronze_frame` |
 | Easy | steam_assembly_block | 2 | 1×`gregsteamexpansion:bronze_component`、2×`gtceu:bronze_gear`、4×`gtceu:bronze_plate` |
@@ -46,7 +52,7 @@
 | Expert | steam_grinding_block | 1 | 2×`gtceu:bronze_gear`、4×`gtceu:bronze_plate`、1×`gtceu:diamond_grinding_head` |
 | Expert | steam_mixing_block | 1 | 1×`gtceu:bronze_gear`、2×`gtceu:bronze_plate`、2×`gtceu:bronze_rotor`、2×`gtceu:double_bronze_plate` |
 
-| 控制器/接口（三档相同） | 直接材料 |
+| 控制器/接口（四种模式相同） | 直接材料 |
 | --- | --- |
 | advanced_steam_exhaust_hatch | 1×`gregsteamexpansion:steam_exhaust_hatch`、4×`gtceu:bronze_drum`、4×`gtceu:circuits/hv` |
 | boiler_room_bronze | 1×`gregsteamexpansion:hp_steam_mixed_fuel_boiler`、1×`gtceu:bronze_large_boiler`、7×`gtceu:bronze_plate` |
@@ -284,6 +290,7 @@ Expert 专精的期望产出仅 1.25×，耗时 1.5×：产能为 0.8333×，单
 
 数值来源文件及 SHA-256 记录在同目录 `steam-economy.json`；以下是本次模型读取的文件。
 
+- [`gradle.properties`](../../gradle.properties)
 - [`src/generated/resources/data/gregsteamexpansion/recipes/shaped/advanced_steam_exhaust_hatch.json`](../../src/generated/resources/data/gregsteamexpansion/recipes/shaped/advanced_steam_exhaust_hatch.json)
 - [`src/generated/resources/data/gregsteamexpansion/recipes/shaped/boiler_room_bronze.json`](../../src/generated/resources/data/gregsteamexpansion/recipes/shaped/boiler_room_bronze.json)
 - [`src/generated/resources/data/gregsteamexpansion/recipes/shaped/boiler_room_steel.json`](../../src/generated/resources/data/gregsteamexpansion/recipes/shaped/boiler_room_steel.json)

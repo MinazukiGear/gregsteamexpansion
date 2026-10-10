@@ -9,6 +9,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from verification_common import archive_fixture_world, gradle_command as wrapper_command
+
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "build" / "verification" / "config-restart" / "config" / "gregsteamexpansion-common.toml"
@@ -146,12 +148,7 @@ PHASES = (
 
 
 def gradle_command(offline: bool) -> list[str]:
-    wrapper = ROOT / ("gradlew.bat" if os.name == "nt" else "gradlew")
-    command = [str(wrapper), "--no-daemon", "-PgseVerificationRun=config-restart", "runGameTestServer"]
-    if offline:
-        command.append("--offline")
-    command.append("--stacktrace")
-    return command
+    return wrapper_command("-PgseVerificationRun=config-restart", "runGameTestServer", offline=offline)
 
 
 def toml_list(values: tuple[str, ...]) -> str:
@@ -310,6 +307,7 @@ def main() -> int:
     original = CONFIG_PATH.read_bytes() if CONFIG_PATH.exists() else None
 
     try:
+        archive_fixture_world("config-restart")
         if TEMPLATE_PATH.exists():
             template = TEMPLATE_PATH.read_text(encoding="utf-8")
         else:

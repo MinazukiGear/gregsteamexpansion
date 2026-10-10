@@ -22,8 +22,10 @@ python tools/generate_assets.py --check
 ```
 
 Gradle exposes the same operations as `genAssets` and `checkGeneratedAssets`.
-Both use `python` by default; pass `-PassetPythonExecutable=/path/to/python` or
-set `GSE_ASSET_PYTHON` when the interpreter has another name.
+Gradle probes Python 3.10+ at task execution time: `python3`, then `python` on
+Unix; `python`, `py`, then `python3` on Windows. Pass
+`-PassetPythonExecutable=/path/to/python` or set `GSE_ASSET_PYTHON` for an explicit
+interpreter. An invalid override fails without silently selecting another one.
 
 The runner executes all `tools/gen_*.py` files in filename order. This order is
 part of the output contract: `gen_crafting_station_textures.py` supplies the
@@ -75,9 +77,36 @@ server throughput or a complete structure bill of materials. Formula guards
 fail on changed implementation shapes; review the model before regenerating.
 Source fingerprints make relevant source edits visible in the freshness check.
 
+Acquisition materials now include all four modes. The disabled profile assumes
+GTCEu 7.5.3's default `recipes.casingsPerCraft: 2`; it does not use an enabled
+Normal tier to override a server's actual upstream setting.
+
 Gradle `checkSteamEconomy` runs `--check` as part of `check` and the existing
 build/CI gate. It uses the same `assetPythonExecutable`/`GSE_ASSET_PYTHON`
 interpreter selection as other Python verification tools.
+
+## Isolated client acceptance
+
+Launch a new acceptance client with the full ordinary development mod set, JDK 17
+and a separate game directory:
+
+```powershell
+.\gradlew.bat -PgseAcceptanceClient=true runClient
+```
+
+On Linux/macOS use `./gradlew` with the same arguments. Saves, options, configs
+and logs go to `build/verification/client-acceptance/`; ordinary `runClient`
+still uses `run/`. This launch has a visible game window. It does not select,
+copy or upgrade an existing player world. Start a new survival world for the
+default disabled-difficulty route, or copy a backed-up old world into this
+directory separately when testing upgrades. Check the actual configuration
+before reusing an acceptance directory from an earlier run.
+
+The acquisition GameTest also runs one complete upstream primitive blast-furnace
+batch (iron + two charcoal → one steel) without shortening its recipe. Runtime
+logs tagged `[Progression]` record the loaded coke/creosote fuel quantities and
+the bootstrap result. Fixture-supplied materials and structures do not measure
+survival procurement time or replace client/multiplayer acceptance.
 
 ## Server restart persistence
 
@@ -142,17 +171,55 @@ explicit isolated directory. GTM Things without AE2 is not a valid combination
 because GTM Things itself requires AE2.
 
 The default `runGameTestServer` task uses `build/verification/gametest/` and runs
-all 187 tests. `-PgseVerificationRun=server-restart` and
+all 191 tests. `-PgseVerificationRun=server-restart` and
 `-PgseVerificationRun=config-restart` select the two persistence fixtures;
 `-PgseDependencySmoke=core|ae2|full` selects only the smoke namespace and its
 isolated dependency set.
 
 ## Complete release gate
 
-`bash tools/verify.sh` mirrors CI: compilation, the complete GameTest suite,
-server restart, configuration restart, optional dependency runtimes, datagen
-freshness, and build checks. On Windows use Git Bash with JDK 17 and Python on
-PATH; `GSE_ASSET_PYTHON` selects a specific Python executable. `--no-datagen`
-is available for local iteration and does not replace the complete release gate.
-Pass `--offline` to use cached dependencies for every Gradle process, including
-the restart and dependency scripts.
+`python tools/verify.py` is the shared local/CI gate: portability-tool negative
+fixtures, compilation, the complete GameTest suite, server restart, configuration
+restart, optional dependency runtimes, datagen freshness, and build checks.
+Before each fixture sequence, its previous scratch `world/` is archived under
+`build/verification/world-history/` to avoid stale blocks/claims when the test
+layout changes. Configs are preserved; seed and verify share the same new world.
+It verifies JDK 17 before starting Gradle and uses the invoking Python executable
+throughout, including paths containing spaces. Windows does not need Bash.
+On Unix the tools invoke `sh gradlew` so ZIP exports or checkouts without the
+executable bit work too. No commands are joined into a shell string.
+
+`bash tools/verify.sh` remains a compatibility entry point, and
+`GSE_ASSET_PYTHON` selects its interpreter. `--no-datagen` is available for local
+iteration and does not replace the complete release gate. Pass `--offline` to
+use cached dependencies for every Gradle process, including restart and
+dependency scripts. Datagen freshness compares resource hashes before and after
+generation, excluding `.cache` bookkeeping. Existing uncommitted generated-resource
+edits are preserved and must be reviewed separately.
+
+## Portability audits
+
+```bash
+python tools/check_portability.py
+python tools/check_portability.py --jar build/libs/gregsteamexpansion-0.1.0-beta.2.jar
+python tools/test_portability.py
+```
+
+Gradle `checkPortableResources` and `checkPortableJar` run as part of `check`.
+The latter waits for production reobfuscation. Audits cover exact resource case,
+duplicate main/generated paths, strict UTF-8 JSON without duplicate keys,
+internal model/texture references, explicit Java locales, LF shell scripts,
+Java 17 class versions, required metadata/refmap and packaged-resource fidelity.
+Native binaries, nested dependency JARs and datagen `.cache` files are rejected
+in the addon JAR. These checks describe the addon only; they do not verify the
+host's upstream libraries, graphics drivers or game runtime.
+
+The eight standard-library Python tests inject wrong-case references, collisions,
+invalid encoding/JSON, newer bytecode, natives and missing resources, and inspect
+wrapper arguments for Windows/POSIX and Unicode/space paths. They also check
+datagen freshness against existing edits and changed, added or deleted resources.
+The fixture archive test verifies world evidence and configs are preserved and
+unrecognized fixture paths are rejected. Mocked platform
+selection is a tooling regression check, not a test performed on that platform.
+See [platform compatibility](../docs/platform-compatibility.md) for manual
+validation and the optional NixOS environment.

@@ -135,11 +135,32 @@ public final class OreCrushingMigration {
             }
         }
         if (candidates.isEmpty()) {
+            List<GTRecipe> syncedOreRecipes = manager.getAllRecipesFor(targetType);
+            if (client && !syncedOreRecipes.isEmpty()) {
+                // The server has already copied and removed the ore/raw-ore
+                // routes. Retained crushed/dust routes still share the upstream
+                // ORE_CRUSHING category, so that category alone is not a failure.
+                // Publish the received objects without multiplying them again.
+                Map<ResourceLocation, Recipe<?>> maceratorMap = new HashMap<>();
+                for (GTRecipe recipe : maceratorRecipes) {
+                    maceratorMap.put(recipe.getId(), recipe);
+                }
+                Map<ResourceLocation, Recipe<?>> targetMap = new HashMap<>();
+                for (GTRecipe recipe : syncedOreRecipes) {
+                    targetMap.put(recipe.getId(), recipe);
+                }
+                restage(GTRecipeTypes.MACERATOR_RECIPES, maceratorMap);
+                restage(targetType, targetMap);
+                GregSteamExpansion.LOGGER.info(
+                        "[Ore Crushing] Retained {} server-migrated ore recipes after client sync.",
+                        syncedOreRecipes.size());
+                return;
+            }
             // 条件 5 失败: the load cannot produce a single validated ore-crushing
             // recipe, so the originals stay and the viewer category stays hidden.
             // On the integrated-server client this is the NORMAL post-sync state:
             // the server already migrated its set and synced it down, so the
-            // synced macerator table legitimately holds no ore recipes.
+            // synced macerator table legitimately holds no ore/raw-ore inputs.
             boolean maceratorHasOreCategory = maceratorRecipes.stream().anyMatch(OreCrushingMigration::isCandidate);
             if (maceratorHasOreCategory) {
                 GregSteamExpansion.LOGGER.error(
