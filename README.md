@@ -55,7 +55,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat -PgseVerificationRun=gametest runGameTestServer # 运行全部 GameTest（191 个，见下）
+.\gradlew.bat -PgseVerificationRun=gametest runGameTestServer # 运行全部 GameTest（192 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -93,6 +93,7 @@ Java、启动器与上游原生库架构。跨平台环境、Linux 发行版/Nix
 | `GSESteamEngineTestSupport` | 运行态测试共享夹具：真实结构成型、蒸汽/输出操作、输入总线、状态保存、批次边界、GUI/Jade 和反射适配 |
 | `GSEStructureDiagnosticsTests` | 缺块/数量/一致性诊断、候选去重截断、哨兵状态安全、NBT 传输及成型后清除（7 个） |
 | `GSETerminalTests` | 终极终端配置 NBT 往返、全息蓝图状态分类、已成型与未成型结构拆除、结构尺寸/无仓室规划、多面模块组合、稳定 ID 迁移、布局冲突与网络边界、队列续作与空气占用回滚、创造模式无限材料，以及原生 GTCEu 控制器通用兼容（11 个） |
+| `GSETerminalPreviewTests` | 多目标材料汇总、选中目标切换、四种模式、世界/库存变化及卸载目标预览回归（1 个） |
 | `GSETerminalTransactionTests` | 生存材料托管、取料失败退款、离线/维度/未加载暂停、外部方块归属、精确状态升级回滚及控制器变更停止施工（5 个） |
 | `GSETerminalSchedulingTests` | 全服预算共享、小/奇数预算轮转、三人暂停公平分配、失败后重启、取消保留已完成目标与持久退款守恒（4 个） |
 | `GSETerminalRestartTests` | 真实区块卸载与双 JVM 多模块生存施工续作，含托管材料、严格空气、回滚日志和待领退款（1 个） |
@@ -145,8 +146,8 @@ GameTest → 服务器重启 → 三档配置重启 → 三种依赖组合 → d
 隔离生成并逐像素核对程序化 PNG、逐字节核对其他生成资产，同时检查 `en_us`/`zh_cn` 键集合及所有已注册 Jade UID 的
 配置翻译，并抽样核对设计文档与代码中的结构尺寸、并行上限及获取配方科技阶段边界。构建还检查资源路径大小写、UTF-8、
 模型/贴图引用和发布 JAR 的 Java 17 字节码、资源完整性、原生文件与数据生成缓存。CI 配置覆盖四个目标系统/架构；
-远端结果仍以实际 GitHub Actions 执行为准，CI 服务端检查不能替代客户端验收。发布前人工验收范围与本轮结果见
-[P0 发布验收记录](docs/releases/p0-validation-2026-09-30.md)；最新终端材料安全与存档续作见[P3 记录](docs/releases/p3-terminal-transactions-2026-09-30.md)。自动通过不代表人工体验验收已完成。
+远端结果仍以实际 GitHub Actions 执行为准，CI 服务端检查不能替代客户端验收。beta.2 本轮人工清单已由使用者确认完成，结果见
+[beta.2 验收记录](docs/releases/beta2-progression-acceptance.md)，已完成范围和剩余边界见[设计索引](docs/design/README.md#beta2-已完成范围与当前待办)。[P0 发布验收记录](docs/releases/p0-validation-2026-09-30.md)与[P3 记录](docs/releases/p3-terminal-transactions-2026-09-30.md)保留历史门禁及终端事务来源。
 
 仓库中的程序化贴图与 GameTest 空结构统一由 Python 3.10+ 生成。在仓库根目录安装固定版本
 依赖并运行统一入口；脚本顺序、输出归属等约定见 [`tools/README.md`](tools/README.md)：

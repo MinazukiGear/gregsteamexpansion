@@ -34,7 +34,16 @@ if (verificationRun != null && !(verificationRun in ['gametest', 'server-restart
 if (dependencySmokeProfile != null && verificationRun != null) {
     throw new GradleException('Dependency smoke tests select their own isolated verification directory')
 }
-def verificationDirectory = dependencySmokeProfile != null
+def previewBenchmark = providers.gradleProperty('gsePreviewBenchmark').orNull
+if (previewBenchmark != null && previewBenchmark != 'true') {
+    throw new GradleException('gsePreviewBenchmark must be true when specified')
+}
+if (previewBenchmark != null && (dependencySmokeProfile != null || verificationRun != null)) {
+    throw new GradleException('Preview benchmarks select their own isolated verification directory')
+}
+def verificationDirectory = previewBenchmark != null
+        ? file('build/verification/terminal-preview')
+        : dependencySmokeProfile != null
         ? file("build/verification/dependency-${dependencySmokeProfile}")
         : file("build/verification/${verificationRun ?: 'gametest'}")
 def mountOptionalDevMods = dependencySmokeProfile == null
@@ -74,8 +83,14 @@ minecraft {
 
         gameTestServer {
             workingDirectory verificationDirectory
-            property 'forge.enabledGameTestNamespaces', dependencySmokeProfile != null
+            property 'forge.enabledGameTestNamespaces', previewBenchmark != null
+                    ? "${mod_id}_preview_benchmark" : dependencySmokeProfile != null
                     ? "${mod_id}_smoke" : "${mod_id},${mod_id}_smoke"
+            if (previewBenchmark != null) {
+                property 'gse.previewBenchmark', 'true'
+                property 'gse.previewBenchmarkOutput', file(
+                        providers.gradleProperty('gsePreviewBenchmarkOutput').get()).absolutePath
+            }
             if (dependencySmokeProfile != null) {
                 property 'gse.dependencySmokeProfile', dependencySmokeProfile
                 property 'gse.dependencySmokeDirectory', verificationDirectory.absolutePath

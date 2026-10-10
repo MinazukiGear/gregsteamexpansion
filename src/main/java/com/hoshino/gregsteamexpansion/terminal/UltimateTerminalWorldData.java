@@ -466,9 +466,12 @@ public final class UltimateTerminalWorldData extends SavedData {
         List<ItemStack> selectedRequirements = requirements(selectedPlan);
         List<ItemStack> batchRequirements = new ArrayList<>();
         for (Target target : project.targets) {
-            UltimateStructurePlanner.Plan plan = planForPreview(player.server, project, target,
-                    profileFor(player.server, project, target, false));
-            for (ItemStack requirement : requirements(plan)) {
+            // Reuse only within this request. The next preview and construction start
+            // still resolve current world/profile state independently.
+            List<ItemStack> targetRequirements = target.equals(selected) ? selectedRequirements
+                    : requirements(planForPreview(player.server, project, target,
+                            profileFor(player.server, project, target, false)));
+            for (ItemStack requirement : targetRequirements) {
                 mergeRequirement(batchRequirements, requirement, requirement.getCount());
             }
         }

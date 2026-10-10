@@ -173,10 +173,30 @@ explicit isolated directory. GTM Things without AE2 is not a valid combination
 because GTM Things itself requires AE2.
 
 The default `runGameTestServer` task uses `build/verification/gametest/` and runs
-all 191 tests. `-PgseVerificationRun=server-restart` and
+all 192 tests. `-PgseVerificationRun=server-restart` and
 `-PgseVerificationRun=config-restart` select the two persistence fixtures;
 `-PgseDependencySmoke=core|ae2|full` selects only the smoke namespace and its
 isolated dependency set.
+
+## Terminal preview benchmark
+
+```bash
+python tools/benchmark_terminal_preview.py --offline --label current
+```
+
+Use JDK 17. This opt-in command starts only the `gregsteamexpansion_preview_benchmark`
+namespace in `build/verification/terminal-preview/`, preserving previous scratch
+worlds under `world-history`. Timestamped `reports/` directories retain raw server
+logs, source hashes and 20 measurements: two rounds of 1/2/8 simulated survival
+owners and 1/4/16 compact steam-crusher targets, plus a large 15x15 furnace
+single-target case per round. Each case has one warmup batch and five timed batches,
+yielding between batches. AE is disabled; owners are called sequentially on the
+server thread. Median and maximum batch times describe preview work only, not real
+multiplayer MSPT, networking, heap allocation or client FPS. See
+[the performance record](../docs/terminal-preview-performance-2026-10-10.md).
+
+The benchmark namespace is excluded from the 192 ordinary regression tests,
+configuration restart and dependency-smoke runs. Timings have no speed threshold.
 
 ## Complete release gate
 
