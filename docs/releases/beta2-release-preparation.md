@@ -1,6 +1,6 @@
 # beta.2 发布准备
 
-当前目标为 `v0.1.0-beta.2` 预发布。本地候选附件与完整门禁已就绪，当前尚未创建此版本的 GitHub Release 或 Git 标签。本轮人工验收已由使用者确认完成，详细结果见[验收记录](beta2-progression-acceptance.md)。
+[v0.1.0-beta.2 预发布](https://github.com/MinazukiGear/gregsteamexpansion/releases/tag/v0.1.0-beta.2)已发布。标签指向四平台门禁全部通过的提交 `297d7824f5376a88f31ef9970f989f4cd57a53a1`，公开附件下载后校验通过。本轮人工验收已由使用者确认完成，详细结果见[验收记录](beta2-progression-acceptance.md)。
 
 ## 候选附件
 
@@ -56,11 +56,11 @@ Windows ARM64 随后暴露自动化 GameTest 的结构检查竞争。修正后�
 
 ## GitHub 状态
 
-首次候选源码已提交并推送为 `5062726b68bebcf4dcbf58e957e68bf1d38297b4`，[首次四平台运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38041574230)已触发。标签应指向最终通过四平台门禁的候选提交，不使用此前 beta.1 基础提交 `7316d3c50d8192423208d6de4beb834198043052`。当前尚未创建 beta.2 标签或 Release。
+首次候选源码已提交并推送为 `5062726b68bebcf4dcbf58e957e68bf1d38297b4`，[首次四平台运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38041574230)已触发。标签应指向最终通过四平台门禁的候选提交，不使用此前 beta.1 基础提交 `7316d3c50d8192423208d6de4beb834198043052`。最终 beta.2 标签与 Release 已创建，目标为 `297d7824f5376a88f31ef9970f989f4cd57a53a1`。
 
 跟进时在本地复现了干净 Windows 检出的动画元数据误报：生成文件使用 CRLF，Git 检出使用 LF，旧的字节比较会认为资源过期。修正只让 `.mcmeta` 使用 UTF-8 文本换行规范化比较，动画参数仍须一致，NBT 等其他产物仍按字节比较。工具夹具由 8 项增至 9 项，标准 Git 检出的 90 项资产比对通过，该项不改变安装包。
 
-`0c7548a3c56d0c27440fe40d431031c78dd1ab34` 的[第二次运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38042027063)中，Windows ARM64 默认套件的 191 项里有 1 项小型离心机自动化检查失败。已核对 GTCEu 7.5.3 的异步检查与锁实现，将自动化夹具的替换、强制检查及成型序列放在同一控制器锁内，保留全部接口组合和断言。后续提交将重新运行四平台完整门禁，最终结果在发布后补录。
+`0c7548a3c56d0c27440fe40d431031c78dd1ab34` 的[第二次运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38042027063)中，Windows ARM64 默认套件的 191 项里有 1 项小型离心机自动化检查失败。已核对 GTCEu 7.5.3 的异步检查与锁实现，将自动化夹具的替换、强制检查及成型序列放在同一控制器锁内，保留全部接口组合和断言。最终提交 `297d7824f5376a88f31ef9970f989f4cd57a53a1` 的[四平台运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38043331790)全部通过。
 
 ## 发布顺序
 
@@ -70,3 +70,16 @@ Windows ARM64 随后暴露自动化 GameTest 的结构检查竞争。修正后�
 4. 下载已上传附件核对哈希，记录发布 URL，再将 README 和版本说明中的“尚未发布”改为实际发布状态。
 
 Windows x64 开发客户端的人工结果已确认；其他平台的实机客户端与大型整合环境继续单独验证。CI 服务端检查不扩展为客户端实测结论。
+
+## 发布结果
+
+发布于 `2026-10-10T10:35:48Z`（UTC），预发布标记为 true。
+
+| CI 平台 | 完整门禁 |
+|---|---|
+| [linux-x64](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38043331790/job/114187850079) | success |
+| [windows-arm64](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38043331790/job/114187850167) | success |
+| [macos-arm64](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38043331790/job/114187850220) | success |
+| [windows-x64](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38043331790/job/114187850224) | success |
+
+公开附件：`gregsteamexpansion-0.1.0-beta.2.jar`（1,615,055 字节）与 `SHA256SUMS.txt`。草稿及公开发布两次下载核对均通过，JAR SHA-256 为 `cc849f8f57bbad0825ad2bc0d9409e4b8150c03f5e85f63910252f8cabbb6263`。原验收包继续保留于本地历史目录。发布记录提交仅修改文档；标签保持指向上述经 CI 验证的源码提交。

@@ -216,10 +216,12 @@ Native binaries, nested dependency JARs and datagen `.cache` files are rejected
 in the addon JAR. These checks describe the addon only; they do not verify the
 host's upstream libraries, graphics drivers or game runtime.
 
-The eight standard-library Python tests inject wrong-case references, collisions,
+The nine standard-library Python tests inject wrong-case references, collisions,
 invalid encoding/JSON, newer bytecode, natives and missing resources, and inspect
 wrapper arguments for Windows/POSIX and Unicode/space paths. They also check
 datagen freshness against existing edits and changed, added or deleted resources.
+The animation metadata fixture accepts LF/CRLF checkout differences while
+rejecting changed frame timing and binary NBT differences.
 The fixture archive test verifies world evidence and configs are preserved and
 unrecognized fixture paths are rejected. Mocked platform
 selection is a tooling regression check, not a test performed on that platform.

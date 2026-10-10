@@ -4,9 +4,9 @@
 
 > **测试版（Beta）**：首个 beta 为 `0.1.0-beta.1`，发布记录见[版本说明](docs/releases/v0.1.0-beta.1.md)。机器基础运行、生存材料事务、服务器重启恢复和可选依赖加载纳入自动验证；大型整合环境仍在持续验证。当前安装包见 [Releases](https://github.com/MinazukiGear/gregsteamexpansion/releases)。
 
-当前发布候选为 `0.1.0-beta.2`，聚焦跨平台门禁、终端多人公平施工、安全取消和客户端配方显示修复；尚未发布，更新内容见[版本说明](docs/releases/v0.1.0-beta.2.md)，候选附件与验证状态见[发布准备记录](docs/releases/beta2-release-preparation.md)。
+当前预发布为 `0.1.0-beta.2`，聚焦跨平台门禁、终端多人公平施工、安全取消和客户端配方显示修复；[安装包与校验文件](https://github.com/MinazukiGear/gregsteamexpansion/releases/tag/v0.1.0-beta.2)已发布，更新内容见[版本说明](docs/releases/v0.1.0-beta.2.md)，附件来源与验证结果见[发布准备记录](docs/releases/beta2-release-preparation.md)。
 
-本轮生存路线、终端多人交互、客户端与旧存档人工验收已由使用者确认完成，结果及当前开发包见[beta.2 验收记录](docs/releases/beta2-progression-acceptance.md)。远端 CI 与其他平台实机验证仍单独记录。
+本轮生存路线、终端多人交互、客户端与旧存档人工验收已由使用者确认完成，结果及验收包来源见[beta.2 验收记录](docs/releases/beta2-progression-acceptance.md)。[四平台服务端 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38043331790) 已通过；其他平台实机客户端仍单独验证。
 >
 > **⚠ 本项目大量使用 AI 辅助开发**：代码、设计文档、语言条目与部分贴图资源均在 AI 协助下完成，全部产出经人工审核后合入。使用的模型包括 **Hy4 preview**、**GLM-5.3-Flash**、**GPT-5.6-Sol** 与 **GPT-6-Astra**。AI 生成的数值、结构规则与接口约定一律以 `docs/design/` 中标注为"已定案"的章节为准，未标注的内容不代表最终设计。欢迎审阅源码与反馈问题。
 
@@ -165,7 +165,7 @@ python tools/generate_assets.py --check
 
 - Mod ID：`gregsteamexpansion`
 - 入口类：`com.hoshino.gregsteamexpansion.GregSteamExpansion`
-- 当前发布候选：`0.1.0-beta.2`（尚未发布；更新说明见 [beta.2](docs/releases/v0.1.0-beta.2.md)）
+- 当前预发布：`0.1.0-beta.2`（[Release](https://github.com/MinazukiGear/gregsteamexpansion/releases/tag/v0.1.0-beta.2)；更新说明见 [beta.2](docs/releases/v0.1.0-beta.2.md)）
 - 许可：代码与功能性资源 LGPL-3.0（`LICENSE.txt`）；`textures/` 图像素材 CC BY-NC-SA 4.0，禁止商用（`LICENSE-ASSETS.txt`）
 
 ## 致谢

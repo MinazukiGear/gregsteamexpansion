@@ -165,3 +165,7 @@ JAR SHA-256 与 `logs/latest.log`。自动门禁使用 `build/verification`，�
    客户端另验声音、窗口/全屏、输入及动画；NixOS 专门核对 JNI 与 GPU 路径。
 
 只有在对应目标机实际执行后才能标记通过，自动验证不能代替上述操作。
+
+## beta.2 发布 CI（2026-10-10）
+
+[最终运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38043331790) 的 Linux x64、Windows x64、Windows ARM64 与 macOS ARM64 均通过完整仓库门禁，对应提交 `297d7824f5376a88f31ef9970f989f4cd57a53a1`。[预发布附件](https://github.com/MinazukiGear/gregsteamexpansion/releases/tag/v0.1.0-beta.2) 已上传并下载核对；平台服务端验证不扩展为客户端图形、驱动或整合包实测结论。

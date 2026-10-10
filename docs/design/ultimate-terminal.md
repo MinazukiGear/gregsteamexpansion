@@ -1,6 +1,6 @@
 # 终极终端
 
-> 状态：`0.1.0-beta.2` 开发版加入多人公平调度与安全取消；依赖 AE2 与 GTM Things 同时存在。本轮客户端与双人交互验收已由使用者确认完成，结果见[验收记录](../releases/beta2-progression-acceptance.md)；大型整合环境继续独立验证。
+> 状态：`0.1.0-beta.2` 预发布加入多人公平调度与安全取消；依赖 AE2 与 GTM Things 同时存在。本轮客户端与双人交互验收已由使用者确认完成，结果见[验收记录](../releases/beta2-progression-acceptance.md)；大型整合环境继续独立验证。
 
 ## 定位与启用条件
 
