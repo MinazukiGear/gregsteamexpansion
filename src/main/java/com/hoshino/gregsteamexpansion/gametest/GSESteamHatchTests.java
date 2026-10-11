@@ -43,6 +43,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
@@ -468,6 +469,10 @@ public final class GSESteamHatchTests {
         // multiblock formation only controls which controller may consume the
         // cached air. External fluid access remains disabled.
         SteamAirIntakeHatchPartMachine intake = GSEStructureTestUtils.placeMachine(helper, GSEMachines.STEAM_AIR_INTAKE_HATCH, HATCH_POS);
+        // Keep the inlet inside the empty template instead of depending on
+        // whichever block or neighbouring fixture happens to be north of it.
+        intake.setFrontFacing(Direction.EAST);
+        helper.setBlock(HATCH_POS_EAST, Blocks.AIR);
         BlockEntity blockEntity = helper.getLevel().getBlockEntity(helper.absolutePos(HATCH_POS));
         helper.assertTrue(blockEntity != null, "Steam air intake hatch block entity was missing");
         if (blockEntity != null) {
@@ -479,41 +484,46 @@ public final class GSESteamHatchTests {
                     "Steam air intake hatch exposed a usable fluid capability");
         }
 
-        helper.runAfterDelay(SteamAirIntakeHatchPartMachine.COLLECT_CYCLE_TICKS + 20, () -> {
-            helper.assertTrue(intake.tank.getFluidInTank(0).getAmount() ==
-                            SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT,
-                    "Standalone steam air intake hatch did not complete one collection cycle");
-            helper.assertTrue(intake.getIntakeStatus() ==
-                            SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,
-                    "Standalone steam air intake hatch did not report collecting status");
+        // Observe the first actual batch; chunk/tick subscription readiness is
+        // asynchronous, so a fixed delay from placement is not a cycle boundary.
+        helper.startSequence().thenWaitUntil(() -> helper.assertTrue(
+                intake.tank.getFluidInTank(0).getAmount() > 0,
+                "Standalone intake did not collect: status=" + intake.getIntakeStatus()
+                        + ", ticksUntilCollection=" + intake.getTicksUntilCollection()))
+                .thenExecute(() -> {
+                    helper.assertTrue(intake.tank.getFluidInTank(0).getAmount() ==
+                                    SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT,
+                            "Standalone steam air intake hatch did not complete one collection cycle");
+                    helper.assertTrue(intake.getIntakeStatus() ==
+                                    SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,
+                            "Standalone steam air intake hatch did not report collecting status");
 
-            CompoundTag saved = blockEntity.saveWithoutMetadata();
-            intake.tank.getStorages()[0].setFluid(net.minecraftforge.fluids.FluidStack.EMPTY);
-            blockEntity.load(saved);
-            helper.assertTrue(intake.tank.getFluidInTank(0).getAmount() ==
-                            SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT,
-                    "Steam air intake hatch lost cached air across NBT reload");
+                    CompoundTag saved = blockEntity.saveWithoutMetadata();
+                    intake.tank.getStorages()[0].setFluid(net.minecraftforge.fluids.FluidStack.EMPTY);
+                    blockEntity.load(saved);
+                    helper.assertTrue(intake.tank.getFluidInTank(0).getAmount() ==
+                                    SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT,
+                            "Steam air intake hatch lost cached air across NBT reload");
 
-            CompoundTag serverData = new CompoundTag();
-            BlockAccessor accessor = GSESteamEngineTestSupport.jadeAccessor(intake, serverData);
-            Object airProvider = GSESteamEngineTestSupport.jadeProvider("AirIntakeProvider");
-            ((IServerDataProvider<BlockAccessor>) airProvider).appendServerData(serverData, accessor);
-            List<Component> lines = new ArrayList<>();
-            Set<ResourceLocation> tags = new HashSet<>();
-            ITooltip tooltip = GSESteamEngineTestSupport.jadeTooltip(lines, tags);
-            ((IBlockComponentProvider) airProvider).appendTooltip(tooltip, accessor, null);
-            ResourceLocation fallbackStorage = GregSteamExpansion.id("steam_air_intake_fluid_summary");
-            helper.assertTrue(tags.contains(fallbackStorage),
-                    "Air intake tooltip omitted its fallback storage bar");
-            tags.add(Identifiers.UNIVERSAL_FLUID_STORAGE);
-            Object deduplication = GSESteamEngineTestSupport.jadeProvider("TooltipDeduplication");
-            ((JadeTooltipCollectedCallback) deduplication).onTooltipCollected(tooltip, accessor);
-            helper.assertTrue(tags.contains(Identifiers.UNIVERSAL_FLUID_STORAGE),
-                    "Air intake tooltip removed the preferred upstream fluid view");
-            helper.assertTrue(!tags.contains(fallbackStorage),
-                    "Air intake tooltip retained its fallback bar beside the upstream fluid view");
-            helper.succeed();
-        });
+                    CompoundTag serverData = new CompoundTag();
+                    BlockAccessor accessor = GSESteamEngineTestSupport.jadeAccessor(intake, serverData);
+                    Object airProvider = GSESteamEngineTestSupport.jadeProvider("AirIntakeProvider");
+                    ((IServerDataProvider<BlockAccessor>) airProvider).appendServerData(serverData, accessor);
+                    List<Component> lines = new ArrayList<>();
+                    Set<ResourceLocation> tags = new HashSet<>();
+                    ITooltip tooltip = GSESteamEngineTestSupport.jadeTooltip(lines, tags);
+                    ((IBlockComponentProvider) airProvider).appendTooltip(tooltip, accessor, null);
+                    ResourceLocation fallbackStorage = GregSteamExpansion.id("steam_air_intake_fluid_summary");
+                    helper.assertTrue(tags.contains(fallbackStorage),
+                            "Air intake tooltip omitted its fallback storage bar");
+                    tags.add(Identifiers.UNIVERSAL_FLUID_STORAGE);
+                    Object deduplication = GSESteamEngineTestSupport.jadeProvider("TooltipDeduplication");
+                    ((JadeTooltipCollectedCallback) deduplication).onTooltipCollected(tooltip, accessor);
+                    helper.assertTrue(tags.contains(Identifiers.UNIVERSAL_FLUID_STORAGE),
+                            "Air intake tooltip removed the preferred upstream fluid view");
+                    helper.assertTrue(!tags.contains(fallbackStorage),
+                            "Air intake tooltip retained its fallback bar beside the upstream fluid view");
+                }).thenSucceed();
     }
 
     @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 20)

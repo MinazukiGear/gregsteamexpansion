@@ -6,11 +6,13 @@ import com.hoshino.gregsteamexpansion.recipe.RecipeCacheLifecycle;
 import com.hoshino.gregsteamexpansion.recipe.SteamRecipeCache;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamAirIntakeHatchPartMachine;
+import com.hoshino.gregsteamexpansion.machine.multiblock.part.SteamSupplyHatchPartMachine;
 import com.hoshino.gregsteamexpansion.machine.multiblock.processor.AbstractSteamProcessorMachine;
 
 import com.gregtechceu.gtceu.api.capability.recipe.IO;
 import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
 import com.gregtechceu.gtceu.api.data.RotationState;
+import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
 import com.gregtechceu.gtceu.common.data.GTMachines;
 import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
@@ -23,6 +25,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraft.world.item.Items;
@@ -187,6 +190,13 @@ public final class GSERecipeOptimizationTests {
         // the 3-wide structure, so it reads as air.
         BlockPos relativeHatch = new BlockPos(16 + 1, 16 + 0, 16 + 1);
         helper.setBlock(relativeHatch, intakeState);
+        SteamAirIntakeHatchPartMachine intake = (SteamAirIntakeHatchPartMachine)
+                MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(relativeHatch));
+        helper.assertTrue(intake != null, "Missing air intake runtime instance");
+        intake.setFrontFacing(Direction.EAST);
+        // Own the inlet cell as well as the hatch; never depend on leftover
+        // blocks in an otherwise empty structure template.
+        helper.setBlock(relativeHatch.east(), Blocks.AIR);
 
         // Two more output slots: the east side wall's upper cells (shape x=2
         // at y=1/z=1 and y=2/z=1). Direction.NORTH keeps them flush with the
@@ -208,14 +218,11 @@ public final class GSERecipeOptimizationTests {
                                 + " error=" + (machine.getMultiblockState() == null
                                         || machine.getMultiblockState().error == null ? "none"
                                         : machine.getMultiblockState().error.getClass().getSimpleName())))
-                // The hatch publishes its status on its own server tick; controller
-                // formation can become visible before that status refresh happens.
+                // COLLECTING is also the initial display status. Wait for real
+                // collection so placement/formation alone cannot satisfy this step.
                 .thenWaitUntil(() -> {
-                    var intake = machine.getParts().stream()
-                            .filter(part -> part instanceof SteamAirIntakeHatchPartMachine)
-                            .map(part -> (SteamAirIntakeHatchPartMachine) part)
-                            .findFirst().orElse(null);
-                    helper.assertTrue(intake != null, "Swapped cell did not become an air intake hatch at "
+                    helper.assertTrue(machine.getParts().contains(intake),
+                            "Swapped cell did not become an air intake hatch at "
                             + helper.absolutePos(relativeHatch));
                     // Air is deliberately NOT primed by hand: the whole point is
                     // that the hatch's own environment collection fills the
@@ -223,25 +230,30 @@ public final class GSERecipeOptimizationTests {
                     // 10,000 mB and the hatch banks 2,000 mB per 40-tick cycle,
                     // so five cycles are needed — this also guards the cache
                     // accumulating instead of overwriting itself every cycle.
-                    helper.assertTrue(intake.getIntakeStatus()
-                            == SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,
-                            "Intake is not collecting; status=" + intake.getIntakeStatus().getId());
+                    helper.assertTrue(intake.tank.getFluidInTank(0).getAmount() > 0
+                                    && intake.getIntakeStatus()
+                                    == SteamAirIntakeHatchPartMachine.IntakeStatus.COLLECTING,
+                            "Intake is not collecting; status=" + intake.getIntakeStatus().getId()
+                                    + " facing=" + intake.getFrontFacing()
+                                    + " front=" + helper.getLevel().getBlockState(
+                                            intake.getPos().relative(intake.getFrontFacing())));
                 })
                 .thenExecute(() -> {
                     // A batch can only leave the idle state once the per-tick
                     // steam draw succeeds, so the supply hatch has to be primed.
+                    // Part iteration order does not identify the supply: ordinary
+                    // fluid input/output hatches are the same base class.
                     var supply = machine.getParts().stream()
-                            .filter(part -> part instanceof FluidHatchPartMachine)
-                            .map(part -> (FluidHatchPartMachine) part)
+                            .filter(part -> part instanceof SteamSupplyHatchPartMachine)
+                            .map(part -> (SteamSupplyHatchPartMachine) part)
                             .findFirst().orElse(null);
-                    helper.assertTrue(supply != null, "Centrifuge has no fluid input hatch to prime steam");
+                    helper.assertTrue(supply != null, "Centrifuge has no steam supply hatch to prime");
                     supply.tank.getStorages()[0].setFluid(
                             new FluidStack(GTMaterials.Steam.getFluid(), 32_000));
                 })
-                // 5 collection cycles (200 ticks) to bank 10,000 mB, plus the
-                // 20-tick idle retry window for the machine to notice it.
-                .thenIdle(320)
-                .thenExecute(() -> helper.assertTrue(machine.getBatchParallel() > 0,
+                // Observe the first start inside the existing 400-tick deadline.
+                // A fixed late sample can miss a batch that already completed.
+                .thenWaitUntil(() -> helper.assertTrue(machine.getBatchParallel() > 0,
                         "Centrifuge with a primed air intake never started air_separation"
                                 + " | formed=" + machine.isFormed()
                                 + " hasAirIntake=" + machine.hasAirIntake()
@@ -250,9 +262,15 @@ public final class GSERecipeOptimizationTests {
                                 + " batchId=" + machine.getBatchRecipeId()
                                 + " consumingSteam=" + machine.isConsumingSteam()
                                 + " progress=" + machine.getBatchProgress()
+                                + " facing=" + intake.getFrontFacing()
+                                + " front=" + helper.getLevel().getBlockState(
+                                        intake.getPos().relative(intake.getFrontFacing()))
                                 + " parts=" + machine.getParts().stream()
                                         .map(part -> part.getClass().getSimpleName())
                                         .collect(java.util.stream.Collectors.joining(","))))
+                .thenExecute(() -> helper.assertTrue(
+                        machine.getBatchRecipeId().equals("gtceu:centrifuge/air_separation"),
+                        "Intake started an unexpected recipe: " + machine.getBatchRecipeId()))
                 .thenSucceed();
     }
 

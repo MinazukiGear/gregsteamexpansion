@@ -103,6 +103,14 @@ python tools/benchmark_terminal_preview.py --mode refresh --offline --label opti
 - 9 项可移植性工具负向夹具、编译、datagen 一致性、92 个生成资产、语言键、设计契约、获取路线、经济与构建门禁通过。
 - JAR 审计检查 425 个 Java 17 类和 429 个资源；设计统计为 193 项普通测试、24 项终端测试，历史性能和发布记录保留当时统计。
 
-开发构建位于 `build/libs/gregsteamexpansion-0.1.0-beta.2.jar`，大小 `1,658,270` 字节，SHA-256 为 `a1cc0b5263555e197773a9b9b0bf41c55b7f6468583a04d4608857325ad88580`。本轮没有发布新附件；公开 `dist/0.1.0-beta.2/` JAR 仍为 `cc849f8f57bbad0825ad2bc0d9409e4b8150c03f5e85f63910252f8cabbb6263`。最终检查原存档、配置、选项及公开 JAR 的 85 份文件哈希未变，原有三份 GameTest 空结构模板字节也未变。
+上述性能验收时的开发构建位于 `build/libs/gregsteamexpansion-0.1.0-beta.2.jar`，大小 `1,658,270` 字节，SHA-256 为 `a1cc0b5263555e197773a9b9b0bf41c55b7f6468583a04d4608857325ad88580`；该摘要标识当时构建，后续测试夹具修复会重新生成开发 JAR。本轮没有发布新附件；公开 `dist/0.1.0-beta.2/` JAR 仍为 `cc849f8f57bbad0825ad2bc0d9409e4b8150c03f5e85f63910252f8cabbb6263`。最终检查原存档、配置、选项及公开 JAR 的 85 份文件哈希未变，原有三份 GameTest 空结构模板字节也未变。
+
+## 候选源码 CI 的夹具修正
+
+首次推送候选源码 `eb7ddbe` 的[四平台 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38138927386)在 macOS arm64 重启写入阶段报告 `steam_air_intake_collects_while_unformed` 未完成采集，在 Windows arm64 的 Easy 配置阶段报告 `air_intake_alone_starts_air_batch` 未检测到启动。此前本机完整门禁通过，两个失败来自已有空气链路测试，需要处理后重新核验候选源码。
+
+独立进气测试现在把入口朝东放在自身模板内并明确清空入口格，在原有 100 tick 超时内观察首批实际采集，再保留精确 `2,000 mB`、NBT 存储、外部能力关闭和 Jade 去重断言。离心机测试明确设置朝外入口，按 `SteamSupplyHatchPartMachine` 类型注入蒸汽，避免部件遍历顺序把蒸汽写入普通流体仓；在原有 400 tick 超时内等待真实采集和首次启动，并核对启动配方为 `gtceu:centrifuge/air_separation`。空气仍完全由真实入口采集，没有手动注入空气。失败诊断补充入口朝向和前方方块。机器生产逻辑、终端刷新代码和基准的十份测量输入均未改动，测试数量仍为 `193`。
+
+两处修正共同通过本机重启核验阶段的 `193/193` 项回归和 `build` 审计，记录为 `.tmp/terminal-refresh-ci-fix-validation.log`。四平台门禁结果按最新提交关联的 Actions 运行核验，不用旧提交的通过记录代替。
 
 仍需单独测量真实 AE 网络、真实客户端全息 FPS 和正式安装环境。单个多目标或大型结构仍可超过 50 ms，后续应围绕单人规划、材料统计和差异比较的成本继续定位，保持玩家隔离、状态新鲜度和施工前实时校验。新机器设计按使用者指令继续冻结。
