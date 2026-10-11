@@ -220,59 +220,59 @@ public final class GSEStructureFormationTests {
                         helper.getLevel().setBlockAndUpdate(
                                 pos, GSEProcessorPatterns.blastBricks().defaultBlockState());
                     }
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace formed without an air intake hatch");
                     intakeStates.forEach(helper.getLevel()::setBlockAndUpdate);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace did not recover after restoring its air intakes");
 
                     BlockState intakeState = intakeStates.get(intakes.get(0));
                     for (int i = 0; i < 5; i++) {
                         helper.getLevel().setBlockAndUpdate(bricks.get(i), intakeState);
                     }
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace rejected the legal eight-intake maximum");
                     helper.getLevel().setBlockAndUpdate(bricks.get(5), intakeState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace formed with a ninth air intake hatch");
                     for (int i = 0; i < 6; i++) {
                         helper.getLevel().setBlockAndUpdate(
                                 bricks.get(i), GSEProcessorPatterns.blastBricks().defaultBlockState());
                     }
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace did not recover after removing excess air intakes");
 
                     BlockPos fluidProbe = bricks.get(6);
                     helper.getLevel().setBlockAndUpdate(
                             fluidProbe, GTMachines.FLUID_IMPORT_HATCH[1].getBlock().defaultBlockState());
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace accepted a standard fluid input hatch");
                     helper.getLevel().setBlockAndUpdate(fluidProbe,
                             GSEMachines.STEAM_FLUID_IMPORT_HATCH.getBlock().defaultBlockState());
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace accepted a steam fluid input hatch");
                     helper.getLevel().setBlockAndUpdate(
                             fluidProbe, GSEProcessorPatterns.blastBricks().defaultBlockState());
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace did not recover after removing the fluid hatch");
 
                     BlockPos exhaust = exhausts.get(0);
                     BlockState exhaustState = helper.getLevel().getBlockState(exhaust);
                     helper.getLevel().setBlockAndUpdate(
                             exhaust, GSEProcessorPatterns.blastBricks().defaultBlockState());
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace formed without its exhaust hatch");
                     helper.getLevel().setBlockAndUpdate(exhaust, exhaustState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace did not recover after restoring its exhaust hatch");
 
                     BlockPos duplicateExhaust = bricks.get(7);
                     helper.getLevel().setBlockAndUpdate(duplicateExhaust, exhaustState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace formed with two exhaust hatches");
                     helper.getLevel().setBlockAndUpdate(
                             duplicateExhaust, GSEProcessorPatterns.blastBricks().defaultBlockState());
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Blast furnace did not recover after removing its duplicate exhaust");
                     machine.onStructureFormed();
                     helper.assertTrue(machine.isFormed(),
@@ -309,7 +309,7 @@ public final class GSEStructureFormationTests {
             helper.getLevel().setBlockAndUpdate(bricks.get(i),
                     GSEMachines.STEAM_SUPPLY_HATCH.getBlock().defaultBlockState());
         }
-        helper.assertTrue(machine.checkPattern(),
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                 "Blast furnace rejected 29 interfaces despite having no combined cap");
         machine.onStructureFormed();
         helper.assertTrue(machine.isFormed(),
@@ -343,7 +343,7 @@ public final class GSEStructureFormationTests {
             }
             helper.assertTrue(machine.getFrontFacing() == facing,
                     "Blast-furnace controller did not retain " + facing + " facing");
-            helper.assertTrue(machine.checkPattern(),
+            helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                     facing + " blast-furnace structure did not match its pattern");
             machines.add(machine);
         }
@@ -387,9 +387,9 @@ public final class GSEStructureFormationTests {
                     "Shared tuyere wall contains air at z=" + z);
         }
 
-        helper.assertTrue(left.checkPattern(),
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(left),
                 "Left blast furnace rejected the shared side wall");
-        helper.assertTrue(right.checkPattern(),
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(right),
                 "Right blast furnace rejected the shared side wall");
         helper.startSequence()
                 .thenWaitUntil(() -> {
@@ -455,7 +455,7 @@ public final class GSEStructureFormationTests {
         if (machine == null) {
             return;
         }
-        helper.assertTrue(machine.checkPattern(), "Exact large steam assembler shape did not match its pattern");
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(machine), "Exact large steam assembler shape did not match its pattern");
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
                         "Exact large steam assembler did not become formed"))
@@ -497,41 +497,41 @@ public final class GSEStructureFormationTests {
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
                         "Baseline large steam assembler fixture did not form"))
-                .thenExecute(() -> {
+                .thenExecute(() -> GSEStructureTestUtils.withPatternLock(machine, () -> {
                     machine.onStructureInvalid();
 
                     helper.getLevel().setBlockAndUpdate(wall, hatchState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler rejected a supply hatch on its wall");
                     helper.getLevel().setBlockAndUpdate(wall, wallState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler did not recover its wall casing");
 
                     helper.getLevel().setBlockAndUpdate(bottom, hatchState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler accepted a hatch on its bottom face");
                     helper.getLevel().setBlockAndUpdate(bottom, bottomState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler did not recover its bottom casing");
 
                     helper.getLevel().setBlockAndUpdate(top, hatchState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler accepted a hatch on its top face");
                     helper.getLevel().setBlockAndUpdate(top, topState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler did not recover its top casing");
 
                     helper.getLevel().setBlockAndUpdate(verticalEdge, hatchState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler accepted a hatch on its vertical edge");
                     helper.getLevel().setBlockAndUpdate(verticalEdge, edgeState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler did not recover its edge casing");
 
                     machine.onStructureFormed();
                     helper.assertTrue(machine.isFormed(),
                             "Large steam assembler remained invalid after restoring its shell");
-                })
+                }))
                 .thenSucceed();
     }
 
@@ -563,32 +563,32 @@ public final class GSEStructureFormationTests {
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
                         "Baseline large steam assembler fixture did not form"))
-                .thenExecute(() -> {
+                .thenExecute(() -> GSEStructureTestUtils.withPatternLock(machine, () -> {
                     machine.onStructureInvalid();
                     BlockPos exhaust = exhausts.get(0);
                     BlockState exhaustState = helper.getLevel().getBlockState(exhaust);
                     BlockState wallState = GSEProcessorPatterns.bronzeSteamCasing().defaultBlockState();
 
                     helper.getLevel().setBlockAndUpdate(exhaust, wallState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler formed without an exhaust hatch");
                     helper.getLevel().setBlockAndUpdate(exhaust, exhaustState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler did not recover after restoring its exhaust hatch");
 
                     BlockPos duplicate = wallCasings.get(0);
                     BlockState duplicateOriginal = helper.getLevel().getBlockState(duplicate);
                     helper.getLevel().setBlockAndUpdate(duplicate, exhaustState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler formed with two exhaust hatches");
                     helper.getLevel().setBlockAndUpdate(duplicate, duplicateOriginal);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam assembler did not recover after removing its duplicate exhaust");
 
                     machine.onStructureFormed();
                     helper.assertTrue(machine.isFormed(),
                             "Large steam assembler remained invalid with exactly one exhaust hatch");
-                })
+                }))
                 .thenSucceed();
     }
 
@@ -619,8 +619,8 @@ public final class GSEStructureFormationTests {
             }
         }
 
-        helper.assertTrue(left.checkPattern(), "Left assembler rejected the shared side wall");
-        helper.assertTrue(right.checkPattern(), "Right assembler rejected the shared side wall");
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(left), "Left assembler rejected the shared side wall");
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(right), "Right assembler rejected the shared side wall");
         helper.startSequence()
                 .thenWaitUntil(() -> {
                     helper.assertTrue(left.isFormed(),
@@ -735,7 +735,7 @@ public final class GSEStructureFormationTests {
         if (machine == null) {
             return;
         }
-        helper.assertTrue(machine.checkPattern(),
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                 "Exact large steam circuit assembler shape did not match its pattern");
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
@@ -776,41 +776,41 @@ public final class GSEStructureFormationTests {
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
                         "Baseline large steam circuit assembler fixture did not form"))
-                .thenExecute(() -> {
+                .thenExecute(() -> GSEStructureTestUtils.withPatternLock(machine, () -> {
                     machine.onStructureInvalid();
 
                     helper.getLevel().setBlockAndUpdate(wall, hatchState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler rejected a supply hatch on its wall");
                     helper.getLevel().setBlockAndUpdate(wall, wallState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler did not recover its wall casing");
 
                     helper.getLevel().setBlockAndUpdate(bottom, hatchState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler rejected a supply hatch on its bottom face");
                     helper.getLevel().setBlockAndUpdate(bottom, bottomState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler did not recover its bottom casing");
 
                     helper.getLevel().setBlockAndUpdate(ridge, hatchState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler accepted a hatch on its industrial ridge");
                     helper.getLevel().setBlockAndUpdate(ridge, ridgeState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler did not recover its ridge casing");
 
                     helper.getLevel().setBlockAndUpdate(processTower, hatchState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler accepted a hatch in its process tower");
                     helper.getLevel().setBlockAndUpdate(processTower, processTowerState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler did not recover its process tower");
 
                     machine.onStructureFormed();
                     helper.assertTrue(machine.isFormed(),
                             "Large steam circuit assembler remained invalid after restoring its structure");
-                })
+                }))
                 .thenSucceed();
     }
 
@@ -843,32 +843,32 @@ public final class GSEStructureFormationTests {
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(machine.isFormed(),
                         "Baseline large steam circuit assembler fixture did not form"))
-                .thenExecute(() -> {
+                .thenExecute(() -> GSEStructureTestUtils.withPatternLock(machine, () -> {
                     machine.onStructureInvalid();
                     BlockPos exhaust = exhausts.get(0);
                     BlockState exhaustState = helper.getLevel().getBlockState(exhaust);
                     BlockState casingState = GSEProcessorPatterns.bronzeSteamCasing().defaultBlockState();
 
                     helper.getLevel().setBlockAndUpdate(exhaust, casingState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler formed without an exhaust hatch");
                     helper.getLevel().setBlockAndUpdate(exhaust, exhaustState);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler did not recover its exhaust hatch");
 
                     BlockPos duplicate = shellCasings.get(0);
                     BlockState duplicateOriginal = helper.getLevel().getBlockState(duplicate);
                     helper.getLevel().setBlockAndUpdate(duplicate, exhaustState);
-                    helper.assertTrue(!machine.checkPattern(),
+                    helper.assertTrue(!GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler formed with two exhaust hatches");
                     helper.getLevel().setBlockAndUpdate(duplicate, duplicateOriginal);
-                    helper.assertTrue(machine.checkPattern(),
+                    helper.assertTrue(GSEStructureTestUtils.checkPattern(machine),
                             "Large steam circuit assembler did not recover after removing its duplicate exhaust");
 
                     machine.onStructureFormed();
                     helper.assertTrue(machine.isFormed(),
                             "Large steam circuit assembler remained invalid with exactly one exhaust hatch");
-                })
+                }))
                 .thenSucceed();
     }
 
@@ -903,9 +903,9 @@ public final class GSEStructureFormationTests {
                     "Shared circuit assembler roof edge differs at x=" + x);
         }
 
-        helper.assertTrue(north.checkPattern(),
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(north),
                 "North-facing circuit assembler rejected the shared rear wall");
-        helper.assertTrue(south.checkPattern(),
+        helper.assertTrue(GSEStructureTestUtils.checkPattern(south),
                 "South-facing circuit assembler rejected the shared rear wall");
         helper.startSequence()
                 .thenWaitUntil(() -> {

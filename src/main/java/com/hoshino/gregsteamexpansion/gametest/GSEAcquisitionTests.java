@@ -9,6 +9,7 @@ import com.gregtechceu.gtceu.api.data.chemical.ChemicalHelper;
 import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
+import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
@@ -119,7 +120,7 @@ public final class GSEAcquisitionTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty_32x32x32", timeoutTicks = 2_100)
+    @GameTest(template = "empty_32x32x32", batch = "first_steel_progression", timeoutTicks = 2_100)
     public static void acquisitionIngredientsResolveWithoutInternalDeadlocks(GameTestHelper helper) {
         var recipeManager = helper.getLevel().getRecipeManager();
         var registryAccess = helper.getLevel().registryAccess();
@@ -167,6 +168,14 @@ public final class GSEAcquisitionTests {
                 helper, definition, definition.getMatchingShapes().get(0));
         helper.assertTrue(furnace != null, "Primitive first-steel furnace was not placed");
         ItemStack steel = ChemicalHelper.get(TagPrefix.ingot, GTMaterials.Steel);
+        // This real 1,800-tick recipe must not share its run with fixtures that
+        // unload/reload chunks or replace machine blocks. Keep the original
+        // bounded timeout and report enough state to distinguish a stalled
+        // recipe from a stale runtime instance if it still fails.
+        for (int tick : new int[] { 300, 1_000, 1_800, 2_100 }) {
+            helper.runAtTickTime(tick, () -> GregSteamExpansion.LOGGER.info(
+                    "[Progression] First steel checkpoint: {}", firstSteelState(helper, furnace)));
+        }
         helper.startSequence()
                 .thenWaitUntil(() -> helper.assertTrue(furnace.isFormed(), "Primitive first-steel furnace did not form"))
                 .thenExecute(() -> {
@@ -183,9 +192,12 @@ public final class GSEAcquisitionTests {
                             "First-steel fixture substituted or shortened the upstream recipe");
                     GregSteamExpansion.LOGGER.info("[Progression] First steel running recipe={}, durationTicks={}.",
                             running.getId(), running.duration);
+                    GregSteamExpansion.LOGGER.info("[Progression] First steel started: {}",
+                            firstSteelState(helper, furnace));
                 })
                 .thenWaitUntil(() -> helper.assertTrue(furnace.exportItems.getStackInSlot(0).is(steel.getItem()),
-                        "Iron and charcoal did not produce the first steel through the upstream furnace"))
+                        "Iron and charcoal did not produce the first steel through the upstream furnace: "
+                                + firstSteelState(helper, furnace)))
                 .thenExecute(() -> {
                     helper.assertTrue(furnace.exportItems.getStackInSlot(0).getCount() == 1,
                             "Bootstrap steel output was not exactly one ingot");
@@ -195,6 +207,15 @@ public final class GSEAcquisitionTests {
                     GregSteamExpansion.LOGGER.info("[Progression] First steel completed using upstream iron + two charcoal, without steam or electricity.");
                 })
                 .thenSucceed();
+    }
+
+    private static String firstSteelState(GameTestHelper helper, PrimitiveBlastFurnaceMachine furnace) {
+        var logic = furnace.getRecipeLogic();
+        return "tick=" + helper.getTick() + ", pos=" + furnace.getPos()
+                + ", sameInstance=" + (MetaMachine.getMachine(helper.getLevel(), furnace.getPos()) == furnace)
+                + ", invalid=" + furnace.isInValid() + ", formed=" + furnace.isFormed()
+                + ", status=" + logic.getStatus() + ", progress=" + logic.getProgress()
+                + "/" + logic.getDuration() + ", output=" + furnace.exportItems.getStackInSlot(0);
     }
 
     private static void assertEarlyProgressionRoutes(GameTestHelper helper) {

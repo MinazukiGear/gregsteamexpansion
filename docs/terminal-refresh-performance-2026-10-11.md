@@ -113,4 +113,12 @@ python tools/benchmark_terminal_preview.py --mode refresh --offline --label opti
 
 两处修正共同通过本机重启核验阶段的 `193/193` 项回归和 `build` 审计，记录为 `.tmp/terminal-refresh-ci-fix-validation.log`。四平台门禁结果按最新提交关联的 Actions 运行核验，不用旧提交的通过记录代替。
 
+修正提交 `732a9d2` 的[四平台 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38140645803)中，Linux x64、Windows x64、macOS arm64 完整门禁通过。Windows arm64 首次运行的六轮各 `193/193` 项回归也通过，随后仅必需前置的冒烟服务器在生成出生区 `83%` 后没有继续输出，直到作业 90 分钟超时；该日志没有线程转储，不能确定停滞原因。单独重跑 Windows arm64 后，普通回归通过，但重启写入阶段的旧 `acquisition_ingredients_resolve_without_internal_deadlocks` 测试未在期限内产出首钢，日志只确认上游 `1,800 tick` 配方已经启动，未记录进度和机器实例状态。
+
+首钢验收现在单独放入 `first_steel_progression` 批次，避免与卸载/重载区块和替换机器方块的其他夹具同时运行；保留原有 `2,100 tick` 上限、真实上游配方、一个铁锭和两个木炭的精确消耗，以及恰好一个钢锭的输出断言。增加启动和定点状态日志，失败时报告测试 tick、位置、实例是否仍相同、结构状态和配方进度。这是测试隔离和诊断修正，尚不能据此断言前次失败的根因；机器生产逻辑和十份终端测量输入均未改动。
+
+本机继续核验时，在 `largeSteamAssemblerRestrictsHatchesToWallCasings` 捕获 `Long2ObjectOpenHashMap.rehash` 数组越界，服务端和 GTCEu 异步线程同时报告对该装配机匹配状态的访问错误，记录为 `.tmp/terminal-refresh-fixture-race-initial.log`。结构验收类的手动模式检查统一改用已有的加锁、强制重查工具；大型装配机和电路装配机的四段结构修改/核验/恢复流程也持有同一控制器的模式锁，避免异步检查介入中间状态。所有原有结构允许/拒绝断言和超时仍保留，没有更改机器运行逻辑。
+
+上述附加修正后的本机普通回归 `193/193` 项通过：首钢在测试第 `47 tick` 启动，进度检查随真实机器 tick 推进，并在原有上限内产出钢；结构验收也通过。记录为 `.tmp/terminal-refresh-first-steel-validation.log`。重启和完整门禁以最终源码的实际运行结果核验。
+
 仍需单独测量真实 AE 网络、真实客户端全息 FPS 和正式安装环境。单个多目标或大型结构仍可超过 50 ms，后续应围绕单人规划、材料统计和差异比较的成本继续定位，保持玩家隔离、状态新鲜度和施工前实时校验。新机器设计按使用者指令继续冻结。
