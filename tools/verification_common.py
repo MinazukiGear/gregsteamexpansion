@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 def archive_fixture_world(fixture: str) -> Path | None:
     """Start a fresh scratch world while retaining the previous failure/persistence evidence."""
     if fixture not in {"gametest", "server-restart", "config-restart",
-                       "dependency-core", "dependency-ae2", "dependency-full", "terminal-preview"}:
+                       "dependency-core", "dependency-ae2", "dependency-full", "terminal-preview", "terminal-refresh"}:
         raise ValueError(f"Unknown verification fixture: {fixture}")
     verification = ROOT.resolve() / "build" / "verification"
     world = verification / fixture / "world"

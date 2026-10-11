@@ -30,7 +30,7 @@
 - **大型蒸汽采矿厂 / 大型蒸汽流体钻井**（F1/F2 旗舰）：纯虚空生产机器——采矿厂 4 工位每 200 tick 按权重抽取粗矿 ×8/抽（满速 12,000 mB/t），流体钻井 2 泵位抽主世界油类流体 2,000 mB/抽（满速 6,000 mB/t）；产出倍率 Easy 4× / Normal 2× / Expert 1×；配置开关与可覆盖权重表见 `machines.large_steam_ore_plant.*` / `machines.large_steam_fluid_drill.*`（重启生效，禁用时机器不可运行）。
 - **可选全局工作强度机制**：默认关闭；启用后可选 Easy / Normal / Expert，影响产量、预热成本、蒸汽消耗等数值。三档的全部运行时参数、5 个本模组配方加难开关和 19 个 GTCEu 配方开关均可由整合包作者分别配置；本模组非控制器方块产量与 `gtceuCasingsPerCraft` 统一。首次启动可在游戏内选择，保存并完整重启后生效；关闭时所有难度倍率为 `1×`，且不接管 GTCEu 难度配置。
 
-上述机器的设计规格与验收清单见 [`docs/design/`](docs/design/) 对应文档；[`docs/design/next-machine-candidates.md`](docs/design/next-machine-candidates.md) 是**后续机器可实现列表**（含已立项/已实现状态与裁定留痕），剩余可实现方向为发酵厂（C4）、筛分厂（C5a）、磁选厂（C5b）及锯木厂等新方向，均未立项。
+上述机器的设计规格与验收清单见 [`docs/design/`](docs/design/) 对应文档。2026-10-11，使用者明确冻结新机器工作；除非使用者再次主动提出，不开展候选讨论、设计、配方生态核验或实现排期。[原候选清单](docs/design/next-machine-candidates.md)仅作历史档案保留。
 
 截至 2026-09-13，使用者已确认全部机器能够在游戏内正常运行；这代表基础运行冒烟测试通过，不等同于各设计文档中的存档、异常状态、兼容性和数值边界清单已经全部验收。对应清单位于各设计文档末尾，设计状态、代码入口与当前待办汇总见 [设计文档索引](docs/design/README.md)。
 
@@ -55,7 +55,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat -PgseVerificationRun=gametest runGameTestServer # 运行全部 GameTest（192 个，见下）
+.\gradlew.bat -PgseVerificationRun=gametest runGameTestServer # 运行全部 GameTest（193 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -94,6 +94,7 @@ Java、启动器与上游原生库架构。跨平台环境、Linux 发行版/Nix
 | `GSEStructureDiagnosticsTests` | 缺块/数量/一致性诊断、候选去重截断、哨兵状态安全、NBT 传输及成型后清除（7 个） |
 | `GSETerminalTests` | 终极终端配置 NBT 往返、全息蓝图状态分类、已成型与未成型结构拆除、结构尺寸/无仓室规划、多面模块组合、稳定 ID 迁移、布局冲突与网络边界、队列续作与空气占用回滚、创造模式无限材料，以及原生 GTCEu 控制器通用兼容（11 个） |
 | `GSETerminalPreviewTests` | 多目标材料汇总、选中目标切换、四种模式、世界/库存变化及卸载目标预览回归（1 个） |
+| `GSETerminalRefreshTests` | 八人独立预览与材料数据、每 10 tick 错峰刷新、世界/库存变化、主动请求、收起/重新持有及离线/重连（1 个） |
 | `GSETerminalTransactionTests` | 生存材料托管、取料失败退款、离线/维度/未加载暂停、外部方块归属、精确状态升级回滚及控制器变更停止施工（5 个） |
 | `GSETerminalSchedulingTests` | 全服预算共享、小/奇数预算轮转、三人暂停公平分配、失败后重启、取消保留已完成目标与持久退款守恒（4 个） |
 | `GSETerminalRestartTests` | 真实区块卸载与双 JVM 多模块生存施工续作，含托管材料、严格空气、回滚日志和待领退款（1 个） |

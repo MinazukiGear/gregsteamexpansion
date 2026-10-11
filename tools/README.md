@@ -173,7 +173,7 @@ explicit isolated directory. GTM Things without AE2 is not a valid combination
 because GTM Things itself requires AE2.
 
 The default `runGameTestServer` task uses `build/verification/gametest/` and runs
-all 192 tests. `-PgseVerificationRun=server-restart` and
+all 193 tests. `-PgseVerificationRun=server-restart` and
 `-PgseVerificationRun=config-restart` select the two persistence fixtures;
 `-PgseDependencySmoke=core|ae2|full` selects only the smoke namespace and its
 isolated dependency set.
@@ -195,8 +195,36 @@ server thread. Median and maximum batch times describe preview work only, not re
 multiplayer MSPT, networking, heap allocation or client FPS. See
 [the performance record](../docs/terminal-preview-performance-2026-10-10.md).
 
-The benchmark namespace is excluded from the 192 ordinary regression tests,
+The benchmark namespaces are excluded from the 193 ordinary regression tests,
 configuration restart and dependency-smoke runs. Timings have no speed threshold.
+
+### Continuous held-terminal refresh
+
+```bash
+python tools/benchmark_terminal_preview.py --mode refresh --offline --label current
+```
+
+This selects `gregsteamexpansion_refresh_benchmark` in
+`build/verification/terminal-refresh/`. Seven workloads cover 1/2/8 simulated
+survival owners with 1/16 compact targets, plus one 15x15 furnace. Two rounds
+rotate workload order; each uses 20 warmup ticks and 100 ticks each of quiet and
+changing world/inventory state, yielding 28 records. Target switching also
+exercises immediate full updates. The real production server tick refresh loop
+runs unchanged by the benchmark. Each recipient captures and decodes its own
+encoded full/delta packets, checking target ownership, revision and inventory
+availability separately for selected and batch materials.
+
+Reports retain END-event interval P50/P95/max/total, START-to-END event interval
+P95/max, packet counts, payload bytes and peak packets per tick, along with source
+hashes and raw server logs. END intervals include other listeners; START-to-END
+intervals also include fixture work. Neither is exact server MSPT or isolated
+preview CPU time. Recipients use no sockets, AE is disabled, and TCP/compression,
+heap allocation and client FPS are not measured. Per-player refresh remains once
+per ten ticks; explicit requests remain immediate. Compare peak intervals as well
+as total work: staggering redistributes work and does not eliminate a costly
+single preview.
+See [the continuous refresh record](../docs/terminal-refresh-performance-2026-10-11.md)
+for the measured before/after results and remaining limits.
 
 ## Complete release gate
 

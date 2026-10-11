@@ -38,11 +38,16 @@ def previewBenchmark = providers.gradleProperty('gsePreviewBenchmark').orNull
 if (previewBenchmark != null && previewBenchmark != 'true') {
     throw new GradleException('gsePreviewBenchmark must be true when specified')
 }
+def previewBenchmarkMode = providers.gradleProperty('gsePreviewBenchmarkMode').orNull
+if (previewBenchmarkMode != null && (previewBenchmark == null || !(previewBenchmarkMode in ['preview', 'refresh']))) {
+    throw new GradleException('gsePreviewBenchmarkMode requires gsePreviewBenchmark=true and preview|refresh')
+}
+def refreshBenchmark = previewBenchmarkMode == 'refresh'
 if (previewBenchmark != null && (dependencySmokeProfile != null || verificationRun != null)) {
     throw new GradleException('Preview benchmarks select their own isolated verification directory')
 }
 def verificationDirectory = previewBenchmark != null
-        ? file('build/verification/terminal-preview')
+        ? file("build/verification/terminal-${refreshBenchmark ? 'refresh' : 'preview'}")
         : dependencySmokeProfile != null
         ? file("build/verification/dependency-${dependencySmokeProfile}")
         : file("build/verification/${verificationRun ?: 'gametest'}")
@@ -84,10 +89,11 @@ minecraft {
         gameTestServer {
             workingDirectory verificationDirectory
             property 'forge.enabledGameTestNamespaces', previewBenchmark != null
-                    ? "${mod_id}_preview_benchmark" : dependencySmokeProfile != null
+                    ? "${mod_id}_${refreshBenchmark ? 'refresh' : 'preview'}_benchmark" : dependencySmokeProfile != null
                     ? "${mod_id}_smoke" : "${mod_id},${mod_id}_smoke"
             if (previewBenchmark != null) {
                 property 'gse.previewBenchmark', 'true'
+                property 'gse.refreshBenchmark', refreshBenchmark.toString()
                 property 'gse.previewBenchmarkOutput', file(
                         providers.gradleProperty('gsePreviewBenchmarkOutput').get()).absolutePath
             }

@@ -72,7 +72,8 @@ def main() -> None:
 
     smoke_dir = OUTPUT_DIR.parent.parent / "gregsteamexpansion_smoke" / "structures"
     benchmark_dir = OUTPUT_DIR.parent.parent / "gregsteamexpansion_preview_benchmark" / "structures"
-    for output_dir in (OUTPUT_DIR, smoke_dir, benchmark_dir):
+    refresh_dir = OUTPUT_DIR.parent.parent / "gregsteamexpansion_refresh_benchmark" / "structures"
+    for output_dir in (OUTPUT_DIR, smoke_dir, benchmark_dir, refresh_dir):
         output_dir.mkdir(parents=True, exist_ok=True)
         target = output_dir / f"empty_{size_x}x{size_y}x{size_z}.nbt"
         with open(target, "wb") as handle:

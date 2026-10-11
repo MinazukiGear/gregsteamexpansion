@@ -28,6 +28,7 @@ import java.util.function.Supplier;
 /** Authenticated terminal preview/configuration protocol with bounded snapshot payloads. */
 public final class UltimateTerminalMessages {
     private static final String PROTOCOL = "7";
+    private static final int REFRESH_INTERVAL_TICKS = 10;
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             GregSteamExpansion.id("ultimate_terminal"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
@@ -72,20 +73,22 @@ public final class UltimateTerminalMessages {
         int revision = previous == null ? 1 : previous.snapshot.revision() + 1;
         UltimateTerminalSnapshot snapshot = UltimateTerminalSnapshot.from(
                 UltimateTerminalWorldData.get(player.server).preview(player), revision);
-        SESSIONS.put(player.getUUID(), new Session(snapshot));
+        int phase = previous == null ? allocateRefreshPhase(player.server) : previous.refreshPhase;
+        SESSIONS.put(player.getUUID(), new Session(snapshot, phase));
         CHANNEL.sendTo(new FullPacket(snapshot), player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
     }
 
     public static void tick(MinecraftServer server) {
-        if (server.getTickCount() % 10 != 0 || SESSIONS.isEmpty()) return;
+        if (SESSIONS.isEmpty()) return;
+        int phase = Math.floorMod(server.getTickCount(), REFRESH_INTERVAL_TICKS);
         for (var entry : new ArrayList<>(SESSIONS.entrySet())) {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player == null) {
                 SESSIONS.remove(entry.getKey());
                 continue;
             }
-            if (!isHolding(player)) continue;
             Session session = entry.getValue();
+            if (session.refreshPhase != phase || !isHolding(player)) continue;
             UltimateTerminalSnapshot next = UltimateTerminalSnapshot.from(
                     UltimateTerminalWorldData.get(server).preview(player), session.snapshot.revision());
             if (!sameGeometry(session.snapshot, next)) {
@@ -121,6 +124,19 @@ public final class UltimateTerminalMessages {
                         player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
             }
         }
+    }
+
+    /** Spread private sessions across ten tick slots without caching any preview or material state. */
+    private static int allocateRefreshPhase(MinecraftServer server) {
+        int[] loads = new int[REFRESH_INTERVAL_TICKS];
+        for (Session session : SESSIONS.values()) loads[session.refreshPhase]++;
+        int first = Math.floorMod(server.getTickCount(), REFRESH_INTERVAL_TICKS);
+        int selected = first;
+        for (int offset = 1; offset < REFRESH_INTERVAL_TICKS; offset++) {
+            int candidate = (first + offset) % REFRESH_INTERVAL_TICKS;
+            if (loads[candidate] < loads[selected]) selected = candidate;
+        }
+        return selected;
     }
 
     private static boolean sameGeometry(UltimateTerminalSnapshot first, UltimateTerminalSnapshot second) {
@@ -338,7 +354,11 @@ public final class UltimateTerminalMessages {
 
     private static final class Session {
         UltimateTerminalSnapshot snapshot;
-        Session(UltimateTerminalSnapshot snapshot) { this.snapshot = snapshot; }
+        final int refreshPhase;
+        Session(UltimateTerminalSnapshot snapshot, int refreshPhase) {
+            this.snapshot = snapshot;
+            this.refreshPhase = refreshPhase;
+        }
     }
 
     public record RequestPacket(int containerId) {
