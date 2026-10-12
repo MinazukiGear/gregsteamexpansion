@@ -36,6 +36,7 @@ def main() -> int:
         "src/main/java/com/hoshino/gregsteamexpansion/terminal/UltimateTerminalMessages.java",
         "src/main/java/com/hoshino/gregsteamexpansion/terminal/UltimateTerminalEvents.java",
         "src/main/java/com/hoshino/gregsteamexpansion/terminal/UltimateTerminalSnapshot.java",
+        "src/main/java/com/hoshino/gregsteamexpansion/terminal/TerminalPreviewMetrics.java",
         "build.gradle", "gradle.properties",
     )]
     receipt = {
@@ -66,6 +67,9 @@ def main() -> int:
         if args.mode == "refresh":
             assert len(report["cases"]) == 28, "Expected seven workloads, two rounds and two phases"
             assert all(case["sample_ticks"] == 100 and case["selected_cells"] > 0 for case in report["cases"])
+            stages = {"refresh", "preview", "plan", "requirements", "materials", "snapshot", "diff", "encode", "candidates"}
+            assert all(set(case["stages"]) == stages and case["stages"]["plan"]["calls"] > 0
+                       for case in report["cases"]), "Missing segmented refresh timings"
         else:
             assert len(report["cases"]) == 20, "Expected two rounds of the matrix and large single target"
             assert all(case["samples"] == 5 and case["selected_cells"] > 0 for case in report["cases"])

@@ -150,6 +150,8 @@ GameTest → 服务器重启 → 三档配置重启 → 三种依赖组合 → d
 远端结果仍以实际 GitHub Actions 执行为准，CI 服务端检查不能替代客户端验收。beta.2 本轮人工清单已由使用者确认完成，结果见
 [beta.2 验收记录](docs/releases/beta2-progression-acceptance.md)，已完成范围和剩余边界见[设计索引](docs/design/README.md#beta2-已完成范围与当前待办)。[P0 发布验收记录](docs/releases/p0-validation-2026-09-30.md)与[P3 记录](docs/releases/p3-terminal-transactions-2026-09-30.md)保留历史门禁及终端事务来源。
 
+终端单人多目标与大型结构的分段计时、单次规划候选复用和前后性能对照见[计算成本记录](docs/terminal-cost-performance-2026-10-12.md)。预览、材料和工程保持玩家隔离，每 10 tick 刷新与主动操作立即响应的规则不变。
+
 仓库中的程序化贴图与 GameTest 空结构统一由 Python 3.10+ 生成。在仓库根目录安装固定版本
 依赖并运行统一入口；脚本顺序、输出归属等约定见 [`tools/README.md`](tools/README.md)：
 

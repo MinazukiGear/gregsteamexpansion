@@ -68,61 +68,74 @@ public final class UltimateTerminalMessages {
     }
 
     public static void forceFull(ServerPlayer player) {
-        if (!TerminalCompatibility.isAvailable() || player.connection == null) return;
-        Session previous = SESSIONS.get(player.getUUID());
-        int revision = previous == null ? 1 : previous.snapshot.revision() + 1;
-        UltimateTerminalSnapshot snapshot = UltimateTerminalSnapshot.from(
-                UltimateTerminalWorldData.get(player.server).preview(player), revision);
-        int phase = previous == null ? allocateRefreshPhase(player.server) : previous.refreshPhase;
-        SESSIONS.put(player.getUUID(), new Session(snapshot, phase));
-        CHANNEL.sendTo(new FullPacket(snapshot), player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
+        long metricStart = TerminalPreviewMetrics.start();
+        try {
+            if (!TerminalCompatibility.isAvailable() || player.connection == null) return;
+            Session previous = SESSIONS.get(player.getUUID());
+            int revision = previous == null ? 1 : previous.snapshot.revision() + 1;
+            UltimateTerminalSnapshot snapshot = UltimateTerminalSnapshot.from(
+                    UltimateTerminalWorldData.get(player.server).preview(player), revision);
+            int phase = previous == null ? allocateRefreshPhase(player.server) : previous.refreshPhase;
+            SESSIONS.put(player.getUUID(), new Session(snapshot, phase));
+            CHANNEL.sendTo(new FullPacket(snapshot), player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
+        } finally {
+            TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.REFRESH, metricStart);
+        }
     }
 
     public static void tick(MinecraftServer server) {
-        if (SESSIONS.isEmpty()) return;
-        int phase = Math.floorMod(server.getTickCount(), REFRESH_INTERVAL_TICKS);
-        for (var entry : new ArrayList<>(SESSIONS.entrySet())) {
-            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-            if (player == null) {
-                SESSIONS.remove(entry.getKey());
-                continue;
-            }
-            Session session = entry.getValue();
-            if (session.refreshPhase != phase || !isHolding(player)) continue;
-            UltimateTerminalSnapshot next = UltimateTerminalSnapshot.from(
-                    UltimateTerminalWorldData.get(server).preview(player), session.snapshot.revision());
-            if (!sameGeometry(session.snapshot, next)) {
-                next = new UltimateTerminalSnapshot(session.snapshot.revision() + 1, next.targets(),
-                        next.selectedTarget(), next.dimension(), next.controller(), next.cells(),
-                        next.selectedMaterials(), next.batchMaterials(), next.candidates(),
-                        next.channels(), next.structure(), next.module(), next.targetOverride(),
-                        next.unlimitedMaterials(), next.error());
-                session.snapshot = next;
-                CHANNEL.sendTo(new FullPacket(next), player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
-                continue;
-            }
-            List<CellDelta> changes = new ArrayList<>();
-            for (int i = 0; i < next.cells().size(); i++) {
-                if (next.cells().get(i).status() != session.snapshot.cells().get(i).status()) {
-                    changes.add(new CellDelta(i, next.cells().get(i).status()));
+        long metricStart = TerminalPreviewMetrics.start();
+        try {
+            if (SESSIONS.isEmpty()) return;
+            int phase = Math.floorMod(server.getTickCount(), REFRESH_INTERVAL_TICKS);
+            for (var entry : new ArrayList<>(SESSIONS.entrySet())) {
+                ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+                if (player == null) {
+                    SESSIONS.remove(entry.getKey());
+                    continue;
+                }
+                Session session = entry.getValue();
+                if (session.refreshPhase != phase || !isHolding(player)) continue;
+                UltimateTerminalSnapshot next = UltimateTerminalSnapshot.from(
+                        UltimateTerminalWorldData.get(server).preview(player), session.snapshot.revision());
+                long diffStart = TerminalPreviewMetrics.start();
+                if (!sameGeometry(session.snapshot, next)) {
+                    next = new UltimateTerminalSnapshot(session.snapshot.revision() + 1, next.targets(),
+                            next.selectedTarget(), next.dimension(), next.controller(), next.cells(),
+                            next.selectedMaterials(), next.batchMaterials(), next.candidates(),
+                            next.channels(), next.structure(), next.module(), next.targetOverride(),
+                            next.unlimitedMaterials(), next.error());
+                    TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.DIFF, diffStart);
+                    session.snapshot = next;
+                    CHANNEL.sendTo(new FullPacket(next), player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
+                    continue;
+                }
+                List<CellDelta> changes = new ArrayList<>();
+                for (int i = 0; i < next.cells().size(); i++) {
+                    if (next.cells().get(i).status() != session.snapshot.cells().get(i).status()) {
+                        changes.add(new CellDelta(i, next.cells().get(i).status()));
+                    }
+                }
+                boolean summaryChanged = !sameMaterials(next.selectedMaterials(), session.snapshot.selectedMaterials())
+                        || !sameMaterials(next.batchMaterials(), session.snapshot.batchMaterials())
+                        || !sameCandidates(next.candidates(), session.snapshot.candidates())
+                        || !next.channels().equals(session.snapshot.channels())
+                        || !next.structure().equals(session.snapshot.structure())
+                        || !next.module().equals(session.snapshot.module())
+                        || next.targetOverride() != session.snapshot.targetOverride()
+                        || next.unlimitedMaterials() != session.snapshot.unlimitedMaterials()
+                        || !next.error().equals(session.snapshot.error());
+                TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.DIFF, diffStart);
+                if (!changes.isEmpty() || summaryChanged) {
+                    session.snapshot = next;
+                    CHANNEL.sendTo(new DeltaPacket(next.revision(), changes, next.selectedMaterials(),
+                                    next.batchMaterials(), next.candidates(), next.channels(), next.structure(),
+                                    next.module(), next.targetOverride(), next.unlimitedMaterials(), next.error()),
+                            player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
                 }
             }
-            boolean summaryChanged = !sameMaterials(next.selectedMaterials(), session.snapshot.selectedMaterials())
-                    || !sameMaterials(next.batchMaterials(), session.snapshot.batchMaterials())
-                    || !sameCandidates(next.candidates(), session.snapshot.candidates())
-                    || !next.channels().equals(session.snapshot.channels())
-                    || !next.structure().equals(session.snapshot.structure())
-                    || !next.module().equals(session.snapshot.module())
-                    || next.targetOverride() != session.snapshot.targetOverride()
-                    || next.unlimitedMaterials() != session.snapshot.unlimitedMaterials()
-                    || !next.error().equals(session.snapshot.error());
-            if (!changes.isEmpty() || summaryChanged) {
-                session.snapshot = next;
-                CHANNEL.sendTo(new DeltaPacket(next.revision(), changes, next.selectedMaterials(),
-                                next.batchMaterials(), next.candidates(), next.channels(), next.structure(),
-                                next.module(), next.targetOverride(), next.unlimitedMaterials(), next.error()),
-                        player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
-            }
+        } finally {
+            TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.REFRESH, metricStart);
         }
     }
 
@@ -439,7 +452,14 @@ public final class UltimateTerminalMessages {
     }
 
     public record FullPacket(UltimateTerminalSnapshot snapshot) {
-        static void encode(FullPacket packet, FriendlyByteBuf buf) { writeSnapshot(buf, packet.snapshot); }
+        static void encode(FullPacket packet, FriendlyByteBuf buf) {
+            long metricStart = TerminalPreviewMetrics.start();
+            try {
+                writeSnapshot(buf, packet.snapshot);
+            } finally {
+                TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.ENCODE, metricStart);
+            }
+        }
         static FullPacket decode(FriendlyByteBuf buf) { return new FullPacket(readSnapshot(buf)); }
         static void handle(FullPacket packet, Supplier<NetworkEvent.Context> supplier) {
             NetworkEvent.Context context = supplier.get();
@@ -460,20 +480,25 @@ public final class UltimateTerminalMessages {
                               UltimateTerminalSnapshot.ModuleInfo module,
                               boolean targetOverride, boolean unlimitedMaterials, String error) {
         static void encode(DeltaPacket packet, FriendlyByteBuf buf) {
-            buf.writeVarInt(packet.revision);
-            buf.writeVarInt(packet.changes.size());
-            for (CellDelta change : packet.changes) {
-                buf.writeVarInt(change.index); buf.writeByte(change.status.ordinal());
+            long metricStart = TerminalPreviewMetrics.start();
+            try {
+                buf.writeVarInt(packet.revision);
+                buf.writeVarInt(packet.changes.size());
+                for (CellDelta change : packet.changes) {
+                    buf.writeVarInt(change.index); buf.writeByte(change.status.ordinal());
+                }
+                writeMaterials(buf, packet.selectedMaterials);
+                writeMaterials(buf, packet.batchMaterials);
+                writeCandidates(buf, packet.candidates);
+                writeChannels(buf, packet.channels);
+                writeStructure(buf, packet.structure);
+                writeModule(buf, packet.module);
+                buf.writeBoolean(packet.targetOverride);
+                buf.writeBoolean(packet.unlimitedMaterials);
+                buf.writeUtf(packet.error, 256);
+            } finally {
+                TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.ENCODE, metricStart);
             }
-            writeMaterials(buf, packet.selectedMaterials);
-            writeMaterials(buf, packet.batchMaterials);
-            writeCandidates(buf, packet.candidates);
-            writeChannels(buf, packet.channels);
-            writeStructure(buf, packet.structure);
-            writeModule(buf, packet.module);
-            buf.writeBoolean(packet.targetOverride);
-            buf.writeBoolean(packet.unlimitedMaterials);
-            buf.writeUtf(packet.error, 256);
         }
         static DeltaPacket decode(FriendlyByteBuf buf) {
             int revision = buf.readVarInt();

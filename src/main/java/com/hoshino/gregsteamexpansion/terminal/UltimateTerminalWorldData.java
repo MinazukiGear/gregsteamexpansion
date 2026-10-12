@@ -444,76 +444,96 @@ public final class UltimateTerminalWorldData extends SavedData {
     }
 
     public PreviewData preview(ServerPlayer player) {
-        Project project = project(player.getUUID());
-        List<TargetView> targets = new ArrayList<>();
-        for (Target target : project.targets) {
-            ServerLevel targetLevel = player.server.getLevel(target.dimension());
-            String name = target.pos().toShortString();
-            if (targetLevel != null && targetLevel.hasChunkAt(target.pos())) {
-                ItemStack controller = targetLevel.getBlockState(target.pos()).getBlock().asItem().getDefaultInstance();
-                if (!controller.isEmpty()) name = controller.getHoverName().getString();
+        long metricStart = TerminalPreviewMetrics.start();
+        try {
+            Project project = project(player.getUUID());
+            List<TargetView> targets = new ArrayList<>();
+            for (Target target : project.targets) {
+                ServerLevel targetLevel = player.server.getLevel(target.dimension());
+                String name = target.pos().toShortString();
+                if (targetLevel != null && targetLevel.hasChunkAt(target.pos())) {
+                    ItemStack controller = targetLevel.getBlockState(target.pos()).getBlock().asItem().getDefaultInstance();
+                    if (!controller.isEmpty()) name = controller.getHoverName().getString();
+                }
+                targets.add(new TargetView(target.dimension().location(), target.pos(), name));
             }
-            targets.add(new TargetView(target.dimension().location(), target.pos(), name));
-        }
-        Target selected = selectedTarget(project);
-        if (selected == null) {
-            return new PreviewData(List.copyOf(targets), 0,
-                    UltimateStructurePlanner.Plan.failed("no_target"), List.of(), List.of(),
-                    project.defaultProfile.copy(), false, hasUnlimitedMaterials(player), "no_target");
-        }
-        TerminalBuildProfile profile = profileFor(player.server, project, selected, false);
-        UltimateStructurePlanner.Plan selectedPlan = planForPreview(player.server, project, selected, profile);
-        List<ItemStack> selectedRequirements = requirements(selectedPlan);
-        List<ItemStack> batchRequirements = new ArrayList<>();
-        for (Target target : project.targets) {
-            // Reuse only within this request. The next preview and construction start
-            // still resolve current world/profile state independently.
-            List<ItemStack> targetRequirements = target.equals(selected) ? selectedRequirements
-                    : requirements(planForPreview(player.server, project, target,
-                            profileFor(player.server, project, target, false)));
-            for (ItemStack requirement : targetRequirements) {
-                mergeRequirement(batchRequirements, requirement, requirement.getCount());
+            Target selected = selectedTarget(project);
+            if (selected == null) {
+                return new PreviewData(List.copyOf(targets), 0,
+                        UltimateStructurePlanner.Plan.failed("no_target"), List.of(), List.of(),
+                        project.defaultProfile.copy(), false, hasUnlimitedMaterials(player), "no_target");
             }
+            TerminalBuildProfile profile = profileFor(player.server, project, selected, false);
+            UltimateStructurePlanner.Plan selectedPlan = planForPreview(player.server, project, selected, profile);
+            List<ItemStack> selectedRequirements = requirements(selectedPlan);
+            List<ItemStack> batchRequirements = new ArrayList<>();
+            for (Target target : project.targets) {
+                // Reuse only within this request. The next preview and construction start
+                // still resolve current world/profile state independently.
+                List<ItemStack> targetRequirements = target.equals(selected) ? selectedRequirements
+                        : requirements(planForPreview(player.server, project, target,
+                                profileFor(player.server, project, target, false)));
+                for (ItemStack requirement : targetRequirements) {
+                    mergeRequirement(batchRequirements, requirement, requirement.getCount());
+                }
+            }
+            return new PreviewData(List.copyOf(targets), project.selectedTarget, selectedPlan,
+                    materialViews(player, selectedRequirements, project.useAE),
+                    materialViews(player, batchRequirements, project.useAE), profile.copy(),
+                    project.overrides.containsKey(selected.key()), hasUnlimitedMaterials(player), selectedPlan.error());
+        } finally {
+            TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.PREVIEW, metricStart);
         }
-        return new PreviewData(List.copyOf(targets), project.selectedTarget, selectedPlan,
-                materialViews(player, selectedRequirements, project.useAE),
-                materialViews(player, batchRequirements, project.useAE), profile.copy(),
-                project.overrides.containsKey(selected.key()), hasUnlimitedMaterials(player), selectedPlan.error());
     }
 
     private UltimateStructurePlanner.Plan planForPreview(MinecraftServer server, Project project,
                                                          Target target, TerminalBuildProfile profile) {
-        ServerLevel level = server.getLevel(target.dimension());
-        if (level == null || !level.hasChunkAt(target.pos())) {
-            return UltimateStructurePlanner.Plan.failed("controller_unloaded");
+        long metricStart = TerminalPreviewMetrics.start();
+        try {
+            ServerLevel level = server.getLevel(target.dimension());
+            if (level == null || !level.hasChunkAt(target.pos())) {
+                return UltimateStructurePlanner.Plan.failed("controller_unloaded");
+            }
+            if (project.mode != UltimateTerminalMode.DISMANTLE) {
+                return UltimateStructurePlanner.plan(level, target.pos(), profile,
+                        project.mode == UltimateTerminalMode.UPGRADE);
+            }
+            return UltimateStructurePlanner.planDismantle(level, target.pos(), profile);
+        } finally {
+            TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.PLAN, metricStart);
         }
-        if (project.mode != UltimateTerminalMode.DISMANTLE) {
-            return UltimateStructurePlanner.plan(level, target.pos(), profile,
-                    project.mode == UltimateTerminalMode.UPGRADE);
-        }
-        return UltimateStructurePlanner.planDismantle(level, target.pos(), profile);
     }
 
     private static List<ItemStack> requirements(UltimateStructurePlanner.Plan plan) {
-        List<ItemStack> requirements = new ArrayList<>();
-        for (var placement : plan.placements()) mergeRequirement(requirements, placement.stack(), 1);
-        return requirements;
+        long metricStart = TerminalPreviewMetrics.start();
+        try {
+            List<ItemStack> requirements = new ArrayList<>();
+            for (var placement : plan.placements()) mergeRequirement(requirements, placement.stack(), 1);
+            return requirements;
+        } finally {
+            TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.REQUIREMENTS, metricStart);
+        }
     }
 
     private List<MaterialView> materialViews(ServerPlayer player, List<ItemStack> requirements,
                                                     boolean useAE) {
-        List<MaterialView> views = new ArrayList<>();
-        boolean unlimitedMaterials = hasUnlimitedMaterials(player);
-        for (ItemStack requirement : requirements) {
-            long inventory = unlimitedMaterials ? 0 : countInventory(player, requirement);
-            long network = !unlimitedMaterials && useAE
-                    ? materialNetwork.available(player, requirement) : 0;
-            views.add(new MaterialView(requirement.copy(), requirement.getCount(), inventory, network));
+        long metricStart = TerminalPreviewMetrics.start();
+        try {
+            List<MaterialView> views = new ArrayList<>();
+            boolean unlimitedMaterials = hasUnlimitedMaterials(player);
+            for (ItemStack requirement : requirements) {
+                long inventory = unlimitedMaterials ? 0 : countInventory(player, requirement);
+                long network = !unlimitedMaterials && useAE
+                        ? materialNetwork.available(player, requirement) : 0;
+                views.add(new MaterialView(requirement.copy(), requirement.getCount(), inventory, network));
+            }
+            views.sort(java.util.Comparator
+                    .comparingLong(MaterialView::missing).reversed()
+                    .thenComparing(view -> ForgeRegistries.ITEMS.getKey(view.stack().getItem()).toString()));
+            return List.copyOf(views);
+        } finally {
+            TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.MATERIALS, metricStart);
         }
-        views.sort(java.util.Comparator
-                .comparingLong(MaterialView::missing).reversed()
-                .thenComparing(view -> ForgeRegistries.ITEMS.getKey(view.stack().getItem()).toString()));
-        return List.copyOf(views);
     }
 
     @Nullable

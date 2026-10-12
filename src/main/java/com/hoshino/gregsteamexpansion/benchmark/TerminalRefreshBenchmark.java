@@ -5,6 +5,7 @@ import com.hoshino.gregsteamexpansion.gametest.GSETerminalRefreshTestSupport;
 import com.hoshino.gregsteamexpansion.registry.GSEMachines;
 import com.hoshino.gregsteamexpansion.terminal.UltimateStructurePlanner;
 import com.hoshino.gregsteamexpansion.terminal.UltimateTerminalMessages;
+import com.hoshino.gregsteamexpansion.terminal.TerminalPreviewMetrics;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -81,15 +82,19 @@ public final class TerminalRefreshBenchmark {
             before = event -> {
                 if (event.getServer() != helper.getLevel().getServer() || fixture == null) return;
                 if (event.phase == TickEvent.Phase.START) {
+                    TerminalPreviewMetrics.begin();
                     tickStart = System.nanoTime();
                     packetsAtStart = packets();
                 } else endStart = System.nanoTime();
             };
             after = event -> {
                 if (event.getServer() != helper.getLevel().getServer() || fixture == null
-                        || event.phase != TickEvent.Phase.END || elapsed < WARMUP) return;
+                        || event.phase != TickEvent.Phase.END) return;
                 long now = System.nanoTime();
+                var sample = TerminalPreviewMetrics.end();
+                if (elapsed < WARMUP) return;
                 Stats stats = elapsed < WARMUP + SAMPLES ? quiet : changing;
+                stats.profile.add(sample);
                 stats.endMs.add((now - endStart) / 1_000_000.0);
                 stats.tickMs.add((now - tickStart) / 1_000_000.0);
                 stats.peakPackets = Math.max(stats.peakPackets, packets() - packetsAtStart);
@@ -202,6 +207,7 @@ public final class TerminalRefreshBenchmark {
         private long bytes() { return owners.stream().mapToLong(owner -> owner.connection.payloadBytes).sum(); }
 
         private void cleanup() {
+            TerminalPreviewMetrics.end();
             if (changedPos != null) helper.getLevel().setBlockAndUpdate(changedPos, Blocks.AIR.defaultBlockState());
             if (fixture != null) fixture.close();
             fixture = null;
@@ -219,6 +225,7 @@ public final class TerminalRefreshBenchmark {
     private static final class Stats {
         final List<Double> endMs = new ArrayList<>();
         final List<Double> tickMs = new ArrayList<>();
+        final List<TerminalPreviewMetrics.Sample> profile = new ArrayList<>();
         JsonObject record;
         long packetHead;
         long byteHead;
@@ -238,6 +245,18 @@ public final class TerminalRefreshBenchmark {
             record.addProperty("packets", packets - packetHead);
             record.addProperty("payload_bytes", bytes - byteHead);
             record.addProperty("peak_packets_per_tick", peakPackets);
+            JsonObject stages = new JsonObject();
+            for (var stage : TerminalPreviewMetrics.Stage.values()) {
+                int index = stage.ordinal();
+                var values = profile.stream().map(sample -> sample.nanos()[index] / 1_000_000.0).toList();
+                JsonObject timing = new JsonObject();
+                timing.addProperty("calls", profile.stream().mapToLong(sample -> sample.calls()[index]).sum());
+                timing.addProperty("total_ms", values.stream().mapToDouble(Double::doubleValue).sum());
+                timing.addProperty("tick_p95_ms", percentile(values, 0.95));
+                timing.addProperty("tick_max_ms", percentile(values, 1));
+                stages.add(stage.name().toLowerCase(java.util.Locale.ROOT), timing);
+            }
+            record.add("stages", stages);
             cases.add(record);
             System.out.println("GSE continuous refresh: " + record);
         }

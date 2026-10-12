@@ -214,7 +214,18 @@ runs unchanged by the benchmark. Each recipient captures and decodes its own
 encoded full/delta packets, checking target ownership, revision and inventory
 availability separately for selected and batch materials.
 
-Reports retain END-event interval P50/P95/max/total, START-to-END event interval
+Reports retain END-event interval P50/P95/max/total and opt-in segmented timings
+for refresh, preview, planning, requirement merging,
+material queries, snapshot conversion, diff and packet encoding. Candidate
+resolution is measured inside planning, including actual resolution call counts.
+Each stage records total time and tick P95/max; parent timings include their
+children and must not be summed. Instrumentation collects only time/count arrays
+on the measured thread and is disabled outside refresh benchmarks. Candidate
+definitions are reused only within one plan; no world, preview or material result
+is cached across plans or players. See the
+[segmented comparison](../docs/terminal-cost-performance-2026-10-12.md).
+
+Reports also retain START-to-END event interval
 P95/max, packet counts, payload bytes and peak packets per tick, along with source
 hashes and raw server logs. END intervals include other listeners; START-to-END
 intervals also include fixture work. Neither is exact server MSPT or isolated
