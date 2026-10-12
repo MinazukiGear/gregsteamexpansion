@@ -104,7 +104,7 @@ python tools/benchmark_terminal_preview.py --mode refresh --offline --label opti
 
 优化前后独立基准各 28 条记录、1 项基准 GameTest 通过；11 份源码输入核对、包数/载荷大小/调用次数对照通过。
 
-Windows x64、Zulu JDK 17 的本机完整门禁 `python tools/verify.py --offline` 全部通过，日志为 `.tmp/terminal-cost-full-gate.log`：
+Windows x64、Zulu JDK 17 的性能候选源码完整门禁 `python tools/verify.py --offline` 全部通过，日志为 `.tmp/terminal-cost-full-gate.log`：
 
 - 普通回归、双 JVM 重启写入/核验、Easy/Normal/Expert 配置重启，六轮各 `193/193` 项必需 GameTest 通过；配置检查恢复原配置。
 - 仅必需前置、AE2、完整依赖三种隔离运行各 `1/1` 项冒烟通过。
@@ -112,4 +112,12 @@ Windows x64、Zulu JDK 17 的本机完整门禁 `python tools/verify.py --offlin
 - JAR 审计确认 429 个 Java 17 类、429 个源资源，929 个语言键一致。
 - 对照起始清单核对原存档、配置、客户端选项及公开 beta.2 发布文件共 97 份文件哈希未变；beta.2 标签仍指向原发布源码。
 
-以上是本机最终源码的验证结果；四平台 CI 仍以实际提交对应的 Actions 运行记录为准。公开 beta.2 标签与附件保持原发布状态。
+以上是本机性能候选源码的验证结果；四平台 CI 仍以实际提交对应的 Actions 运行记录为准。公开 beta.2 标签与附件保持原发布状态。
+
+## 候选源码 CI 的进气夹具修正
+
+性能提交 `d3a93fb` 的[四平台 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38204679941)在 Windows x64 的 Easy 配置阶段报告旧 `air_intake_alone_starts_air_batch` 测试失败。日志确认结构成型、进气室已加入部件，但储气停在 `8,000 mB`，进气状态为 `intake_blocked`，朝东入口前方为 `minecraft:water[level=8]`；普通回归及双 JVM 重启的三轮回归此前通过。记录为 `.tmp/terminal-cost-ci-windows-x64-initial.log`。现有日志确定了入口受水阻挡，但没有确定这股水的具体来源。
+
+测试现在在自身 32³ 模板内，用五面干燥玻璃保护进气格的外露邻格，另一面仍为实际进气室；仅初始化时清空进气格，运行中不反复移除障碍，也不手动注入空气。保留原有 `400 tick` 上限、真实空气采集、供汽与实际 `air_separation` 启动断言，并在成功时核对进气格仍为空气。没有修改机器采集逻辑或终端生产代码，11 份性能测量输入均未改变。最终完整门禁以这项夹具修正后的提交对应 CI 为准。
+
+修正后的本机 Easy 配置回归 `193/193` 通过，日志为 `.tmp/terminal-cost-waterhood-config.log`；其余配置验证继续运行。性能提交的 Linux x64、Windows ARM64、macOS ARM64 三个平台各自完成六轮 `193/193` 回归、三种依赖组合冒烟及完整构建。修正提交仍需重新通过四平台完整门禁。

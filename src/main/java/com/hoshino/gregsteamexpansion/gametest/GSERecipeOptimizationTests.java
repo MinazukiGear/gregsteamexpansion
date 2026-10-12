@@ -194,9 +194,18 @@ public final class GSERecipeOptimizationTests {
                 MetaMachine.getMachine(helper.getLevel(), helper.absolutePos(relativeHatch));
         helper.assertTrue(intake != null, "Missing air intake runtime instance");
         intake.setFrontFacing(Direction.EAST);
-        // Own the inlet cell as well as the hatch; never depend on leftover
-        // blocks in an otherwise empty structure template.
-        helper.setBlock(relativeHatch.east(), Blocks.AIR);
+        // Own the inlet and its five exposed neighbours inside this template.
+        // Other fluid fixtures can leave flowing water in the shared test world;
+        // clearing this cell once does not stop a later scheduled fluid tick.
+        // A dry glass hood keeps the real one-block intake condition stable,
+        // without injecting air, clearing obstructions each tick or changing
+        // the registered machine's structure or collection logic.
+        BlockPos relativeInlet = relativeHatch.east();
+        for (Direction side : Direction.values()) {
+            BlockPos guard = relativeInlet.relative(side);
+            if (!guard.equals(relativeHatch)) helper.setBlock(guard, Blocks.GLASS);
+        }
+        helper.setBlock(relativeInlet, Blocks.AIR);
 
         // Two more output slots: the east side wall's upper cells (shape x=2
         // at y=1/z=1 and y=2/z=1). Direction.NORTH keeps them flush with the
@@ -268,9 +277,12 @@ public final class GSERecipeOptimizationTests {
                                 + " parts=" + machine.getParts().stream()
                                         .map(part -> part.getClass().getSimpleName())
                                         .collect(java.util.stream.Collectors.joining(","))))
-                .thenExecute(() -> helper.assertTrue(
-                        machine.getBatchRecipeId().equals("gtceu:centrifuge/air_separation"),
-                        "Intake started an unexpected recipe: " + machine.getBatchRecipeId()))
+                .thenExecute(() -> {
+                    helper.assertTrue(machine.getBatchRecipeId().equals("gtceu:centrifuge/air_separation"),
+                            "Intake started an unexpected recipe: " + machine.getBatchRecipeId());
+                    helper.assertTrue(helper.getBlockState(relativeInlet).isAir(),
+                            "Fluid reached the isolated centrifuge intake cell");
+                })
                 .thenSucceed();
     }
 
