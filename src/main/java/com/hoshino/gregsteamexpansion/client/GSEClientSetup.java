@@ -40,6 +40,7 @@ public final class GSEClientSetup {
         forgeBus.addListener(StructureErrorHighlight::onRenderLevelStage);
         forgeBus.addListener(UltimateTerminalHologramRenderer::onRenderLevelStage);
         forgeBus.addListener(UltimateTerminalClientState::onClientTick);
+        if (TerminalClientMetrics.ENABLED) TerminalClientBenchmark.register(forgeBus);
     }
 
     /** Replaces the first title screen with the one-time, restart-safe difficulty choice. */

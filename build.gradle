@@ -23,6 +23,13 @@ def acceptanceClient = providers.gradleProperty('gseAcceptanceClient').orNull
 if (acceptanceClient != null && !(acceptanceClient in ['true', 'false'])) {
     throw new GradleException('gseAcceptanceClient must be true or false')
 }
+def clientBenchmark = providers.gradleProperty('gseClientBenchmark').orNull
+if (clientBenchmark != null && clientBenchmark != 'true') {
+    throw new GradleException('gseClientBenchmark must be true when specified')
+}
+if (clientBenchmark != null && acceptanceClient != null) {
+    throw new GradleException('Client benchmarks select their own isolated directory')
+}
 def dependencySmokeProfile = providers.gradleProperty('gseDependencySmoke').orNull
 if (dependencySmokeProfile != null && !(dependencySmokeProfile in ['core', 'ae2', 'full'])) {
     throw new GradleException('gseDependencySmoke must be core, ae2, or full')
@@ -45,6 +52,9 @@ if (previewBenchmarkMode != null && (previewBenchmark == null || !(previewBenchm
 def refreshBenchmark = previewBenchmarkMode in ['refresh', 'materials']
 if (previewBenchmark != null && (dependencySmokeProfile != null || verificationRun != null)) {
     throw new GradleException('Preview benchmarks select their own isolated verification directory')
+}
+if (clientBenchmark != null && (previewBenchmark != null || dependencySmokeProfile != null || verificationRun != null)) {
+    throw new GradleException('Client benchmarks cannot be combined with server verification runs')
 }
 def verificationDirectory = previewBenchmark != null
         ? file("build/verification/terminal-${previewBenchmarkMode ?: 'preview'}")
@@ -76,9 +86,15 @@ minecraft {
         }
 
         client {
-            workingDirectory acceptanceClient == 'true'
+            workingDirectory clientBenchmark != null ? project.file('build/verification/terminal-client') : acceptanceClient == 'true'
                     ? project.file('build/verification/client-acceptance') : project.file('run')
             property 'forge.enabledGameTestNamespaces', mod_id
+            if (clientBenchmark != null) {
+                property 'gse.clientBenchmark', 'true'
+                property 'gse.clientBenchmarkChecksOnly', providers.gradleProperty('gseClientBenchmarkChecksOnly').getOrElse('false')
+                property 'gse.clientBenchmarkOutput', file(providers.gradleProperty('gseClientBenchmarkOutput').get()).absolutePath
+                args '--width', '1280', '--height', '720'
+            }
         }
 
         server {
