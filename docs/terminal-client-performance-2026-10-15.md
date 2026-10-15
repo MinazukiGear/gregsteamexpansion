@@ -60,7 +60,7 @@ python tools/benchmark_terminal_client.py --checks-only --offline
 
 模型提交和分配量下降较明确，轮廓 P95 在多个场景中上升，小结构也不是每组更快。大型静止组的实际帧间隔 P95/P99 为 `10.3124/10.7185 → 10.7420/11.3630 ms`，帧均值为 `8.4724 → 8.4394 ms`，仍主要体现 120 FPS 限帧条件下的等待与其他客户端工作。基线第二轮 16 目标静止组出现明显停顿（均值 `51.497 ms`、P95 `84.577 ms`），原因未定位；原始记录保留，不用该组证明帧率收益。
 
-验证通过：实际模型和草方块、玻璃、树叶上的 `152` 个四边形，经过平移、旋转、缩放、两种透明度及着色/非着色路径，新旧 GPU 顶点缓冲的有效字节一致。只对齐格式中未初始化且 GPU 不读取的 padding 字节。直接清空状态和真实 `disconnect → clearLevel` 的离线回调均验证快照清空；所有采样组均关闭界面且持有终端。快速检查报告为 `20261015T124442Z-current-c1e37397`，最终完整报告再次执行并通过同样检查。
+验证通过：实际模型和草方块、玻璃、树叶上的 `152` 个四边形，经过平移、旋转、缩放、两种透明度及着色/非着色路径，新旧 BufferBuilder 中待上传顶点缓冲的有效字节一致。只对齐格式中未初始化且 GPU 不读取的 padding 字节。直接清空状态和真实 `disconnect → clearLevel` 的离线回调均验证快照清空；所有采样组均关闭界面且持有终端。快速检查报告为 `20261015T124442Z-current-c1e37397`，最终完整报告再次执行并通过同样检查。
 
 未建成结构的完整显示与差异显示具有相同格数；本轮不代表已成型混合状态、第三方动态模型全集、材质/光影组合、GPU 执行时间或真实跨网延迟已经验收。普通运行不采样，不保留任何模型、四边形或跨玩家预览缓存。
 
@@ -76,6 +76,35 @@ python tools/benchmark_terminal_client.py --checks-only --offline
 
 ## 本机门禁
 
-最终源码在 Windows x64 / Java 17 上通过：9 项可移植性夹具、16 项 watchdog 夹具、普通 GameTest `194/194`，以及 `build`。构建核对 92 个生成资源、929 个语言键、设计/科技阶段/经济路线；最终 JAR 检查为 438 个 Java 17 类和 429 个源码资源。本轮未重跑配置重启、依赖矩阵或四平台 CI，不将上轮 CI 结果算作本轮提交的验证。
+最终源码在 Windows x64 / Java 17 上通过：9 项可移植性夹具、16 项 watchdog 夹具、普通 GameTest `194/194`，以及 `build`。构建核对 92 个生成资源、929 个语言键、设计/科技阶段/经济路线；最终 JAR 检查为 438 个 Java 17 类和 429 个源码资源。该次本机门禁未重跑配置重启、依赖矩阵或四平台 CI；本轮后续完整四平台结果见下一节，不借用上轮 CI 作为本轮证据。
 
-门禁原始日志为 `.tmp/terminal-client-validation-2026-10-15.log`，SHA-256 `ea4ae19264922a1fa808f092b6db4d767bf1a7a2e57446e22b30b42e59da0259`；收据为同名 JSON。`run/saves`、`run/config`、`run/options.txt` 和 `dist/0.1.0-beta.2` 的 97 个受保护文件哈希与开始前一致。本机验证完成时 Git HEAD 为 `e98dfab`，测量源码以报告快照及指纹为准；本轮候选提交与四平台 CI 结果另行记录。
+门禁原始日志为 `.tmp/terminal-client-validation-2026-10-15.log`，SHA-256 `ea4ae19264922a1fa808f092b6db4d767bf1a7a2e57446e22b30b42e59da0259`；收据为同名 JSON。`run/saves`、`run/config`、`run/options.txt` 和 `dist/0.1.0-beta.2` 的 97 个受保护文件哈希与开始前一致。本机验证完成时 Git HEAD 为 `e98dfab`，测量源码以报告快照及指纹为准；本轮候选提交与四平台 CI 结果见下一节。
+
+## 候选提交与四平台完整 CI
+
+候选源码 `ec68818a16f4746d615988594ee2f243b6df3410` 已推送到 `main`，其[四平台完整 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38739524416)全部通过，运行尝试为第 `1` 次。四个平台核对同一提交及 11 项候选文件的提交字节指纹；源码换行按 Git 属性规范化，测量快照的原始字节指纹另行保留。
+
+各平台完整日志核对结果一致：
+
+- 原生 JDK 17、Python 3.14 下，16 项 watchdog 夹具与 9 项可移植性夹具通过，无跳过。
+- 普通回归、独立 JVM 重启 seed/verify、Easy/Normal/Expert 六轮各 `194/194`；每平台六轮真实上游首钢 `1,800 tick` 配方完成。
+- core、AE2、full 三种隔离依赖冒烟各 `1/1`，datagen 新鲜度、92 项生成资源、929 个语言键、设计/经济路线、构建审计通过。
+- JAR 为 438 个 Java 17 类与 429 个源码资源，完整门禁均输出 `All gates passed.`。
+
+| 原生平台 | CI 作业 | 完整日志 SHA-256 |
+| --- | --- | --- |
+| Linux x64 | [116437287910](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38739524416/job/116437287910) | `4269a197de9bb7552fc8483db46eec23a652b37cc0c89a3544f59f8bfcf7b939` |
+| Windows x64 | [116437287925](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38739524416/job/116437287925) | `e0556b1fcc4ec8314be5b5c83ec0e6cc8a13c737f06f583e99130b1564f2ee93` |
+| Windows ARM64 | [116437287690](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38739524416/job/116437287690) | `69597493d8eebea61ddd3687df48989690bbaaf83094812d3fd00b7ad2a8470e` |
+| macOS ARM64 | [116437287295](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38739524416/job/116437287295) | `4245dda9efbeff554e8f9482efc5dcd49c8f8733a6ebbf1c8741a513f86f7c15` |
+
+| 平台 | 开发 JAR 制品 ID | JAR SHA-256 |
+| --- | --- | --- |
+| Linux x64 | `11977290004` | `3a98bab8403f7287b792b5f0d74ad123c0053576ccf5c4bdd8a4a41665b92aa4` |
+| Windows x64 | `11976384594` | `0b823845d25fc496031fb959f2d41958b7701a62b9be58938c2412b9df89dbb2` |
+| Windows ARM64 | `11975594636` | `8a76ee40f5cb29821a6add3c040223e50306ad3d24c3b18be0fc073eb4a760b7` |
+| macOS ARM64 | `11976551425` | `bbba4614d1e1945958fc202619d3723613dc17cda31dff77a30db5805b78c44d` |
+
+上述 JAR 哈希来自构建日志中的 JAR 本体，区别于 GitHub 制品 ZIP 摘要。原始日志为 `.tmp/terminal-client-ci-38739524416-<平台>.log`，来源与制品收据为 `.tmp/terminal-client-ci-38739524416-receipt.json`；实际存档、配置、选项及公开 beta.2 的 97 项文件集合和哈希均保持不变，公开标签仍指向 `297d7824f5376a88f31ef9970f989f4cd57a53a1`。
+
+本轮 CI 覆盖四平台服务端完整门禁与可构建性，没有运行四平台图形客户端。前述 30 组客户端性能及 152 个四边形字节对照仍为本机实测，不外推 GPU、材质/光影或真实网络帧率。后续验收记录提交只改本报告和验收索引；源码、工作流与测试夹具保持此次已通过的 `ec68818`。
