@@ -39,15 +39,15 @@ if (previewBenchmark != null && previewBenchmark != 'true') {
     throw new GradleException('gsePreviewBenchmark must be true when specified')
 }
 def previewBenchmarkMode = providers.gradleProperty('gsePreviewBenchmarkMode').orNull
-if (previewBenchmarkMode != null && (previewBenchmark == null || !(previewBenchmarkMode in ['preview', 'refresh']))) {
-    throw new GradleException('gsePreviewBenchmarkMode requires gsePreviewBenchmark=true and preview|refresh')
+if (previewBenchmarkMode != null && (previewBenchmark == null || !(previewBenchmarkMode in ['preview', 'refresh', 'materials']))) {
+    throw new GradleException('gsePreviewBenchmarkMode requires gsePreviewBenchmark=true and preview|refresh|materials')
 }
-def refreshBenchmark = previewBenchmarkMode == 'refresh'
+def refreshBenchmark = previewBenchmarkMode in ['refresh', 'materials']
 if (previewBenchmark != null && (dependencySmokeProfile != null || verificationRun != null)) {
     throw new GradleException('Preview benchmarks select their own isolated verification directory')
 }
 def verificationDirectory = previewBenchmark != null
-        ? file("build/verification/terminal-${refreshBenchmark ? 'refresh' : 'preview'}")
+        ? file("build/verification/terminal-${previewBenchmarkMode ?: 'preview'}")
         : dependencySmokeProfile != null
         ? file("build/verification/dependency-${dependencySmokeProfile}")
         : file("build/verification/${verificationRun ?: 'gametest'}")
@@ -94,6 +94,7 @@ minecraft {
             if (previewBenchmark != null) {
                 property 'gse.previewBenchmark', 'true'
                 property 'gse.refreshBenchmark', refreshBenchmark.toString()
+                property 'gse.materialsBenchmark', (previewBenchmarkMode == 'materials').toString()
                 property 'gse.previewBenchmarkOutput', file(
                         providers.gradleProperty('gsePreviewBenchmarkOutput').get()).absolutePath
             }

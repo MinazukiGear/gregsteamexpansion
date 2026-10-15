@@ -40,6 +40,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.ToLongFunction;
 
 /** Persistent owner projects, transaction escrow and rate-limited construction jobs. */
 public final class UltimateTerminalWorldData extends SavedData {
@@ -61,6 +62,11 @@ public final class UltimateTerminalWorldData extends SavedData {
         long available(ServerPlayer player, ItemStack stack);
         long extract(ServerPlayer player, ItemStack stack, long amount);
         long insert(ServerPlayer player, ItemStack stack, long amount);
+
+        /** A preview-local reader; never retained for the next refresh or construction. */
+        default ToLongFunction<ItemStack> previewAvailability(ServerPlayer player) {
+            return stack -> available(player, stack);
+        }
     }
 
     private static final MaterialNetwork WIRELESS_AE = new MaterialNetwork() {
@@ -72,6 +78,9 @@ public final class UltimateTerminalWorldData extends SavedData {
         }
         public long insert(ServerPlayer player, ItemStack stack, long amount) {
             return TerminalCompatibility.isAvailable() ? UltimateTerminalAECompat.insert(player, stack, amount, false) : 0;
+        }
+        public ToLongFunction<ItemStack> previewAvailability(ServerPlayer player) {
+            return TerminalCompatibility.isAvailable() ? UltimateTerminalAECompat.previewAvailability(player) : stack -> 0;
         }
     };
 
@@ -477,9 +486,11 @@ public final class UltimateTerminalWorldData extends SavedData {
                     mergeRequirement(batchRequirements, requirement, requirement.getCount());
                 }
             }
+            // The batch includes the selected target's requirements. Query each distinct
+            // stack once, then build independent selected rows with their own required counts.
+            var batchMaterials = materialViews(player, batchRequirements, project.useAE);
             return new PreviewData(List.copyOf(targets), project.selectedTarget, selectedPlan,
-                    materialViews(player, selectedRequirements, project.useAE),
-                    materialViews(player, batchRequirements, project.useAE), profile.copy(),
+                    selectedMaterialViews(selectedRequirements, batchMaterials), batchMaterials, profile.copy(),
                     project.overrides.containsKey(selected.key()), hasUnlimitedMaterials(player), selectedPlan.error());
         } finally {
             TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.PREVIEW, metricStart);
@@ -521,19 +532,46 @@ public final class UltimateTerminalWorldData extends SavedData {
         try {
             List<MaterialView> views = new ArrayList<>();
             boolean unlimitedMaterials = hasUnlimitedMaterials(player);
+            ToLongFunction<ItemStack> network = !unlimitedMaterials && useAE && !requirements.isEmpty()
+                    ? materialNetwork.previewAvailability(player) : stack -> 0;
             for (ItemStack requirement : requirements) {
                 long inventory = unlimitedMaterials ? 0 : countInventory(player, requirement);
-                long network = !unlimitedMaterials && useAE
-                        ? materialNetwork.available(player, requirement) : 0;
-                views.add(new MaterialView(requirement.copy(), requirement.getCount(), inventory, network));
+                views.add(new MaterialView(requirement.copy(), requirement.getCount(), inventory,
+                        network.applyAsLong(requirement)));
             }
-            views.sort(java.util.Comparator
-                    .comparingLong(MaterialView::missing).reversed()
-                    .thenComparing(view -> ForgeRegistries.ITEMS.getKey(view.stack().getItem()).toString()));
-            return List.copyOf(views);
+            return sortedMaterials(views);
         } finally {
             TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.MATERIALS, metricStart);
         }
+    }
+
+    private static List<MaterialView> selectedMaterialViews(List<ItemStack> requirements,
+                                                           List<MaterialView> batchMaterials) {
+        long metricStart = TerminalPreviewMetrics.start();
+        try {
+            List<MaterialView> views = new ArrayList<>();
+            for (ItemStack requirement : requirements) {
+                var available = matchingMaterial(batchMaterials, requirement);
+                views.add(new MaterialView(requirement.copy(), requirement.getCount(),
+                        available.inventory(), available.network()));
+            }
+            return sortedMaterials(views);
+        } finally {
+            TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.MATERIALS, metricStart);
+        }
+    }
+
+    private static MaterialView matchingMaterial(List<MaterialView> materials, ItemStack wanted) {
+        for (MaterialView material : materials) {
+            if (ItemStack.isSameItemSameTags(material.stack(), wanted)) return material;
+        }
+        throw new IllegalStateException("Selected requirements must be part of the batch");
+    }
+
+    private static List<MaterialView> sortedMaterials(List<MaterialView> views) {
+        views.sort(java.util.Comparator.comparingLong(MaterialView::missing).reversed()
+                .thenComparing(view -> ForgeRegistries.ITEMS.getKey(view.stack().getItem()).toString()));
+        return List.copyOf(views);
     }
 
     @Nullable
@@ -1058,12 +1096,17 @@ public final class UltimateTerminalWorldData extends SavedData {
     }
 
     private static long countInventory(ServerPlayer player, ItemStack wanted) {
-        long count = 0;
-        for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (ItemStack.isSameItemSameTags(stack, wanted)) count += stack.getCount();
+        long metricStart = TerminalPreviewMetrics.start();
+        try {
+            long count = 0;
+            for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+                ItemStack stack = player.getInventory().getItem(slot);
+                if (ItemStack.isSameItemSameTags(stack, wanted)) count += stack.getCount();
+            }
+            return count;
+        } finally {
+            TerminalPreviewMetrics.finish(TerminalPreviewMetrics.Stage.INVENTORY_QUERY, metricStart);
         }
-        return count;
     }
 
     private static boolean consume(List<ItemStack> escrow, ItemStack wanted) {

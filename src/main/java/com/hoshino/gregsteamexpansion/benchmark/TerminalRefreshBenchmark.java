@@ -42,6 +42,10 @@ public final class TerminalRefreshBenchmark {
     @GameTest(template = "empty_32x32x32", timeoutTicks = 6000)
     public static void measureContinuousRefresh(GameTestHelper helper) {
         helper.assertTrue(Boolean.getBoolean("gse.refreshBenchmark"), "Refresh benchmark must be enabled");
+        if (Boolean.getBoolean("gse.materialsBenchmark")) {
+            TerminalMaterialsBenchmark.measure(helper);
+            return;
+        }
         new Run(helper).start();
     }
 
@@ -222,7 +226,7 @@ public final class TerminalRefreshBenchmark {
         }
     }
 
-    private static final class Stats {
+    static final class Stats {
         final List<Double> endMs = new ArrayList<>();
         final List<Double> tickMs = new ArrayList<>();
         final List<TerminalPreviewMetrics.Sample> profile = new ArrayList<>();

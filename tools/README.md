@@ -173,7 +173,7 @@ explicit isolated directory. GTM Things without AE2 is not a valid combination
 because GTM Things itself requires AE2.
 
 The default `runGameTestServer` task uses `build/verification/gametest/` and runs
-all 193 tests. `-PgseVerificationRun=server-restart` and
+all 194 tests. `-PgseVerificationRun=server-restart` and
 `-PgseVerificationRun=config-restart` select the two persistence fixtures;
 `-PgseDependencySmoke=core|ae2|full` selects only the smoke namespace and its
 isolated dependency set.
@@ -195,7 +195,7 @@ server thread. Median and maximum batch times describe preview work only, not re
 multiplayer MSPT, networking, heap allocation or client FPS. See
 [the performance record](../docs/terminal-preview-performance-2026-10-10.md).
 
-The benchmark namespaces are excluded from the 193 ordinary regression tests,
+The benchmark namespaces are excluded from the 194 ordinary regression tests,
 configuration restart and dependency-smoke runs. Timings have no speed threshold.
 
 ### Continuous held-terminal refresh
@@ -236,6 +236,39 @@ as total work: staggering redistributes work and does not eliminate a costly
 single preview.
 See [the continuous refresh record](../docs/terminal-refresh-performance-2026-10-11.md)
 for the measured before/after results and remaining limits.
+
+### Real AE material queries
+
+```bash
+python tools/benchmark_terminal_preview.py --mode materials --offline --label baseline
+python tools/benchmark_terminal_preview.py --mode materials --offline --label optimized
+```
+
+This reuses the refresh benchmark namespace with a separate
+`build/verification/terminal-materials/` world. Six workloads compare backpack-only
+and backpack plus AE for one compact target, sixteen compact targets and one
+15x15 furnace. Two rotated rounds, 20 warmup ticks and quiet/changing phases of
+100 ticks produce 24 records. The AE backend is a real wireless access point,
+grid, global storage provider and 64K item cell. The changing phase mutates live
+backpack/cell quantities, unlinks/relinks the wireless terminal and makes explicit
+requests; recipients decode their own selected and batch materials.
+
+Additional timings/counts cover `inventory_query`, `ae_lookup` and `ae_query`.
+`materials` includes selected/batch row creation and all queries; `ae_query`
+includes its in-call lookup in the baseline, while preview-scoped lookup is
+separate after optimization. These nested timings must not be summed. The
+production preview queries each batch stack once and resolves this player's
+wireless storage once per request. Selected rows have independent stack copies
+and required counts. The reader retains normal per-item extraction simulation
+and PlayerSource checks, and expires with the synchronous preview. Refreshes,
+explicit operations and construction independently read current state.
+
+The shared watchdog now supervises benchmark Gradle/JVM commands and preserves
+failure context. Source hashes, raw logs and JSON reports remain under `reports/`.
+One mounted cell is a reproducible baseline, not a performance guarantee for
+large storage/provider topologies. Socket, compression and client FPS costs are
+outside this measurement; no timing threshold is used as a test gate. See the
+[AE material comparison](../docs/terminal-ae-performance-2026-10-15.md).
 
 ## Complete release gate
 

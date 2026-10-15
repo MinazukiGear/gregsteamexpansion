@@ -55,7 +55,7 @@ EMI、Jade、精妙背包/存储、Modern UI，以及 ExtendedAE-Plus（连同 E
 ```powershell
 .\gradlew.bat genIntellijRuns       # 生成 IDEA 运行配置（JDK 17）
 .\gradlew.bat runClient             # 启动开发客户端
-.\gradlew.bat -PgseVerificationRun=gametest runGameTestServer # 运行全部 GameTest（193 个，见下）
+.\gradlew.bat -PgseVerificationRun=gametest runGameTestServer # 运行全部 GameTest（194 个，见下）
 .\gradlew.bat build -x test         # 构建发布 JAR（build/libs/）
 .\gradlew.bat runData               # 重新生成数据（资源/配方/语言）
 ```
@@ -98,7 +98,7 @@ Java、启动器与上游原生库架构。跨平台环境、Linux 发行版/Nix
 | `GSETerminalTransactionTests` | 生存材料托管、取料失败退款、离线/维度/未加载暂停、外部方块归属、精确状态升级回滚及控制器变更停止施工（5 个） |
 | `GSETerminalSchedulingTests` | 全服预算共享、小/奇数预算轮转、三人暂停公平分配、失败后重启、取消保留已完成目标与持久退款守恒（4 个） |
 | `GSETerminalRestartTests` | 真实区块卸载与双 JVM 多模块生存施工续作，含托管材料、严格空气、回滚日志和待领退款（1 个） |
-| `GSETerminalAEIntegrationTests` | 真实 AE 无线接入点、网络与存储单元上的背包混合取料、满背包退款、纯 AE 重试及断链保护（1 个） |
+| `GSETerminalAEIntegrationTests` | 真实 AE 无线网络的混合取料、满背包退款、纯 AE 重试、双人私有材料刷新、断链/换网即时响应及施工前重校验（2 个） |
 | `GSEDependencySmokeTests` | 必需前置加载、可选依赖组合、终端条件配方/缺依赖提示/拒绝使用，以及核心蒸汽机器成型（1 个；亦在三种隔离运行组合中单独执行） |
 | `GSEStructureTestUtils` | 结构辅助：用机器注册的 `MultiblockShapeInfo` 反铺方块，再用图案校验 |
 
@@ -151,6 +151,8 @@ GameTest → 服务器重启 → 三档配置重启 → 三种依赖组合 → d
 [beta.2 验收记录](docs/releases/beta2-progression-acceptance.md)，已完成范围和剩余边界见[设计索引](docs/design/README.md#beta2-已完成范围与当前待办)。[P0 发布验收记录](docs/releases/p0-validation-2026-09-30.md)与[P3 记录](docs/releases/p3-terminal-transactions-2026-09-30.md)保留历史门禁及终端事务来源。
 
 终端单人多目标与大型结构的分段计时、单次规划候选复用和前后性能对照见[计算成本记录](docs/terminal-cost-performance-2026-10-12.md)。预览、材料和工程保持玩家隔离，每 10 tick 刷新与主动操作立即响应的规则不变。
+
+2026-10-15 的[真实 AE 材料查询对照](docs/terminal-ae-performance-2026-10-15.md)覆盖纯背包/背包＋AE、单目标/16 目标/大型熔炉。查询只在同次预览内复用；周期刷新与主动操作重新读取，施工启动继续独立校验并托管材料。
 
 完整门禁对每个外部阶段默认设置 20 分钟上限、10 分钟无输出停滞上限，失败时先保存阶段、配置、日志尾部与可获取的 JVM 线程栈，再清理该阶段的受管子进程并退出。配置重启仍恢复原配置；参数与诊断目录见 [tools 说明](tools/README.md#complete-release-gate)，本轮验证边界见 [CI 诊断记录](docs/ci-watchdog-validation-2026-10-12.md)。
 

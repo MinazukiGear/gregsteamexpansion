@@ -2,7 +2,8 @@ package com.hoshino.gregsteamexpansion.terminal;
 
 /** Opt-in benchmark timings; no player, preview, inventory or world data is retained. */
 public final class TerminalPreviewMetrics {
-    public enum Stage { REFRESH, PREVIEW, PLAN, REQUIREMENTS, MATERIALS, SNAPSHOT, DIFF, ENCODE, CANDIDATES }
+    public enum Stage { REFRESH, PREVIEW, PLAN, REQUIREMENTS, MATERIALS, SNAPSHOT, DIFF, ENCODE, CANDIDATES,
+        INVENTORY_QUERY, AE_LOOKUP, AE_QUERY }
 
     private static final boolean ENABLED = Boolean.getBoolean("gse.refreshBenchmark");
     private static final ThreadLocal<Sample> ACTIVE = new ThreadLocal<>();

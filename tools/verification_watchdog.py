@@ -396,7 +396,8 @@ def run_command(root: Path, stage: str, command: list[str], *, environment: dict
     environment = dict(os.environ if environment is None else environment)
     limits = limits or Limits.from_environment(environment)
     if fixture is not None and fixture not in {"gametest", "server-restart", "config-restart",
-                                               "dependency-core", "dependency-ae2", "dependency-full"}:
+                                               "dependency-core", "dependency-ae2", "dependency-full",
+                                               "terminal-preview", "terminal-refresh", "terminal-materials"}:
         raise ValueError(f"Unknown guarded verification fixture: {fixture}")
     _install_windows_interrupt()
     root = root.resolve()

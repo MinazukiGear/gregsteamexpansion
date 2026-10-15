@@ -136,6 +136,7 @@ public final class GSETerminalRefreshTestSupport implements AutoCloseable {
         public UltimateTerminalSnapshot lastFull;
         public List<UltimateTerminalSnapshot.MaterialInfo> selectedMaterials;
         public List<UltimateTerminalSnapshot.MaterialInfo> batchMaterials;
+        public java.util.function.LongSupplier expectedNetwork = () -> 0;
 
         private Owner(ServerPlayer player, List<BlockPos> targets, ServerPlayer previousPlayer,
                       Object previousSession, Object previousProject) {
@@ -186,7 +187,8 @@ public final class GSETerminalRefreshTestSupport implements AutoCloseable {
                     for (var materials : List.of(selectedMaterials, batchMaterials)) {
                         var material = materials.stream().filter(value ->
                                 ItemStack.isSameItemSameTags(value.stack(), probe)).findFirst().orElseThrow();
-                        helper.assertTrue(material.inventory() == available() && material.network() == 0,
+                        helper.assertTrue(material.inventory() == available()
+                                        && material.network() == expectedNetwork.getAsLong(),
                                 "Encoded material availability leaked another owner's inventory or AE state");
                     }
                     helper.assertTrue(buffer.readableBytes() == 0, "Terminal packet has trailing data");
