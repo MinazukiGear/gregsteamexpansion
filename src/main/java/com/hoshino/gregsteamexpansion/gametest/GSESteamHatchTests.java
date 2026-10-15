@@ -462,18 +462,27 @@ public final class GSESteamHatchTests {
         helper.succeed();
     }
 
-    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty", timeoutTicks = 100)
+    @GameTest(templateNamespace = GregSteamExpansion.MOD_ID, template = "empty_32x32x32", timeoutTicks = 100)
     @SuppressWarnings("unchecked")
     public static void steamAirIntakeCollectsWhileUnformed(GameTestHelper helper) {
         // The intake begins collecting as soon as the placed block is loaded;
         // multiblock formation only controls which controller may consume the
         // cached air. External fluid access remains disabled.
-        SteamAirIntakeHatchPartMachine intake = GSEStructureTestUtils.placeMachine(helper, GSEMachines.STEAM_AIR_INTAKE_HATCH, HATCH_POS);
-        // Keep the inlet inside the empty template instead of depending on
-        // whichever block or neighbouring fixture happens to be north of it.
+        BlockPos intakePos = new BlockPos(16, 16, 16);
+        BlockPos inletPos = intakePos.east();
+        SteamAirIntakeHatchPartMachine intake = GSEStructureTestUtils.placeMachine(
+                helper, GSEMachines.STEAM_AIR_INTAKE_HATCH, intakePos);
         intake.setFrontFacing(Direction.EAST);
-        helper.setBlock(HATCH_POS_EAST, Blocks.AIR);
-        BlockEntity blockEntity = helper.getLevel().getBlockEntity(helper.absolutePos(HATCH_POS));
+        // Own the dry inlet and all five exposed neighbours. The tiny 3x1x1
+        // template could not isolate later fluid/neighbor updates in the shared
+        // test world. These guards stay inside this fixture's 32-cube; the
+        // intake still fills naturally and its front cell is cleared only once.
+        for (Direction side : Direction.values()) {
+            BlockPos guard = inletPos.relative(side);
+            if (!guard.equals(intakePos)) helper.setBlock(guard, Blocks.GLASS);
+        }
+        helper.setBlock(inletPos, Blocks.AIR);
+        BlockEntity blockEntity = helper.getLevel().getBlockEntity(helper.absolutePos(intakePos));
         helper.assertTrue(blockEntity != null, "Steam air intake hatch block entity was missing");
         if (blockEntity != null) {
             IFluidHandler fluids = blockEntity.getCapability(ForgeCapabilities.FLUID_HANDLER, Direction.NORTH)
@@ -489,7 +498,9 @@ public final class GSESteamHatchTests {
         helper.startSequence().thenWaitUntil(() -> helper.assertTrue(
                 intake.tank.getFluidInTank(0).getAmount() > 0,
                 "Standalone intake did not collect: status=" + intake.getIntakeStatus()
-                        + ", ticksUntilCollection=" + intake.getTicksUntilCollection()))
+                        + ", ticksUntilCollection=" + intake.getTicksUntilCollection()
+                        + ", facing=" + intake.getFrontFacing()
+                        + ", inlet=" + helper.getBlockState(inletPos)))
                 .thenExecute(() -> {
                     helper.assertTrue(intake.tank.getFluidInTank(0).getAmount() ==
                                     SteamAirIntakeHatchPartMachine.COLLECT_AMOUNT,
