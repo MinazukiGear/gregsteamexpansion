@@ -121,3 +121,13 @@ END 和 START→END 是包含其他监听器的事件区间，后者还包含夹
 完整门禁日志 SHA-256 为 `baca78cd204f732cdf8542abcbfa8d9b98226675123166eeab251a25f42b3a4f`。最终验证凭据为 `.tmp/terminal-ae-final-validation-receipt-2026-10-15.json`：11 项变更源码的指纹在门禁期间保持一致，所有外部阶段元数据均为 `passed`，无输出采集错误或遗留子进程失败。原始报告、26 份测量输入快照及实际刷新调用数已再次核对。
 
 开发存档、配置、客户端选项与 `dist/0.1.0-beta.2/` 的 97 份文件，逐文件哈希及文件集合均与本轮起始清单一致；beta.2 注释标签仍为 `c93948718d232572d03b14fbc4c90a01487e750e`，源码指向 `297d7824f5376a88f31ef9970f989f4cd57a53a1`。本机结果不代替四平台原生 CI 或客户端帧率验收。
+
+## 候选 CI 的首钢夹具修正
+
+首个候选 `d7c48d985718e081d38af70258386ebdf7b3464e` 的[四平台 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38717962223)中，Windows ARM64 的普通回归有 193 项通过，既有 `acquisition_ingredients_resolve_without_internal_deadlocks` 在 `2,100 tick` 上限报告原始高炉未成型。四个定点日志均显示控制器仍为同一有效实例、`formed=false`、`progress=0/0`，尚未启动首钢配方；没有记录到终端 AE 回归失败。
+
+该作业的[失败诊断制品](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38717962223/artifacts/11964281733)保留了 `nonzero_exit` 元数据、配置和原始服务器日志。失败后目标服务器已退出，唯一残留 JVM 的线程转储附加也超时，不能据此确定异步成型未发生的具体原因。完整作业日志保存在 `.tmp/terminal-ae-ci-38717962223-windows-arm64.log`，SHA-256 为 `63ce152ef80966fd558aa5c6ec7adec924ec86fd9351ada298d2d6b8780a31f1`；服务器 `debug.log` 为 `0829aec922d710f8838cf984ed33222374839716384ef826f61b4c7dae803fcf`。
+
+首钢夹具现使用已有模式锁，强制核对实际摆放的预览结构，通过后执行上游相同的翻转、成型回调与结构映射转换，再让真实机器运行已加载配方。它不再依赖上游按墙钟调度的异步扫描完成配方测试的准备工作；不匹配结构仍立即失败。独立批次、`2,100 tick` 上限、原始 `1,800 tick` 配方、一个铁锭加两个木炭的消耗及恰好一个钢锭的输出断言均保留。这只修改 `GSEAcquisitionTests`，没有改动生产机器、终端逻辑、协议或 13 项材料基准输入，也不代表上游异步调度的根因已修复。
+
+修正后的本机普通回归 `194/194` 和完整构建审计通过；首钢在第 `1 tick` 启动真实配方，并在原上限内完成。日志为 `.tmp/terminal-ae-first-steel-validation-2026-10-15.log`，SHA-256 为 `37f10a1eaea7ceb4295fe09cb1d4f6e65eee0150c43fded8818d42a42cd660bb`。13 项最终材料基准输入已逐项核对，字节保持一致。

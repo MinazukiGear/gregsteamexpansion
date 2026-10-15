@@ -10,6 +10,7 @@ import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
+import com.gregtechceu.gtceu.api.pattern.MultiblockWorldSavedData;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
@@ -167,6 +168,21 @@ public final class GSEAcquisitionTests {
         var furnace = (PrimitiveBlastFurnaceMachine) GSEStructureTestUtils.placeShape(
                 helper, definition, definition.getMatchingShapes().get(0));
         helper.assertTrue(furnace != null, "Primitive first-steel furnace was not placed");
+        // This fixture verifies the loaded bootstrap recipe, not the upstream
+        // wall-clock pattern worker. Check the real blocks and perform the same
+        // locked formation transition before starting the 1,800-tick recipe.
+        GSEStructureTestUtils.withPatternLock(furnace, () -> {
+            if (!furnace.isFormed()) {
+                helper.assertTrue(GSEStructureTestUtils.checkPattern(furnace),
+                        "Primitive first-steel preview does not match its real pattern: "
+                                + furnace.getMultiblockState().error);
+                furnace.setFlipped(furnace.getMultiblockState().isNeededFlip());
+                furnace.onStructureFormed();
+                var multiblocks = MultiblockWorldSavedData.getOrCreate(helper.getLevel());
+                multiblocks.addMapping(furnace.getMultiblockState());
+                multiblocks.removeAsyncLogic(furnace);
+            }
+        });
         ItemStack steel = ChemicalHelper.get(TagPrefix.ingot, GTMaterials.Steel);
         // This real 1,800-tick recipe must not share its run with fixtures that
         // unload/reload chunks or replace machine blocks. Keep the original
