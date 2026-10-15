@@ -18,7 +18,7 @@
 
 Windows 使用挂起启动、私有 Job Object 和恢复线程，避免在归属建立前派生子进程；关闭 Job Object 清理其成员。POSIX 使用私有会话/进程组，只清理该组，主动脱离该组的进程不在覆盖范围。普通退出允许子进程最多 10 秒完成 Gradle 缓存关闭；仍存活的受管子进程按失败处理。实现依据 [Windows Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)、[ResumeThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-resumethread) 和 [Python 3.10 subprocess](https://docs.python.org/3.10/library/subprocess.html)；工具保持 Python 3.10+ 语法兼容，不引入新依赖。
 
-复核当前缓存的 Gradle 8.8 源码及 [native-platform 的 detach 实现](https://github.com/gradle/native-platform/blob/master/native-platform/src/main/cpp/posix.cpp)确认，单次 daemon 也会调用 `setsid()`。受监控的 POSIX Gradle 命令因此只在其子进程环境的 `JAVA_TOOL_OPTIONS` 末尾追加 `-Dorg.gradle.native=false`，保留原有选项、不修改调用者环境或项目配置。该 JVM 启动属性覆盖 launcher 和 daemon，使验证树保留在私有组；单独的 Gradle CLI `-D` 无法保证 daemon 启动时的 native 初始化关闭。Windows 和非 Gradle 命令不加入此属性。POSIX 原生运行仍待四平台 CI 核验。
+复核当前缓存的 Gradle 8.8 源码及 [native-platform 的 detach 实现](https://github.com/gradle/native-platform/blob/master/native-platform/src/main/cpp/posix.cpp)确认，单次 daemon 也会调用 `setsid()`。受监控的 POSIX Gradle 命令因此只在其子进程环境的 `JAVA_TOOL_OPTIONS` 末尾追加 `-Dorg.gradle.native=false`，保留原有选项、不修改调用者环境或项目配置。该 JVM 启动属性覆盖 launcher 和 daemon，使验证树保留在私有组；单独的 Gradle CLI `-D` 无法保证 daemon 启动时的 native 初始化关闭。Windows 和非 Gradle 命令不加入此属性。Linux x64 与 macOS ARM64 的原生完整门禁已通过，结果见下文最终候选记录。
 
 服务器重启、配置重启和依赖组合的 Python 循环由完整门禁直接调用，受监控和清理的是每次实际 Gradle/JVM 命令。超时失败能够返回配置脚本的 `finally`，逐字节恢复原文件或原来的不存在状态，并阻止后续阶段。非零退出码继续作为失败，不自动重试或放宽 GameTest 断言。
 
@@ -63,15 +63,48 @@ Windows 11 AMD64、Zulu JDK 17.0.13、Python 3.12.14 下，最终 15 项诊断�
 
 失败命令把中文临时目录作为绝对参数交给 `javac`；[OpenJDK 17 Windows launcher](https://github.com/openjdk/jdk17u/blob/master/src/java.base/share/native/launcher/main.c)在启动时把 UTF-16 参数转换为系统 ANSI 代码页，存在本机中文环境与 CI 环境的路径兼容差异。夹具现保留真实的中文/空格工作目录，在该目录中以 ASCII 相对文件名、显式 UTF-8 源码编码编译，并用相对类路径 `.` 启动 Java；编译失败时展示编译器原始输出。实际 JVM 附加、线程名检查、进程清理、配置恢复和超时断言均保留。
 
-修正后本机 15 项诊断夹具和 9 项可移植性夹具通过，日志分别为 `.tmp/ci-watchdog-fixtures-relative-java-2026-10-15.log`、`.tmp/ci-watchdog-portability-2026-10-15.log`。此项只改测试夹具的 Java 启动参数，生产 Java、资源和机器回归断言未改；修正源码仍须完成新的四平台 CI。
+修正后本机 15 项诊断夹具和 9 项可移植性夹具通过，日志分别为 `.tmp/ci-watchdog-fixtures-relative-java-2026-10-15.log`、`.tmp/ci-watchdog-portability-2026-10-15.log`。此项只改测试夹具的 Java 启动参数，生产 Java、资源和机器回归断言未改；该修正随最终候选完成下文的四平台 CI。
 
 提交 `c7b3bb3dee64d14a9a03b3998eee7e21d05ed93e` 的[下一轮 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38678233425)在 macOS ARM64 完成 15 项工具夹具、编译及普通 `193/193` GameTest 后，清理步骤报告 `EPERM`；诊断元数据确认实际 Gradle 退出码为 `0`、失败原因为 `cleanup_error`。监控的正常退出分支已确认没有活跃组成员，但再次发送组信号时仍收到权限错误。记录位于 `.tmp/ci-watchdog-ci-macos-cleanup-artifact/`。
 
-POSIX 清理现只在 `PermissionError` 后重新查询私有组：确认没有活跃成员才按已结束处理；存在活跃成员或查询失败仍报清理失败。清理本身失败时也补采诊断上下文。新增回归分别保护这三种情况，修正后的本机 16 项诊断夹具通过（`.tmp/ci-watchdog-fixtures-posix-cleanup-2026-10-15.log`）；真实超时、无关进程保护和 JVM 线程栈断言未放宽。生产 Java 与资源仍未改动，完整四平台结果待后续候选提交完成。
+POSIX 清理现只在 `PermissionError` 后重新查询私有组：确认没有活跃成员才按已结束处理；存在活跃成员或查询失败仍报清理失败。清理本身失败时也补采诊断上下文。新增回归分别保护这三种情况，修正后的本机 16 项诊断夹具通过（`.tmp/ci-watchdog-fixtures-posix-cleanup-2026-10-15.log`）；真实超时、无关进程保护和 JVM 线程栈断言未放宽。该项没有修改生产 Java 或资源，最终候选的 macOS 原生完整门禁亦通过。
 
 同一提交的 Windows x64 在重启 seed 阶段独立报告 `steam_air_intake_collects_while_unformed` 失败：状态为 `BLOCKED`、剩余周期为 `40`。该日志未记录入口方块，不能确定具体阻塞物或其来源（`.tmp/ci-watchdog-ci-38678233425-windows-x64-initial.log`）。原 `3×1×1` 夹具无法拥有入口周围全部环境；现使用已有 `32³` 空模板，把单个进气室与入口五面隔离移至自身区域中央，仅初始化时清空入口，继续由真实 40-tick 周期采气。100 tick 上限、精确批量、NBT 往返与 Jade 去重检查均保留，并补充失败时的朝向与入口方块信息。Java 改动仅在 `GSESteamHatchTests`，未修改机器采气逻辑或模板资产。
 
 隔离修正的本机双 JVM 写入/恢复两轮各 `193/193` 通过（`.tmp/ci-watchdog-intake-fixture-restart-2026-10-15.log`）；完整构建、设计契约、92 份生成资产、929 个语言键及 JAR 的 429 个类/429 份源资源审计通过（`.tmp/ci-watchdog-intake-fixture-build-2026-10-15.log`）。
+
+## 2026-10-15 最终候选四平台验收
+
+最终源码 `75860e957d8d0a323c77a2b5aea7b66747651e0a` 的[完整 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38681423446)在首次运行中四平台全部通过，最终状态更新时间为 `2026-10-15T04:56:56Z`。四个结果来自同一源码和同一轮运行，无失败作业重跑；此前被新候选取代的取消结果不计入本表。各平台使用原生 Zulu Java `17.0.20.1`，Python 为 `3.14.7` 或 `3.14.8`。
+
+各平台均核对完整日志，结果一致：
+
+- 16 项诊断夹具和 9 项可移植性夹具通过，无跳过；真实 JDK 线程栈附加、超时清理及配置恢复检查均执行。
+- 普通回归、独立 JVM seed/verify、Easy/Normal/Expert 六轮各 `193/193` 项必需 GameTest 通过。
+- core、AE2、full 三轮依赖冒烟各 `1/1` 通过；datagen 新鲜度、92 份生成资产、929 个语言键及完整构建通过。
+- 发布 JAR 审计通过，包含 429 个 Java 17 类和 429 份源资源；完整门禁输出 `All gates passed.`。
+
+| 原生平台 | CI 作业 | 完整日志 SHA-256 |
+| --- | --- | --- |
+| Linux x64 | [116246974568](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38681423446/job/116246974568) | `aaab5558f039eb7e5e4bf6a62bdd2a200cf137309a5706b7e3d68851d58dd6bf` |
+| Windows x64 | [116246974791](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38681423446/job/116246974791) | `655d1fd91490bbea737fb00d0b37ba638a063d4ab0b4e973b539778aa03164a1` |
+| Windows ARM64 | [116246974698](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38681423446/job/116246974698) | `c6e439f34633efb779ccfaebfc0ea3382cdad39a0d1dc1c579db4d9198496c80` |
+| macOS ARM64 | [116246974710](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38681423446/job/116246974710) | `cd3a922280edcd8cd65641e5b38858ffc24912c2510222b66b7b85d3f607c572` |
+
+同一运行上传四份 `gregsteamexpansion-<平台>-jar` 制品。下表哈希取自各平台构建审计的 JAR 本身，区别于 GitHub 制品 ZIP 的摘要；公开 beta.2 仍对应原发布标签与附件。
+
+| 平台 | CI 制品 ID | JAR SHA-256 |
+| --- | --- | --- |
+| Linux x64 | `11948019905` | `4842cc8628c4ac5b9eb11009fbed1700a51a0e4d516dac1c1ef63fd7489f0330` |
+| Windows x64 | `11949806376` | `05b04a2046595c1a9a0068ec39411404101703b39aac47ca7154c46e10e51180` |
+| Windows ARM64 | `11949171944` | `28f4bbc3d59477b7dcc48a0e58c2109e01d72656564a0f9b432d4ac69f01e072` |
+| macOS ARM64 | `11949003307` | `7e5450df79f57b68565b22143ab133bfe08322094d9c4fd8dceb8ab4f472c146` |
+
+日志保存为 `.tmp/ci-watchdog-ci-38681423446-<平台>.log`，来源、作业、日志与 JAR 指纹及制品元数据汇总在 `.tmp/ci-watchdog-ci-38681423446-receipt.json`。该凭据同时复核开发存档、配置、客户端选项和 `dist/0.1.0-beta.2/` 的 97 份文件：文件集合和逐文件 SHA-256 均与本轮起始清单一致；beta.2 标签仍指向 `297d7824f5376a88f31ef9970f989f4cd57a53a1`。
+
+失败与取消证据也已单独核对：首次 Windows x64 的诊断制品 `11947400045` 保留了工具夹具的 `nonzero_exit` 元数据、退出码 `1` 和原始日志。中间提交 `eb9352f` 的[运行](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38679609441)中，Windows x64 已通过，其余平台因最终候选推送而取消；Linux 取消制品 `11948855490` 保留阶段输出，但受宿主强制终止影响，活动阶段元数据仍为 `running`，未取得最终线程栈。这确认了前述强制取消的证据边界；受控超时的完整诊断由真实 JVM 夹具验证。
+
+后续仅补写本节与验收索引，源码、工作流和测试夹具沿用已通过四平台的 `75860e9`。结果记录提交只执行文档链接、设计契约与差异格式校验，不重复运行同一份代码的完整门禁。
 
 ## 范围与后续
 
