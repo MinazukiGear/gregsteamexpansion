@@ -143,3 +143,36 @@ END 和 START→END 是包含其他监听器的事件区间，后者还包含夹
 恢复自动成型后的首次本机验证暴露了新增诊断在初始状态读取未建立坐标的问题，原始记录保存在 `.tmp/terminal-ae-first-steel-dry-initial-2026-10-15.log`。诊断现对初始化/卸载类错误只报告错误键，不读取未初始化位置；后续真实失配仍记录坐标和实际方块。
 
 最终防水夹具的本机 `194/194` 普通回归和构建审计通过，首钢在第 `44 tick` 自动成型并启动原 `1,800 tick` 配方，在原时限内完成。日志为 `.tmp/terminal-ae-first-steel-dry-validation-2026-10-15.log`，SHA-256 为 `10952ccee7253b832fb48c24b43514a42f9bd1355873bb9b1c68a6065b1b9525`；开发 JAR 包含 432 个 Java 17 类和 429 份源资源，SHA-256 为 `c724e715e3e3004dd7c5a72499350e577ee9f6610ca8804bf2a101cf7c1874d9`。验证期间的夹具源码指纹一致，13 项材料基准输入及 97 份保护文件再次核对未变。
+
+## 最终候选四平台验收
+
+最终源码 `3d10fcbf15b0d3cd635d682eb362d4358ccc6563` 的[四平台完整 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38724890852)已全部通过，运行尝试为第 `1` 次，四个作业来自同一源码。本表对应此次运行，前三轮候选的失败与夹具修正证据保留在上节。
+
+四个平台完整日志逐一核对，结果一致：
+
+- 原生 JDK 17 下，16 项诊断夹具、9 项可移植性夹具通过，无跳过。
+- 普通回归、独立 JVM 重启 seed/verify、Easy/Normal/Expert 六轮各 `194/194` 通过；每平台六轮首钢均以真实上游 `1,800 tick` 配方完成。
+- core、AE2、full 三种隔离依赖冒烟各 `1/1` 通过；datagen 新鲜度、92 份生成资产、929 个语言键及构建审计通过。
+- JAR 包含 432 个 Java 17 类、429 份源资源，完整门禁均输出 `All gates passed.`。
+
+| 原生平台 | CI 作业 | 完整日志 SHA-256 |
+| --- | --- | --- |
+| Linux x64 | [116388452850](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38724890852/job/116388452850) | `80048d24ffb206bd1014b0c27a28016c2a7eeda24fdc9fd4301c219c5db45909` |
+| Windows x64 | [116388452636](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38724890852/job/116388452636) | `753b31e18b426ffb2ce09db1fd8bd698ce5e885c8f17d1f78ec85a2cfcf21f90` |
+| Windows ARM64 | [116388453003](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38724890852/job/116388453003) | `138ceb82a02ab3d07a190200d1a9a5fac502f058e1e0b412271f85e7de9dd04a` |
+| macOS ARM64 | [116388452824](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38724890852/job/116388452824) | `ccbf64f7f7fff1cef77179d2163dbfe8f3df1442cd4e5d3123ae18cfaa3ab9d9` |
+
+四份开发 JAR 制品均已上传。下表哈希取自各平台 JAR 本身，区别于 GitHub 制品 ZIP 的摘要；公开 beta.2 保持原发布版本。
+
+| 平台 | CI 制品 ID | JAR SHA-256 |
+| --- | --- | --- |
+| Linux x64 | `11967754791` | `33e7f3d6c0250b19f2ac5e69cd80327c2411cf12b4d213184416b80cc77ae405` |
+| Windows x64 | `11969791142` | `324c47a5792b862be9b6005daae74467e7a03e2874a4fae29af6000e9d13b44b` |
+| Windows ARM64 | `11969390439` | `99fdbfe794e22c2a403af76e922c88365dec6685d6d09997450141de1148dd21` |
+| macOS ARM64 | `11969536303` | `534a145f395f7f1981ab6eb662682caa353bef425e4e99f15956b2aaa8a20fcd` |
+
+完整日志保存为 `.tmp/terminal-ae-ci-38724890852-<平台>.log`，作业、来源、日志与 JAR 指纹及制品元数据汇总在 `.tmp/terminal-ae-ci-38724890852-receipt.json`。该凭据核对 18 项候选提交文件与已验证来源一致，并再次确认开发存档、配置、客户端选项和公开 beta.2 的 97 份文件集合及逐文件哈希不变，发布标签仍指向 `297d7824f5376a88f31ef9970f989f4cd57a53a1`。
+
+测量输入指纹对应本机保存的原始字节；候选提交按仓库规则规范化换行，提交文件的独立指纹保存在上述凭据中。
+
+本轮四平台结果覆盖服务端正确性和可构建性；前述耗时仍为本机材料基准，不据此宣称跨平台提速、复杂 AE 存储拓扑或客户端帧率已经验收。后续结果记录提交仅更新本节和验收索引，执行文档链接、设计契约与差异格式校验；源码、工作流和测试夹具保持已通过四平台的 `3d10fcb`。
