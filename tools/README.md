@@ -292,7 +292,7 @@ can prevent final diagnostics/restoration. CI attempts to upload diagnostics and
 Minecraft logs on failure or cancellation; runner termination can also prevent
 artifact upload. The four-platform matrix and 90-minute job ceiling remain.
 
-`python tools/test_verification_watchdog.py` runs 15 standard-library fixtures
+`python tools/test_verification_watchdog.py` runs 16 standard-library fixtures
 covering real idle/absolute timeouts, partial output, bounded logs, nonzero exits,
 descendant/orphan cleanup with an unrelated process left alive, scratch paths,
 configuration recovery, failure propagation and real JDK thread attachment.

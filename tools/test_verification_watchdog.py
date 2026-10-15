@@ -240,6 +240,27 @@ class WatchdogTests(unittest.TestCase):
             common.run_checked("other command", ["java", "-version"], environment=environment)
         self.assertEqual(environment, run.call_args.kwargs["environment"])
 
+    def test_posix_denied_cleanup_requires_proof_that_no_live_members_remain(self):
+        with patch.object(watchdog.shutil, "which", return_value="/usr/bin/ps"):
+            tree = watchdog._PosixTree(314159)
+        denied = PermissionError(1, "Operation not permitted")
+        with patch.object(watchdog.os, "killpg", side_effect=denied, create=True) as kill, \
+                patch.object(watchdog.signal, "SIGKILL", 9, create=True), \
+                patch.object(tree, "processes", return_value=[]) as members:
+            tree.close()
+            kill.assert_called_once_with(314159, 9)
+            members.assert_called_once_with()
+        with patch.object(watchdog.os, "killpg", side_effect=denied, create=True), \
+                patch.object(watchdog.signal, "SIGKILL", 9, create=True), \
+                patch.object(tree, "processes", return_value=[{"pid": 314160, "image": "java"}]):
+            with self.assertRaises(PermissionError):
+                tree.close()
+        with patch.object(watchdog.os, "killpg", side_effect=denied, create=True), \
+                patch.object(watchdog.signal, "SIGKILL", 9, create=True), \
+                patch.object(tree, "processes", side_effect=subprocess.SubprocessError("ps failed")):
+            with self.assertRaises(subprocess.SubprocessError):
+                tree.close()
+
     def test_jvm_thread_dump_is_captured_before_owned_jvm_is_killed(self):
         java_home = os.environ.get("JAVA_HOME")
         suffix = ".exe" if os.name == "nt" else ""

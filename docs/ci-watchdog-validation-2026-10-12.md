@@ -65,6 +65,10 @@ Windows 11 AMD64、Zulu JDK 17.0.13、Python 3.12.14 下，最终 15 项诊断�
 
 修正后本机 15 项诊断夹具和 9 项可移植性夹具通过，日志分别为 `.tmp/ci-watchdog-fixtures-relative-java-2026-10-15.log`、`.tmp/ci-watchdog-portability-2026-10-15.log`。此项只改测试夹具的 Java 启动参数，生产 Java、资源和机器回归断言未改；修正源码仍须完成新的四平台 CI。
 
+提交 `c7b3bb3dee64d14a9a03b3998eee7e21d05ed93e` 的[下一轮 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38678233425)在 macOS ARM64 完成 15 项工具夹具、编译及普通 `193/193` GameTest 后，清理步骤报告 `EPERM`；诊断元数据确认实际 Gradle 退出码为 `0`、失败原因为 `cleanup_error`。监控的正常退出分支已确认没有活跃组成员，但再次发送组信号时仍收到权限错误。记录位于 `.tmp/ci-watchdog-ci-macos-cleanup-artifact/`。
+
+POSIX 清理现只在 `PermissionError` 后重新查询私有组：确认没有活跃成员才按已结束处理；存在活跃成员或查询失败仍报清理失败。清理本身失败时也补采诊断上下文。新增回归分别保护这三种情况，修正后的本机 16 项诊断夹具通过（`.tmp/ci-watchdog-fixtures-posix-cleanup-2026-10-15.log`）；真实超时、无关进程保护和 JVM 线程栈断言未放宽。生产 Java 与资源仍未改动，完整四平台结果待后续候选提交完成。
+
 ## 范围与后续
 
 本轮不改动 Java 生产逻辑、测试模板、终端协议或刷新调度。每位玩家仍只渲染自己的选中预览，预览与材料数据按 UUID 隔离，每 10 tick 刷新、主动操作立即响应。开发存档、配置、客户端选项和公开 beta.2 文件按本轮起始清单复核，97 份文件哈希及文件集合均未变化；公开发布标签和附件保持原样。

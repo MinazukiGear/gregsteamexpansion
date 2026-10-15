@@ -225,11 +225,17 @@ class _PosixTree:
     def close(self) -> None:
         # No name matching, killall, or signalling of the caller's session.
         # The private group persists if the launcher exits before its children.
-        # Cleanup must not depend on ps succeeding during a failure.
+        # Attempt the signal even if a diagnostic ps query previously failed.
         try:
             os.killpg(self.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            # Darwin can retain a completed group after its last live member
+            # exits. Do not hide a denied signal to a still-active group, or
+            # a failed membership query: both must remain cleanup failures.
+            if self.processes():
+                raise
 
 
 def _launch(command: list[str], root: Path, environment: dict[str, str]):
@@ -453,6 +459,8 @@ def run_command(root: Path, stage: str, command: list[str], *, environment: dict
                 tree.close()
             except (OSError, subprocess.SubprocessError, ValueError) as error:
                 metadata["cleanup_error"] = str(error)
+                if "diagnostics" not in metadata:
+                    metadata["diagnostics"] = _diagnose(root, fixture, folder, tree, environment, limits)
                 failure = failure or WatchdogError(f"{stage}: process cleanup failed; diagnostics: {folder}")
                 reason = reason or "cleanup_error"
         if process is not None:
