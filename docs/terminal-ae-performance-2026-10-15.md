@@ -135,3 +135,11 @@ END 和 START→END 是包含其他监听器的事件区间，后者还包含夹
 提交 `89dcb43` 的[下一轮 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38720462303)在 Windows ARM64 再次报告同一首钢测试失败，其他 193 项普通回归通过。这次首钢在第 `1 tick` 成型并启动真实 `1,800 tick` 配方，但到 `300 tick` 检查点已变为 `formed=false`、`IDLE`、`progress=0/0`，控制器仍为同一有效实例。因此只补同步成型准备未解决后续结构失效，不能将此前本机通过视为四平台收口。
 
 该轮[诊断制品](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38720462303/artifacts/11965596554)及 `.tmp/terminal-ae-ci-38720462303-windows-arm64.log` 已保留，完整日志 SHA-256 为 `9f9b3f292cba9fae6b7eecf5b84048406bd5b937f543bc9f826f3dc92f9d8125`。后续候选为首钢增加早期检查点，在模式锁内记录朝向、翻转、模式错误、失配坐标和实际方块，以定位结构失效；本机 `compileJava` 通过，记录为 `.tmp/terminal-ae-first-steel-diagnostics-compile-2026-10-15.log`。这一步只补诊断，不放宽任何回归断言或超时。
+
+诊断候选 `736c14b` 的[第三轮 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38721981479)在 Windows ARM64 复现同一失败，并定位到流体侵入：第 `100 tick` 时仍成型、进度为 `99/1800`；第 `300 tick` 时模式在 `(138, -44, 868)` 失配，实际方块为 `minecraft:water[level=8]`，控制器朝向和实例未变。水进入了本应为空气的炉膛，真实结构检查因此拒绝继续运行。日志未确定具体水源，不能把它归因于 AE 材料查询或某个指定夹具。
+
+完整日志为 `.tmp/terminal-ae-ci-38721981479-windows-arm64.log`，SHA-256 为 `e577e52037841b614d093b1758adc49c70611f17873d9d2da9597735dd2121ff`；[原始诊断制品](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38721981479/artifacts/11966912411)同样保留。最终夹具在自身 `32³` 模板范围内先封闭防水边界，再清空内部残留流体，玻璃均位于真实 `3×4×3` 结构之外。随后放置原注册 shape，继续等待上游自动成型并运行完整配方；此前临时的手动成型转换已移除。模式空气要求、配方、时限和精确材料断言均保持原样。
+
+恢复自动成型后的首次本机验证暴露了新增诊断在初始状态读取未建立坐标的问题，原始记录保存在 `.tmp/terminal-ae-first-steel-dry-initial-2026-10-15.log`。诊断现对初始化/卸载类错误只报告错误键，不读取未初始化位置；后续真实失配仍记录坐标和实际方块。
+
+最终防水夹具的本机 `194/194` 普通回归和构建审计通过，首钢在第 `44 tick` 自动成型并启动原 `1,800 tick` 配方，在原时限内完成。日志为 `.tmp/terminal-ae-first-steel-dry-validation-2026-10-15.log`，SHA-256 为 `10952ccee7253b832fb48c24b43514a42f9bd1355873bb9b1c68a6065b1b9525`；开发 JAR 包含 432 个 Java 17 类和 429 份源资源，SHA-256 为 `c724e715e3e3004dd7c5a72499350e577ee9f6610ca8804bf2a101cf7c1874d9`。验证期间的夹具源码指纹一致，13 项材料基准输入及 97 份保护文件再次核对未变。

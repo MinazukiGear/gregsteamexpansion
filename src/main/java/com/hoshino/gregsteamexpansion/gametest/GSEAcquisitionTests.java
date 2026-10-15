@@ -10,7 +10,6 @@ import com.gregtechceu.gtceu.api.capability.recipe.FluidRecipeCapability;
 import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
-import com.gregtechceu.gtceu.api.pattern.MultiblockWorldSavedData;
 import com.gregtechceu.gtceu.api.pattern.error.PatternStringError;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
@@ -20,6 +19,7 @@ import com.gregtechceu.gtceu.common.data.GTRecipeTypes;
 import com.gregtechceu.gtceu.common.data.machines.GTMultiMachines;
 import com.gregtechceu.gtceu.common.machine.multiblock.primitive.PrimitiveBlastFurnaceMachine;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.contents.TranslatableContents;
@@ -34,6 +34,7 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -165,25 +166,25 @@ public final class GSEAcquisitionTests {
         // a GSE blast furnace which already requires steel to craft. Fixtures
         // supply iron/charcoal and the brick structure; this is not a timed
         // survival playthrough or a measurement of mining/crafting effort.
+        // Flowing water reached this open-top furnace in CI.
+        // Own a dry enclosure inside this test's 32-cube, with all glass outside
+        // the real 3x4x3 pattern. Seal first, then clear fluid left inside it.
+        BlockPos dryMin = new BlockPos(12, 12, 12);
+        BlockPos dryMax = new BlockPos(20, 22, 22);
+        for (BlockPos pos : BlockPos.betweenClosed(dryMin, dryMax)) {
+            if (pos.getX() == dryMin.getX() || pos.getX() == dryMax.getX()
+                    || pos.getY() == dryMin.getY() || pos.getY() == dryMax.getY()
+                    || pos.getZ() == dryMin.getZ() || pos.getZ() == dryMax.getZ()) {
+                helper.setBlock(pos, Blocks.GLASS);
+            }
+        }
+        for (BlockPos pos : BlockPos.betweenClosed(dryMin.offset(1, 1, 1), dryMax.offset(-1, -1, -1))) {
+            helper.setBlock(pos, Blocks.AIR);
+        }
         var definition = GTMultiMachines.PRIMITIVE_BLAST_FURNACE;
         var furnace = (PrimitiveBlastFurnaceMachine) GSEStructureTestUtils.placeShape(
                 helper, definition, definition.getMatchingShapes().get(0));
         helper.assertTrue(furnace != null, "Primitive first-steel furnace was not placed");
-        // This fixture verifies the loaded bootstrap recipe, not the upstream
-        // wall-clock pattern worker. Check the real blocks and perform the same
-        // locked formation transition before starting the 1,800-tick recipe.
-        GSEStructureTestUtils.withPatternLock(furnace, () -> {
-            if (!furnace.isFormed()) {
-                helper.assertTrue(GSEStructureTestUtils.checkPattern(furnace),
-                        "Primitive first-steel preview does not match its real pattern: "
-                                + furnace.getMultiblockState().error);
-                furnace.setFlipped(furnace.getMultiblockState().isNeededFlip());
-                furnace.onStructureFormed();
-                var multiblocks = MultiblockWorldSavedData.getOrCreate(helper.getLevel());
-                multiblocks.addMapping(furnace.getMultiblockState());
-                multiblocks.removeAsyncLogic(furnace);
-            }
-        });
         ItemStack steel = ChemicalHelper.get(TagPrefix.ingot, GTMaterials.Steel);
         // This real 1,800-tick recipe must not share its run with fixtures that
         // unload/reload chunks or replace machine blocks. Keep the original
@@ -233,7 +234,8 @@ public final class GSEAcquisitionTests {
             var logic = furnace.getRecipeLogic();
             var state = furnace.getMultiblockState();
             var error = state.error;
-            var errorPos = state.getPos();
+            // Initialization/unload errors can precede the first positional check.
+            var errorPos = error instanceof PatternStringError ? null : state.getPos();
             String errorName = error == null ? "none" : error instanceof PatternStringError text
                     ? text.translateKey : error.getClass().getSimpleName();
             String actual = errorPos == null ? "none" : helper.getLevel().isLoaded(errorPos)
