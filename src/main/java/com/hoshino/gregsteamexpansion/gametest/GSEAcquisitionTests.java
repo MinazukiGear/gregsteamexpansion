@@ -11,6 +11,7 @@ import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
 import com.gregtechceu.gtceu.api.data.tag.TagPrefix;
 import com.gregtechceu.gtceu.api.machine.MetaMachine;
 import com.gregtechceu.gtceu.api.pattern.MultiblockWorldSavedData;
+import com.gregtechceu.gtceu.api.pattern.error.PatternStringError;
 import com.gregtechceu.gtceu.api.recipe.GTRecipe;
 import com.gregtechceu.gtceu.common.data.GTBlocks;
 import com.gregtechceu.gtceu.common.data.GTMaterials;
@@ -188,7 +189,7 @@ public final class GSEAcquisitionTests {
         // unload/reload chunks or replace machine blocks. Keep the original
         // bounded timeout and report enough state to distinguish a stalled
         // recipe from a stale runtime instance if it still fails.
-        for (int tick : new int[] { 300, 1_000, 1_800, 2_100 }) {
+        for (int tick : new int[] { 2, 5, 10, 20, 40, 100, 300, 1_000, 1_800, 2_100 }) {
             helper.runAtTickTime(tick, () -> GregSteamExpansion.LOGGER.info(
                     "[Progression] First steel checkpoint: {}", firstSteelState(helper, furnace)));
         }
@@ -226,12 +227,28 @@ public final class GSEAcquisitionTests {
     }
 
     private static String firstSteelState(GameTestHelper helper, PrimitiveBlastFurnaceMachine furnace) {
-        var logic = furnace.getRecipeLogic();
-        return "tick=" + helper.getTick() + ", pos=" + furnace.getPos()
-                + ", sameInstance=" + (MetaMachine.getMachine(helper.getLevel(), furnace.getPos()) == furnace)
-                + ", invalid=" + furnace.isInValid() + ", formed=" + furnace.isFormed()
-                + ", status=" + logic.getStatus() + ", progress=" + logic.getProgress()
-                + "/" + logic.getDuration() + ", output=" + furnace.exportItems.getStackInSlot(0);
+        var lock = furnace.getPatternLock();
+        lock.lock();
+        try {
+            var logic = furnace.getRecipeLogic();
+            var state = furnace.getMultiblockState();
+            var error = state.error;
+            var errorPos = state.getPos();
+            String errorName = error == null ? "none" : error instanceof PatternStringError text
+                    ? text.translateKey : error.getClass().getSimpleName();
+            String actual = errorPos == null ? "none" : helper.getLevel().isLoaded(errorPos)
+                    ? helper.getLevel().getBlockState(errorPos).toString() : "unloaded";
+            return "tick=" + helper.getTick() + ", pos=" + furnace.getPos()
+                    + ", sameInstance=" + (MetaMachine.getMachine(helper.getLevel(), furnace.getPos()) == furnace)
+                    + ", invalid=" + furnace.isInValid() + ", formed=" + furnace.isFormed()
+                    + ", status=" + logic.getStatus() + ", progress=" + logic.getProgress()
+                    + "/" + logic.getDuration() + ", output=" + furnace.exportItems.getStackInSlot(0)
+                    + ", facing=" + furnace.getFrontFacing() + ", up=" + furnace.getUpwardsFacing()
+                    + ", flipped=" + furnace.isFlipped() + ", patternError=" + errorName
+                    + ", patternPos=" + errorPos + ", actual=" + actual;
+        } finally {
+            lock.unlock();
+        }
     }
 
     private static void assertEarlyProgressionRoutes(GameTestHelper helper) {

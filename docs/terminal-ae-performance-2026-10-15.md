@@ -131,3 +131,7 @@ END 和 START→END 是包含其他监听器的事件区间，后者还包含夹
 首钢夹具现使用已有模式锁，强制核对实际摆放的预览结构，通过后执行上游相同的翻转、成型回调与结构映射转换，再让真实机器运行已加载配方。它不再依赖上游按墙钟调度的异步扫描完成配方测试的准备工作；不匹配结构仍立即失败。独立批次、`2,100 tick` 上限、原始 `1,800 tick` 配方、一个铁锭加两个木炭的消耗及恰好一个钢锭的输出断言均保留。这只修改 `GSEAcquisitionTests`，没有改动生产机器、终端逻辑、协议或 13 项材料基准输入，也不代表上游异步调度的根因已修复。
 
 修正后的本机普通回归 `194/194` 和完整构建审计通过；首钢在第 `1 tick` 启动真实配方，并在原上限内完成。日志为 `.tmp/terminal-ae-first-steel-validation-2026-10-15.log`，SHA-256 为 `37f10a1eaea7ceb4295fe09cb1d4f6e65eee0150c43fded8818d42a42cd660bb`。13 项最终材料基准输入已逐项核对，字节保持一致。
+
+提交 `89dcb43` 的[下一轮 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38720462303)在 Windows ARM64 再次报告同一首钢测试失败，其他 193 项普通回归通过。这次首钢在第 `1 tick` 成型并启动真实 `1,800 tick` 配方，但到 `300 tick` 检查点已变为 `formed=false`、`IDLE`、`progress=0/0`，控制器仍为同一有效实例。因此只补同步成型准备未解决后续结构失效，不能将此前本机通过视为四平台收口。
+
+该轮[诊断制品](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38720462303/artifacts/11965596554)及 `.tmp/terminal-ae-ci-38720462303-windows-arm64.log` 已保留，完整日志 SHA-256 为 `9f9b3f292cba9fae6b7eecf5b84048406bd5b937f543bc9f826f3dc92f9d8125`。后续候选为首钢增加早期检查点，在模式锁内记录朝向、翻转、模式错误、失配坐标和实际方块，以定位结构失效；本机 `compileJava` 通过，记录为 `.tmp/terminal-ae-first-steel-diagnostics-compile-2026-10-15.log`。这一步只补诊断，不放宽任何回归断言或超时。
