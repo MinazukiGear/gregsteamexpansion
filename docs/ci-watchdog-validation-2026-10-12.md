@@ -55,7 +55,15 @@ Windows 11 AMD64、Zulu JDK 17.0.13、Python 3.12.14 下，最终 15 项诊断�
 
 7 个变更 Python 文件通过 Python 3.10 语法解析，文档本地链接与差异格式检查通过。最终来源指纹、14 阶段元数据/日志哈希及保护文件复核汇总为 `.tmp/ci-watchdog-final-receipt.json`；日志和原始诊断位于忽略目录，执行 clean 前应保留这些证据。
 
-本轮源码尚未提交或推送。本机 Windows x64 验证不代表新增监控实现已通过 Linux x64、Windows ARM64 或 macOS ARM64；新实现的四平台结果须以其实际提交对应的后续 CI 为准。
+以上为 2026-10-12 的本机结果；候选源码已于 2026-10-15 提交推送，四平台进展见下节。本机 Windows x64 验证不代替其他平台的原生运行。
+
+## 2026-10-15 候选 CI 与 Java 夹具路径修正
+
+提交 `f5dff08b79a3afb3780ad9edf216832396895dbd` 的[首次四平台 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38677627296)中，Windows x64 与 ARM64 均在新 Java 诊断夹具的编译步骤返回 `javac` 退出码 `2`，此前 9 项可移植性夹具通过，机器 GameTest 尚未启动。两平台均成功上传失败诊断。原夹具捕获的编译器输出未展示在异常中，因此首轮日志不能确定具体编译器报错文本。
+
+失败命令把中文临时目录作为绝对参数交给 `javac`；[OpenJDK 17 Windows launcher](https://github.com/openjdk/jdk17u/blob/master/src/java.base/share/native/launcher/main.c)在启动时把 UTF-16 参数转换为系统 ANSI 代码页，存在本机中文环境与 CI 环境的路径兼容差异。夹具现保留真实的中文/空格工作目录，在该目录中以 ASCII 相对文件名、显式 UTF-8 源码编码编译，并用相对类路径 `.` 启动 Java；编译失败时展示编译器原始输出。实际 JVM 附加、线程名检查、进程清理、配置恢复和超时断言均保留。
+
+修正后本机 15 项诊断夹具和 9 项可移植性夹具通过，日志分别为 `.tmp/ci-watchdog-fixtures-relative-java-2026-10-15.log`、`.tmp/ci-watchdog-portability-2026-10-15.log`。此项只改测试夹具的 Java 启动参数，生产 Java、资源和机器回归断言未改；修正源码仍须完成新的四平台 CI。
 
 ## 范围与后续
 

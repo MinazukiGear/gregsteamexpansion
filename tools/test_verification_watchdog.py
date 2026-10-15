@@ -251,11 +251,15 @@ class WatchdogTests(unittest.TestCase):
         source.write_text('public class WatchdogJvmFixture { public static void main(String[] a) throws Exception {'
                           'Thread.currentThread().setName("gse-watchdog-fixture");'
                           'System.out.println("JVM fixture ready"); Thread.sleep(60000); }}', encoding="utf-8")
-        subprocess.run([str(executables["javac"]), str(source)], check=True, timeout=30,
-                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        # Keep the real Unicode/space working directory, but avoid passing it
+        # through JDK 17's Windows launcher argument encoding.
+        compiled = subprocess.run([str(executables["javac"]), "-encoding", "UTF-8", source.name],
+                                  cwd=self.root, timeout=30,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        self.assertEqual(0, compiled.returncode, compiled.stdout.decode("utf-8", errors="replace"))
         with self.assertRaises(watchdog.WatchdogError):
             watchdog.run_command(self.root, "real JVM fixture",
-                                 [str(executables["java"]), "-cp", str(self.root), "WatchdogJvmFixture"],
+                                 [str(executables["java"]), "-cp", ".", "WatchdogJvmFixture"],
                                  limits=watchdog.Limits(timeout=10, idle=3, poll=0.05), console=io.StringIO())
         record = self.records()[0]
         self.assertEqual("output_stalled", record["reason"])
