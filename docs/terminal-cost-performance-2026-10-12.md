@@ -112,7 +112,7 @@ Windows x64、Zulu JDK 17 的性能候选源码完整门禁 `python tools/verify
 - JAR 审计确认 429 个 Java 17 类、429 个源资源，929 个语言键一致。
 - 对照起始清单核对原存档、配置、客户端选项及公开 beta.2 发布文件共 97 份文件哈希未变；beta.2 标签仍指向原发布源码。
 
-以上是本机性能候选源码的验证结果；四平台 CI 仍以实际提交对应的 Actions 运行记录为准。公开 beta.2 标签与附件保持原发布状态。
+以上是本机性能候选源码的验证结果；修正进气夹具后的提交 `48c1ed8` 已通过下述四平台 CI。公开 beta.2 标签与附件保持原发布状态。
 
 ## 候选源码 CI 的进气夹具修正
 
@@ -120,4 +120,6 @@ Windows x64、Zulu JDK 17 的性能候选源码完整门禁 `python tools/verify
 
 测试现在在自身 32³ 模板内，用五面干燥玻璃保护进气格的外露邻格，另一面仍为实际进气室；仅初始化时清空进气格，运行中不反复移除障碍，也不手动注入空气。保留原有 `400 tick` 上限、真实空气采集、供汽与实际 `air_separation` 启动断言，并在成功时核对进气格仍为空气。没有修改机器采集逻辑或终端生产代码，11 份性能测量输入均未改变。最终完整门禁以这项夹具修正后的提交对应 CI 为准。
 
-修正后的本机 Easy 配置回归 `193/193` 通过，日志为 `.tmp/terminal-cost-waterhood-config.log`；其余配置验证继续运行。性能提交的 Linux x64、Windows ARM64、macOS ARM64 三个平台各自完成六轮 `193/193` 回归、三种依赖组合冒烟及完整构建。修正提交仍需重新通过四平台完整门禁。
+修正后的本机 Easy、Normal、Expert 配置回归各 `193/193` 通过，日志为 `.tmp/terminal-cost-waterhood-config.log`；构建也通过。提交 `48c1ed85ff40965021907706c8a4859168dc19ad` 的[四平台完整 CI](https://github.com/MinazukiGear/gregsteamexpansion/actions/runs/38206731773)最终全部通过：Linux x64、Windows x64、Windows ARM64、macOS ARM64 各完成六轮 `193/193` 必需回归、三种依赖冒烟、datagen 一致性和构建，四份 JAR 制品均保留。来源、日志哈希与保护文件复核见 `.tmp/terminal-cost-final-ci-receipt.json`。
+
+该次运行的 Windows ARM64 首次尝试在服务器重启 seed 阶段出现 `Worker-Main-2` 的 `MissingPaletteEntryException`，之后无输出直到 90 分钟作业上限取消；仅重跑该平台、源码 SHA 不变后通过。日志尚未确定触发异常的具体夹具，重跑通过也不证明异常根因已修复。该停滞促成本轮[CI 超时诊断工作](ci-watchdog-validation-2026-10-12.md)，其本地与远端验证状态单独记录。

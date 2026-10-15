@@ -152,6 +152,8 @@ GameTest → 服务器重启 → 三档配置重启 → 三种依赖组合 → d
 
 终端单人多目标与大型结构的分段计时、单次规划候选复用和前后性能对照见[计算成本记录](docs/terminal-cost-performance-2026-10-12.md)。预览、材料和工程保持玩家隔离，每 10 tick 刷新与主动操作立即响应的规则不变。
 
+完整门禁对每个外部阶段默认设置 20 分钟上限、10 分钟无输出停滞上限，失败时先保存阶段、配置、日志尾部与可获取的 JVM 线程栈，再清理该阶段的受管子进程并退出。配置重启仍恢复原配置；参数与诊断目录见 [tools 说明](tools/README.md#complete-release-gate)，本轮验证边界见 [CI 诊断记录](docs/ci-watchdog-validation-2026-10-12.md)。
+
 仓库中的程序化贴图与 GameTest 空结构统一由 Python 3.10+ 生成。在仓库根目录安装固定版本
 依赖并运行统一入口；脚本顺序、输出归属等约定见 [`tools/README.md`](tools/README.md)：
 

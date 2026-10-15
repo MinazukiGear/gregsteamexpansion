@@ -14,7 +14,10 @@ import subprocess
 import sys
 
 from generate_assets import verify_environment
-from verification_common import ROOT, archive_fixture_world, gradle_command
+from verification_common import ROOT, archive_fixture_world, gradle_command, run_checked
+import verify_config_restart
+import verify_dependency_runtime
+import verify_server_restart
 
 
 GENERATED_ROOT = ROOT / "src" / "generated" / "resources"
@@ -42,7 +45,7 @@ def verify_java() -> None:
         if java_home else shutil.which("java")
     if not java:
         raise RuntimeError("JDK 17 is required. Set JAVA_HOME to an existing JDK 17.")
-    result = subprocess.run([java, "-version"], capture_output=True, text=True, check=True)
+    result = subprocess.run([java, "-version"], capture_output=True, text=True, check=True, timeout=30)
     version = re.search(r'version "([^"]+)"', result.stdout + result.stderr)
     if version is None or version.group(1).split(".")[0] != "17":
         raise RuntimeError("This Forge 1.20.1 gate requires JDK 17, including the Gradle JVM. "
@@ -51,9 +54,9 @@ def verify_java() -> None:
           f"Python {platform.python_version()} ({sys.executable})", flush=True)
 
 
-def run_step(label: str, command: list[str], environment: dict[str, str]) -> None:
+def run_step(label: str, command: list[str], environment: dict[str, str], *, fixture: str | None = None) -> None:
     print(f"\n=== {label} ===", flush=True)
-    subprocess.run(command, cwd=ROOT, env=environment, check=True)
+    run_checked(label, command, environment=environment, fixture=fixture)
 
 
 def main() -> int:
@@ -70,25 +73,27 @@ def main() -> int:
         verify_environment()
         run_step("portability tooling negative fixtures", [sys.executable, "tools/test_portability.py"],
                  environment)
+        run_step("verification watchdog fixtures", [sys.executable, "tools/test_verification_watchdog.py"],
+                 environment)
         run_step("compile", gradle_command("compileJava", offline=args.offline), environment)
         archive_fixture_world("gametest")
         run_step("gametest", gradle_command("-PgseVerificationRun=gametest", "runGameTestServer",
-                                            offline=args.offline), environment)
-        for script, label in (
-            ("verify_server_restart.py", "server restart persistence"),
-            ("verify_config_restart.py", "configuration restart (Easy, Normal, Expert)"),
-            ("verify_dependency_runtime.py", "optional dependencies (core, AE2, complete)"),
+                                            offline=args.offline), environment, fixture="gametest")
+        for module, label in (
+            (verify_server_restart, "server restart persistence"),
+            (verify_config_restart, "configuration restart (Easy, Normal, Expert)"),
+            (verify_dependency_runtime, "optional dependencies (core, AE2, complete)"),
         ):
-            command = [sys.executable, str(ROOT / "tools" / script)]
-            if args.offline:
-                command.append("--offline")
-            run_step(label, command, environment)
+            print(f"\n=== {label} ===", flush=True)
+            result = module.main(["--offline"] if args.offline else [], environment=environment)
+            if result:
+                raise RuntimeError(f"{label} failed (exit code {result})")
         if not args.no_datagen:
             before = generated_state()
             run_step("datagen freshness", gradle_command("runData", offline=args.offline), environment)
             verify_generated_unchanged(before)
         run_step("build and portability checks", gradle_command("build", offline=args.offline), environment)
-    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         print(f"Verification failed: {error}", file=sys.stderr)
         if isinstance(error, subprocess.CalledProcessError):
             return error.returncode or 1

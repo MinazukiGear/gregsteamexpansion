@@ -85,11 +85,12 @@ jobs:
           if-no-files-found: error
 
       - name: Upload verification logs
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: verification-${{ matrix.target }}-logs
           path: |
+            build/verification/diagnostics/**
             build/verification/**/logs/*.log
             build/verification/**/crash-reports/*.txt
           if-no-files-found: ignore

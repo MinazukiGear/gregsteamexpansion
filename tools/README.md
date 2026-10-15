@@ -240,7 +240,7 @@ for the measured before/after results and remaining limits.
 ## Complete release gate
 
 `python tools/verify.py` is the shared local/CI gate: portability-tool negative
-fixtures, compilation, the complete GameTest suite, server restart, configuration
+fixtures, watchdog fixtures, compilation, the complete GameTest suite, server restart, configuration
 restart, optional dependency runtimes, datagen freshness, and build checks.
 Before each fixture sequence, its previous scratch `world/` is archived under
 `build/verification/world-history/` to avoid stale blocks/claims when the test
@@ -257,6 +257,48 @@ use cached dependencies for every Gradle process, including restart and
 dependency scripts. Datagen freshness compares resource hashes before and after
 generation, excluding `.cache` bookkeeping. Existing uncommitted generated-resource
 edits are preserved and must be reviewed separately.
+
+Each external phase is monitored by `verification_watchdog.py`, including each
+restart/configuration/dependency Gradle invocation and configuration bootstrap.
+The defaults are 20 minutes per command and 10 minutes without stdout/stderr
+bytes. Partial lines count as output. Set `GSE_VERIFY_TIMEOUT_SECONDS` and
+`GSE_VERIFY_IDLE_SECONDS` to finite positive seconds when a slower environment
+needs different limits; zero, negative, NaN and infinite values are rejected
+before launching. A nonzero exit, timeout or stall fails the gate and stops later
+phases. No test is retried or skipped automatically. Normal Gradle shutdown gets
+up to 10 seconds after its launcher exits; remaining owned children cause failure.
+
+Evidence lives in a unique directory below `build/verification/diagnostics/`:
+`metadata.json` contains the command, phase, PID, limits, exit and failure reason;
+`stage.log` keeps up to the first 64 MiB and `last-output.log` the last 64 KiB.
+Failure collection copies the current GSE scratch configuration (up to 512 KiB
+per file) and the last 16 MiB of each Minecraft log, then requests
+`jcmd <owned-java-pid> Thread.print -l` before cleanup. Each attach has a 5-second
+limit and all attaches share a 20-second budget; unavailable or failed attaches
+are recorded without hiding the original failure. Metadata records only the
+expected test configuration variables, rather than the whole environment.
+
+Windows assigns a suspended launcher to a private kill-on-close Job Object before
+resuming it; ordinary descendants inherit that ownership. POSIX commands start
+in a private session/process group; cleanup signals only that group and does
+not select processes by name. Guarded POSIX Gradle commands append
+`-Dorg.gradle.native=false` to their child `JAVA_TOOL_OPTIONS`, preserving existing
+options without changing the caller's environment. Gradle 8.8 otherwise calls
+`setsid()` in its single-use daemon; the child-only property prevents that escape
+at JVM startup. Other deliberately detached POSIX descendants remain outside
+the group. The Python phase loops remain in the caller, so a failed Gradle phase
+returns through configuration restoration in `finally`. Forced host termination
+can prevent final diagnostics/restoration. CI attempts to upload diagnostics and
+Minecraft logs on failure or cancellation; runner termination can also prevent
+artifact upload. The four-platform matrix and 90-minute job ceiling remain.
+
+`python tools/test_verification_watchdog.py` runs 15 standard-library fixtures
+covering real idle/absolute timeouts, partial output, bounded logs, nonzero exits,
+descendant/orphan cleanup with an unrelated process left alive, scratch paths,
+configuration recovery, failure propagation and real JDK thread attachment.
+JDK 17 with `java`, `javac` and `jcmd` is needed for the attach fixture; otherwise
+that fixture is explicitly skipped. See the
+[implementation and validation record](../docs/ci-watchdog-validation-2026-10-12.md).
 
 ## Portability audits
 

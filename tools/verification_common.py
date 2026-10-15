@@ -8,8 +8,24 @@ import shutil
 import sys
 from uuid import uuid4
 
+from verification_watchdog import run_command
+
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def run_checked(stage: str, command: list[str], *, environment: dict[str, str] | None = None,
+                fixture: str | None = None):
+    """Monitor one external phase; Python phase loops stay outside its kill scope."""
+    environment = dict(os.environ if environment is None else environment)
+    if os.name != "nt" and len(command) > 1 and command[1] == str(ROOT / "gradlew"):
+        # Gradle 8.8 calls native setsid() even for its single-use daemon.
+        # JAVA_TOOL_OPTIONS reaches both launcher and daemon at JVM startup;
+        # a CLI -D alone does not disable the daemon's native initialization.
+        # This keeps the verification JVM tree inside its private POSIX group.
+        previous = environment.get("JAVA_TOOL_OPTIONS", "")
+        environment["JAVA_TOOL_OPTIONS"] = previous + (" " if previous else "") + "-Dorg.gradle.native=false"
+    return run_command(ROOT, stage, command, environment=environment, fixture=fixture, console=sys.stdout)
 
 
 def archive_fixture_world(fixture: str) -> Path | None:

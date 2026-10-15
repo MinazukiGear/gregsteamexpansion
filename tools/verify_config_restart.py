@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from verification_common import archive_fixture_world, gradle_command as wrapper_command
+from verification_common import archive_fixture_world, gradle_command as wrapper_command, run_checked
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -258,9 +258,10 @@ def write_config(phase: dict[str, object], template: str) -> None:
     CONFIG_PATH.write_text(merge_config_template(template, phase), encoding="utf-8", newline="\n")
 
 
-def run_phase(phase: dict[str, object], command: list[str], template: str) -> None:
+def run_phase(phase: dict[str, object], command: list[str], template: str,
+              environment: dict[str, str] | None = None) -> None:
     write_config(phase, template)
-    environment = os.environ.copy()
+    environment = dict(os.environ if environment is None else environment)
     environment["GSE_EXPECTED_DIFFICULTY"] = str(phase["difficulty"])
     environment["GSE_EXPECTED_ORE_PLANT_ENABLED"] = str(phase["ore_enabled"]).lower()
     environment["GSE_EXPECTED_EXTERNAL_MODULES_ENABLED"] = str(
@@ -290,10 +291,11 @@ def run_phase(phase: dict[str, object], command: list[str], template: str) -> No
         f'({phase["difficulty"]}) ===',
         flush=True,
     )
-    subprocess.run(command, cwd=ROOT, env=environment, check=True)
+    run_checked(f"configuration restart {phase['name']}", command,
+                environment=environment, fixture="config-restart")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None, *, environment: dict[str, str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run GameTest servers with all three startup-only difficulty profiles."
     )
@@ -302,7 +304,7 @@ def main() -> int:
         action="store_true",
         help="pass --offline to Gradle (dependencies must already be cached)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     command = gradle_command(args.offline)
     original = CONFIG_PATH.read_bytes() if CONFIG_PATH.exists() else None
 
@@ -315,17 +317,18 @@ def main() -> int:
             # complete default config first; do not borrow a developer's run/.
             print("\n=== Configuration template bootstrap ===", flush=True)
             CONFIG_PATH.unlink(missing_ok=True)
-            subprocess.run(command, cwd=ROOT, check=True)
+            run_checked("configuration template bootstrap", command,
+                        environment=environment, fixture="config-restart")
             template = CONFIG_PATH.read_text(encoding="utf-8")
         for phase in PHASES:
-            run_phase(phase, command, template)
-    except subprocess.CalledProcessError as error:
+            run_phase(phase, command, template, environment)
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         print(
             f"Configuration restart verification failed during a Gradle run "
-            f"(exit code {error.returncode}).",
+            f"({error}).",
             file=sys.stderr,
         )
-        return error.returncode or 1
+        return error.returncode or 1 if isinstance(error, subprocess.CalledProcessError) else 1
     finally:
         if original is None:
             CONFIG_PATH.unlink(missing_ok=True)
